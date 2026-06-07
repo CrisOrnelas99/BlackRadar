@@ -4,16 +4,11 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
-
-	appcontext "secureops/backend-go/api/context"
-	"secureops/backend-go/api/model"
-	"secureops/backend-go/api/repository"
 )
 
-func WafFilter(wafEventRepository *repository.WafEventRepository) gin.HandlerFunc {
+func RequestFilter() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		data := strings.ToLower(c.Request.URL.Path + " " + c.Request.URL.RawQuery)
 		reason := ""
@@ -28,16 +23,7 @@ func WafFilter(wafEventRepository *repository.WafEventRepository) gin.HandlerFun
 		}
 
 		if reason != "" {
-			log.Printf("Blocked suspicious request: method=%s path=%s", c.Request.Method, c.Request.URL.Path)
-			ec := appcontext.FromGinContext(c)
-			wafEventRepository = repository.GetWafEventRepoFromEchoContext(ec)
-			_ = wafEventRepository.Save(ec, model.WafEvent{
-				Method:    c.Request.Method,
-				Path:      c.Request.URL.Path,
-				Reason:    reason,
-				SourceIP:  c.ClientIP(),
-				CreatedAt: time.Now(),
-			})
+			log.Printf("Blocked suspicious request: method=%s path=%s reason=%s source_ip=%s", c.Request.Method, c.Request.URL.Path, reason, c.ClientIP())
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": ErrSuspiciousRequest.Message})
 			return
 		}
@@ -45,3 +31,4 @@ func WafFilter(wafEventRepository *repository.WafEventRepository) gin.HandlerFun
 		c.Next()
 	}
 }
+

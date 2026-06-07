@@ -1,8 +1,8 @@
-package controller_utils
+package controller
 
 import appcontext "secureops/backend-go/api/context"
 
-func HandleError(ec *appcontext.EchoContext, status int, err error, message string) bool {
+func HandleError(ec *appcontext.GinContext, status int, err error, message string) bool {
 	if err == nil {
 		return false
 	}

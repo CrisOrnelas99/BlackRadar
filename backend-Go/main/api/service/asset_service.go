@@ -1,131 +1,103 @@
 package service
 
 import (
-	"fmt"
 	"net"
 	"strings"
 
 	appcontext "secureops/backend-go/api/context"
 	"secureops/backend-go/api/model"
-	repository_assets "secureops/backend-go/api/repository"
 )
 
 type AssetService interface {
-	GetAllAssets(ec *appcontext.EchoContext) ([]model.Asset, error)
-	GetAsset(ec *appcontext.EchoContext, id int64) (model.Asset, error)
-	CreateAsset(ec *appcontext.EchoContext, asset model.Asset) (model.Asset, error)
-	UpdateAsset(ec *appcontext.EchoContext, id int64, asset model.Asset) (model.Asset, error)
-	DeleteAsset(ec *appcontext.EchoContext, id int64) (model.Asset, error)
-	AssignVulnerability(ec *appcontext.EchoContext, assetID int64, vulnerabilityID int64) (model.Asset, error)
-	RemoveVulnerability(ec *appcontext.EchoContext, assetID int64, vulnerabilityID int64) (model.Asset, error)
-	CalculateRisk(ec *appcontext.EchoContext, id int64) (model.Asset, error)
+	GetAllAssets(ec *appcontext.GinContext) ([]model.Asset, error)
+	GetAsset(ec *appcontext.GinContext, id int64) (model.Asset, error)
+	CreateAsset(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error)
+	UpdateAsset(ec *appcontext.GinContext, id int64, asset model.Asset) (model.Asset, error)
+	DeleteAsset(ec *appcontext.GinContext, id int64) (model.Asset, error)
+	AssignVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error)
+	RemoveVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error)
 }
 
 type assetServiceImpl struct {
-	restClient *RestClient
+	assetRepository AssetRepository
 }
 
-var defaultRestClient *RestClient
-
-func NewAssetService(restClient *RestClient) AssetService {
-	defaultRestClient = restClient
-	return &assetServiceImpl{restClient: restClient}
+func NewAssetService(assetRepository AssetRepository) AssetService {
+	return &assetServiceImpl{assetRepository: assetRepository}
 }
 
-func GetAssetServiceFromEchoContext(ec *appcontext.EchoContext) AssetService {
-	if ec != nil {
-		if value, exists := ec.Get(appcontext.AssetServiceKey); exists {
-			if service, ok := value.(AssetService); ok {
-				return service
-			}
-		}
-
-		assetService := &assetServiceImpl{restClient: defaultRestClient}
-		ec.Set(appcontext.AssetServiceKey, assetService)
-		return assetService
+func (s *assetServiceImpl) GetAllAssets(ec *appcontext.GinContext) ([]model.Asset, error) {
+	userID, err := authenticatedUserID(ec)
+	if err != nil {
+		return nil, err
 	}
-
-	return &assetServiceImpl{restClient: defaultRestClient}
-}
-
-func (s *assetServiceImpl) GetAllAssets(ec *appcontext.EchoContext) ([]model.Asset, error) {
-	assetRepository := repository_assets.GetAssetRepoFromEchoContext(ec)
-	assets, err := assetRepository.FindAll(ec)
+	assets, err := s.assetRepository.FindAllByUser(ec, userID)
 	return assets, s.translateRepositoryError(err)
 }
 
-func (s *assetServiceImpl) GetAsset(ec *appcontext.EchoContext, id int64) (model.Asset, error) {
-	assetRepository := repository_assets.GetAssetRepoFromEchoContext(ec)
-	asset, err := assetRepository.FindByID(ec, id)
+func (s *assetServiceImpl) GetAsset(ec *appcontext.GinContext, id int64) (model.Asset, error) {
+	userID, err := authenticatedUserID(ec)
+	if err != nil {
+		return model.Asset{}, err
+	}
+	asset, err := s.assetRepository.FindByIDForUser(ec, id, userID)
 	return asset, s.translateRepositoryError(err)
 }
 
-func (s *assetServiceImpl) CreateAsset(ec *appcontext.EchoContext, asset model.Asset) (model.Asset, error) {
+func (s *assetServiceImpl) CreateAsset(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
 	if err := validateAsset(asset); err != nil {
 		return model.Asset{}, err
 	}
-	assetRepository := repository_assets.GetAssetRepoFromEchoContext(ec)
-	created, err := assetRepository.Save(ec, asset)
+
+	userID, err := authenticatedUserID(ec)
+	if err != nil {
+		return model.Asset{}, err
+	}
+	asset.UserID = userID
+
+	created, err := s.assetRepository.Save(ec, asset)
 	return created, s.translateRepositoryError(err)
 }
 
-func (s *assetServiceImpl) UpdateAsset(ec *appcontext.EchoContext, id int64, asset model.Asset) (model.Asset, error) {
+func (s *assetServiceImpl) UpdateAsset(ec *appcontext.GinContext, id int64, asset model.Asset) (model.Asset, error) {
 	if err := validateAsset(asset); err != nil {
 		return model.Asset{}, err
 	}
-	assetRepository := repository_assets.GetAssetRepoFromEchoContext(ec)
-	if _, err := assetRepository.FindByID(ec, id); err != nil {
-		return model.Asset{}, s.translateRepositoryError(err)
-	}
-	updated, err := assetRepository.Update(ec, id, asset)
-	return updated, s.translateRepositoryError(err)
-}
 
-func (s *assetServiceImpl) DeleteAsset(ec *appcontext.EchoContext, id int64) (model.Asset, error) {
-	assetRepository := repository_assets.GetAssetRepoFromEchoContext(ec)
-	if _, err := assetRepository.FindByID(ec, id); err != nil {
-		return model.Asset{}, s.translateRepositoryError(err)
-	}
-	asset, err := assetRepository.Delete(ec, id)
-	return asset, s.translateRepositoryError(err)
-}
-
-func (s *assetServiceImpl) AssignVulnerability(ec *appcontext.EchoContext, assetID int64, vulnerabilityID int64) (model.Asset, error) {
-	assetRepository := repository_assets.GetAssetRepoFromEchoContext(ec)
-	if err := assetRepository.EnsureAssetAndVulnerability(ec, assetID, vulnerabilityID); err != nil {
-		return model.Asset{}, s.translateRepositoryError(err)
-	}
-	asset, err := assetRepository.AssignVulnerability(ec, assetID, vulnerabilityID)
-	return asset, s.translateRepositoryError(err)
-}
-
-func (s *assetServiceImpl) RemoveVulnerability(ec *appcontext.EchoContext, assetID int64, vulnerabilityID int64) (model.Asset, error) {
-	assetRepository := repository_assets.GetAssetRepoFromEchoContext(ec)
-	if err := assetRepository.EnsureAssetAndVulnerability(ec, assetID, vulnerabilityID); err != nil {
-		return model.Asset{}, s.translateRepositoryError(err)
-	}
-	asset, err := assetRepository.RemoveVulnerability(ec, assetID, vulnerabilityID)
-	return asset, s.translateRepositoryError(err)
-}
-
-func (s *assetServiceImpl) CalculateRisk(ec *appcontext.EchoContext, id int64) (model.Asset, error) {
-	assetRiskService := GetAssetRiskServiceFromEchoContext(ec)
-	request, err := assetRiskService.LoadRiskCalculationRequest(ec, id)
+	userID, err := authenticatedUserID(ec)
 	if err != nil {
 		return model.Asset{}, err
 	}
 
-	if s.restClient == nil {
-		return model.Asset{}, fmt.Errorf("%w: missing risk service client", ErrRemoteService)
-	}
+	updated, err := s.assetRepository.UpdateForUser(ec, id, userID, asset)
+	return updated, s.translateRepositoryError(err)
+}
 
-	response, err := s.restClient.CalculateRisk(ec.RequestContext(), request)
+func (s *assetServiceImpl) DeleteAsset(ec *appcontext.GinContext, id int64) (model.Asset, error) {
+	userID, err := authenticatedUserID(ec)
 	if err != nil {
-		return model.Asset{}, fmt.Errorf("%w: %w", ErrRemoteService, err)
+		return model.Asset{}, err
 	}
+	asset, err := s.assetRepository.DeleteForUser(ec, id, userID)
+	return asset, s.translateRepositoryError(err)
+}
 
-	asset, err := assetRiskService.PersistRiskResult(ec, id, response)
-	return asset, err
+func (s *assetServiceImpl) AssignVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error) {
+	userID, err := authenticatedUserID(ec)
+	if err != nil {
+		return model.Asset{}, err
+	}
+	asset, err := s.assetRepository.AssignVulnerabilityForUser(ec, assetID, userID, vulnerabilityID)
+	return asset, s.translateRepositoryError(err)
+}
+
+func (s *assetServiceImpl) RemoveVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error) {
+	userID, err := authenticatedUserID(ec)
+	if err != nil {
+		return model.Asset{}, err
+	}
+	asset, err := s.assetRepository.RemoveVulnerabilityForUser(ec, assetID, userID, vulnerabilityID)
+	return asset, s.translateRepositoryError(err)
 }
 
 func (s *assetServiceImpl) translateRepositoryError(err error) error {
@@ -145,4 +117,11 @@ func validateAsset(asset model.Asset) error {
 	}
 
 	return nil
+}
+
+func authenticatedUserID(ec *appcontext.GinContext) (int64, error) {
+	if ec == nil || ec.UserID() <= 0 {
+		return 0, ErrForbidden
+	}
+	return ec.UserID(), nil
 }

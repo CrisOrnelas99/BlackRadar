@@ -1,4 +1,6 @@
-package model
+package dto
+
+import "secureops/backend-go/api/model"
 
 type AssetRequest struct {
 	Name            string  `json:"name"`
@@ -9,8 +11,8 @@ type AssetRequest struct {
 	Criticality     string  `json:"criticality"`
 }
 
-func (r AssetRequest) ToDataModel() Asset {
-	return Asset{
+func (r AssetRequest) ToDataModel() model.Asset {
+	return model.Asset{
 		Name:            r.Name,
 		Type:            r.Type,
 		IPAddress:       r.IPAddress,
@@ -21,3 +23,4 @@ func (r AssetRequest) ToDataModel() Asset {
 		RiskLevel:       "Low",
 	}
 }
+

@@ -13,11 +13,12 @@ It follows the same current backend logic:
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - JWT-protected asset and vulnerability routes
-- basic WAF-style request blocking
+- basic `RequestFilter` request blocking
 - asset CRUD
+- user-scoped asset ownership
 - vulnerability CRUD
 - asset-to-vulnerability assignment
-- `POST /api/assets/{id}/calculate-risk`
+- GORM AutoMigrate for database schema provisioning at startup
 
 This backend is the main API and trust boundary for the application.
 
@@ -32,21 +33,14 @@ backend-Go/
 |   `-- api/
 |       |-- config/
 |       |-- controller/
-|       |-- database/
+|       |-- dto/
 |       |-- middleware/
 |       |-- model/
 |       |-- repository/
-|       |-- response/
 |       |-- security/
-|       `-- service/
-`-- risk-service/
-    |-- main.go
-    `-- api/
-        |-- config/
-        |-- controller/
-        |-- model/
-        |-- response/
-        `-- service/
+|       |-- service/
+|       `-- utils/
+
 ```
 
 Package roles:
@@ -54,11 +48,11 @@ Package roles:
 - `controller/`: Gin handlers
 - `service/`: business logic
 - `repository/`: GORM persistence
-- `model/`: database models and request/response structs
+- `dto/`: request/response structs
+- `model/`: database/domain models
 - `security/`: JWT generation and authentication middleware
-- `middleware/`: request pipeline middleware such as the WAF filter
-- `database/`: PostgreSQL connection and schema setup
-- `response/`: shared API error/response helpers
+- `middleware/`: request pipeline middleware such as `RequestFilter`
+- `utils/`: PostgreSQL connection helpers and database error helpers
 
 ## Environment
 
@@ -71,6 +65,5 @@ The service reads these environment values:
 - `POSTGRES_PASSWORD`
 - `JWT_SECRET`
 - `JWT_EXPIRATION_MS`
-- `RISK_SERVICE_URL`
 
 Default backend port: `8080`.

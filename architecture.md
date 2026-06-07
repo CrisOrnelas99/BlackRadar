@@ -13,7 +13,7 @@ SecureOps Lite is a full-stack cybersecurity application for:
 - tracking assets
 - importing relevant CVEs from NVD/NIST
 - assigning vulnerabilities to affected assets
-- calculating asset risk
+- tracking asset risk fields for later scoring work
 - monitoring risk changes over time
 - refreshing vulnerability intelligence
 - raising alerts for important security events
@@ -42,8 +42,6 @@ Go Gin/GORM API
   |
   +--> PostgreSQL
   |
-  +--> risk-service
-  |
   +--> alert-service-go
   |
   +--> cve-sync-service-go
@@ -60,10 +58,9 @@ Go Gin/GORM API
 3. The Go backend authenticates the request, validates input, and runs business logic.
 4. The Go backend reads or writes data in PostgreSQL as needed.
 5. For NVD import flows, the Go backend calls NVD APIs and optionally an AI-assisted matching layer.
-6. For risk scoring, the Go backend sends summarized vulnerability data to `risk-service`.
-7. For security events, the Go backend may notify `alert-service-go`.
-8. For scheduled CVE refresh work, the Go backend coordinates with or receives updates from `cve-sync-service-go`.
-9. The Go backend returns a safe response to Angular.
+6. For security events, the Go backend may notify `alert-service-go`.
+7. For scheduled CVE refresh work, the Go backend coordinates with or receives updates from `cve-sync-service-go`.
+8. The Go backend returns a safe response to Angular.
 
 > Security comment: Angular should never call NVD directly, never call AI providers directly, and never call Go services directly. This keeps secrets on the server side and keeps authorization decisions centralized.
 
@@ -84,7 +81,7 @@ secureops-lite/
 `-- architecture.md
 ```
 
-> Naming comment: `backend-Go/risk-service` is the current focused risk service. Future focused services such as `alert-service-go` and `cve-sync-service-go` should use the same narrow-service style.
+> Naming comment: Future focused services such as `alert-service-go` and `cve-sync-service-go` should use the same narrow-service style.
 
 ## Project Direction
 
@@ -96,7 +93,7 @@ SecureOps Lite is a cybersecurity asset risk platform that:
 - identifies likely product matches for those assets
 - imports vulnerabilities from NVD/NIST
 - assigns imported CVEs to assets
-- calculates risk through a dedicated Go service
+- can add risk scoring later after the base app is stable
 - uses AI to improve product matching and relevance review
 - uses a chatbot to explain asset risk and vulnerability posture in plain English
 
@@ -182,7 +179,7 @@ The asset detail page should become the main workflow page for:
 - seeing risk score and risk level
 - running `Find Vulnerabilities from NVD`
 - reviewing NVD match confidence
-- recalculating risk
+- reviewing risk scoring later when that feature is reintroduced
 - reading risk explanations
 - chatting about the asset
 
@@ -222,12 +219,11 @@ The Go Gin/GORM backend is the trust boundary and main orchestration layer. It s
 - NVD integration
 - AI-assisted product and CVE relevance support
 - chatbot orchestration
-- risk service integration
 - alert service integration
 - sync job coordination
 - safe error handling
 - CORS policy
-- WAF-style request filtering
+- `RequestFilter` request filtering
 - audit-relevant event logging
 
 ### Recommended package layout
@@ -243,32 +239,24 @@ backend-Go/
 |       |-- controller/
 |       |   |-- asset_controller.go
 |       |   |-- auth_controller.go
-|       |   |-- service_interfaces.go
 |       |   `-- vulnerability_controller.go
-|       |-- database/
+|       |-- dto/
+|       |   |-- asset_dto.go
+|       |   |-- auth_dto.go
+|       |   `-- vulnerability_dto.go
 |       |-- middleware/
 |       |-- model/
 |       |   |-- asset.go
-|       |   |-- asset_dto.go
-|       |   |-- auth_dto.go
-|       |   |-- risk_dto.go
-|       |   `-- vulnerability_dto.go
+|       |   |-- user.go
+|       |   `-- vulnerability.go
 |       |-- repository/
-|       |-- response/
 |       |-- security/
-|       `-- service/
+|       |-- service/
 |           |-- asset_service.go
 |           |-- repository_error_mapping.go
 |           |-- repository_interfaces.go
 |           `-- service_errors.go
-`-- risk-service/
-    |-- main.go
-    `-- api/
-        |-- config/
-        |-- controller/
-        |-- model/
-        |-- response/
-        `-- service/
+|       `-- utils/
 ```
 
 > Design comment: `nvd`, `ai`, and `chat` belong in the main Go backend because they depend on authorization, database rules, DTO mapping, and application-level trust decisions. They should not be pushed into separate services just because they talk to external services.
@@ -284,31 +272,31 @@ controller -> service -> repository -> database
 Layer responsibilities:
 
 - `controller`: HTTP-only concerns such as Gin context handling, JSON binding, route parameter parsing, and response calls
-- `service`: business validation, risk orchestration, repository-error translation, and use-case coordination
+- `service`: business validation, ownership checks, repository-error translation, and use-case coordination
 - `repository`: GORM/database reads and writes only
-- `database`: connection, schema setup, and database lifecycle
-- `response`: HTTP status mapping and safe response messages
+- `utils`: database connection helpers and database error helpers. The current backend provisions the schema with GORM AutoMigrate at startup rather than a separate SQL migration folder.
 - `middleware`: request filtering and Gin middleware behavior
 - `security`: JWT generation, parsing, and authentication filtering
 - `config`: environment-backed construction of config and dependencies
 
 Interfaces should be owned by the consuming layer:
 
-- `controller/service_interfaces.go` defines the service interfaces controllers need
+- service interfaces are exposed by the `service` package for controller use
+- controllers receive service interfaces directly through constructors in `main.go`
 - `service/repository_interfaces.go` defines the repository interfaces services need
 - repository structs satisfy those interfaces implicitly
-- service structs satisfy controller interfaces implicitly
+- service structs satisfy their package interfaces implicitly
 
 This keeps controllers unaware of repository implementations and keeps repositories unaware of HTTP.
 
 ### DTO and model placement
 
-The current code keeps database/domain structs and request/response DTO structs in `api/model`:
+The current code separates database/domain structs from request/response DTO structs:
 
-- database/domain structs: `asset.go`, `user.go`, `vulnerability.go`, `waf_event.go`
-- DTO structs: `asset_dto.go`, `auth_dto.go`, `risk_dto.go`, `vulnerability_dto.go`
+- database/domain structs live in `api/model`: `asset.go`, `user.go`, `vulnerability.go`
+- DTO structs live in `api/dto`: `asset_dto.go`, `auth_dto.go`, `vulnerability_dto.go`
 
-DTO files should not live in `controller`. Controllers use DTOs, but DTOs are not controller behavior. A future cleanup may split DTOs into an `api/dto` package, but the current `model/*_dto.go` layout is acceptable as long as controller and service code do not depend on controller-owned DTO types.
+DTO files should not live in `controller`. Controllers use DTOs, but DTOs are not controller behavior.
 
 ### Error handling layout
 
@@ -332,7 +320,7 @@ Rules:
 
 - `errors.go` files contain only the error struct, its `Error()` method, and sentinel vars
 - repository errors describe repository/database outcomes only
-- service errors are more general business outcomes such as invalid request, conflict, not found, invalid credentials, remote service error, remote rejection, and invalid remote result
+- service errors are more general business outcomes such as invalid request, conflict, not found, invalid credentials, and forbidden
 - middleware and security errors follow the same simple sentinel style
 - helper functions and mapping logic belong in normal implementation files, not in `errors.go`
 - config does not need `config_errors.go` until config loading returns `(Config, error)`
@@ -361,14 +349,16 @@ Rules:
 2. JWT filter extracts the token.
 3. Backend validates the token.
 4. Gin authentication middleware establishes the authenticated request context.
-5. Controller logic runs only if access is allowed.
+5. The authenticated database user ID is attached to `GinContext`.
+6. Controller logic runs only if access is allowed.
 
 #### Asset creation flow
 
 1. User creates an asset.
 2. Backend validates asset fields.
-3. Backend stores the asset in PostgreSQL.
-4. Asset is available for later NVD import and risk work.
+3. Backend attaches the authenticated user's ID to the asset.
+4. Backend stores the asset in PostgreSQL.
+5. Asset is available for later NVD import and risk work.
 
 > Implementation note: asset creation and NVD import should be separate at first. That keeps the create flow fast and avoids coupling user data entry to external API latency.
 
@@ -386,7 +376,7 @@ This should follow Option B:
 8. The Go backend queries NVD CVEs using that selected CPE.
 9. The Go backend maps the returned CVE data to local vulnerability records.
 10. The Go backend assigns those vulnerabilities to the asset.
-11. The Go backend triggers risk recalculation.
+11. Risk data can be updated later when risk scoring is reintroduced.
 
 > Security comment: the NVD API is the vulnerability source of truth. AI may help rank or explain relevance, but AI should not invent vulnerabilities or silently override official data.
 
@@ -542,19 +532,7 @@ It should not depend on live internet lookups for every answer.
 
 Go should remain focused on narrow services that are easy to reason about and easy to secure.
 
-### 1. `risk-service`
-
-Purpose:
-
-- calculate asset risk score from summarized vulnerability data
-
-Why it exists:
-
-- keeps scoring logic isolated
-- provides a clear service-to-service boundary
-- makes the algorithm easy to test independently
-
-### 2. `alert-service-go`
+### 1. `alert-service-go`
 
 Purpose:
 
@@ -575,7 +553,7 @@ Possible outputs:
 
 > Design comment: this service should stay focused on alert evaluation and alert generation. It should not become a general-purpose workflow engine.
 
-### 3. `cve-sync-service-go`
+### 2. `cve-sync-service-go`
 
 Purpose:
 
@@ -614,12 +592,12 @@ That makes the main Go backend the better home for them.
 - `alerts`
 - optional `chat_sessions`
 - optional `chat_messages`
-- optional `waf_events`
 - optional sync history tables
 
 ### Relationships
 
 - one user can create many assets
+- asset CRUD is scoped by `assets.user_id`
 - one asset can have many vulnerabilities
 - one vulnerability can be assigned to many assets
 - one asset can produce many alerts
@@ -630,6 +608,7 @@ That makes the main Go backend the better home for them.
 An asset should include fields such as:
 
 - `id`
+- `userId` stored internally as `assets.user_id`
 - `name`
 - `type`
 - `vendor`
@@ -702,21 +681,19 @@ An alert can include:
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 
-### Asset endpoints
+### Implemented asset endpoints
 
 - `GET /api/assets`
 - `GET /api/assets/{id}`
 - `POST /api/assets`
 - `PUT /api/assets/{id}`
 - `DELETE /api/assets/{id}`
-- `POST /api/assets/{id}/import-nvd-vulnerabilities`
-- `POST /api/assets/{id}/calculate-risk`
-- `GET /api/assets/{id}/alerts`
-- `POST /api/assets/{id}/chat`
 - `POST /api/assets/{assetId}/vulnerabilities/{vulnerabilityId}`
 - `DELETE /api/assets/{assetId}/vulnerabilities/{vulnerabilityId}`
 
-### Vulnerability endpoints
+These asset endpoints are scoped to the authenticated user.
+
+### Implemented vulnerability endpoints
 
 - `GET /api/vulnerabilities`
 - `GET /api/vulnerabilities/{id}`
@@ -724,8 +701,11 @@ An alert can include:
 - `PUT /api/vulnerabilities/{id}`
 - `DELETE /api/vulnerabilities/{id}`
 
-### Sync and alert endpoints
+### Planned endpoints
 
+- `POST /api/assets/{id}/import-nvd-vulnerabilities`
+- `GET /api/assets/{id}/alerts`
+- `POST /api/assets/{id}/chat`
 - `POST /api/sync/nvd`
 - `GET /api/alerts`
 - `PATCH /api/alerts/{id}/acknowledge`
@@ -774,9 +754,9 @@ An alert can include:
 - defend against prompt injection and data exfiltration attempts
 - treat model output as advisory text, not executable truth
 
-### WAF-style filtering
+### RequestFilter
 
-The lightweight WAF filter is meant to block obviously suspicious input patterns early, such as:
+The lightweight `RequestFilter` middleware is meant to block obviously suspicious input patterns early, such as:
 
 - SQL injection-like strings
 - XSS-like strings
@@ -810,7 +790,6 @@ This should be treated as an extra defensive layer, not a replacement for normal
 - PostgreSQL
 - Go Gin/GORM backend
 - Angular frontend
-- `risk-service`
 - `alert-service-go`
 - `cve-sync-service-go`
 
@@ -836,7 +815,6 @@ Typical values should include:
 - JWT expiration
 - NVD API key
 - AI provider API key
-- risk service base URL
 - alert service base URL
 - cve sync service base URL
 - frontend API base URL
@@ -850,7 +828,7 @@ The intended build order is:
 3. add Go backend NVD integration
 4. add manual `Find Vulnerabilities from NVD`
 5. store imported CVEs locally and assign them to assets
-6. reuse `risk-service` to recalculate risk
+6. add risk scoring after the base app is stable
 7. add AI-assisted CPE ranking and CVE relevance review
 8. add `alert-service-go`
 9. add `cve-sync-service-go`
@@ -863,14 +841,14 @@ The intended build order is:
 
 ## Current Status Summary
 
-Based on the current project plan, the backend foundation is in place through Go backend to Go risk-service integration. The next major implementation area is still the Angular frontend, but the longer-term project direction now includes NVD-backed vulnerability import, AI-assisted matching, an asset-scoped chatbot, an alerting service, and a CVE refresh service.
+Based on the current project plan, the backend foundation is focused on the main Go API, PostgreSQL persistence, authentication, assets, vulnerabilities, and asset-vulnerability assignment. The next major implementation area is still the Angular frontend, with risk scoring deferred until the base app is stable.
 
 ## Future Improvements
 
 Possible later improvements include:
 
 - role-based access control
-- managed database migrations with Flyway or Liquibase
+- a dedicated migration tool if GORM AutoMigrate becomes too limited or schema versioning needs more control
 - stronger audit logging
 - pagination and server-side filtering
 - remediation prioritization

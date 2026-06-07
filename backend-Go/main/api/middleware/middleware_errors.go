@@ -11,3 +11,4 @@ func (e MiddlewareError) Error() string {
 var (
 	ErrSuspiciousRequest = &MiddlewareError{Message: "Request blocked"}
 )
+

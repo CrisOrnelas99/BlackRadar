@@ -13,3 +13,4 @@ var (
 	ErrInvalidToken            = &SecurityError{Message: "invalid token"}
 	ErrMissingSubject          = &SecurityError{Message: "missing subject"}
 )
+

@@ -16,7 +16,7 @@ func RequestContext() gin.HandlerFunc {
 		transactionID := newTransactionID()
 		logger := log.New(os.Stdout, fmt.Sprintf("transaction_id=%s ", transactionID), log.LstdFlags)
 
-		appcontext.SetEchoContext(ctx, appcontext.NewEchoContext(ctx, transactionID, logger))
+		appcontext.SetGinContext(ctx, appcontext.NewGinContext(ctx, transactionID, logger))
 		logger.Printf("request started method=%s path=%s", ctx.Request.Method, ctx.Request.URL.Path)
 
 		ctx.Next()
@@ -36,3 +36,4 @@ func newTransactionID() string {
 
 	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
 }
+

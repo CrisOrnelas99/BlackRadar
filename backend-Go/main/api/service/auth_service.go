@@ -10,51 +10,31 @@ import (
 	"gorm.io/gorm"
 
 	appcontext "secureops/backend-go/api/context"
+	"secureops/backend-go/api/dto"
 	"secureops/backend-go/api/model"
-	"secureops/backend-go/api/repository"
 	"secureops/backend-go/api/security"
 )
 
 type AuthService interface {
-	Register(ec *appcontext.EchoContext, request model.RegisterRequest) error
-	Login(ec *appcontext.EchoContext, request model.LoginRequest) (string, error)
+	Register(ec *appcontext.GinContext, request dto.RegisterRequest) error
+	Login(ec *appcontext.GinContext, request dto.LoginRequest) (dto.LoginResponse, error)
 }
 
 type authServiceImpl struct {
-	jwtService *security.JwtService
+	jwtService     *security.JwtService
+	userRepository UserRepository
 }
 
-var defaultJwtService *security.JwtService
-
-func NewAuthService(jwtService *security.JwtService) AuthService {
-	defaultJwtService = jwtService
-	return &authServiceImpl{jwtService: jwtService}
+func NewAuthService(jwtService *security.JwtService, userRepository UserRepository) AuthService {
+	return &authServiceImpl{jwtService: jwtService, userRepository: userRepository}
 }
 
-func GetAuthServiceFromEchoContext(ec *appcontext.EchoContext) AuthService {
-	if ec != nil {
-		if value, exists := ec.Get(appcontext.AuthServiceKey); exists {
-			if service, ok := value.(AuthService); ok {
-				return service
-			}
-		}
-
-		authService := &authServiceImpl{jwtService: defaultJwtService}
-		ec.Set(appcontext.AuthServiceKey, authService)
-		return authService
-	}
-
-	return &authServiceImpl{jwtService: defaultJwtService}
-}
-
-func (s *authServiceImpl) Register(ec *appcontext.EchoContext, request model.RegisterRequest) error {
+func (s *authServiceImpl) Register(ec *appcontext.GinContext, request dto.RegisterRequest) error {
 	if err := validateRegisterRequest(request); err != nil {
 		return err
 	}
 
-	userRepository := repository.GetUserRepoFromEchoContext(ec)
-
-	exists, err := userRepository.ExistsByUsername(ec, request.Username)
+	exists, err := s.userRepository.ExistsByUsername(ec, request.Username)
 	if err != nil {
 		return s.translateRepositoryError(err)
 	}
@@ -62,7 +42,7 @@ func (s *authServiceImpl) Register(ec *appcontext.EchoContext, request model.Reg
 		return ErrConflict
 	}
 
-	exists, err = userRepository.ExistsByEmail(ec, request.Email)
+	exists, err = s.userRepository.ExistsByEmail(ec, request.Email)
 	if err != nil {
 		return s.translateRepositoryError(err)
 	}
@@ -75,40 +55,46 @@ func (s *authServiceImpl) Register(ec *appcontext.EchoContext, request model.Reg
 		return err
 	}
 
-	return s.translateRepositoryError(userRepository.Save(ec, model.User{
+	return s.translateRepositoryError(s.userRepository.Save(ec, model.User{
 		Username:     request.Username,
 		Email:        request.Email,
 		PasswordHash: string(hash),
 	}))
 }
 
-func (s *authServiceImpl) Login(ec *appcontext.EchoContext, request model.LoginRequest) (string, error) {
+func (s *authServiceImpl) Login(ec *appcontext.GinContext, request dto.LoginRequest) (dto.LoginResponse, error) {
 	if strings.TrimSpace(request.UserOrEmail) == "" || utf8.RuneCountInString(request.Password) < 8 || utf8.RuneCountInString(request.Password) > 100 {
-		return "", ErrInvalidCredentials
+		return dto.LoginResponse{}, ErrInvalidCredentials
 	}
 
-	userRepository := repository.GetUserRepoFromEchoContext(ec)
-
-	user, err := userRepository.FindByUsernameOrEmail(ec, request.UserOrEmail)
+	user, err := s.userRepository.FindByUsernameOrEmail(ec, request.UserOrEmail)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return "", ErrInvalidCredentials
+			return dto.LoginResponse{}, ErrInvalidCredentials
 		}
-		return "", s.translateRepositoryError(err)
+		return dto.LoginResponse{}, s.translateRepositoryError(err)
 	}
 
 	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(request.Password)) != nil {
-		return "", ErrInvalidCredentials
+		return dto.LoginResponse{}, ErrInvalidCredentials
 	}
 
 	if s.jwtService == nil {
-		return "", fmt.Errorf("%w: missing jwt service", ErrRemoteService)
+		return dto.LoginResponse{}, fmt.Errorf("missing jwt service")
 	}
 
-	return s.jwtService.GenerateToken(user.Username)
+	token, err := s.jwtService.GenerateToken(user.Username)
+	if err != nil {
+		return dto.LoginResponse{}, err
+	}
+
+	return dto.LoginResponse{
+		Token: token,
+		User:  dto.ToUserResponse(user),
+	}, nil
 }
 
-func validateRegisterRequest(request model.RegisterRequest) error {
+func validateRegisterRequest(request dto.RegisterRequest) error {
 	usernameLen := utf8.RuneCountInString(request.Username)
 	passwordLen := utf8.RuneCountInString(request.Password)
 

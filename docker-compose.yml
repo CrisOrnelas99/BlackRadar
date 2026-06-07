@@ -23,18 +23,10 @@ services:
       - .env
     environment:
       DB_HOST: postgres
-      RISK_SERVICE_URL: http://risk-service:8081
     depends_on:
       - postgres
-      - risk-service
     ports:
       - "8080:8080"
-
-  risk-service:
-    build:
-      context: ./backend-Go/risk-service
-    container_name: secureops-risk-service
-    restart: unless-stopped
 
 volumes:
   postgres_data:

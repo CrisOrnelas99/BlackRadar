@@ -8,12 +8,10 @@ import (
 )
 
 type Config struct {
-	Port               string
-	DatabaseURL        string
-	JWTSecret          string
-	JWTExpiration      time.Duration
-	RiskServiceURL     string
-	RiskServiceTimeout time.Duration
+	Port          string
+	DatabaseURL   string
+	JWTSecret     string
+	JWTExpiration time.Duration
 }
 
 func Load() Config {
@@ -26,15 +24,12 @@ func Load() Config {
 	jwtSecret := env("JWT_SECRET", "")
 
 	expirationMs, _ := strconv.Atoi(env("JWT_EXPIRATION_MS", "3600000"))
-	timeoutMs, _ := strconv.Atoi(env("RISK_SERVICE_TIMEOUT_MS", "5000"))
 
 	return Config{
-		Port:               port,
-		DatabaseURL:        fmt.Sprintf("postgres://%s:%s@%s:%s/%s", dbUser, dbPassword, dbHost, dbPort, dbName),
-		JWTSecret:          jwtSecret,
-		JWTExpiration:      time.Duration(expirationMs) * time.Millisecond,
-		RiskServiceURL:     env("RISK_SERVICE_URL", "http://risk-service:8081"),
-		RiskServiceTimeout: time.Duration(timeoutMs) * time.Millisecond,
+		Port:          port,
+		DatabaseURL:   fmt.Sprintf("postgres://%s:%s@%s:%s/%s", dbUser, dbPassword, dbHost, dbPort, dbName),
+		JWTSecret:     jwtSecret,
+		JWTExpiration: time.Duration(expirationMs) * time.Millisecond,
 	}
 }
 
@@ -45,3 +40,4 @@ func env(key string, fallback string) string {
 	}
 	return value
 }
+

@@ -6,11 +6,13 @@ import (
 	"github.com/gin-gonic/gin"
 
 	appcontext "secureops/backend-go/api/context"
+	"secureops/backend-go/api/model"
 	"secureops/backend-go/api/security"
 )
 
 type UserLookup interface {
-	ExistsByUsername(ec *appcontext.EchoContext, username string) (bool, error)
+	ExistsByUsername(ec *appcontext.GinContext, username string) (bool, error)
+	FindByUsername(ec *appcontext.GinContext, username string) (model.User, error)
 }
 
 func JwtAuthenticationFilter(jwtService *security.JwtService, users UserLookup) gin.HandlerFunc {
@@ -35,7 +37,14 @@ func JwtAuthenticationFilter(jwtService *security.JwtService, users UserLookup) 
 			return
 		}
 
+		user, err := users.FindByUsername(ec, username)
+		if err != nil {
+			security.JwtAuthenticationEntryPoint(ctx)
+			return
+		}
+
 		ctx.Set("username", username)
+		ctx.Set("userID", user.ID)
 		ctx.Next()
 	}
 }

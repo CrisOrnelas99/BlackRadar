@@ -6,3 +6,4 @@ type JwtConfig struct {
 	Secret     string
 	Expiration time.Duration
 }
+

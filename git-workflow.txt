@@ -42,7 +42,6 @@ What this does:
 
 Branch naming examples:
 - feature/asset-vulnerability-assignment
-- feature/go-risk-service
 - fix/jwt-auth-errors
 - chore/update-readme
 

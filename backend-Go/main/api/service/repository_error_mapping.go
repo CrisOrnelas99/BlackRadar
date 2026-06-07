@@ -15,9 +15,10 @@ func translateRepositoryError(err error) error {
 		return fmt.Errorf("%w: %w", ErrNotFound, err)
 	case errors.Is(err, repository.ErrDuplicateAssignment), errors.Is(err, repository.ErrInvalidReference):
 		return fmt.Errorf("%w: %w", ErrConflict, err)
-	case errors.Is(err, repository.ErrRiskScoreOutOfRange), errors.Is(err, repository.ErrInvalidData):
+	case errors.Is(err, repository.ErrInvalidData):
 		return fmt.Errorf("%w: %w", ErrInvalidRequestData, err)
 	default:
 		return err
 	}
 }
+

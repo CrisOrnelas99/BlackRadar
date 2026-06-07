@@ -4,6 +4,7 @@ import "time"
 
 type Asset struct {
 	ID              int64           `gorm:"primaryKey" json:"id"`
+	UserID          int64           `gorm:"column:user_id" json:"-"`
 	Name            string          `gorm:"not null" json:"name"`
 	Type            string          `gorm:"not null" json:"type"`
 	IPAddress       string          `gorm:"column:ip_address;not null" json:"ipAddress"`

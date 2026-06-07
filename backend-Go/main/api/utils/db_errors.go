@@ -1,4 +1,4 @@
-package shared
+package utils
 
 import (
 	"errors"
@@ -15,3 +15,4 @@ func IsCheckConstraintViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23514"
 }
+

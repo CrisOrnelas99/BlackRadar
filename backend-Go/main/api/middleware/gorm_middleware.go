@@ -14,3 +14,4 @@ func GormMiddleware(database *gorm.DB) gin.HandlerFunc {
 		ctx.Next()
 	}
 }
+

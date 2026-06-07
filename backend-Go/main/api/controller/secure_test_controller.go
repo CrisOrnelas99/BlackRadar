@@ -9,3 +9,4 @@ import (
 func SecureTest(c *gin.Context) {
 	c.String(http.StatusOK, "secure endpoint works")
 }
+

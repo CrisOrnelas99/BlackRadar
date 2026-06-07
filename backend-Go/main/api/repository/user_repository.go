@@ -8,7 +8,7 @@ import (
 
 	appcontext "secureops/backend-go/api/context"
 	"secureops/backend-go/api/model"
-	"secureops/backend-go/api/shared"
+	"secureops/backend-go/api/utils"
 )
 
 type UserRepository struct {
@@ -19,30 +19,14 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
-func GetUserRepoFromEchoContext(ec *appcontext.EchoContext) *UserRepository {
-	if ec == nil {
-		return &UserRepository{}
-	}
-
-	if value, exists := ec.Get(appcontext.UserRepoKey); exists {
-		if repo, ok := value.(*UserRepository); ok {
-			return repo
-		}
-	}
-
-	repo := &UserRepository{}
-	ec.Set(appcontext.UserRepoKey, repo)
-	return repo
-}
-
-func (r *UserRepository) database(ec *appcontext.EchoContext) *gorm.DB {
+func (r *UserRepository) database(ec *appcontext.GinContext) *gorm.DB {
 	if ec != nil && ec.Database() != nil {
 		return ec.Database()
 	}
 	return r.db
 }
 
-func (r *UserRepository) ExistsByUsername(ec *appcontext.EchoContext, username string) (bool, error) {
+func (r *UserRepository) ExistsByUsername(ec *appcontext.GinContext, username string) (bool, error) {
 	var count int64
 	err := r.database(ec).WithContext(ec.RequestContext()).Model(&model.User{}).Where("username = ?", username).Count(&count).Error
 	if err != nil {
@@ -51,7 +35,7 @@ func (r *UserRepository) ExistsByUsername(ec *appcontext.EchoContext, username s
 	return count > 0, err
 }
 
-func (r *UserRepository) ExistsByEmail(ec *appcontext.EchoContext, email string) (bool, error) {
+func (r *UserRepository) ExistsByEmail(ec *appcontext.GinContext, email string) (bool, error) {
 	var count int64
 	err := r.database(ec).WithContext(ec.RequestContext()).Model(&model.User{}).Where("email = ?", email).Count(&count).Error
 	if err != nil {
@@ -60,17 +44,17 @@ func (r *UserRepository) ExistsByEmail(ec *appcontext.EchoContext, email string)
 	return count > 0, err
 }
 
-func (r *UserRepository) Save(ec *appcontext.EchoContext, user model.User) error {
+func (r *UserRepository) Save(ec *appcontext.GinContext, user model.User) error {
 	if user.Username == "" || user.Email == "" || user.PasswordHash == "" {
 		return ErrInvalidData
 	}
 
 	err := r.database(ec).WithContext(ec.RequestContext()).Create(&user).Error
 	if err != nil {
-		if shared.IsForeignKeyViolation(err) {
+		if utils.IsForeignKeyViolation(err) {
 			return fmt.Errorf("%w: %w", ErrInvalidReference, err)
 		}
-		if shared.IsCheckConstraintViolation(err) {
+		if utils.IsCheckConstraintViolation(err) {
 			return fmt.Errorf("%w: %w", ErrInvalidData, err)
 		}
 		return fmt.Errorf("%w: %w", ErrCreateFailed, err)
@@ -78,7 +62,7 @@ func (r *UserRepository) Save(ec *appcontext.EchoContext, user model.User) error
 	return nil
 }
 
-func (r *UserRepository) FindByUsernameOrEmail(ec *appcontext.EchoContext, userOrEmail string) (model.User, error) {
+func (r *UserRepository) FindByUsernameOrEmail(ec *appcontext.GinContext, userOrEmail string) (model.User, error) {
 	var user model.User
 	err := r.database(ec).WithContext(ec.RequestContext()).
 		Where("username = ? OR email = ?", userOrEmail, userOrEmail).
@@ -90,4 +74,16 @@ func (r *UserRepository) FindByUsernameOrEmail(ec *appcontext.EchoContext, userO
 		return model.User{}, fmt.Errorf("%w: %w", ErrReadFailed, err)
 	}
 	return user, err
+}
+
+func (r *UserRepository) FindByUsername(ec *appcontext.GinContext, username string) (model.User, error) {
+	var user model.User
+	err := r.database(ec).WithContext(ec.RequestContext()).Where("username = ?", username).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return model.User{}, gorm.ErrRecordNotFound
+	}
+	if err != nil {
+		return model.User{}, fmt.Errorf("%w: %w", ErrReadFailed, err)
+	}
+	return user, nil
 }

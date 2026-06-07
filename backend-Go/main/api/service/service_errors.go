@@ -32,21 +32,11 @@ func (e ForbiddenError) Error() string {
 	return e.Message
 }
 
-type RemoteServiceError struct {
-	Message string
-}
-
-func (e RemoteServiceError) Error() string {
-	return e.Message
-}
-
 var (
-	ErrInvalidRequestData  = &ValidationError{Message: "invalid request data"}
-	ErrConflict            = &ValidationError{Message: "conflict"}
-	ErrNotFound            = &NotFoundError{Message: "not found"}
-	ErrInvalidCredentials  = &UnauthorizedError{Message: "invalid credentials"}
-	ErrForbidden           = &ForbiddenError{Message: "forbidden"}
-	ErrRemoteService       = &RemoteServiceError{Message: "remote service error"}
-	ErrRemoteRejected      = &ValidationError{Message: "remote service rejected request"}
-	ErrInvalidRemoteResult = &RemoteServiceError{Message: "invalid remote service response"}
+	ErrInvalidRequestData = &ValidationError{Message: "invalid request data"}
+	ErrConflict           = &ValidationError{Message: "conflict"}
+	ErrNotFound           = &NotFoundError{Message: "not found"}
+	ErrInvalidCredentials = &UnauthorizedError{Message: "invalid credentials"}
+	ErrForbidden          = &ForbiddenError{Message: "forbidden"}
 )
+

@@ -21,3 +21,4 @@ func CorsConfig() gin.HandlerFunc {
 		c.Next()
 	}
 }
+

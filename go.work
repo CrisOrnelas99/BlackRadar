@@ -1,6 +1,3 @@
 go 1.25
 
-use (
-	./backend-Go/main
-	./backend-Go/risk-service
-)
+use ./backend-Go/main

@@ -7,63 +7,54 @@ import (
 
 type UserRepository interface {
 	// ExistsByUsername reports whether a username is already stored.
-	ExistsByUsername(ec *appcontext.EchoContext, username string) (bool, error)
+	ExistsByUsername(ec *appcontext.GinContext, username string) (bool, error)
 
 	// ExistsByEmail reports whether an email address is already stored.
-	ExistsByEmail(ec *appcontext.EchoContext, email string) (bool, error)
+	ExistsByEmail(ec *appcontext.GinContext, email string) (bool, error)
 
 	// Save persists a new user record.
-	Save(ec *appcontext.EchoContext, user model.User) error
+	Save(ec *appcontext.GinContext, user model.User) error
 
 	// FindByUsernameOrEmail returns the user matching a username or email.
-	FindByUsernameOrEmail(ec *appcontext.EchoContext, userOrEmail string) (model.User, error)
+	FindByUsernameOrEmail(ec *appcontext.GinContext, userOrEmail string) (model.User, error)
 }
 
 type AssetRepository interface {
-	// FindAll returns all stored assets ordered by ID.
-	FindAll(ec *appcontext.EchoContext) ([]model.Asset, error)
+	// FindAllByUser returns all assets owned by a user ordered by ID.
+	FindAllByUser(ec *appcontext.GinContext, userID int64) ([]model.Asset, error)
 
-	// FindByID returns one asset and its assigned vulnerabilities.
-	FindByID(ec *appcontext.EchoContext, id int64) (model.Asset, error)
+	// FindByIDForUser returns one owned asset and its assigned vulnerabilities.
+	FindByIDForUser(ec *appcontext.GinContext, id int64, userID int64) (model.Asset, error)
 
 	// Save persists a new asset record.
-	Save(ec *appcontext.EchoContext, asset model.Asset) (model.Asset, error)
+	Save(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error)
 
-	// Update changes an existing asset record.
-	Update(ec *appcontext.EchoContext, id int64, asset model.Asset) (model.Asset, error)
+	// UpdateForUser changes an existing owned asset record.
+	UpdateForUser(ec *appcontext.GinContext, id int64, userID int64, asset model.Asset) (model.Asset, error)
 
-	// Delete removes an asset record.
-	Delete(ec *appcontext.EchoContext, id int64) (model.Asset, error)
+	// DeleteForUser removes an owned asset record.
+	DeleteForUser(ec *appcontext.GinContext, id int64, userID int64) (model.Asset, error)
 
-	// AssignVulnerability links a vulnerability to an asset.
-	AssignVulnerability(ec *appcontext.EchoContext, assetID int64, vulnerabilityID int64) (model.Asset, error)
+	// AssignVulnerabilityForUser links a vulnerability to an owned asset.
+	AssignVulnerabilityForUser(ec *appcontext.GinContext, assetID int64, userID int64, vulnerabilityID int64) (model.Asset, error)
 
-	// RemoveVulnerability unlinks a vulnerability from an asset.
-	RemoveVulnerability(ec *appcontext.EchoContext, assetID int64, vulnerabilityID int64) (model.Asset, error)
-
-	// FindVulnerabilities returns the vulnerabilities assigned to an asset.
-	FindVulnerabilities(ec *appcontext.EchoContext, assetID int64) ([]model.Vulnerability, error)
-
-	// PersistRiskResult stores the calculated risk score and risk level for an asset.
-	PersistRiskResult(ec *appcontext.EchoContext, id int64, riskResponse model.RiskCalculationResponse) (model.Asset, error)
-
-	// EnsureAssetAndVulnerability confirms both records exist before assignment logic runs.
-	EnsureAssetAndVulnerability(ec *appcontext.EchoContext, assetID int64, vulnerabilityID int64) error
+	// RemoveVulnerabilityForUser unlinks a vulnerability from an owned asset.
+	RemoveVulnerabilityForUser(ec *appcontext.GinContext, assetID int64, userID int64, vulnerabilityID int64) (model.Asset, error)
 }
 
 type VulnerabilityRepository interface {
 	// FindAll returns all stored vulnerabilities ordered by ID.
-	FindAll(ec *appcontext.EchoContext) ([]model.Vulnerability, error)
+	FindAll(ec *appcontext.GinContext) ([]model.Vulnerability, error)
 
 	// FindByID returns one vulnerability by ID.
-	FindByID(ec *appcontext.EchoContext, id int64) (model.Vulnerability, error)
+	FindByID(ec *appcontext.GinContext, id int64) (model.Vulnerability, error)
 
 	// Save persists a new vulnerability record.
-	Save(ec *appcontext.EchoContext, vulnerability model.Vulnerability) (model.Vulnerability, error)
+	Save(ec *appcontext.GinContext, vulnerability model.Vulnerability) (model.Vulnerability, error)
 
 	// Update changes an existing vulnerability record.
-	Update(ec *appcontext.EchoContext, id int64, vulnerability model.Vulnerability) (model.Vulnerability, error)
+	Update(ec *appcontext.GinContext, id int64, vulnerability model.Vulnerability) (model.Vulnerability, error)
 
 	// Delete removes a vulnerability record.
-	Delete(ec *appcontext.EchoContext, id int64) (model.Vulnerability, error)
+	Delete(ec *appcontext.GinContext, id int64) (model.Vulnerability, error)
 }

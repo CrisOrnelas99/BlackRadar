@@ -10,3 +10,4 @@ import (
 func SecurityConfig(jwtService *security.JwtService, userLookup middleware.UserLookup) gin.HandlerFunc {
 	return middleware.JwtAuthenticationFilter(jwtService, userLookup)
 }
+

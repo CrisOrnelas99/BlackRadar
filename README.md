@@ -7,7 +7,7 @@ The project is being built around a practical cybersecurity workflow:
 - store assets with meaningful product details
 - import relevant CVEs from NVD / NIST
 - assign vulnerabilities to affected assets
-- calculate asset risk
+- track basic asset risk fields for later scoring work
 - surface important alert conditions
 - refresh vulnerability intelligence over time
 - explain asset risk through an asset-aware chatbot
@@ -30,7 +30,7 @@ The core product direction is:
 - Angular frontend for the user interface
 - Go with Gin and GORM as the main backend and trust boundary
 - PostgreSQL for persistence
-- focused Go services for narrow supporting tasks
+- focused Go services for narrow supporting tasks when they are added later
 - NVD / NIST as the vulnerability source of truth
 - AI as a helper for matching, ranking, and explanation
 
@@ -43,19 +43,22 @@ What is already present in the codebase:
 - Go Gin/GORM backend foundation
 - JWT-based authentication flow
 - asset CRUD backend
+- authenticated users only see and mutate their own assets
 - vulnerability CRUD backend
 - asset-to-vulnerability assignment backend
 - layered backend boundaries with controller -> service -> repository -> database flow
-- controller-owned service interfaces and service-owned repository interfaces
+- direct controller service injection from `main.go`
+- service interfaces and service-owned repository interfaces
 - package-local sentinel error files for repository, service, middleware, and security concerns
-- Go risk scoring service
-- Docker Compose for PostgreSQL, backend, and risk service
+- GORM AutoMigrate schema provisioning at backend startup
+- Docker Compose for PostgreSQL and the backend
 - Angular frontend project structure
 
 What is planned next or still in progress:
 
 - Angular authentication and main screens
 - NVD / NIST vulnerability import
+- risk scoring implementation
 - AI-assisted product matching and relevance support
 - asset-scoped chatbot
 - `alert-service-go`
@@ -76,8 +79,6 @@ Angular frontend
 Go Gin/GORM API
   |
   +--> PostgreSQL
-  |
-  +--> risk-service
   |
   +--> alert-service-go
   |
@@ -160,7 +161,7 @@ The planned import flow is:
 5. import matching CVEs
 6. store them locally
 7. assign them to the asset
-8. recalculate risk
+8. update risk data later when risk scoring is reintroduced
 
 NVD is intended to be the vulnerability source of truth.
 
@@ -175,7 +176,7 @@ AI is not intended to invent vulnerabilities or silently override official NVD d
 
 ### Risk Scoring
 
-The current dedicated Go service calculates an asset risk score from summarized vulnerability data.
+Risk scoring is planned for a later phase. The current base app keeps asset risk fields available, but scoring implementation is deferred for now.
 
 Example factors:
 
@@ -233,7 +234,7 @@ Key security principles in this repository:
 - keep external vulnerability data grounded in official NVD records
 - use safe error handling and avoid leaking stack traces or secrets
 
-There is also a lightweight WAF-style filter in the backend plan to block obviously suspicious request patterns such as simple SQL injection-like strings, XSS-like input, and path traversal attempts.
+There is also a lightweight `RequestFilter` middleware in the backend plan to block obviously suspicious request patterns such as simple SQL injection-like strings, XSS-like input, and path traversal attempts.
 
 ## Repository Structure
 
@@ -256,32 +257,29 @@ backend-Go/
 |   |-- api/
 |   |   |-- config/
 |   |   |-- controller/
-|   |   |-- database/
+|   |   |-- dto/
 |   |   |-- middleware/
 |   |   |-- model/
 |   |   |-- repository/
-|   |   |-- response/
 |   |   |-- security/
-|   |   `-- service/
+|   |   |-- service/
+|   |   `-- utils/
 |   |-- main.go
 |   |-- Dockerfile
 |   |-- go.mod
 |   `-- go.sum
-`-- risk-service/
-    |-- api/
-    |-- main.go
-    |-- Dockerfile
-    `-- go.mod
 ```
 
 Current backend package rules:
 
 - controllers handle HTTP request parsing, route parameters, and responses
-- controllers depend on service interfaces defined in `controller/service_interfaces.go`
-- services handle business validation and repository-error translation
+- controllers receive service interfaces directly from constructors
+- controllers call service interfaces exposed by the `service` package
+- services handle business validation, ownership checks, and repository-error translation
 - services depend on repository interfaces defined in `service/repository_interfaces.go`
 - repositories handle GORM/database access only
-- DTO structs currently live in `model/*_dto.go`, separate from controller logic
+- DTO structs live in `dto/`, separate from controller logic and database models
+- backend uses GORM AutoMigrate at startup instead of maintaining separate SQL migration scripts
 - `errors.go` files stay simple: error struct with `Message string`, one `Error()` method, and sentinel vars
 - config does not currently need `config_errors.go` because config loading does not return errors yet
 
@@ -306,7 +304,6 @@ The current `docker-compose.yml` defines:
 
 - `postgres`
 - `backend`
-- `risk-service`
 
 Start them with:
 
@@ -337,7 +334,7 @@ Typical values include:
 - PostgreSQL port
 - JWT secret
 - JWT expiration
-- service URLs
+- later: service URLs
 - later: NVD API key
 - later: AI provider API key
 
@@ -349,7 +346,7 @@ Important:
 
 ## API Direction
 
-Current and planned API areas include:
+Implemented API areas:
 
 ### Authentication
 
@@ -363,10 +360,8 @@ Current and planned API areas include:
 - `POST /api/assets`
 - `PUT /api/assets/{id}`
 - `DELETE /api/assets/{id}`
-- `POST /api/assets/{id}/import-nvd-vulnerabilities`
-- `POST /api/assets/{id}/calculate-risk`
-- `GET /api/assets/{id}/alerts`
-- `POST /api/assets/{id}/chat`
+
+Asset endpoints are scoped to the authenticated user.
 
 ### Vulnerabilities
 
@@ -380,6 +375,15 @@ Current and planned API areas include:
 
 - `POST /api/assets/{assetId}/vulnerabilities/{vulnerabilityId}`
 - `DELETE /api/assets/{assetId}/vulnerabilities/{vulnerabilityId}`
+
+Planned API areas:
+
+- `POST /api/assets/{id}/import-nvd-vulnerabilities`
+- `GET /api/assets/{id}/alerts`
+- `POST /api/assets/{id}/chat`
+- `POST /api/sync/nvd`
+- `GET /api/alerts`
+- `PATCH /api/alerts/{id}/acknowledge`
 
 ## Data Model Direction
 
@@ -395,7 +399,6 @@ Likely additions:
 - `alerts`
 - optional `chat_sessions`
 - optional `chat_messages`
-- optional `waf_events`
 - optional sync history tables
 
 ## Documentation
@@ -409,5 +412,5 @@ Use the docs in this repo like this:
 
 ## Notes
 
-- The Go backend currently uses GORM auto-migration, which is convenient for development but should later be replaced with managed migrations.
+- The Go backend currently uses GORM AutoMigrate at startup instead of separate embedded SQL migration files. A more advanced migration tool can be added later if the schema becomes more complex.
 - Some features described here are planned and documented, not fully implemented yet. This README reflects both the current repo state and the intended product direction so other users can understand what exists now and what is being built next.
