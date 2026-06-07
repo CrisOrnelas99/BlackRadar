@@ -1,32 +1,54 @@
 package service
 
 import (
-	"context"
 	"strings"
 
+	appcontext "secureops/backend-go/api/context"
 	"secureops/backend-go/api/model"
+	repository_assets "secureops/backend-go/api/repository"
 )
 
-type AssetRiskService struct {
-	assetRepository AssetRepository
+type AssetRiskService interface {
+	LoadRiskCalculationRequest(ec *appcontext.EchoContext, id int64) (model.RiskCalculationRequest, error)
+	PersistRiskResult(ec *appcontext.EchoContext, id int64, response model.RiskCalculationResponse) (model.Asset, error)
 }
 
-func NewAssetRiskService(assetRepository AssetRepository) *AssetRiskService {
-	return &AssetRiskService{assetRepository: assetRepository}
+type assetRiskServiceImpl struct{}
+
+func NewAssetRiskService() AssetRiskService {
+	return &assetRiskServiceImpl{}
 }
 
-func (s *AssetRiskService) LoadRiskCalculationRequest(ctx context.Context, id int64) (model.RiskCalculationRequest, error) {
-	asset, err := s.assetRepository.FindByID(ctx, id)
+func GetAssetRiskServiceFromEchoContext(ec *appcontext.EchoContext) AssetRiskService {
+	if ec != nil {
+		if value, exists := ec.Get(appcontext.AssetRiskServiceKey); exists {
+			if service, ok := value.(AssetRiskService); ok {
+				return service
+			}
+		}
+
+		assetRiskService := &assetRiskServiceImpl{}
+		ec.Set(appcontext.AssetRiskServiceKey, assetRiskService)
+		return assetRiskService
+	}
+
+	return &assetRiskServiceImpl{}
+}
+
+func (s *assetRiskServiceImpl) LoadRiskCalculationRequest(ec *appcontext.EchoContext, id int64) (model.RiskCalculationRequest, error) {
+	assetRepository := repository_assets.GetAssetRepoFromEchoContext(ec)
+	asset, err := assetRepository.FindByID(ec, id)
 	if err != nil {
-		return model.RiskCalculationRequest{}, mapRepositoryError(err)
+		return model.RiskCalculationRequest{}, s.translateRepositoryError(err)
 	}
 
 	return buildRiskCalculationRequest(asset), nil
 }
 
-func (s *AssetRiskService) PersistRiskResult(ctx context.Context, id int64, response model.RiskCalculationResponse) (model.Asset, error) {
-	asset, err := s.assetRepository.PersistRiskResult(ctx, id, response)
-	return asset, mapRepositoryError(err)
+func (s *assetRiskServiceImpl) PersistRiskResult(ec *appcontext.EchoContext, id int64, response model.RiskCalculationResponse) (model.Asset, error) {
+	assetRepository := repository_assets.GetAssetRepoFromEchoContext(ec)
+	asset, err := assetRepository.PersistRiskResult(ec, id, response)
+	return asset, s.translateRepositoryError(err)
 }
 
 func buildRiskCalculationRequest(asset model.Asset) model.RiskCalculationRequest {
@@ -49,4 +71,8 @@ func buildRiskCalculationRequest(asset model.Asset) model.RiskCalculationRequest
 	}
 
 	return request
+}
+
+func (s *assetRiskServiceImpl) translateRepositoryError(err error) error {
+	return translateRepositoryError(err)
 }

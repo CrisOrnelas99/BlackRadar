@@ -6,3 +6,4 @@ target/
 *.iml
 Roadmap.md
 Agents.md
+.gocache/

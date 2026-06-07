@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	appcontext "secureops/backend-go/api/context"
 	"secureops/backend-go/api/model"
 	"secureops/backend-go/api/repository"
 )
@@ -28,7 +29,9 @@ func WafFilter(wafEventRepository *repository.WafEventRepository) gin.HandlerFun
 
 		if reason != "" {
 			log.Printf("Blocked suspicious request: method=%s path=%s", c.Request.Method, c.Request.URL.Path)
-			_ = wafEventRepository.Save(c.Request.Context(), model.WafEvent{
+			ec := appcontext.FromGinContext(c)
+			wafEventRepository = repository.GetWafEventRepoFromEchoContext(ec)
+			_ = wafEventRepository.Save(ec, model.WafEvent{
 				Method:    c.Request.Method,
 				Path:      c.Request.URL.Path,
 				Reason:    reason,

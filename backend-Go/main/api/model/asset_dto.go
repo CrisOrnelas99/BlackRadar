@@ -8,3 +8,16 @@ type AssetRequest struct {
 	Owner           string  `json:"owner"`
 	Criticality     string  `json:"criticality"`
 }
+
+func (r AssetRequest) ToDataModel() Asset {
+	return Asset{
+		Name:            r.Name,
+		Type:            r.Type,
+		IPAddress:       r.IPAddress,
+		OperatingSystem: r.OperatingSystem,
+		Owner:           r.Owner,
+		Criticality:     r.Criticality,
+		RiskScore:       0,
+		RiskLevel:       "Low",
+	}
+}
