@@ -24,10 +24,8 @@ Key capabilities include:
 
 - asset inventory with product-aware metadata
 - vulnerability tracking and asset-to-vulnerability assignment
-- planned NVD/NIST CVE import and local persistence
-- planned AI-assisted raw asset ingestion from text or files
-- planned asset-scoped chatbot for security posture explanation
 - backend-enforced authorization and security controls
+- planned vulnerability intelligence and AI-assisted workflows listed below
 
 The platform supports multiple inventory contexts, including organization portfolios, applications, home networks, and imported raw asset lists.
 
@@ -288,27 +286,5 @@ AI-specific guidance:
 
 - `README.md`: product overview and setup guidance
 - `architecture.md`: technical architecture and implementation direction
-- `Roadmap.md`: planned feature sequence
-- `Agents.md`: repository-specific assistant instructions
-
-## Documentation styling applied
-
-Important guidance is applied inline throughout this repo's docs (headings, code fences, blockquotes, and collapsible sections). For example:
-
-> **Note:** Keep secrets out of version control and avoid exposing API keys in the frontend.
-
-<details>
-<summary>Planned extensions (click to expand)</summary>
-
-- organization- and application-aware multi-tenant scoping
-- asset fingerprinting with vendor/product/version metadata
-- NVD/NIST CVE import and local vulnerability persistence
-- AI-assisted asset ingestion and relevance review
-- asset-scoped chatbot and guided security answers
-- remediation workflows, work orders, checklist items, and exceptions
-- alerting and CVE refresh services
-- dashboard analytics and risk trend reporting
-- full Docker integration for frontend, backend, and services
-- later AWS/cloud integration
-
-</details>
+- `Roadmap.md`: planned feature sequence - Creator only
+- `Agents.md`: repository-specific assistant instructions - Creator only
