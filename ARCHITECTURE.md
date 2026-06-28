@@ -3,7 +3,7 @@
 ## Purpose
 
 This document describes the current technical architecture of SecureOps.
-Use it with `README.md`, `CLEANCODE.md`, `SECURITY.md`, and `Roadmap.md`.
+Use it with `README.md`, `CLEANCODE.md`, and `SECURITY.md`.
 
 ## System Overview
 
@@ -16,7 +16,10 @@ SecureOps is a cybersecurity asset-risk platform built around:
 - AI-assisted asset ingestion planned behind the backend
 - focused Go services for limited background tasks
 - HTTPS/TLS termination at the deployment boundary with server-side certificate handling
-- future AWS deployment can host the backend, database, certificates, logging, and scheduled jobs through managed services
+- GitHub Actions CI/CD for automated validation, build artifacts, and protected releases
+- future AWS deployment can host the backend, database, certificates, logging, scheduled jobs, and dedicated single-tenant instances through managed services
+- organization-scoped tenancy enforced by the backend
+- future multi-organization membership can be layered on top of the tenant boundary with server-side active-organization switching
 
 The backend is the trust boundary. Angular never talks directly to NVD, AI providers, or internal services.
 
@@ -37,6 +40,7 @@ The Go backend owns:
 - access-token generation
 - refresh-token rotation and session revocation
 - authorization and permission checks
+- organization membership and tenant scoping
 - asset CRUD
 - vulnerability CRUD
 - asset-to-vulnerability assignment
@@ -45,6 +49,7 @@ The Go backend owns:
 - structured request logging and security logging
 - safe error handling and input validation
 - cloud deployment compatibility for managed services such as ECR, ECS/Fargate, RDS, ALB/ACM, CloudWatch, Secrets Manager, and EventBridge
+- CI/CD compatibility for GitHub Actions workflows, required checks, and artifact promotion
 
 ## Auth Model
 
@@ -57,6 +62,7 @@ Important notes:
 - logout revokes the stored session
 - protected requests check both the access token and the active session state
 - login resolves `userOrEmail` by shape: email-like values use email lookup, everything else uses username lookup
+- registration requires an organization name, and the backend resolves or creates the organization server-side
 - auth and NVD lookup requests are rate limited in the backend
 - outbound TLS verification remains enabled for external API calls such as NVD
 
@@ -76,13 +82,24 @@ Important notes:
 
 Core current entities:
 
+- organizations
 - users
 - assets
 - vulnerabilities
 - asset_vulnerabilities
 - refresh_sessions
 
-Assets and vulnerabilities are user-owned in the current implementation.
+Organizations are the tenant boundary. Users belong to one organization, and assets and vulnerabilities are queried by organization membership.
+
+Planned data expansion includes:
+
+- organization memberships and active organization state
+- work orders and checklist items
+- vulnerability exceptions and remediation entries
+- comments and team notes
+- alerts and alert acknowledgements
+- chat sessions and retrieved context records
+- CVE sync history and import audit records
 
 ## API Surface
 
@@ -118,6 +135,21 @@ Implemented assignment routes:
 Implemented NVD route:
 
 - `GET /api/nvd/cves/{cveId}`
+
+## Planned Backend Surfaces
+
+The backend remains the trust boundary for future feature work. Planned surfaces include:
+
+- `GET /api/organizations`
+- `POST /api/organizations/switch`
+- `POST /api/assets/{id}/import-nvd-vulnerabilities`
+- `POST /api/assets/{id}/chat`
+- `POST /api/sync/nvd`
+- `GET /api/alerts`
+- `PATCH /api/alerts/{id}/acknowledge`
+- organization-scoped work order, checklist, exception, remediation, and comment endpoints
+- dashboard summary endpoints
+- future Angular-facing organization and workflow endpoints remain backend-authenticated and organization-scoped
 
 ## NVD / Vulnerability Handling
 
@@ -176,3 +208,4 @@ Key current rules:
 - use backend validation and authorization
 - keep NVD and AI calls server-side
 - store imported vulnerability data locally
+- keep future organization switching, workflow actions, and background services backend-authenticated and tenant-scoped

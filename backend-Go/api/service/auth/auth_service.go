@@ -23,13 +23,14 @@ import (
 
 type authServiceImpl struct {
 	jwtManager               *security.JWTManager
+	organizationRepository   baserepository.OrganizationRepository
 	userRepository           baserepository.UserRepository
 	refreshSessionRepository baserepository.RefreshSessionRepository
 }
 
 // NewAuthService creates an authentication service backed by the supplied dependencies.
-func NewAuthService(jwtManager *security.JWTManager, userRepository baserepository.UserRepository, refreshSessionRepository baserepository.RefreshSessionRepository) baseservice.AuthService {
-	return &authServiceImpl{jwtManager: jwtManager, userRepository: userRepository, refreshSessionRepository: refreshSessionRepository}
+func NewAuthService(jwtManager *security.JWTManager, organizationRepository baserepository.OrganizationRepository, userRepository baserepository.UserRepository, refreshSessionRepository baserepository.RefreshSessionRepository) baseservice.AuthService {
+	return &authServiceImpl{jwtManager: jwtManager, organizationRepository: organizationRepository, userRepository: userRepository, refreshSessionRepository: refreshSessionRepository}
 }
 
 // Register validates and creates a new user account.
@@ -47,6 +48,11 @@ func (s *authServiceImpl) Register(ec *appcontext.GinContext, request dto.Regist
 		return dto.UserResponse{}, baseservice.ErrConflict
 	}
 
+	organization, err := s.findOrCreateOrganization(ec, request.Organization)
+	if err != nil {
+		return dto.UserResponse{}, err
+	}
+
 	exists, err = s.userRepository.ExistsByEmail(ec, request.Email)
 	if err != nil {
 		return dto.UserResponse{}, baseservice.TranslateRepositoryError(err)
@@ -61,16 +67,38 @@ func (s *authServiceImpl) Register(ec *appcontext.GinContext, request dto.Regist
 	}
 
 	user, err := s.userRepository.Save(ec, model.User{
-		Username:     request.Username,
-		Email:        request.Email,
-		Role:         model.RoleUser,
-		PasswordHash: string(hash),
+		OrganizationID: organization.ID,
+		Username:       request.Username,
+		Email:          request.Email,
+		Role:           model.RoleUser,
+		PasswordHash:   string(hash),
 	})
 	if err != nil {
 		return dto.UserResponse{}, baseservice.TranslateRepositoryError(err)
 	}
 
 	return dto.ToUserResponse(user), nil
+}
+
+func (s *authServiceImpl) findOrCreateOrganization(ec *appcontext.GinContext, organizationName string) (model.Organization, error) {
+	if s.organizationRepository == nil {
+		return model.Organization{}, fmt.Errorf("missing organization repository")
+	}
+
+	normalizedName := strings.ToLower(strings.TrimSpace(organizationName))
+	organization, err := s.organizationRepository.FindByName(ec, normalizedName)
+	if err == nil {
+		return organization, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return model.Organization{}, baseservice.TranslateRepositoryError(err)
+	}
+
+	created, err := s.organizationRepository.Save(ec, model.Organization{Name: normalizedName})
+	if err != nil {
+		return model.Organization{}, baseservice.TranslateRepositoryError(err)
+	}
+	return created, nil
 }
 
 // Login validates credentials and returns a signed access token.

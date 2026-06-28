@@ -66,11 +66,15 @@ func isPostgresError(err error, code string) bool {
 
 // RunMigrations applies the database schema setup used by this application.
 func RunMigrations(ctx context.Context, database *gorm.DB) error {
+	if err := ensureOrganizationSchema(ctx, database); err != nil {
+		return err
+	}
 	if err := ensureUserSchema(ctx, database); err != nil {
 		return err
 	}
 
 	if err := database.WithContext(ctx).AutoMigrate(
+		&model.Organization{},
 		&model.Vulnerability{},
 		&model.Asset{},
 		&model.RefreshSession{},
@@ -81,16 +85,37 @@ func RunMigrations(ctx context.Context, database *gorm.DB) error {
 	return ensureIndexes(ctx, database)
 }
 
+// ensureOrganizationSchema creates the organization table and required columns when they do not already exist.
+func ensureOrganizationSchema(ctx context.Context, database *gorm.DB) error {
+	statements := []string{
+		`CREATE TABLE IF NOT EXISTS organizations (
+			id BIGSERIAL PRIMARY KEY,
+			name TEXT NOT NULL
+		)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_organizations_name ON organizations (name)`,
+	}
+
+	for _, statement := range statements {
+		if err := database.WithContext(ctx).Exec(statement).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // ensureUserSchema creates the user table and required columns when they do not already exist.
 func ensureUserSchema(ctx context.Context, database *gorm.DB) error {
 	statements := []string{
 		`CREATE TABLE IF NOT EXISTS users (
 			id BIGSERIAL PRIMARY KEY,
+			organization_id BIGINT,
 			username TEXT NOT NULL,
 			email VARCHAR NOT NULL,
 			password_hash VARCHAR NOT NULL,
 			role VARCHAR NOT NULL DEFAULT 'user'
 		)`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR NOT NULL DEFAULT 'user'`,
 	}
 
@@ -108,20 +133,27 @@ func ensureIndexes(ctx context.Context, database *gorm.DB) error {
 	statements := []string{
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users (username)`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email)`,
+		`CREATE INDEX IF NOT EXISTS idx_users_organization_id ON users (organization_id)`,
 		`ALTER TABLE users DROP CONSTRAINT IF EXISTS ukr43af9ap4edm43mmtq01oddj6`,
 		`ALTER TABLE users DROP CONSTRAINT IF EXISTS uk6dotkott2kjsp8vw4d0m25fb7`,
+		`INSERT INTO organizations (name) VALUES ('admin_home') ON CONFLICT (name) DO NOTHING`,
+		`UPDATE users SET organization_id = COALESCE(organization_id, (SELECT id FROM organizations WHERE name = 'admin_home' ORDER BY id LIMIT 1)) WHERE organization_id IS NULL`,
+		`UPDATE assets SET organization_id = COALESCE(organization_id, (SELECT id FROM organizations WHERE name = 'admin_home' ORDER BY id LIMIT 1)) WHERE organization_id IS NULL`,
+		`UPDATE vulnerabilities SET organization_id = COALESCE(organization_id, (SELECT id FROM organizations WHERE name = 'admin_home' ORDER BY id LIMIT 1)) WHERE organization_id IS NULL`,
 		`CREATE INDEX IF NOT EXISTS idx_assets_user_id ON assets (user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_assets_organization_id ON assets (organization_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_vulnerabilities_user_id ON vulnerabilities (user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_vulnerabilities_organization_id ON vulnerabilities (organization_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_refresh_sessions_user_id ON refresh_sessions (user_id)`,
 		`DROP INDEX IF EXISTS idx_vulnerabilities_cve_id`,
 		`DO $$
 		BEGIN
 			IF NOT EXISTS (
-				SELECT 1 FROM vulnerabilities WHERE user_id = 0
+				SELECT 1 FROM vulnerabilities WHERE organization_id IS NULL
 			) AND NOT EXISTS (
-				SELECT 1 FROM vulnerabilities GROUP BY user_id, cve_id HAVING count(*) > 1
+				SELECT 1 FROM vulnerabilities GROUP BY organization_id, cve_id HAVING count(*) > 1
 			) THEN
-				CREATE UNIQUE INDEX IF NOT EXISTS idx_vulnerabilities_user_cve_id ON vulnerabilities (user_id, cve_id);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_vulnerabilities_org_cve_id ON vulnerabilities (organization_id, cve_id);
 			END IF;
 		END $$`,
 		`DO $$
@@ -132,6 +164,15 @@ func ensureIndexes(ctx context.Context, database *gorm.DB) error {
 				ALTER TABLE users ADD CONSTRAINT chk_users_role CHECK (role IN ('admin', 'user'));
 			END IF;
 		END $$`,
+		`DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM pg_constraint WHERE conname = 'fk_users_organization'
+			) THEN
+				ALTER TABLE users ADD CONSTRAINT fk_users_organization FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+			END IF;
+		END $$`,
+		`ALTER TABLE users ALTER COLUMN organization_id SET NOT NULL`,
 		`DO $$
 		BEGIN
 			IF NOT EXISTS (
@@ -159,6 +200,15 @@ func ensureIndexes(ctx context.Context, database *gorm.DB) error {
 		`DO $$
 		BEGIN
 			IF NOT EXISTS (
+				SELECT 1 FROM pg_constraint WHERE conname = 'fk_assets_organization'
+			) THEN
+				ALTER TABLE assets ADD CONSTRAINT fk_assets_organization FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+			END IF;
+		END $$`,
+		`ALTER TABLE assets ALTER COLUMN organization_id SET NOT NULL`,
+		`DO $$
+		BEGIN
+			IF NOT EXISTS (
 				SELECT 1 FROM pg_constraint WHERE conname = 'fk_vulnerabilities_user'
 			) AND NOT EXISTS (
 				SELECT 1 FROM vulnerabilities WHERE user_id = 0
@@ -166,6 +216,15 @@ func ensureIndexes(ctx context.Context, database *gorm.DB) error {
 				ALTER TABLE vulnerabilities ADD CONSTRAINT fk_vulnerabilities_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 			END IF;
 		END $$`,
+		`DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM pg_constraint WHERE conname = 'fk_vulnerabilities_organization'
+			) THEN
+				ALTER TABLE vulnerabilities ADD CONSTRAINT fk_vulnerabilities_organization FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+			END IF;
+		END $$`,
+		`ALTER TABLE vulnerabilities ALTER COLUMN organization_id SET NOT NULL`,
 		`DO $$
 		BEGIN
 			IF NOT EXISTS (

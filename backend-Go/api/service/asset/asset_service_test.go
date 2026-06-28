@@ -22,7 +22,7 @@ import (
 func TestAssetService(t *testing.T) {
 	repo := &fakeAssetRepository{asset: sampleAsset(), assets: []model.Asset{sampleAsset()}}
 	svc := NewAssetService(repo, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{})
-	ctx := newServiceContext(t, 42)
+	ctx := newServiceContext(t, 42, 99)
 
 	if _, err := svc.GetAllAssets(ctx); err != nil {
 		t.Fatalf("expected GetAllAssets to succeed, got %v", err)
@@ -50,22 +50,35 @@ func TestAssetServiceHelpers(t *testing.T) {
 		t.Fatal("expected invalid request data translation")
 	}
 
-	ctx := newServiceContext(t, 7)
+	ctx := newServiceContext(t, 7, 99)
 	if id, err := baseservice.AuthenticatedUserID(ctx); err != nil || id != 7 {
 		t.Fatalf("expected user id 7, got %d err=%v", id, err)
+	}
+	if orgID, err := baseservice.AuthenticatedOrganizationID(ctx); err != nil || orgID != 99 {
+		t.Fatalf("expected organization id 99, got %d err=%v", orgID, err)
 	}
 }
 
 // TestAssetServiceValidationAndTranslation verifies validation and error mapping.
 func TestAssetServiceValidationAndTranslation(t *testing.T) {
 	svc := NewAssetService(&fakeAssetRepository{findErr: baserepository.ErrAssetNotFound}, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{})
-	ctx := newServiceContext(t, 42)
+	ctx := newServiceContext(t, 42, 99)
 
 	if _, err := svc.GetAsset(ctx, 1); !errors.Is(err, baseservice.ErrNotFound) {
 		t.Fatalf("expected not found translation, got %v", err)
 	}
 	if _, err := svc.CreateAsset(ctx, model.Asset{}); !errors.Is(err, baseservice.ErrInvalidRequestData) {
 		t.Fatalf("expected invalid request data, got %v", err)
+	}
+}
+
+func TestAssetServiceRejectsWrongOrganization(t *testing.T) {
+	repo := &fakeAssetRepository{asset: sampleAsset(), expectedOrganizationID: 99}
+	svc := NewAssetService(repo, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{})
+	ctx := newServiceContext(t, 42, 100)
+
+	if _, err := svc.GetAsset(ctx, 1); !errors.Is(err, baseservice.ErrNotFound) {
+		t.Fatalf("expected wrong organization access to be hidden as not found, got %v", err)
 	}
 }
 
@@ -80,7 +93,7 @@ func TestAssetServiceAssignVulnerabilityByCVE(t *testing.T) {
 		Severity:    "Critical",
 	}}
 	svc := NewAssetService(assetRepo, vulnRepo, nvdSvc)
-	ctx := newServiceContext(t, 42)
+	ctx := newServiceContext(t, 42, 99)
 	ctx.SetUserRole(model.RoleAdmin)
 
 	assigned, err := svc.AssignVulnerabilityByCVE(ctx, 1, "cve-2024-3094")
@@ -100,7 +113,7 @@ func TestAssetServiceAssignVulnerabilityByCVE(t *testing.T) {
 
 func TestAssetServiceRejectsVulnerabilityActionsForNonAdmin(t *testing.T) {
 	svc := NewAssetService(&fakeAssetRepository{asset: sampleAsset()}, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{})
-	ctx := newServiceContext(t, 42)
+	ctx := newServiceContext(t, 42, 99)
 	ctx.SetUserRole(model.RoleUser)
 
 	if _, err := svc.AssignVulnerability(ctx, 1, 2); !errors.Is(err, baseservice.ErrForbidden) {
@@ -115,19 +128,26 @@ func TestAssetServiceRejectsVulnerabilityActionsForNonAdmin(t *testing.T) {
 }
 
 type fakeAssetRepository struct {
-	assets   []model.Asset
-	asset    model.Asset
-	findErr  error
-	assigned bool
+	assets                 []model.Asset
+	asset                  model.Asset
+	findErr                error
+	assigned               bool
+	expectedOrganizationID int64
 }
 
 // FindAllByUser returns the configured fake asset list.
-func (f *fakeAssetRepository) FindAllByUser(ec *appcontext.GinContext, userID int64) ([]model.Asset, error) {
+func (f *fakeAssetRepository) FindAllByOrganization(ec *appcontext.GinContext, organizationID int64) ([]model.Asset, error) {
+	if f.expectedOrganizationID > 0 && organizationID != f.expectedOrganizationID {
+		return nil, baserepository.ErrAssetNotFound
+	}
 	return f.assets, f.findErr
 }
 
-// FindByIDForUser returns the configured fake asset.
-func (f *fakeAssetRepository) FindByIDForUser(ec *appcontext.GinContext, id int64, userID int64) (model.Asset, error) {
+// FindByIDForOrganization returns the configured fake asset.
+func (f *fakeAssetRepository) FindByIDForOrganization(ec *appcontext.GinContext, id int64, organizationID int64) (model.Asset, error) {
+	if f.expectedOrganizationID > 0 && organizationID != f.expectedOrganizationID {
+		return model.Asset{}, baserepository.ErrAssetNotFound
+	}
 	if f.findErr != nil {
 		return model.Asset{}, f.findErr
 	}
@@ -139,24 +159,24 @@ func (f *fakeAssetRepository) Save(ec *appcontext.GinContext, asset model.Asset)
 	return asset, nil
 }
 
-// UpdateForUser returns the supplied fake asset.
-func (f *fakeAssetRepository) UpdateForUser(ec *appcontext.GinContext, id int64, userID int64, asset model.Asset) (model.Asset, error) {
+// UpdateForOrganization returns the supplied fake asset.
+func (f *fakeAssetRepository) UpdateForOrganization(ec *appcontext.GinContext, id int64, organizationID int64, asset model.Asset) (model.Asset, error) {
 	return asset, nil
 }
 
-// DeleteForUser returns the configured fake asset.
-func (f *fakeAssetRepository) DeleteForUser(ec *appcontext.GinContext, id int64, userID int64) (model.Asset, error) {
+// DeleteForOrganization returns the configured fake asset.
+func (f *fakeAssetRepository) DeleteForOrganization(ec *appcontext.GinContext, id int64, organizationID int64) (model.Asset, error) {
 	return f.asset, nil
 }
 
-// AssignVulnerabilityForUser returns the configured fake asset.
-func (f *fakeAssetRepository) AssignVulnerabilityForUser(ec *appcontext.GinContext, assetID int64, userID int64, vulnerabilityID int64) (model.Asset, error) {
+// AssignVulnerabilityForOrganization returns the configured fake asset.
+func (f *fakeAssetRepository) AssignVulnerabilityForOrganization(ec *appcontext.GinContext, assetID int64, organizationID int64, vulnerabilityID int64) (model.Asset, error) {
 	f.assigned = true
 	return f.asset, nil
 }
 
-// RemoveVulnerabilityForUser returns the configured fake asset.
-func (f *fakeAssetRepository) RemoveVulnerabilityForUser(ec *appcontext.GinContext, assetID int64, userID int64, vulnerabilityID int64) (model.Asset, error) {
+// RemoveVulnerabilityForOrganization returns the configured fake asset.
+func (f *fakeAssetRepository) RemoveVulnerabilityForOrganization(ec *appcontext.GinContext, assetID int64, organizationID int64, vulnerabilityID int64) (model.Asset, error) {
 	return f.asset, nil
 }
 
@@ -168,23 +188,23 @@ type fakeVulnerabilityRepository struct {
 	updated model.Vulnerability
 }
 
-func (f *fakeVulnerabilityRepository) FindAllByUser(ec *appcontext.GinContext, userID int64) ([]model.Vulnerability, error) {
+func (f *fakeVulnerabilityRepository) FindAllByOrganization(ec *appcontext.GinContext, organizationID int64) ([]model.Vulnerability, error) {
 	return nil, nil
 }
 
-func (f *fakeVulnerabilityRepository) FindByIDForUser(ec *appcontext.GinContext, id int64, userID int64) (model.Vulnerability, error) {
+func (f *fakeVulnerabilityRepository) FindByIDForOrganization(ec *appcontext.GinContext, id int64, organizationID int64) (model.Vulnerability, error) {
 	return model.Vulnerability{}, nil
 }
 
-func (f *fakeVulnerabilityRepository) ExistsByCVEIDForUser(ec *appcontext.GinContext, cveID string, userID int64) (bool, error) {
+func (f *fakeVulnerabilityRepository) ExistsByCVEIDForOrganization(ec *appcontext.GinContext, cveID string, organizationID int64) (bool, error) {
 	return false, nil
 }
 
-func (f *fakeVulnerabilityRepository) ExistsByCVEIDExcludingIDForUser(ec *appcontext.GinContext, cveID string, id int64, userID int64) (bool, error) {
+func (f *fakeVulnerabilityRepository) ExistsByCVEIDExcludingIDForOrganization(ec *appcontext.GinContext, cveID string, id int64, organizationID int64) (bool, error) {
 	return false, nil
 }
 
-func (f *fakeVulnerabilityRepository) FindByCVEIDForUser(ec *appcontext.GinContext, cveID string, userID int64) (model.Vulnerability, error) {
+func (f *fakeVulnerabilityRepository) FindByCVEIDForOrganization(ec *appcontext.GinContext, cveID string, organizationID int64) (model.Vulnerability, error) {
 	if f.findErr != nil {
 		return model.Vulnerability{}, f.findErr
 	}
@@ -197,13 +217,13 @@ func (f *fakeVulnerabilityRepository) Save(ec *appcontext.GinContext, vulnerabil
 	return f.saved, nil
 }
 
-func (f *fakeVulnerabilityRepository) UpdateForUser(ec *appcontext.GinContext, id int64, userID int64, vulnerability model.Vulnerability) (model.Vulnerability, error) {
+func (f *fakeVulnerabilityRepository) UpdateForOrganization(ec *appcontext.GinContext, id int64, organizationID int64, vulnerability model.Vulnerability) (model.Vulnerability, error) {
 	f.updated = vulnerability
 	f.updated.ID = id
 	return f.updated, nil
 }
 
-func (f *fakeVulnerabilityRepository) DeleteForUser(ec *appcontext.GinContext, id int64, userID int64) (model.Vulnerability, error) {
+func (f *fakeVulnerabilityRepository) DeleteForOrganization(ec *appcontext.GinContext, id int64, organizationID int64) (model.Vulnerability, error) {
 	return model.Vulnerability{}, nil
 }
 
@@ -223,7 +243,7 @@ func (f *fakeNVDLookupService) LookupCVE(ec *appcontext.GinContext, cveID string
 var _ baseservice.NVDLookupService = (*fakeNVDLookupService)(nil)
 
 // newServiceContext creates a request context with an authenticated user ID.
-func newServiceContext(t *testing.T, userID int64) *appcontext.GinContext {
+func newServiceContext(t *testing.T, userID int64, organizationID int64) *appcontext.GinContext {
 	t.Helper()
 
 	recorder := httptest.NewRecorder()
@@ -231,11 +251,12 @@ func newServiceContext(t *testing.T, userID int64) *appcontext.GinContext {
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 	ec := appcontext.NewGinContext(ctx, "txn-123", slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ec.SetUserID(userID)
+	ec.SetOrganizationID(organizationID)
 	appcontext.SetGinContext(ctx, ec)
 	return ec
 }
 
 // sampleAsset returns a reusable asset fixture.
 func sampleAsset() model.Asset {
-	return model.Asset{Name: "Asset 1", Type: "Server", IPAddress: "10.0.0.10", Owner: "IT", Criticality: "High"}
+	return model.Asset{OrganizationID: 99, Name: "Asset 1", Type: "Server", IPAddress: "10.0.0.10", Owner: "IT", Criticality: "High"}
 }

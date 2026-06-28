@@ -6,6 +6,7 @@ import "time"
 // Asset represents a tenant-scoped asset stored in PostgreSQL.
 type Asset struct {
 	ID              int64           `gorm:"primaryKey" json:"id"`
+	OrganizationID  int64           `gorm:"column:organization_id;index" json:"-"`
 	UserID          int64           `gorm:"column:user_id;index" json:"-"`
 	Name            string          `gorm:"not null" json:"name"`
 	Type            string          `gorm:"not null" json:"type"`

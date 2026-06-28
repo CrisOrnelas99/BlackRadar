@@ -12,6 +12,7 @@ http:
       {
         "username": "analyst_user",
         "email": "analyst_user@example.com",
+        "organization": "analyst_home",
         "password": "Password123!"
       }
 

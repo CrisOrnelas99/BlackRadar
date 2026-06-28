@@ -27,10 +27,11 @@ Key capabilities include:
 
 - asset inventory with product-aware metadata
 - vulnerability tracking and asset-to-vulnerability assignment
+- organization-scoped data separation
 - backend-enforced authorization and security controls
 - backend rate limiting on auth and NVD lookup endpoints
 - short-lived access tokens with server-side refresh-token sessions
-- planned vulnerability intelligence and AI-assisted workflows listed below
+- planned vulnerability intelligence, organization switching, workflow, alerting, and AI-assisted features listed below
 
 The platform supports multiple inventory contexts, including organization portfolios, applications, home networks, and imported raw asset lists.
 
@@ -84,6 +85,7 @@ The repository currently contains these working foundations:
 - asset CRUD API and models
 - vulnerability CRUD API and models
 - asset-to-vulnerability assignment endpoints
+- organization-aware registration and tenant membership
 - controller → service → repository layering
 - GORM AutoMigrate provisioning
 - Docker Compose support for PostgreSQL and backend
@@ -91,9 +93,11 @@ The repository currently contains these working foundations:
 
 ## Planned Extensions
 
-Future work documented in `ARCHITECTURE.md` and `Roadmap.md` includes:
+Future work documented in `ARCHITECTURE.md` includes:
 
-- organization- and application-aware multi-tenant scoping
+- organization listing and active organization switching
+- application-aware scoping on top of the organization boundary
+- multi-organization membership with active organization switching
 - asset fingerprinting with vendor/product/version metadata
 - NVD/NIST CVE import and local vulnerability persistence
 - AI-assisted asset ingestion and relevance review
@@ -101,9 +105,13 @@ Future work documented in `ARCHITECTURE.md` and `Roadmap.md` includes:
 - remediation workflows, work orders, checklist items, and exceptions
 - alerting and CVE refresh services
 - dashboard analytics and risk trend reporting
+- organization-aware API and UI flows for assets, vulnerabilities, and memberships
+- HTTPS/TLS enforcement with certificate handling at the deployment boundary
+- GitHub Actions CI/CD pipeline for tests, builds, and protected releases
 - full Docker integration for frontend, backend, and services
 - later AWS deployment foundation using ECR, ECS/Fargate or EC2, RDS, ALB/ACM, Secrets Manager, CloudWatch, and EventBridge
 - later AWS edge controls such as WAF, ALB throttling, or CloudFront-style protection layered on top of backend limits
+- later AWS single-tenant deployment option for dedicated organizational instances
 
 ## Repository Layout
 
@@ -115,7 +123,6 @@ AssetManagementRisk/
 |-- .env
 |-- README.md
 |-- CLEANCODE.md
-|-- Roadmap.md
 |-- ARCHITECTURE.md
 |-- SECURITY.md
 `-- AGENTS.md
@@ -172,6 +179,7 @@ docker compose up --build
 ```
 
 The backend container starts with `BOOTSTRAP_DEV_DATA=true`, so the seeded `system_admin` test account is available after a fresh compose start.
+That bootstrap account belongs to the `admin_home` organization.
 
 Default endpoints:
 
@@ -210,9 +218,12 @@ Docker Compose reads `.env` for containers.
 
 - admin username: `system_admin`
 - email: `test@gmail.com`
+- organization: `admin_home`
 - password: `Password123!`
 - one test device asset
 - one assigned example vulnerability: `CVE-2021-44228`
+
+Registration also requires an organization name so new users are bound to the correct tenant boundary at signup.
 
 The bootstrap flag is rejected in production mode.
 
@@ -255,6 +266,8 @@ Authentication
 - `POST /api/auth/refresh`
 - `POST /api/auth/logout`
 
+Registration accepts `username`, `email`, `organization`, and `password`.
+
 Assets
 - `GET /api/assets`
 - `GET /api/assets/{id}`
@@ -275,14 +288,19 @@ Assignment
 
 ### Planned API areas
 
+- `GET /api/organizations`
+- `POST /api/organizations/switch`
 - `POST /api/assets/{id}/import-nvd-vulnerabilities`
 - `POST /api/assets/{id}/chat`
 - asset alert endpoints
 - organization-scoped work order workflows
 - comment and remediation endpoints
+- checklist and exception endpoints for remediation workflows
 - `POST /api/sync/nvd`
 - `GET /api/alerts`
 - `PATCH /api/alerts/{id}/acknowledge`
+- dashboard summary endpoints
+- health and maintenance endpoints for background services
 
 ## Data Model Direction
 
@@ -294,6 +312,8 @@ The current model is centered on:
 - `vulnerabilities`
 - `asset_vulnerabilities`
 
+Users, assets, and vulnerabilities are scoped to one organization.
+
 Future expansions may include:
 
 - `alerts`
@@ -304,6 +324,8 @@ Future expansions may include:
 - `comments`
 - optional `chat_sessions` and `chat_messages`
 - sync history records
+- organization membership and active-organization records
+- audit and notification records for sensitive actions
 
 ### Asset model goals
 
@@ -356,6 +378,5 @@ AI-specific guidance:
 - `README.md`: product overview and setup guidance
 - `ARCHITECTURE.md`: technical architecture and implementation direction
 - `CLEANCODE.md`: naming, structure, and implementation conventions
-- `Roadmap.md`: planned feature sequence - Creator only
 - `SECURITY.md`: mandatory security policy and secure-coding rules for this repository
 - `AGENTS.md`: repository-specific assistant instructions - Creator only

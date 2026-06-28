@@ -18,7 +18,8 @@ import (
 	nvdexternal "secureops/backend-go/api/external/nvd"
 	"secureops/backend-go/api/middleware"
 	repositoryasset "secureops/backend-go/api/repository/asset"
-	repositoryrefreshsession "secureops/backend-go/api/repository/refreshsession"
+	repositoryorganization "secureops/backend-go/api/repository/organization"
+	repositoryrefreshsession "secureops/backend-go/api/repository/refresh_session"
 	repositoryuser "secureops/backend-go/api/repository/user"
 	repositoryvulnerability "secureops/backend-go/api/repository/vulnerability"
 	"secureops/backend-go/api/security"
@@ -59,10 +60,11 @@ func main() {
 	jwtManager := security.NewJWTManager(cfg.JWTSecret, cfg.JWTExpiration, cfg.JWTRefreshExpiration, cfg.JWTIssuer, cfg.JWTAudience)
 
 	userRepository := repositoryuser.NewUserRepository(gormDB)
+	organizationRepository := repositoryorganization.NewOrganizationRepository(gormDB)
 	assetRepository := repositoryasset.NewAssetRepository(gormDB)
 	refreshSessionRepository := repositoryrefreshsession.NewRefreshSessionRepository(gormDB)
 	vulnerabilityRepository := repositoryvulnerability.NewVulnerabilityRepository(gormDB)
-	authService := serviceauth.NewAuthService(jwtManager, userRepository, refreshSessionRepository)
+	authService := serviceauth.NewAuthService(jwtManager, organizationRepository, userRepository, refreshSessionRepository)
 	nvdClient, err := nvdexternal.NewClient(cfg.NVDAPIBaseURL, cfg.NVDAPIKey)
 	if err != nil {
 		log.Fatalf("nvd client configuration failed: %v", err)

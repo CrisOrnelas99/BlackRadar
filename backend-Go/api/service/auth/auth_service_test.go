@@ -26,12 +26,12 @@ import (
 func TestAuthService(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
 	repo := &fakeUserRepository{
-		user: model.User{ID: 1, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
+		user: model.User{ID: 1, OrganizationID: 11, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
-	svc := NewAuthService(security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), repo, &fakeRefreshSessionRepository{})
+	svc := NewAuthService(security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{organization: model.Organization{ID: 11, Name: "home"}}, repo, &fakeRefreshSessionRepository{})
 	ctx := newAuthServiceContext(t)
 
-	registerResponse, err := svc.Register(ctx, dto.RegisterRequest{Username: "analyst", Email: "analyst@example.com", Password: "Password1!"})
+	registerResponse, err := svc.Register(ctx, dto.RegisterRequest{Username: "analyst", Email: "analyst@example.com", Organization: "home", Password: "Password1!"})
 	if err != nil {
 		t.Fatalf("expected Register to succeed, got %v", err)
 	}
@@ -53,17 +53,18 @@ func TestAuthService(t *testing.T) {
 // TestAuthServiceHelpers verifies authentication helper behavior.
 func TestAuthServiceHelpers(t *testing.T) {
 	normalized := baseservice.NormalizeRegisterRequest(dto.RegisterRequest{
-		Username: " analyst ",
-		Email:    " ANALYST@EXAMPLE.COM ",
-		Password: " Password1! ",
+		Username:     " analyst ",
+		Email:        " ANALYST@EXAMPLE.COM ",
+		Organization: " home ",
+		Password:     " Password1! ",
 	})
-	if normalized.Username != "analyst" || normalized.Email != "analyst@example.com" || normalized.Password != "Password1!" {
+	if normalized.Username != "analyst" || normalized.Email != "analyst@example.com" || normalized.Organization != "home" || normalized.Password != "Password1!" {
 		t.Fatalf("unexpected normalized request: %#v", normalized)
 	}
 	if err := baseservice.ValidateRegisterRequest(normalized); err != nil {
 		t.Fatalf("expected valid register request, got %v", err)
 	}
-	if err := baseservice.ValidateRegisterRequest(dto.RegisterRequest{Username: "ab", Email: "bad", Password: "short"}); !errors.Is(err, baseservice.ErrInvalidRequestData) {
+	if err := baseservice.ValidateRegisterRequest(dto.RegisterRequest{Username: "ab", Email: "bad", Organization: "home", Password: "short"}); !errors.Is(err, baseservice.ErrInvalidRequestData) {
 		t.Fatalf("expected invalid request data, got %v", err)
 	}
 }
@@ -71,9 +72,9 @@ func TestAuthServiceHelpers(t *testing.T) {
 // TestAuthServiceValidationAndTranslation verifies validation and error mapping.
 func TestAuthServiceValidationAndTranslation(t *testing.T) {
 	ctx := newAuthServiceContext(t)
-	svc := NewAuthService(security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeUserRepository{findErr: gorm.ErrRecordNotFound}, &fakeRefreshSessionRepository{})
+	svc := NewAuthService(security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{findErr: gorm.ErrRecordNotFound}, &fakeUserRepository{findErr: gorm.ErrRecordNotFound}, &fakeRefreshSessionRepository{})
 
-	if _, err := svc.Register(ctx, dto.RegisterRequest{Username: "ab", Email: "bad", Password: "short"}); !errors.Is(err, baseservice.ErrInvalidRequestData) {
+	if _, err := svc.Register(ctx, dto.RegisterRequest{Username: "ab", Email: "bad", Organization: "home", Password: "short"}); !errors.Is(err, baseservice.ErrInvalidRequestData) {
 		t.Fatalf("expected invalid request data, got %v", err)
 	}
 	if _, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "missing", Password: "Password1!"}); !errors.Is(err, baseservice.ErrInvalidCredentials) {
@@ -84,10 +85,10 @@ func TestAuthServiceValidationAndTranslation(t *testing.T) {
 func TestAuthServiceLogoutRejectsSecondLogout(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
 	repo := &fakeUserRepository{
-		user: model.User{ID: 7, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
+		user: model.User{ID: 7, OrganizationID: 11, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
 	sessions := &fakeRefreshSessionRepository{}
-	svc := NewAuthService(security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), repo, sessions)
+	svc := NewAuthService(security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{organization: model.Organization{ID: 11, Name: "home"}}, repo, sessions)
 	ctx := newAuthServiceContext(t)
 
 	login, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "analyst", Password: "Password1!"})
@@ -107,9 +108,9 @@ func TestAuthServiceLogoutRejectsSecondLogout(t *testing.T) {
 func TestAuthServiceLoginResolvesUsernameAndEmailDeterministically(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
 	repo := &fakeUserRepository{
-		user: model.User{ID: 42, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
+		user: model.User{ID: 42, OrganizationID: 11, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
-	svc := NewAuthService(security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), repo, &fakeRefreshSessionRepository{})
+	svc := NewAuthService(security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{organization: model.Organization{ID: 11, Name: "home"}}, repo, &fakeRefreshSessionRepository{})
 	ctx := newAuthServiceContext(t)
 
 	if _, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "analyst", Password: "Password1!"}); err != nil {
@@ -137,6 +138,31 @@ type fakeUserRepository struct {
 	usernameLookupCalled bool
 	emailLookupCalled    bool
 }
+
+type fakeOrganizationRepository struct {
+	organization model.Organization
+	findErr      error
+}
+
+func (f *fakeOrganizationRepository) FindByName(ec *appcontext.GinContext, name string) (model.Organization, error) {
+	if f.findErr != nil {
+		return model.Organization{}, f.findErr
+	}
+	if f.organization.Name == "" {
+		return model.Organization{}, gorm.ErrRecordNotFound
+	}
+	return f.organization, nil
+}
+
+func (f *fakeOrganizationRepository) Save(ec *appcontext.GinContext, organization model.Organization) (model.Organization, error) {
+	if organization.ID == 0 {
+		organization.ID = f.organization.ID
+	}
+	f.organization = organization
+	return organization, nil
+}
+
+var _ baserepository.OrganizationRepository = (*fakeOrganizationRepository)(nil)
 
 // ExistsByUsername reports whether the fake user exists.
 func (f *fakeUserRepository) ExistsByUsername(ec *appcontext.GinContext, username string) (bool, error) {

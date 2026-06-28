@@ -14,9 +14,10 @@ import (
 )
 
 const (
-	bootstrapUsername = "system_admin"
-	bootstrapEmail    = "Test@gmail.com"
-	bootstrapPassword = "Password123!"
+	bootstrapUsername     = "system_admin"
+	bootstrapEmail        = "Test@gmail.com"
+	bootstrapPassword     = "Password123!"
+	bootstrapOrganization = "admin_home"
 
 	bootstrapUserID          int64 = 7700000000000000001
 	bootstrapAssetID         int64 = 7700000000000000002
@@ -59,17 +60,22 @@ func seedDevData(ctx context.Context, database *gorm.DB) error {
 			return err
 		}
 
-		user, err := seedBootstrapUser(ctx, tx)
+		organization, err := seedBootstrapOrganization(ctx, tx)
 		if err != nil {
 			return err
 		}
 
-		asset, err := seedBootstrapAsset(ctx, tx, user.ID)
+		user, err := seedBootstrapUser(ctx, tx, organization.ID)
 		if err != nil {
 			return err
 		}
 
-		vulnerability, err := seedBootstrapVulnerability(ctx, tx, user.ID)
+		asset, err := seedBootstrapAsset(ctx, tx, organization.ID, user.ID)
+		if err != nil {
+			return err
+		}
+
+		vulnerability, err := seedBootstrapVulnerability(ctx, tx, organization.ID, user.ID)
 		if err != nil {
 			return err
 		}
@@ -79,35 +85,37 @@ func seedDevData(ctx context.Context, database *gorm.DB) error {
 }
 
 func clearBootstrapData(ctx context.Context, database *gorm.DB) error {
-	email := strings.ToLower(strings.TrimSpace(bootstrapEmail))
-	var user model.User
+	var organization model.Organization
 	err := database.WithContext(ctx).
-		Where("username = ? OR email = ?", bootstrapUsername, email).
-		First(&user).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil
-	}
+		Where("name = ?", strings.ToLower(strings.TrimSpace(bootstrapOrganization))).
+		First(&organization).Error
 	if err != nil {
-		return fmt.Errorf("find bootstrap user for cleanup: %w", err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		return fmt.Errorf("find bootstrap organization for cleanup: %w", err)
 	}
 
 	if err := database.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec(
 			`DELETE FROM asset_vulnerabilities
-			 WHERE asset_id IN (SELECT id FROM assets WHERE user_id = ?)
-			    OR vulnerability_id IN (SELECT id FROM vulnerabilities WHERE user_id = ?)`,
-			user.ID, user.ID,
+			 WHERE asset_id IN (SELECT id FROM assets WHERE organization_id = ?)
+			    OR vulnerability_id IN (SELECT id FROM vulnerabilities WHERE organization_id = ?)`,
+			organization.ID, organization.ID,
 		).Error; err != nil {
 			return fmt.Errorf("delete bootstrap asset vulnerabilities: %w", err)
 		}
-		if err := tx.Exec(`DELETE FROM assets WHERE user_id = ?`, user.ID).Error; err != nil {
+		if err := tx.Exec(`DELETE FROM assets WHERE organization_id = ?`, organization.ID).Error; err != nil {
 			return fmt.Errorf("delete bootstrap assets: %w", err)
 		}
-		if err := tx.Exec(`DELETE FROM vulnerabilities WHERE user_id = ?`, user.ID).Error; err != nil {
+		if err := tx.Exec(`DELETE FROM vulnerabilities WHERE organization_id = ?`, organization.ID).Error; err != nil {
 			return fmt.Errorf("delete bootstrap vulnerabilities: %w", err)
 		}
-		if err := tx.Delete(&user).Error; err != nil {
-			return fmt.Errorf("delete bootstrap user: %w", err)
+		if err := tx.Exec(`DELETE FROM users WHERE organization_id = ?`, organization.ID).Error; err != nil {
+			return fmt.Errorf("delete bootstrap users: %w", err)
+		}
+		if err := tx.Delete(&organization).Error; err != nil {
+			return fmt.Errorf("delete bootstrap organization: %w", err)
 		}
 		return nil
 	}); err != nil {
@@ -117,7 +125,26 @@ func clearBootstrapData(ctx context.Context, database *gorm.DB) error {
 	return nil
 }
 
-func seedBootstrapUser(ctx context.Context, database *gorm.DB) (model.User, error) {
+func seedBootstrapOrganization(ctx context.Context, database *gorm.DB) (model.Organization, error) {
+	normalized := strings.ToLower(strings.TrimSpace(bootstrapOrganization))
+
+	var organization model.Organization
+	err := database.WithContext(ctx).Where("name = ?", normalized).First(&organization).Error
+	if err == nil {
+		return organization, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return model.Organization{}, fmt.Errorf("find bootstrap organization: %w", err)
+	}
+
+	organization = model.Organization{Name: normalized}
+	if err := database.WithContext(ctx).Create(&organization).Error; err != nil {
+		return model.Organization{}, fmt.Errorf("create bootstrap organization: %w", err)
+	}
+	return organization, nil
+}
+
+func seedBootstrapUser(ctx context.Context, database *gorm.DB, organizationID int64) (model.User, error) {
 	email := strings.ToLower(strings.TrimSpace(bootstrapEmail))
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(bootstrapPassword), config.PasswordCost())
 	if err != nil {
@@ -125,11 +152,12 @@ func seedBootstrapUser(ctx context.Context, database *gorm.DB) (model.User, erro
 	}
 
 	user := model.User{
-		ID:           bootstrapUserID,
-		Username:     bootstrapUsername,
-		Email:        email,
-		Role:         model.RoleAdmin,
-		PasswordHash: string(passwordHash),
+		ID:             bootstrapUserID,
+		OrganizationID: organizationID,
+		Username:       bootstrapUsername,
+		Email:          email,
+		Role:           model.RoleAdmin,
+		PasswordHash:   string(passwordHash),
 	}
 	if err := database.WithContext(ctx).Create(&user).Error; err != nil {
 		return model.User{}, fmt.Errorf("create bootstrap user: %w", err)
@@ -138,10 +166,11 @@ func seedBootstrapUser(ctx context.Context, database *gorm.DB) (model.User, erro
 	return user, nil
 }
 
-func seedBootstrapAsset(ctx context.Context, database *gorm.DB, userID int64) (model.Asset, error) {
+func seedBootstrapAsset(ctx context.Context, database *gorm.DB, organizationID int64, userID int64) (model.Asset, error) {
 	operatingSystem := bootstrapAssetOS
 	asset := model.Asset{
 		ID:              bootstrapAssetID,
+		OrganizationID:  organizationID,
 		UserID:          userID,
 		Name:            bootstrapAssetName,
 		Type:            bootstrapAssetType,
@@ -159,15 +188,16 @@ func seedBootstrapAsset(ctx context.Context, database *gorm.DB, userID int64) (m
 	return asset, nil
 }
 
-func seedBootstrapVulnerability(ctx context.Context, database *gorm.DB, userID int64) (model.Vulnerability, error) {
+func seedBootstrapVulnerability(ctx context.Context, database *gorm.DB, organizationID int64, userID int64) (model.Vulnerability, error) {
 	vulnerability := model.Vulnerability{
-		ID:          bootstrapVulnerabilityID,
-		UserID:      userID,
-		CVEID:       bootstrapCVEID,
-		Title:       bootstrapVulnerabilityTitle,
-		Severity:    bootstrapSeverity,
-		Description: bootstrapDescription,
-		Status:      bootstrapStatus,
+		ID:             bootstrapVulnerabilityID,
+		OrganizationID: organizationID,
+		UserID:         userID,
+		CVEID:          bootstrapCVEID,
+		Title:          bootstrapVulnerabilityTitle,
+		Severity:       bootstrapSeverity,
+		Description:    bootstrapDescription,
+		Status:         bootstrapStatus,
 	}
 	if err := database.WithContext(ctx).Create(&vulnerability).Error; err != nil {
 		return model.Vulnerability{}, fmt.Errorf("create bootstrap vulnerability: %w", err)

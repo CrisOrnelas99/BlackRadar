@@ -31,22 +31,22 @@ func (r *AssetRepository) dbForContext(ec *appcontext.GinContext) *gorm.DB {
 	return r.db
 }
 
-// FindAllByUser returns all assets owned by the specified user.
-func (r *AssetRepository) FindAllByUser(ec *appcontext.GinContext, userID int64) ([]model.Asset, error) {
+// FindAllByOrganization returns all assets owned by the specified organization.
+func (r *AssetRepository) FindAllByOrganization(ec *appcontext.GinContext, organizationID int64) ([]model.Asset, error) {
 	var assets []model.Asset
-	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("user_id = ?", userID).Order("id").Find(&assets).Error
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("organization_id = ?", organizationID).Order("id").Find(&assets).Error
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
 	}
 	return assets, nil
 }
 
-// FindByIDForUser returns a single asset owned by the specified user.
-func (r *AssetRepository) FindByIDForUser(ec *appcontext.GinContext, id int64, userID int64) (model.Asset, error) {
+// FindByIDForOrganization returns a single asset owned by the specified organization.
+func (r *AssetRepository) FindByIDForOrganization(ec *appcontext.GinContext, id int64, organizationID int64) (model.Asset, error) {
 	var asset model.Asset
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
-		Preload("Vulnerabilities", "user_id = ?", userID).
-		Where("user_id = ?", userID).
+		Preload("Vulnerabilities", "organization_id = ?", organizationID).
+		Where("organization_id = ?", organizationID).
 		First(&asset, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.Asset{}, baserepository.ErrAssetNotFound
@@ -59,7 +59,7 @@ func (r *AssetRepository) FindByIDForUser(ec *appcontext.GinContext, id int64, u
 
 // Save creates a new asset record.
 func (r *AssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
-	if asset.UserID <= 0 || asset.Name == "" || asset.Type == "" || asset.IPAddress == "" || asset.Owner == "" || asset.Criticality == "" {
+	if asset.OrganizationID <= 0 || asset.UserID <= 0 || asset.Name == "" || asset.Type == "" || asset.IPAddress == "" || asset.Owner == "" || asset.Criticality == "" {
 		return model.Asset{}, baserepository.ErrInvalidData
 	}
 
@@ -89,13 +89,13 @@ func (r *AssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (mo
 	return model.Asset{}, fmt.Errorf("%w: exhausted random id retries", baserepository.ErrCreateFailed)
 }
 
-// UpdateForUser updates an asset owned by the specified user.
-func (r *AssetRepository) UpdateForUser(ec *appcontext.GinContext, id int64, userID int64, updates model.Asset) (model.Asset, error) {
+// UpdateForOrganization updates an asset owned by the specified organization.
+func (r *AssetRepository) UpdateForOrganization(ec *appcontext.GinContext, id int64, organizationID int64, updates model.Asset) (model.Asset, error) {
 	if updates.Name == "" || updates.Type == "" || updates.IPAddress == "" || updates.Owner == "" || updates.Criticality == "" {
 		return model.Asset{}, baserepository.ErrInvalidData
 	}
 
-	asset, err := r.FindByIDForUser(ec, id, userID)
+	asset, err := r.FindByIDForOrganization(ec, id, organizationID)
 	if err != nil {
 		return model.Asset{}, err
 	}
@@ -118,12 +118,12 @@ func (r *AssetRepository) UpdateForUser(ec *appcontext.GinContext, id int64, use
 		}
 		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrUpdateFailed, databaseErr)
 	}
-	return r.FindByIDForUser(ec, id, userID)
+	return r.FindByIDForOrganization(ec, id, organizationID)
 }
 
-// DeleteForUser deletes an asset owned by the specified user.
-func (r *AssetRepository) DeleteForUser(ec *appcontext.GinContext, id int64, userID int64) (model.Asset, error) {
-	asset, err := r.FindByIDForUser(ec, id, userID)
+// DeleteForOrganization deletes an asset owned by the specified organization.
+func (r *AssetRepository) DeleteForOrganization(ec *appcontext.GinContext, id int64, organizationID int64) (model.Asset, error) {
+	asset, err := r.FindByIDForOrganization(ec, id, organizationID)
 	if err != nil {
 		return model.Asset{}, err
 	}
@@ -148,9 +148,9 @@ func (r *AssetRepository) DeleteForUser(ec *appcontext.GinContext, id int64, use
 	return asset, nil
 }
 
-// AssignVulnerabilityForUser associates a vulnerability with an asset owned by the specified user.
-func (r *AssetRepository) AssignVulnerabilityForUser(ec *appcontext.GinContext, assetID int64, userID int64, vulnerabilityID int64) (model.Asset, error) {
-	asset, vulnerability, err := r.findAssetAndVulnerabilityForUser(ec, assetID, userID, vulnerabilityID)
+// AssignVulnerabilityForOrganization associates a vulnerability with an asset owned by the specified organization.
+func (r *AssetRepository) AssignVulnerabilityForOrganization(ec *appcontext.GinContext, assetID int64, organizationID int64, vulnerabilityID int64) (model.Asset, error) {
+	asset, vulnerability, err := r.findAssetAndVulnerabilityForOrganization(ec, assetID, organizationID, vulnerabilityID)
 	if err != nil {
 		return model.Asset{}, err
 	}
@@ -173,12 +173,12 @@ func (r *AssetRepository) AssignVulnerabilityForUser(ec *appcontext.GinContext, 
 		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrCreateFailed, databaseErr)
 	}
 
-	return r.FindByIDForUser(ec, assetID, userID)
+	return r.FindByIDForOrganization(ec, assetID, organizationID)
 }
 
-// RemoveVulnerabilityForUser removes a vulnerability from an asset owned by the specified user.
-func (r *AssetRepository) RemoveVulnerabilityForUser(ec *appcontext.GinContext, assetID int64, userID int64, vulnerabilityID int64) (model.Asset, error) {
-	asset, vulnerability, err := r.findAssetAndVulnerabilityForUser(ec, assetID, userID, vulnerabilityID)
+// RemoveVulnerabilityForOrganization removes a vulnerability from an asset owned by the specified organization.
+func (r *AssetRepository) RemoveVulnerabilityForOrganization(ec *appcontext.GinContext, assetID int64, organizationID int64, vulnerabilityID int64) (model.Asset, error) {
+	asset, vulnerability, err := r.findAssetAndVulnerabilityForOrganization(ec, assetID, organizationID, vulnerabilityID)
 	if err != nil {
 		return model.Asset{}, err
 	}
@@ -193,19 +193,19 @@ func (r *AssetRepository) RemoveVulnerabilityForUser(ec *appcontext.GinContext, 
 		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrDeleteFailed, err)
 	}
 
-	return r.FindByIDForUser(ec, assetID, userID)
+	return r.FindByIDForOrganization(ec, assetID, organizationID)
 }
 
-// findAssetAndVulnerabilityForUser loads the asset and vulnerability for the specified user.
-func (r *AssetRepository) findAssetAndVulnerabilityForUser(ec *appcontext.GinContext, assetID int64, userID int64, vulnerabilityID int64) (model.Asset, model.Vulnerability, error) {
-	asset, err := r.FindByIDForUser(ec, assetID, userID)
+// findAssetAndVulnerabilityForOrganization loads the asset and vulnerability for the specified organization.
+func (r *AssetRepository) findAssetAndVulnerabilityForOrganization(ec *appcontext.GinContext, assetID int64, organizationID int64, vulnerabilityID int64) (model.Asset, model.Vulnerability, error) {
+	asset, err := r.FindByIDForOrganization(ec, assetID, organizationID)
 	if err != nil {
 		return model.Asset{}, model.Vulnerability{}, err
 	}
 
 	var vulnerability model.Vulnerability
 	err = r.dbForContext(ec).WithContext(ec.RequestContext()).
-		Where("user_id = ?", userID).
+		Where("organization_id = ?", organizationID).
 		First(&vulnerability, vulnerabilityID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.Asset{}, model.Vulnerability{}, baserepository.ErrVulnerabilityNotFound

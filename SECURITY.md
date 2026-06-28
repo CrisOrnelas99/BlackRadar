@@ -12,7 +12,7 @@ This repository is SecureOps, a business asset and vulnerability-management web 
 * External integrations: vulnerability and threat-data APIs, including NIST/NVD-style sources
 * Future features may include focused Go services, remediation workflows, work orders, audit trails, collaboration, and AI/chat assistance.
 
-Use this file with `README.md`, `ARCHITECTURE.md`, `Roadmap.md`, and `AGENTS.md`. When those files describe current implementation or roadmap intent, this file defines the security rules that coding agents must preserve while working in this repo.
+Use this file with `README.md`, `ARCHITECTURE.md`, and `AGENTS.md`. When those files describe current implementation or planned behavior, this file defines the security rules that coding agents must preserve while working in this repo.
 
 Security is a functional requirement. Do not trade security controls for speed, convenience, or passing tests.
 
@@ -114,6 +114,7 @@ Assets, vulnerabilities, remediation plans, work orders, comments, audit events,
 Rules:
 
 * Derive the active organization/tenant from authenticated server-side context.
+* When registration accepts an organization name, resolve or create the organization server-side and bind the new user to that organization. Never accept a client-supplied `organization_id`.
 * Never trust `organization_id`, `tenant_id`, `role`, or `user_id` supplied in request bodies, query parameters, headers, cookies, or Angular state.
 * Every database query involving tenant-owned data must filter by the authenticated tenant.
 * Verify both tenant membership and role/permission before reading or modifying a record.
@@ -202,6 +203,7 @@ When the application is deployed to AWS or another cloud provider, keep these ru
 * Preserve server-side authorization, validation, and session checks exactly as in local deployments.
 * Prefer structured logs for audit and request events so security fields can be filtered without exposing payloads.
 * Keep application-level rate limiting authoritative for auth and NVD lookup paths; use AWS WAF/ALB/CloudFront-style controls as a second layer only.
+* When GitHub Actions is used for deployment, prefer OIDC-based cloud authentication over long-lived cloud access keys.
 
 ---
 
@@ -300,6 +302,13 @@ A vulnerable, malicious, abandoned, or tampered dependency, build tool, CI actio
 * Protect source control, package registries, CI/CD systems, and artifact repositories with MFA and least privilege.
 * Require review before code can be promoted to production.
 * Promote verified build artifacts across environments rather than rebuilding different artifacts per environment.
+* Use protected branches and required checks for pull requests.
+* Pin GitHub Actions and other CI actions to vetted versions or commit SHAs.
+* Keep the `GITHUB_TOKEN` and other CI secrets scoped to the minimum permissions needed by each job.
+* Split CI into separate lint, test, build, scan, and deploy jobs so privileged steps stay isolated.
+* Prefer OIDC federation to cloud providers instead of long-lived deployment keys when the platform supports it.
+* Use protected environments with approval gates for deploy jobs.
+* Treat CI logs as sensitive and do not echo secrets, tokens, request bodies, or package credentials.
 
 ### Agent rules
 
@@ -686,7 +695,7 @@ Detailed error causes belong in protected structured logs, not in browser respon
 
   * Do not bind untrusted JSON directly into a model containing roles, tenant IDs, ownership fields, approval flags, or workflow states.
   * Map allowed DTO fields into domain models intentionally.
-* Scope all tenant-owned queries by organization or, where the current implementation is still user-owned, by the authenticated user ID from `GinContext`.
+* Scope all tenant-owned queries by organization, and only fall back to user-owned scope for legacy code that has not yet been migrated.
 * Use transactions for multi-record and workflow updates.
 * Use a least-privileged database account for the running application.
 * Use a separate migration account where practical.

@@ -321,9 +321,10 @@ func TestJWTAuthenticationFilterSetsAuthenticatedUserContext(t *testing.T) {
 	lookup := &fakeUserLookup{
 		exists: true,
 		user: model.User{
-			ID:       42,
-			Username: "analyst",
-			Role:     model.RoleUser,
+			ID:             42,
+			OrganizationID: 99,
+			Username:       "analyst",
+			Role:           model.RoleUser,
 		},
 	}
 	token := mustGenerateToken(t, jwtManager, "analyst", "session-1")
@@ -342,6 +343,9 @@ func TestJWTAuthenticationFilterSetsAuthenticatedUserContext(t *testing.T) {
 		}
 		if ec.UserRole() != model.RoleUser {
 			t.Fatalf("expected user role %s, got %v", model.RoleUser, ec.UserRole())
+		}
+		if ec.OrganizationID() != int64(99) {
+			t.Fatalf("expected organization ID 99, got %v", ec.OrganizationID())
 		}
 		if lookup.existsContext == nil || lookup.findContext == nil {
 			t.Fatal("expected user lookup to receive GinContext")

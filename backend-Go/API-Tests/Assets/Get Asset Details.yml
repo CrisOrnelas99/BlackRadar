@@ -5,7 +5,7 @@ info:
 
 http:
   method: GET
-  url: http://localhost:8080/api/assets/9000000002
+  url: http://localhost:8080/api/assets/7700000000000000002
   auth: inherit
 
 settings:

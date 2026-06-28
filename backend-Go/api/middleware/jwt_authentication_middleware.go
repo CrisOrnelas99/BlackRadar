@@ -69,6 +69,7 @@ func JWTAuthenticationFilter(jwtManager *security.JWTManager, users UserLookup, 
 
 		ec.SetUsername(claims.Subject)
 		ec.SetUserID(user.ID)
+		ec.SetOrganizationID(user.OrganizationID)
 		ec.SetUserRole(user.Role)
 		ctx.Next()
 	}

@@ -59,10 +59,25 @@ func AuthenticatedUserID(ec *appcontext.GinContext) (int64, error) {
 	return userID, nil
 }
 
+// AuthenticatedOrganizationID returns the authenticated organization ID from the request context.
+func AuthenticatedOrganizationID(ec *appcontext.GinContext) (int64, error) {
+	if ec == nil {
+		return 0, ErrForbidden
+	}
+
+	organizationID := ec.OrganizationID()
+	if organizationID <= 0 {
+		return 0, ErrForbidden
+	}
+
+	return organizationID, nil
+}
+
 // NormalizeRegisterRequest trims and normalizes registration input.
 func NormalizeRegisterRequest(request dto.RegisterRequest) dto.RegisterRequest {
 	request.Username = strings.TrimSpace(request.Username)
 	request.Email = strings.ToLower(strings.TrimSpace(request.Email))
+	request.Organization = strings.TrimSpace(request.Organization)
 	request.Password = strings.TrimSpace(request.Password)
 	return request
 }
@@ -76,6 +91,9 @@ func ValidateRegisterRequest(request dto.RegisterRequest) error {
 		return ErrInvalidRequestData
 	}
 	if strings.TrimSpace(request.Email) == "" {
+		return ErrInvalidRequestData
+	}
+	if strings.TrimSpace(request.Organization) == "" || utf8.RuneCountInString(request.Organization) < 3 || utf8.RuneCountInString(request.Organization) > 80 {
 		return ErrInvalidRequestData
 	}
 	if _, err := mail.ParseAddress(request.Email); err != nil {

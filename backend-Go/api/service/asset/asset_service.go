@@ -27,21 +27,21 @@ func NewAssetService(assetRepository baserepository.AssetRepository, vulnerabili
 
 // GetAllAssets returns all assets owned by the authenticated user.
 func (s *assetServiceImpl) GetAllAssets(ec *appcontext.GinContext) ([]model.Asset, error) {
-	userID, err := baseservice.AuthenticatedUserID(ec)
+	organizationID, err := baseservice.AuthenticatedOrganizationID(ec)
 	if err != nil {
 		return nil, err
 	}
-	assets, err := s.assetRepository.FindAllByUser(ec, userID)
+	assets, err := s.assetRepository.FindAllByOrganization(ec, organizationID)
 	return assets, baseservice.TranslateRepositoryError(err)
 }
 
 // GetAsset returns a single asset owned by the authenticated user.
 func (s *assetServiceImpl) GetAsset(ec *appcontext.GinContext, id int64) (model.Asset, error) {
-	userID, err := baseservice.AuthenticatedUserID(ec)
+	organizationID, err := baseservice.AuthenticatedOrganizationID(ec)
 	if err != nil {
 		return model.Asset{}, err
 	}
-	asset, err := s.assetRepository.FindByIDForUser(ec, id, userID)
+	asset, err := s.assetRepository.FindByIDForOrganization(ec, id, organizationID)
 	return asset, baseservice.TranslateRepositoryError(err)
 }
 
@@ -52,10 +52,15 @@ func (s *assetServiceImpl) CreateAsset(ec *appcontext.GinContext, asset model.As
 	}
 
 	userID, err := baseservice.AuthenticatedUserID(ec)
+	organizationID, orgErr := baseservice.AuthenticatedOrganizationID(ec)
+	if orgErr != nil {
+		return model.Asset{}, orgErr
+	}
 	if err != nil {
 		return model.Asset{}, err
 	}
 	asset.UserID = userID
+	asset.OrganizationID = organizationID
 
 	created, err := s.assetRepository.Save(ec, asset)
 	return created, baseservice.TranslateRepositoryError(err)
@@ -67,22 +72,22 @@ func (s *assetServiceImpl) UpdateAsset(ec *appcontext.GinContext, id int64, asse
 		return model.Asset{}, err
 	}
 
-	userID, err := baseservice.AuthenticatedUserID(ec)
+	organizationID, err := baseservice.AuthenticatedOrganizationID(ec)
 	if err != nil {
 		return model.Asset{}, err
 	}
 
-	updated, err := s.assetRepository.UpdateForUser(ec, id, userID, asset)
+	updated, err := s.assetRepository.UpdateForOrganization(ec, id, organizationID, asset)
 	return updated, baseservice.TranslateRepositoryError(err)
 }
 
 // DeleteAsset removes an asset owned by the authenticated user.
 func (s *assetServiceImpl) DeleteAsset(ec *appcontext.GinContext, id int64) (model.Asset, error) {
-	userID, err := baseservice.AuthenticatedUserID(ec)
+	organizationID, err := baseservice.AuthenticatedOrganizationID(ec)
 	if err != nil {
 		return model.Asset{}, err
 	}
-	asset, err := s.assetRepository.DeleteForUser(ec, id, userID)
+	asset, err := s.assetRepository.DeleteForOrganization(ec, id, organizationID)
 	return asset, baseservice.TranslateRepositoryError(err)
 }
 
@@ -96,11 +101,11 @@ func (s *assetServiceImpl) AssignVulnerability(ec *appcontext.GinContext, assetI
 		return model.Asset{}, baseservice.ErrForbidden
 	}
 
-	userID, err := baseservice.AuthenticatedUserID(ec)
+	organizationID, err := baseservice.AuthenticatedOrganizationID(ec)
 	if err != nil {
 		return model.Asset{}, err
 	}
-	asset, err := s.assetRepository.AssignVulnerabilityForUser(ec, assetID, userID, vulnerabilityID)
+	asset, err := s.assetRepository.AssignVulnerabilityForOrganization(ec, assetID, organizationID, vulnerabilityID)
 	return asset, baseservice.TranslateRepositoryError(err)
 }
 
@@ -114,12 +119,12 @@ func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, a
 		return model.Asset{}, baseservice.ErrForbidden
 	}
 
-	userID, err := baseservice.AuthenticatedUserID(ec)
+	organizationID, err := baseservice.AuthenticatedOrganizationID(ec)
 	if err != nil {
 		return model.Asset{}, err
 	}
 
-	asset, err := s.assetRepository.FindByIDForUser(ec, assetID, userID)
+	asset, err := s.assetRepository.FindByIDForOrganization(ec, assetID, organizationID)
 	if err != nil {
 		return model.Asset{}, baseservice.TranslateRepositoryError(err)
 	}
@@ -134,17 +139,17 @@ func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, a
 		return model.Asset{}, err
 	}
 
-	existingVulnerability, err := s.vulnerabilityRepository.FindByCVEIDForUser(ec, normalizedCVEID, userID)
+	existingVulnerability, err := s.vulnerabilityRepository.FindByCVEIDForOrganization(ec, normalizedCVEID, organizationID)
 	if err != nil && err != baserepository.ErrVulnerabilityNotFound {
 		return model.Asset{}, baseservice.TranslateRepositoryError(err)
 	}
 
-	vulnerability, err := s.saveNVDVulnerability(ec, userID, lookup, existingVulnerability)
+	vulnerability, err := s.saveNVDVulnerability(ec, organizationID, lookup, existingVulnerability)
 	if err != nil {
 		return model.Asset{}, err
 	}
 
-	asset, err = s.assetRepository.AssignVulnerabilityForUser(ec, asset.ID, userID, vulnerability.ID)
+	asset, err = s.assetRepository.AssignVulnerabilityForOrganization(ec, asset.ID, organizationID, vulnerability.ID)
 	if err != nil {
 		return model.Asset{}, baseservice.TranslateRepositoryError(err)
 	}
@@ -162,26 +167,27 @@ func (s *assetServiceImpl) RemoveVulnerability(ec *appcontext.GinContext, assetI
 		return model.Asset{}, baseservice.ErrForbidden
 	}
 
-	userID, err := baseservice.AuthenticatedUserID(ec)
+	organizationID, err := baseservice.AuthenticatedOrganizationID(ec)
 	if err != nil {
 		return model.Asset{}, err
 	}
-	asset, err := s.assetRepository.RemoveVulnerabilityForUser(ec, assetID, userID, vulnerabilityID)
+	asset, err := s.assetRepository.RemoveVulnerabilityForOrganization(ec, assetID, organizationID, vulnerabilityID)
 	return asset, baseservice.TranslateRepositoryError(err)
 }
 
-func (s *assetServiceImpl) saveNVDVulnerability(ec *appcontext.GinContext, userID int64, response dto.CVELookupResponse, existing model.Vulnerability) (model.Vulnerability, error) {
+func (s *assetServiceImpl) saveNVDVulnerability(ec *appcontext.GinContext, organizationID int64, response dto.CVELookupResponse, existing model.Vulnerability) (model.Vulnerability, error) {
 	vulnerability := model.Vulnerability{
-		UserID:      userID,
-		CVEID:       response.CVEID,
-		Title:       response.Title,
-		Severity:    baseservice.NormalizeSeverity(response.Severity),
-		Description: response.Description,
-		Status:      "Open",
+		OrganizationID: organizationID,
+		UserID:         ec.UserID(),
+		CVEID:          response.CVEID,
+		Title:          response.Title,
+		Severity:       baseservice.NormalizeSeverity(response.Severity),
+		Description:    response.Description,
+		Status:         "Open",
 	}
 
 	if existing.ID > 0 {
-		return s.vulnerabilityRepository.UpdateForUser(ec, existing.ID, userID, vulnerability)
+		return s.vulnerabilityRepository.UpdateForOrganization(ec, existing.ID, organizationID, vulnerability)
 	}
 
 	return s.vulnerabilityRepository.Save(ec, vulnerability)

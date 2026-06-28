@@ -5,9 +5,10 @@ import "secureops/backend-go/api/model"
 
 // RegisterRequest contains the fields required to create a user account.
 type RegisterRequest struct {
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Username     string `json:"username"`
+	Email        string `json:"email"`
+	Organization string `json:"organization"`
+	Password     string `json:"password"`
 }
 
 // LoginRequest contains the credentials used to authenticate a user.

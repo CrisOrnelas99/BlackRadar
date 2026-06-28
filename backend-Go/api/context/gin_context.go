@@ -15,10 +15,11 @@ import (
 )
 
 const (
-	ginContextKey = "ginContext"
-	userIDKey     = "userID"
-	usernameKey   = "username"
-	userRoleKey   = "userRole"
+	ginContextKey     = "ginContext"
+	userIDKey         = "userID"
+	usernameKey       = "username"
+	userRoleKey       = "userRole"
+	organizationIDKey = "organizationID"
 )
 
 type GinContext struct {
@@ -110,6 +111,21 @@ func (ec *GinContext) UserRole() string {
 	return value
 }
 
+// OrganizationID returns the authenticated organization ID stored in the request context.
+func (ec *GinContext) OrganizationID() int64 {
+	organizationID, exists := ec.Get(organizationIDKey)
+	if !exists {
+		return 0
+	}
+
+	value, ok := organizationID.(int64)
+	if !ok {
+		return 0
+	}
+
+	return value
+}
+
 // SetUserID stores the authenticated user ID on the request context.
 func (ec *GinContext) SetUserID(userID int64) {
 	ec.Set(userIDKey, userID)
@@ -123,6 +139,11 @@ func (ec *GinContext) SetUsername(username string) {
 // SetUserRole stores the authenticated role on the request context.
 func (ec *GinContext) SetUserRole(role string) {
 	ec.Set(userRoleKey, role)
+}
+
+// SetOrganizationID stores the authenticated organization ID on the request context.
+func (ec *GinContext) SetOrganizationID(organizationID int64) {
+	ec.Set(organizationIDKey, organizationID)
 }
 
 // TransactionID returns the request trace identifier.

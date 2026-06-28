@@ -4,6 +4,7 @@ package repository
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -34,7 +35,7 @@ func (r *UserRepository) dbForContext(ec *appcontext.GinContext) *gorm.DB {
 // ExistsByUsername reports whether a username already exists.
 func (r *UserRepository) ExistsByUsername(ec *appcontext.GinContext, username string) (bool, error) {
 	var count int64
-	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Model(&model.User{}).Where("username = ?", username).Count(&count).Error
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Model(&model.User{}).Where("username = ?", strings.TrimSpace(username)).Count(&count).Error
 	if err != nil {
 		return false, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
 	}
@@ -44,7 +45,7 @@ func (r *UserRepository) ExistsByUsername(ec *appcontext.GinContext, username st
 // ExistsByEmail reports whether an email address already exists.
 func (r *UserRepository) ExistsByEmail(ec *appcontext.GinContext, email string) (bool, error) {
 	var count int64
-	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Model(&model.User{}).Where("email = ?", email).Count(&count).Error
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Model(&model.User{}).Where("email = ?", strings.ToLower(strings.TrimSpace(email))).Count(&count).Error
 	if err != nil {
 		return false, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
 	}
@@ -53,7 +54,7 @@ func (r *UserRepository) ExistsByEmail(ec *appcontext.GinContext, email string) 
 
 // Save creates a new user record.
 func (r *UserRepository) Save(ec *appcontext.GinContext, user model.User) (model.User, error) {
-	if user.Username == "" || user.Email == "" || user.PasswordHash == "" {
+	if user.OrganizationID <= 0 || user.Username == "" || user.Email == "" || user.PasswordHash == "" {
 		return model.User{}, baserepository.ErrInvalidData
 	}
 
@@ -90,7 +91,7 @@ func (r *UserRepository) Save(ec *appcontext.GinContext, user model.User) (model
 func (r *UserRepository) FindByUsernameOrEmail(ec *appcontext.GinContext, userOrEmail string) (model.User, error) {
 	var user model.User
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
-		Where("username = ? OR email = ?", userOrEmail, userOrEmail).
+		Where("username = ? OR email = ?", strings.TrimSpace(userOrEmail), strings.ToLower(strings.TrimSpace(userOrEmail))).
 		First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.User{}, gorm.ErrRecordNotFound
@@ -104,7 +105,7 @@ func (r *UserRepository) FindByUsernameOrEmail(ec *appcontext.GinContext, userOr
 // FindByUsername returns a user that matches the supplied username.
 func (r *UserRepository) FindByUsername(ec *appcontext.GinContext, username string) (model.User, error) {
 	var user model.User
-	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("username = ?", username).First(&user).Error
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("username = ?", strings.TrimSpace(username)).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.User{}, gorm.ErrRecordNotFound
 	}
@@ -117,7 +118,7 @@ func (r *UserRepository) FindByUsername(ec *appcontext.GinContext, username stri
 // FindByEmail returns a user that matches the supplied email.
 func (r *UserRepository) FindByEmail(ec *appcontext.GinContext, email string) (model.User, error) {
 	var user model.User
-	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("email = ?", email).First(&user).Error
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("email = ?", strings.ToLower(strings.TrimSpace(email))).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.User{}, gorm.ErrRecordNotFound
 	}
