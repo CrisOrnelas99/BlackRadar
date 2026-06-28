@@ -47,16 +47,21 @@ func RegisterRoutes(router *gin.Engine, jwtManager *security.JWTManager, userLoo
 		protected.POST("/assets", appcontext.Wrap(handlers.CreateAsset))
 		protected.PUT("/assets/:id", appcontext.Wrap(handlers.UpdateAsset))
 		protected.DELETE("/assets/:id", appcontext.Wrap(handlers.DeleteAsset))
-		protected.POST("/assets/:id/vulnerabilities/:vulnerabilityId", appcontext.Wrap(handlers.AssignVulnerability))
-		protected.POST("/assets/:id/vulnerabilities/cve/:cveId", appcontext.Wrap(handlers.AssignVulnerabilityByCVE))
-		protected.DELETE("/assets/:id/vulnerabilities/:vulnerabilityId", appcontext.Wrap(handlers.RemoveVulnerability))
 
-		protected.GET("/vulnerabilities", appcontext.Wrap(handlers.GetVulnerabilities))
-		protected.GET("/vulnerabilities/:id", appcontext.Wrap(handlers.GetVulnerability))
-		protected.POST("/vulnerabilities", appcontext.Wrap(handlers.CreateVulnerability))
-		protected.PUT("/vulnerabilities/:id", appcontext.Wrap(handlers.UpdateVulnerability))
-		protected.DELETE("/vulnerabilities/:id", appcontext.Wrap(handlers.DeleteVulnerability))
+		adminOnly := protected.Group("/")
+		adminOnly.Use(middleware.RequireAdmin())
+		{
+			adminOnly.POST("/assets/:id/vulnerabilities/:vulnerabilityId", appcontext.Wrap(handlers.AssignVulnerability))
+			adminOnly.POST("/assets/:id/vulnerabilities/cve/:cveId", appcontext.Wrap(handlers.AssignVulnerabilityByCVE))
+			adminOnly.DELETE("/assets/:id/vulnerabilities/:vulnerabilityId", appcontext.Wrap(handlers.RemoveVulnerability))
 
-		protected.GET("/nvd/cves/:cveId", appcontext.Wrap(handlers.LookupCVE))
+			adminOnly.GET("/vulnerabilities", appcontext.Wrap(handlers.GetVulnerabilities))
+			adminOnly.GET("/vulnerabilities/:id", appcontext.Wrap(handlers.GetVulnerability))
+			adminOnly.POST("/vulnerabilities", appcontext.Wrap(handlers.CreateVulnerability))
+			adminOnly.PUT("/vulnerabilities/:id", appcontext.Wrap(handlers.UpdateVulnerability))
+			adminOnly.DELETE("/vulnerabilities/:id", appcontext.Wrap(handlers.DeleteVulnerability))
+
+			adminOnly.GET("/nvd/cves/:cveId", appcontext.Wrap(handlers.LookupCVE))
+		}
 	}
 }

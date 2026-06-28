@@ -100,7 +100,7 @@ func TestHealth(t *testing.T) {
 func TestRegisterRoutes(t *testing.T) {
 	engine := gin.New()
 	jwtManager := security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
-	lookup := &fakeUserLookup{exists: true, user: model.User{ID: 1, Username: "analyst", Role: model.RoleUser}}
+	lookup := &fakeUserLookup{exists: true, user: model.User{ID: 1, Username: "analyst", Role: model.RoleAdmin}}
 	sessions := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: 1}}
 
 	authController := controllerauth.NewAuthController(&fakeAuthService{})
@@ -176,6 +176,47 @@ func TestRegisterRoutes(t *testing.T) {
 	engine.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected CVE assignment route status %d, got %d", http.StatusOK, recorder.Code)
+	}
+}
+
+func TestRegisterRoutesRejectsVulnerabilityRoutesForNonAdmin(t *testing.T) {
+	engine := gin.New()
+	jwtManager := security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
+	lookup := &fakeUserLookup{exists: true, user: model.User{ID: 1, Username: "analyst", Role: model.RoleUser}}
+	sessions := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: 1}}
+
+	vulnerabilityController := controllervulnerability.NewVulnerabilityController(&fakeVulnerabilityService{vulnerability: sampleVulnerability(), vulnerabilities: []model.Vulnerability{sampleVulnerability()}})
+
+	basecontroller.RegisterRoutes(engine, jwtManager, lookup, sessions, basecontroller.RouteHandlers{
+		GetVulnerabilities:  vulnerabilityController.GetVulnerabilities,
+		GetVulnerability:    vulnerabilityController.GetVulnerability,
+		CreateVulnerability: vulnerabilityController.CreateVulnerability,
+		UpdateVulnerability: vulnerabilityController.UpdateVulnerability,
+		DeleteVulnerability: vulnerabilityController.DeleteVulnerability,
+		LookupCVE: func(ec *appcontext.GinContext) {
+			ec.JSON(http.StatusOK, gin.H{"cveId": ec.Param("cveId")})
+		},
+	})
+
+	token, err := jwtManager.GenerateToken("analyst", "session-1")
+	if err != nil {
+		t.Fatalf("failed to generate token: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/vulnerabilities", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("expected vulnerability route to be forbidden, got %d", recorder.Code)
+	}
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodGet, "/api/nvd/cves/CVE-2021-44228", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("expected NVD route to be forbidden, got %d", recorder.Code)
 	}
 }
 

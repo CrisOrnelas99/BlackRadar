@@ -81,6 +81,7 @@ func TestAssetServiceAssignVulnerabilityByCVE(t *testing.T) {
 	}}
 	svc := NewAssetService(assetRepo, vulnRepo, nvdSvc)
 	ctx := newServiceContext(t, 42)
+	ctx.SetUserRole(model.RoleAdmin)
 
 	assigned, err := svc.AssignVulnerabilityByCVE(ctx, 1, "cve-2024-3094")
 	if err != nil {
@@ -94,6 +95,22 @@ func TestAssetServiceAssignVulnerabilityByCVE(t *testing.T) {
 	}
 	if vulnRepo.saved.CVEID != "CVE-2024-3094" {
 		t.Fatalf("expected local vulnerability to be saved, got %q", vulnRepo.saved.CVEID)
+	}
+}
+
+func TestAssetServiceRejectsVulnerabilityActionsForNonAdmin(t *testing.T) {
+	svc := NewAssetService(&fakeAssetRepository{asset: sampleAsset()}, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{})
+	ctx := newServiceContext(t, 42)
+	ctx.SetUserRole(model.RoleUser)
+
+	if _, err := svc.AssignVulnerability(ctx, 1, 2); !errors.Is(err, baseservice.ErrForbidden) {
+		t.Fatalf("expected assign vulnerability to be forbidden, got %v", err)
+	}
+	if _, err := svc.AssignVulnerabilityByCVE(ctx, 1, "CVE-2024-3094"); !errors.Is(err, baseservice.ErrForbidden) {
+		t.Fatalf("expected assign by cve to be forbidden, got %v", err)
+	}
+	if _, err := svc.RemoveVulnerability(ctx, 1, 2); !errors.Is(err, baseservice.ErrForbidden) {
+		t.Fatalf("expected remove vulnerability to be forbidden, got %v", err)
 	}
 }
 

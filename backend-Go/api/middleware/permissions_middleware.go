@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	appcontext "secureops/backend-go/api/context"
-	"secureops/backend-go/api/model"
+	"secureops/backend-go/api/security"
 )
 
 // RequireAdmin enforces that the authenticated request has the admin role.
@@ -16,7 +16,7 @@ import (
 func RequireAdmin() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		ec := appcontext.FromGinContext(ctx)
-		if ec.UserRole() != model.RoleAdmin {
+		if !security.IsAdmin(ec.UserRole()) {
 			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": ErrForbidden.Message})
 			return
 		}

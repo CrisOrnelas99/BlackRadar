@@ -6,6 +6,7 @@ import (
 	"secureops/backend-go/api/dto"
 	"secureops/backend-go/api/model"
 	baserepository "secureops/backend-go/api/repository"
+	"secureops/backend-go/api/security"
 	baseservice "secureops/backend-go/api/service"
 )
 
@@ -87,6 +88,14 @@ func (s *assetServiceImpl) DeleteAsset(ec *appcontext.GinContext, id int64) (mod
 
 // AssignVulnerability attaches a vulnerability to an asset owned by the authenticated user.
 func (s *assetServiceImpl) AssignVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error) {
+	role := ""
+	if ec != nil {
+		role = ec.UserRole()
+	}
+	if !security.CanManageVulnerabilities(role) {
+		return model.Asset{}, baseservice.ErrForbidden
+	}
+
 	userID, err := baseservice.AuthenticatedUserID(ec)
 	if err != nil {
 		return model.Asset{}, err
@@ -97,6 +106,14 @@ func (s *assetServiceImpl) AssignVulnerability(ec *appcontext.GinContext, assetI
 
 // AssignVulnerabilityByCVE looks up or stores a local vulnerability by CVE ID, then assigns it to the asset.
 func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, assetID int64, cveID string) (model.Asset, error) {
+	role := ""
+	if ec != nil {
+		role = ec.UserRole()
+	}
+	if !security.CanManageVulnerabilities(role) {
+		return model.Asset{}, baseservice.ErrForbidden
+	}
+
 	userID, err := baseservice.AuthenticatedUserID(ec)
 	if err != nil {
 		return model.Asset{}, err
@@ -137,6 +154,14 @@ func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, a
 
 // RemoveVulnerability removes a vulnerability from an asset owned by the authenticated user.
 func (s *assetServiceImpl) RemoveVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error) {
+	role := ""
+	if ec != nil {
+		role = ec.UserRole()
+	}
+	if !security.CanManageVulnerabilities(role) {
+		return model.Asset{}, baseservice.ErrForbidden
+	}
+
 	userID, err := baseservice.AuthenticatedUserID(ec)
 	if err != nil {
 		return model.Asset{}, err
