@@ -18,6 +18,18 @@ type UserRepository interface {
 	FindByUsernameOrEmail(ec *appcontext.GinContext, userOrEmail string) (model.User, error)
 	// FindByUsername returns a user by username.
 	FindByUsername(ec *appcontext.GinContext, username string) (model.User, error)
+	// FindByEmail returns a user by email.
+	FindByEmail(ec *appcontext.GinContext, email string) (model.User, error)
+}
+
+// RefreshSessionRepository defines persistence operations for refresh token sessions.
+type RefreshSessionRepository interface {
+	// Save persists a new refresh session.
+	Save(ec *appcontext.GinContext, session model.RefreshSession) error
+	// FindActiveByTokenIDForUser returns an active refresh session for a user.
+	FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID int64) (model.RefreshSession, error)
+	// RevokeByTokenIDForUser marks a refresh session as revoked.
+	RevokeByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID int64) error
 }
 
 // AssetRepository defines persistence operations for asset records.
@@ -48,6 +60,8 @@ type VulnerabilityRepository interface {
 	ExistsByCVEIDForUser(ec *appcontext.GinContext, cveID string, userID int64) (bool, error)
 	// ExistsByCVEIDExcludingIDForUser checks whether a CVE ID exists for a user excluding a specific record.
 	ExistsByCVEIDExcludingIDForUser(ec *appcontext.GinContext, cveID string, id int64, userID int64) (bool, error)
+	// FindByCVEIDForUser returns a vulnerability by CVE ID for a user.
+	FindByCVEIDForUser(ec *appcontext.GinContext, cveID string, userID int64) (model.Vulnerability, error)
 	// Save persists a new vulnerability.
 	Save(ec *appcontext.GinContext, vulnerability model.Vulnerability) (model.Vulnerability, error)
 	// UpdateForUser updates an existing vulnerability for a user.

@@ -21,10 +21,15 @@ type UserLookup interface {
 	FindByUsername(ec *appcontext.GinContext, username string) (model.User, error)
 }
 
+// RefreshSessionLookup defines how authentication middleware verifies that a token session is still active.
+type RefreshSessionLookup interface {
+	FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID int64) (model.RefreshSession, error)
+}
+
 // JWTAuthenticationFilter validates Authorization bearer tokens, resolves the authenticated user,
 // and stores typed authentication state on request context. It fails closed for missing, invalid,
 // or unverifiable authentication.
-func JWTAuthenticationFilter(jwtManager *security.JWTManager, users UserLookup) gin.HandlerFunc {
+func JWTAuthenticationFilter(jwtManager *security.JWTManager, users UserLookup, sessions RefreshSessionLookup) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		header := ctx.GetHeader("Authorization")
 		if !strings.HasPrefix(header, "Bearer ") {
@@ -33,26 +38,36 @@ func JWTAuthenticationFilter(jwtManager *security.JWTManager, users UserLookup) 
 		}
 
 		token := strings.TrimPrefix(header, "Bearer ")
-		username, err := jwtManager.ExtractUsername(token)
+		claims, err := jwtManager.ExtractAccessClaims(token)
 		if err != nil {
 			JWTAuthenticationEntryPoint(ctx)
 			return
 		}
 
 		ec := appcontext.FromGinContext(ctx)
-		exists, err := users.ExistsByUsername(ec, username)
+		exists, err := users.ExistsByUsername(ec, claims.Subject)
 		if err != nil || !exists {
 			JWTAuthenticationEntryPoint(ctx)
 			return
 		}
 
-		user, err := users.FindByUsername(ec, username)
+		user, err := users.FindByUsername(ec, claims.Subject)
 		if err != nil {
 			JWTAuthenticationEntryPoint(ctx)
 			return
 		}
 
-		ec.SetUsername(username)
+		if sessions == nil {
+			JWTAuthenticationEntryPoint(ctx)
+			return
+		}
+
+		if _, err := sessions.FindActiveByTokenIDForUser(ec, claims.ID, user.ID); err != nil {
+			JWTAuthenticationEntryPoint(ctx)
+			return
+		}
+
+		ec.SetUsername(claims.Subject)
 		ec.SetUserID(user.ID)
 		ec.SetUserRole(user.Role)
 		ctx.Next()

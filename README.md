@@ -28,6 +28,7 @@ Key capabilities include:
 - asset inventory with product-aware metadata
 - vulnerability tracking and asset-to-vulnerability assignment
 - backend-enforced authorization and security controls
+- short-lived access tokens with server-side refresh-token sessions
 - planned vulnerability intelligence and AI-assisted workflows listed below
 
 The platform supports multiple inventory contexts, including organization portfolios, applications, home networks, and imported raw asset lists.
@@ -76,7 +77,7 @@ Go Gin/GORM backend
 The repository currently contains these working foundations:
 
 - Go Gin/GORM backend foundation
-- JWT-based authentication
+- JWT-based authentication with access and refresh tokens
 - permission middleware support
 - asset CRUD API and models
 - vulnerability CRUD API and models
@@ -248,6 +249,8 @@ Important:
 Authentication
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `POST /api/auth/refresh`
+- `POST /api/auth/logout`
 
 Assets
 - `GET /api/assets`
@@ -322,7 +325,9 @@ SecureOps is organized around strong backend controls and safe external integrat
 Security principles:
 
 - BCrypt password hashing
-- JWT-based backend authentication
+- JWT access tokens with short lifetimes
+- server-side refresh-token sessions
+- logout-driven session revocation
 - server-side authorization enforcement
 - admin permissions enforced in middleware
 - DTO-based request and response handling

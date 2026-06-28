@@ -141,6 +141,25 @@ func (c *AssetController) AssignVulnerability(ec *appcontext.GinContext) {
 	ec.JSON(http.StatusOK, dto.ToAssetResponseDTO(asset))
 }
 
+// AssignVulnerabilityByCVE looks up a CVE, stores it locally if needed, and assigns it to an asset.
+func (c *AssetController) AssignVulnerabilityByCVE(ec *appcontext.GinContext) {
+	assetID, err := basecontroller.ParseID(ec.Param("id"))
+	if basecontroller.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid positive integer") {
+		return
+	}
+
+	asset, err := c.assetService.AssignVulnerabilityByCVE(ec, assetID, ec.Param("cveId"))
+	if err != nil {
+		if handleAssetServiceError(ec, err, "Error assigning vulnerability from CVE") {
+			return
+		}
+		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error assigning vulnerability from CVE")
+		return
+	}
+
+	ec.JSON(http.StatusOK, dto.ToAssetResponseDTO(asset))
+}
+
 // RemoveVulnerability removes a vulnerability association from an asset.
 func (c *AssetController) RemoveVulnerability(ec *appcontext.GinContext) {
 	assetID, vulnerabilityID, ok := basecontroller.ParsePair(ec)

@@ -17,10 +17,11 @@ config:
 request:
   auth:
     type: bearer
-    token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzY29wZSI6ImFwaSIsInRva2VuVXNlIjoiYWNjZXNzIiwiaXNzIjoic2VjdXJlb3BzIiwic3ViIjoic3lzdGVtX2FkbWluIiwiYXVkIjpbInNlY3VyZW9wcy1hcGkiXSwiZXhwIjoxNzgyNTk1NTAxLCJpYXQiOjE3ODI1OTE5MDF9.uC42tWafHgAD_MPhHVlxxzGX26-Zmehsdyfcm3HiZP8
+    token: "{{token}}"
 bundled: false
 extensions:
   bruno:
     ignore:
       - node_modules
       - .git
+​

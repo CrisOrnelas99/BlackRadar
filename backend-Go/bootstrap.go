@@ -18,6 +18,10 @@ const (
 	bootstrapEmail    = "Test@gmail.com"
 	bootstrapPassword = "Password123!"
 
+	bootstrapUserID          int64 = 7700000000000000001
+	bootstrapAssetID         int64 = 7700000000000000002
+	bootstrapVulnerabilityID int64 = 7700000000000000003
+
 	bootstrapAssetName        = "Test Device"
 	bootstrapAssetType        = "Device"
 	bootstrapAssetIPAddress   = "10.0.0.10"
@@ -50,6 +54,10 @@ func runBootstrap(ctx context.Context, database *gorm.DB, cfg config.Config) err
 
 func seedDevData(ctx context.Context, database *gorm.DB) error {
 	return database.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := clearBootstrapData(ctx, tx); err != nil {
+			return err
+		}
+
 		user, err := seedBootstrapUser(ctx, tx)
 		if err != nil {
 			return err
@@ -69,6 +77,45 @@ func seedDevData(ctx context.Context, database *gorm.DB) error {
 	})
 }
 
+func clearBootstrapData(ctx context.Context, database *gorm.DB) error {
+	email := strings.ToLower(strings.TrimSpace(bootstrapEmail))
+	var user model.User
+	err := database.WithContext(ctx).
+		Where("username = ? OR email = ?", bootstrapUsername, email).
+		First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("find bootstrap user for cleanup: %w", err)
+	}
+
+	if err := database.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec(
+			`DELETE FROM asset_vulnerabilities
+			 WHERE asset_id IN (SELECT id FROM assets WHERE user_id = ?)
+			    OR vulnerability_id IN (SELECT id FROM vulnerabilities WHERE user_id = ?)`,
+			user.ID, user.ID,
+		).Error; err != nil {
+			return fmt.Errorf("delete bootstrap asset vulnerabilities: %w", err)
+		}
+		if err := tx.Exec(`DELETE FROM assets WHERE user_id = ?`, user.ID).Error; err != nil {
+			return fmt.Errorf("delete bootstrap assets: %w", err)
+		}
+		if err := tx.Exec(`DELETE FROM vulnerabilities WHERE user_id = ?`, user.ID).Error; err != nil {
+			return fmt.Errorf("delete bootstrap vulnerabilities: %w", err)
+		}
+		if err := tx.Delete(&user).Error; err != nil {
+			return fmt.Errorf("delete bootstrap user: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func seedBootstrapUser(ctx context.Context, database *gorm.DB) (model.User, error) {
 	email := strings.ToLower(strings.TrimSpace(bootstrapEmail))
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(bootstrapPassword), config.PasswordCost())
@@ -76,32 +123,15 @@ func seedBootstrapUser(ctx context.Context, database *gorm.DB) (model.User, erro
 		return model.User{}, fmt.Errorf("hash bootstrap password: %w", err)
 	}
 
-	var user model.User
-	err = database.WithContext(ctx).
-		Where("username = ? OR email = ?", bootstrapUsername, email).
-		First(&user).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		user = model.User{
-			Username:     bootstrapUsername,
-			Email:        email,
-			Role:         model.RoleAdmin,
-			PasswordHash: string(passwordHash),
-		}
-		if err := database.WithContext(ctx).Create(&user).Error; err != nil {
-			return model.User{}, fmt.Errorf("create bootstrap user: %w", err)
-		}
-		return user, nil
+	user := model.User{
+		ID:           bootstrapUserID,
+		Username:     bootstrapUsername,
+		Email:        email,
+		Role:         model.RoleAdmin,
+		PasswordHash: string(passwordHash),
 	}
-	if err != nil {
-		return model.User{}, fmt.Errorf("find bootstrap user: %w", err)
-	}
-
-	user.Username = bootstrapUsername
-	user.Email = email
-	user.Role = model.RoleAdmin
-	user.PasswordHash = string(passwordHash)
-	if err := database.WithContext(ctx).Save(&user).Error; err != nil {
-		return model.User{}, fmt.Errorf("update bootstrap user: %w", err)
+	if err := database.WithContext(ctx).Create(&user).Error; err != nil {
+		return model.User{}, fmt.Errorf("create bootstrap user: %w", err)
 	}
 
 	return user, nil
@@ -109,72 +139,37 @@ func seedBootstrapUser(ctx context.Context, database *gorm.DB) (model.User, erro
 
 func seedBootstrapAsset(ctx context.Context, database *gorm.DB, userID int64) (model.Asset, error) {
 	operatingSystem := bootstrapAssetOS
-	var asset model.Asset
-	err := database.WithContext(ctx).
-		Where("user_id = ? AND name = ?", userID, bootstrapAssetName).
-		First(&asset).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		asset = model.Asset{
-			UserID:          userID,
-			Name:            bootstrapAssetName,
-			Type:            bootstrapAssetType,
-			IPAddress:       bootstrapAssetIPAddress,
-			OperatingSystem: &operatingSystem,
-			Owner:           bootstrapAssetOwner,
-			Criticality:     bootstrapAssetCriticality,
-			RiskScore:       0,
-			RiskLevel:       "Low",
-		}
-		if err := database.WithContext(ctx).Create(&asset).Error; err != nil {
-			return model.Asset{}, fmt.Errorf("create bootstrap asset: %w", err)
-		}
-		return asset, nil
+	asset := model.Asset{
+		ID:              bootstrapAssetID,
+		UserID:          userID,
+		Name:            bootstrapAssetName,
+		Type:            bootstrapAssetType,
+		IPAddress:       bootstrapAssetIPAddress,
+		OperatingSystem: &operatingSystem,
+		Owner:           bootstrapAssetOwner,
+		Criticality:     bootstrapAssetCriticality,
+		RiskScore:       0,
+		RiskLevel:       "Low",
 	}
-	if err != nil {
-		return model.Asset{}, fmt.Errorf("find bootstrap asset: %w", err)
-	}
-
-	asset.Type = bootstrapAssetType
-	asset.IPAddress = bootstrapAssetIPAddress
-	asset.OperatingSystem = &operatingSystem
-	asset.Owner = bootstrapAssetOwner
-	asset.Criticality = bootstrapAssetCriticality
-	if err := database.WithContext(ctx).Save(&asset).Error; err != nil {
-		return model.Asset{}, fmt.Errorf("update bootstrap asset: %w", err)
+	if err := database.WithContext(ctx).Create(&asset).Error; err != nil {
+		return model.Asset{}, fmt.Errorf("create bootstrap asset: %w", err)
 	}
 
 	return asset, nil
 }
 
 func seedBootstrapVulnerability(ctx context.Context, database *gorm.DB, userID int64) (model.Vulnerability, error) {
-	var vulnerability model.Vulnerability
-	err := database.WithContext(ctx).
-		Where("user_id = ? AND cve_id = ?", userID, bootstrapCVEID).
-		First(&vulnerability).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		vulnerability = model.Vulnerability{
-			UserID:      userID,
-			CVEID:       bootstrapCVEID,
-			Title:       bootstrapVulnerabilityTitle,
-			Severity:    bootstrapSeverity,
-			Description: bootstrapDescription,
-			Status:      bootstrapStatus,
-		}
-		if err := database.WithContext(ctx).Create(&vulnerability).Error; err != nil {
-			return model.Vulnerability{}, fmt.Errorf("create bootstrap vulnerability: %w", err)
-		}
-		return vulnerability, nil
+	vulnerability := model.Vulnerability{
+		ID:          bootstrapVulnerabilityID,
+		UserID:      userID,
+		CVEID:       bootstrapCVEID,
+		Title:       bootstrapVulnerabilityTitle,
+		Severity:    bootstrapSeverity,
+		Description: bootstrapDescription,
+		Status:      bootstrapStatus,
 	}
-	if err != nil {
-		return model.Vulnerability{}, fmt.Errorf("find bootstrap vulnerability: %w", err)
-	}
-
-	vulnerability.Title = bootstrapVulnerabilityTitle
-	vulnerability.Severity = bootstrapSeverity
-	vulnerability.Description = bootstrapDescription
-	vulnerability.Status = bootstrapStatus
-	if err := database.WithContext(ctx).Save(&vulnerability).Error; err != nil {
-		return model.Vulnerability{}, fmt.Errorf("update bootstrap vulnerability: %w", err)
+	if err := database.WithContext(ctx).Create(&vulnerability).Error; err != nil {
+		return model.Vulnerability{}, fmt.Errorf("create bootstrap vulnerability: %w", err)
 	}
 
 	return vulnerability, nil

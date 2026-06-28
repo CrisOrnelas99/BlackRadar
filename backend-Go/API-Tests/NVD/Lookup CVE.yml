@@ -5,7 +5,7 @@ info:
 
 http:
   method: GET
-  url: http://localhost:8080/api/nvd/cves/CVE-2026-12957
+  url: http://localhost:8080/api/nvd/cves/CVE-2024-3094
   auth: inherit
 
 settings:

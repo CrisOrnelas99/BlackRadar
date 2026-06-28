@@ -8,6 +8,25 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+func TestNewRandomID(t *testing.T) {
+	id := NewRandomID()
+
+	if id <= 0 {
+		t.Fatalf("expected positive random id, got %d", id)
+	}
+}
+
+func TestNewTokenID(t *testing.T) {
+	tokenID := NewTokenID()
+
+	if len(tokenID) != 32 {
+		t.Fatalf("expected 32 hex characters, got %d", len(tokenID))
+	}
+	if tokenID == "00000000000000000000000000000000" {
+		t.Fatal("expected token id to be random, got fallback value")
+	}
+}
+
 func TestDBErrorMessage(t *testing.T) {
 	err := DBError{Message: "database failed"}
 
@@ -105,5 +124,20 @@ func TestIsPostgresError(t *testing.T) {
 	}
 	if isPostgresError(nil, "23505") {
 		t.Fatal("expected nil error to return false")
+	}
+}
+
+func TestIsPrimaryKeyViolation(t *testing.T) {
+	pkErr := &pgconn.PgError{Code: "23505", ConstraintName: "assets_pkey"}
+	uniqueButNotPkErr := &pgconn.PgError{Code: "23505", ConstraintName: "idx_assets_user_id"}
+
+	if !IsPrimaryKeyViolation(pkErr) {
+		t.Fatal("expected primary key violation to return true")
+	}
+	if IsPrimaryKeyViolation(uniqueButNotPkErr) {
+		t.Fatal("expected non-primary-key unique violation to return false")
+	}
+	if IsPrimaryKeyViolation(errors.New("plain error")) {
+		t.Fatal("expected plain error to return false")
 	}
 }

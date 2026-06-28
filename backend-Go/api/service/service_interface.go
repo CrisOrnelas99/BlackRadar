@@ -13,6 +13,10 @@ type AuthService interface {
 	Register(ec *appcontext.GinContext, request dto.RegisterRequest) error
 	// Login authenticates the user and returns a login response containing a JWT.
 	Login(ec *appcontext.GinContext, request dto.LoginRequest) (dto.LoginResponse, error)
+	// Refresh exchanges a refresh token for new access credentials.
+	Refresh(ec *appcontext.GinContext, request dto.RefreshRequest) (dto.LoginResponse, error)
+	// Logout revokes the current refresh token session.
+	Logout(ec *appcontext.GinContext, request dto.RefreshRequest) error
 }
 
 // AssetService defines the operations available for managed assets.
@@ -29,6 +33,8 @@ type AssetService interface {
 	DeleteAsset(ec *appcontext.GinContext, id int64) (model.Asset, error)
 	// AssignVulnerability attaches a vulnerability to an asset.
 	AssignVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error)
+	// AssignVulnerabilityByCVE looks up a CVE, stores it locally, and attaches it to an asset.
+	AssignVulnerabilityByCVE(ec *appcontext.GinContext, assetID int64, cveID string) (model.Asset, error)
 	// RemoveVulnerability detaches a vulnerability from an asset.
 	RemoveVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error)
 }

@@ -18,6 +18,7 @@ type Config struct {
 	DatabaseURL       string
 	JWTSecret         string
 	JWTExpiration     time.Duration
+	JWTRefreshExpiration time.Duration
 	JWTIssuer         string
 	JWTAudience       string
 	CorsAllowedOrigin string
@@ -63,6 +64,10 @@ func Load() Config {
 	if err != nil || expirationMs <= 0 {
 		expirationMs = 3600000
 	}
+	refreshExpirationMs, err := strconv.Atoi(env("JWT_REFRESH_EXPIRATION_MS", "604800000"))
+	if err != nil || refreshExpirationMs <= 0 {
+		refreshExpirationMs = 604800000
+	}
 
 	return Config{
 		Environment:       environment,
@@ -70,6 +75,7 @@ func Load() Config {
 		DatabaseURL:       databaseURL,
 		JWTSecret:         jwtSecret,
 		JWTExpiration:     time.Duration(expirationMs) * time.Millisecond,
+		JWTRefreshExpiration: time.Duration(refreshExpirationMs) * time.Millisecond,
 		JWTIssuer:         jwtIssuer,
 		JWTAudience:       jwtAudience,
 		CorsAllowedOrigin: corsAllowedOrigin,

@@ -57,9 +57,20 @@ func (r *UserRepository) Save(ec *appcontext.GinContext, user model.User) error 
 		return baserepository.ErrInvalidData
 	}
 
-	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Create(&user).Error
-	if err != nil {
+	for attempt := 0; attempt < 3; attempt++ {
+		if user.ID == 0 || attempt > 0 {
+			user.ID = utils.NewRandomID()
+		}
+
+		err := r.dbForContext(ec).WithContext(ec.RequestContext()).Create(&user).Error
+		if err == nil {
+			return nil
+		}
+
 		databaseErr := utils.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, utils.ErrUniqueViolation) && utils.IsPrimaryKeyViolation(err) {
+			continue
+		}
 		if errors.Is(databaseErr, utils.ErrUniqueViolation) {
 			return fmt.Errorf("%w: %w", baserepository.ErrDuplicateData, databaseErr)
 		}
@@ -71,7 +82,8 @@ func (r *UserRepository) Save(ec *appcontext.GinContext, user model.User) error 
 		}
 		return fmt.Errorf("%w: %w", baserepository.ErrCreateFailed, databaseErr)
 	}
-	return nil
+
+	return fmt.Errorf("%w: exhausted random id retries", baserepository.ErrCreateFailed)
 }
 
 // FindByUsernameOrEmail returns a user that matches the supplied username or email.
@@ -93,6 +105,19 @@ func (r *UserRepository) FindByUsernameOrEmail(ec *appcontext.GinContext, userOr
 func (r *UserRepository) FindByUsername(ec *appcontext.GinContext, username string) (model.User, error) {
 	var user model.User
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("username = ?", username).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return model.User{}, gorm.ErrRecordNotFound
+	}
+	if err != nil {
+		return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+	}
+	return user, nil
+}
+
+// FindByEmail returns a user that matches the supplied email.
+func (r *UserRepository) FindByEmail(ec *appcontext.GinContext, email string) (model.User, error) {
+	var user model.User
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("email = ?", email).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.User{}, gorm.ErrRecordNotFound
 	}

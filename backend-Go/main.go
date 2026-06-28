@@ -18,6 +18,7 @@ import (
 	nvdexternal "secureops/backend-go/api/external/nvd"
 	"secureops/backend-go/api/middleware"
 	repositoryasset "secureops/backend-go/api/repository/asset"
+	repositoryrefreshsession "secureops/backend-go/api/repository/refreshsession"
 	repositoryuser "secureops/backend-go/api/repository/user"
 	repositoryvulnerability "secureops/backend-go/api/repository/vulnerability"
 	"secureops/backend-go/api/security"
@@ -54,19 +55,20 @@ func main() {
 		log.Fatalf("bootstrap failed: %v", err)
 	}
 
-	jwtManager := security.NewJWTManager(cfg.JWTSecret, cfg.JWTExpiration, cfg.JWTIssuer, cfg.JWTAudience)
+	jwtManager := security.NewJWTManager(cfg.JWTSecret, cfg.JWTExpiration, cfg.JWTRefreshExpiration, cfg.JWTIssuer, cfg.JWTAudience)
 
 	userRepository := repositoryuser.NewUserRepository(gormDB)
 	assetRepository := repositoryasset.NewAssetRepository(gormDB)
+	refreshSessionRepository := repositoryrefreshsession.NewRefreshSessionRepository(gormDB)
 	vulnerabilityRepository := repositoryvulnerability.NewVulnerabilityRepository(gormDB)
-	authService := serviceauth.NewAuthService(jwtManager, userRepository)
-	assetService := serviceasset.NewAssetService(assetRepository)
-	vulnerabilityService := servicevulnerability.NewVulnerabilityService(vulnerabilityRepository)
+	authService := serviceauth.NewAuthService(jwtManager, userRepository, refreshSessionRepository)
 	nvdClient, err := nvdexternal.NewClient(cfg.NVDAPIBaseURL, cfg.NVDAPIKey)
 	if err != nil {
 		log.Fatalf("nvd client configuration failed: %v", err)
 	}
 	nvdLookupService := servicenvd.NewNVDLookupService(nvdClient)
+	assetService := serviceasset.NewAssetService(assetRepository, vulnerabilityRepository, nvdLookupService)
+	vulnerabilityService := servicevulnerability.NewVulnerabilityService(vulnerabilityRepository)
 
 	authController := controllerauth.NewAuthController(authService)
 	assetController := controllerasset.NewAssetController(assetService)
@@ -81,22 +83,25 @@ func main() {
 	engine.Use(middleware.Cors(cfg.CorsAllowedOrigin))
 	engine.Use(middleware.RequestFilter())
 	// Register all routes centrally in the controller package
-	controller.RegisterRoutes(engine, jwtManager, userRepository, controller.RouteHandlers{
-		RegisterAuth:        authController.Register,
-		LoginAuth:           authController.Login,
-		GetAssets:           assetController.GetAssets,
-		GetAsset:            assetController.GetAsset,
-		CreateAsset:         assetController.CreateAsset,
-		UpdateAsset:         assetController.UpdateAsset,
-		DeleteAsset:         assetController.DeleteAsset,
-		AssignVulnerability: assetController.AssignVulnerability,
-		RemoveVulnerability: assetController.RemoveVulnerability,
-		GetVulnerabilities:  vulnerabilityController.GetVulnerabilities,
-		GetVulnerability:    vulnerabilityController.GetVulnerability,
-		CreateVulnerability: vulnerabilityController.CreateVulnerability,
-		UpdateVulnerability: vulnerabilityController.UpdateVulnerability,
-		DeleteVulnerability: vulnerabilityController.DeleteVulnerability,
-		LookupCVE:           nvdController.LookupCVE,
+	controller.RegisterRoutes(engine, jwtManager, userRepository, refreshSessionRepository, controller.RouteHandlers{
+		RegisterAuth:             authController.Register,
+		LoginAuth:                authController.Login,
+		RefreshAuth:              authController.Refresh,
+		LogoutAuth:               authController.Logout,
+		GetAssets:                assetController.GetAssets,
+		GetAsset:                 assetController.GetAsset,
+		CreateAsset:              assetController.CreateAsset,
+		UpdateAsset:              assetController.UpdateAsset,
+		DeleteAsset:              assetController.DeleteAsset,
+		AssignVulnerability:      assetController.AssignVulnerability,
+		AssignVulnerabilityByCVE: assetController.AssignVulnerabilityByCVE,
+		RemoveVulnerability:      assetController.RemoveVulnerability,
+		GetVulnerabilities:       vulnerabilityController.GetVulnerabilities,
+		GetVulnerability:         vulnerabilityController.GetVulnerability,
+		CreateVulnerability:      vulnerabilityController.CreateVulnerability,
+		UpdateVulnerability:      vulnerabilityController.UpdateVulnerability,
+		DeleteVulnerability:      vulnerabilityController.DeleteVulnerability,
+		LookupCVE:                nvdController.LookupCVE,
 	})
 
 	log.Printf("Go backend running on :%s", cfg.Port)

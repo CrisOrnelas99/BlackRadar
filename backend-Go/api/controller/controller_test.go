@@ -23,6 +23,7 @@ import (
 	"secureops/backend-go/api/dto"
 	"secureops/backend-go/api/middleware"
 	"secureops/backend-go/api/model"
+	baserepository "secureops/backend-go/api/repository"
 	"secureops/backend-go/api/security"
 	"secureops/backend-go/api/service"
 )
@@ -98,29 +99,33 @@ func TestHealth(t *testing.T) {
 // TestRegisterRoutes verifies the route registration wiring.
 func TestRegisterRoutes(t *testing.T) {
 	engine := gin.New()
-	jwtManager := security.NewJWTManager("test-secret", time.Hour, "issuer", "audience")
+	jwtManager := security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
 	lookup := &fakeUserLookup{exists: true, user: model.User{ID: 1, Username: "analyst", Role: model.RoleUser}}
+	sessions := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: 1}}
 
 	authController := controllerauth.NewAuthController(&fakeAuthService{})
 	assetController := controllerasset.NewAssetController(&fakeAssetService{asset: sampleAsset(), assets: []model.Asset{sampleAsset()}})
 	vulnerabilityController := controllervulnerability.NewVulnerabilityController(&fakeVulnerabilityService{vulnerability: sampleVulnerability(), vulnerabilities: []model.Vulnerability{sampleVulnerability()}})
 	nvdLookupCalled := false
 
-	basecontroller.RegisterRoutes(engine, jwtManager, lookup, basecontroller.RouteHandlers{
-		RegisterAuth:        authController.Register,
-		LoginAuth:           authController.Login,
-		GetAssets:           assetController.GetAssets,
-		GetAsset:            assetController.GetAsset,
-		CreateAsset:         assetController.CreateAsset,
-		UpdateAsset:         assetController.UpdateAsset,
-		DeleteAsset:         assetController.DeleteAsset,
-		AssignVulnerability: assetController.AssignVulnerability,
-		RemoveVulnerability: assetController.RemoveVulnerability,
-		GetVulnerabilities:  vulnerabilityController.GetVulnerabilities,
-		GetVulnerability:    vulnerabilityController.GetVulnerability,
-		CreateVulnerability: vulnerabilityController.CreateVulnerability,
-		UpdateVulnerability: vulnerabilityController.UpdateVulnerability,
-		DeleteVulnerability: vulnerabilityController.DeleteVulnerability,
+	basecontroller.RegisterRoutes(engine, jwtManager, lookup, sessions, basecontroller.RouteHandlers{
+		RegisterAuth:             authController.Register,
+		LoginAuth:                authController.Login,
+		RefreshAuth:              authController.Refresh,
+		LogoutAuth:               authController.Logout,
+		GetAssets:                assetController.GetAssets,
+		GetAsset:                 assetController.GetAsset,
+		CreateAsset:              assetController.CreateAsset,
+		UpdateAsset:              assetController.UpdateAsset,
+		DeleteAsset:              assetController.DeleteAsset,
+		AssignVulnerability:      assetController.AssignVulnerability,
+		AssignVulnerabilityByCVE: assetController.AssignVulnerabilityByCVE,
+		RemoveVulnerability:      assetController.RemoveVulnerability,
+		GetVulnerabilities:       vulnerabilityController.GetVulnerabilities,
+		GetVulnerability:         vulnerabilityController.GetVulnerability,
+		CreateVulnerability:      vulnerabilityController.CreateVulnerability,
+		UpdateVulnerability:      vulnerabilityController.UpdateVulnerability,
+		DeleteVulnerability:      vulnerabilityController.DeleteVulnerability,
 		LookupCVE: func(ec *appcontext.GinContext) {
 			nvdLookupCalled = true
 			ec.JSON(http.StatusOK, gin.H{"cveId": ec.Param("cveId")})
@@ -134,7 +139,7 @@ func TestRegisterRoutes(t *testing.T) {
 		t.Fatalf("expected health endpoint to be registered, got %d", recorder.Code)
 	}
 
-	token, err := jwtManager.GenerateToken("analyst")
+	token, err := jwtManager.GenerateToken("analyst", "session-1")
 	if err != nil {
 		t.Fatalf("failed to generate token: %v", err)
 	}
@@ -147,6 +152,30 @@ func TestRegisterRoutes(t *testing.T) {
 	}
 	if !nvdLookupCalled {
 		t.Fatal("expected NVD lookup route handler to be called")
+	}
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodPost, "/api/auth/refresh", strings.NewReader(`{"refreshToken":"refresh"}`))
+	request.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected auth refresh route status %d, got %d", http.StatusOK, recorder.Code)
+	}
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodPost, "/api/auth/logout", strings.NewReader(`{"refreshToken":"refresh"}`))
+	request.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected auth logout route status %d, got %d", http.StatusOK, recorder.Code)
+	}
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodPost, "/api/assets/1/vulnerabilities/cve/CVE-2024-3094", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected CVE assignment route status %d, got %d", http.StatusOK, recorder.Code)
 	}
 }
 
@@ -165,6 +194,17 @@ func (f *fakeUserLookup) FindByUsername(ec *appcontext.GinContext, username stri
 	return f.user, nil
 }
 
+type fakeRefreshSessionLookup struct {
+	session model.RefreshSession
+}
+
+func (f *fakeRefreshSessionLookup) FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID int64) (model.RefreshSession, error) {
+	if f.session.TokenID == tokenID && f.session.UserID == userID {
+		return f.session, nil
+	}
+	return model.RefreshSession{}, baserepository.ErrRefreshSessionNotFound
+}
+
 type fakeAuthService struct{}
 
 // Register simulates a successful auth registration.
@@ -175,6 +215,16 @@ func (f *fakeAuthService) Register(ec *appcontext.GinContext, request dto.Regist
 // Login simulates a successful auth login.
 func (f *fakeAuthService) Login(ec *appcontext.GinContext, request dto.LoginRequest) (dto.LoginResponse, error) {
 	return dto.LoginResponse{}, nil
+}
+
+// Refresh simulates a successful auth refresh.
+func (f *fakeAuthService) Refresh(ec *appcontext.GinContext, request dto.RefreshRequest) (dto.LoginResponse, error) {
+	return dto.LoginResponse{}, nil
+}
+
+// Logout simulates a successful auth logout.
+func (f *fakeAuthService) Logout(ec *appcontext.GinContext, request dto.RefreshRequest) error {
+	return nil
 }
 
 type fakeAssetService struct {
@@ -209,6 +259,11 @@ func (f *fakeAssetService) DeleteAsset(ec *appcontext.GinContext, id int64) (mod
 
 // AssignVulnerability returns the configured fake asset.
 func (f *fakeAssetService) AssignVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error) {
+	return f.asset, nil
+}
+
+// AssignVulnerabilityByCVE returns the configured fake asset.
+func (f *fakeAssetService) AssignVulnerabilityByCVE(ec *appcontext.GinContext, assetID int64, cveID string) (model.Asset, error) {
 	return f.asset, nil
 }
 

@@ -37,6 +37,8 @@ The system is organized into these main components:
 - Docker Compose for the current local backend and database stack
 - focused Go services for alerting and CVE refresh
 
+Authentication uses short-lived JWT access tokens plus longer-lived refresh tokens that are stored and validated server-side.
+
 ## High-Level Architecture
 
 ```text
@@ -155,13 +157,13 @@ The Angular application owns:
 - chatbot UI
 - work order and remediation screens
 - backend API integration via services
-- JWT attachment for protected requests
+- access-token attachment for protected requests
 
 ### Backend
 
 The Go backend owns:
 
-- authentication and JWT generation
+- authentication, access-token generation, refresh-token rotation, and session revocation
 - authorization and permission middleware
 - organization and tenancy enforcement
 - asset and vulnerability CRUD
@@ -375,19 +377,37 @@ See `CLEANCODE.md` for the repository’s error handling style and `SECURITY.md`
 #### Login flow
 
 1. Client sends credentials to `POST /api/auth/login`.
-2. Backend loads the user by username or email.
+2. Backend resolves the identifier by shape: email-like values are treated as email, everything else is treated as username.
 3. BCrypt verifies the password.
-4. Backend generates a JWT if credentials are valid.
-5. Backend returns a login response DTO with token metadata.
+4. Backend generates a short-lived access token and a refresh token that share a session ID.
+5. Backend stores the refresh session server-side.
+6. Backend returns a login response DTO with both tokens and the user summary.
 
 #### Protected request flow
 
-1. Angular sends a request with `Authorization: Bearer <token>`.
+1. Angular sends a request with `Authorization: Bearer <access token>`.
 2. JWT filter extracts the token.
-3. Backend validates the token.
-4. Gin authentication middleware establishes the authenticated request context.
-5. The authenticated database user ID is attached to `GinContext`.
-6. Controller logic runs only if access is allowed.
+3. Backend validates the signature, issuer, audience, scope, token use, and expiry.
+4. Backend looks up the access-token session ID in server-side refresh-session storage.
+5. Gin authentication middleware establishes the authenticated request context only if the session is still active.
+6. The authenticated database user ID is attached to `GinContext`.
+7. Controller logic runs only if access is allowed.
+
+#### Refresh flow
+
+1. Client sends the refresh token to `POST /api/auth/refresh`.
+2. Backend validates the refresh token and its session ID.
+3. Backend confirms the session is still active in PostgreSQL.
+4. Backend revokes the old session and rotates to a new session ID.
+5. Backend returns a new access token and refresh token pair.
+
+#### Logout flow
+
+1. Client sends the refresh token to `POST /api/auth/logout`.
+2. Backend validates the refresh token and its session ID.
+3. Backend revokes the stored refresh session.
+4. The refresh token can no longer be used.
+5. The paired access token also stops working because protected requests check the session table.
 
 #### Asset creation flow
 
@@ -702,7 +722,8 @@ Typical values should include:
 - database username
 - database password
 - JWT secret
-- JWT expiration
+- JWT access-token expiration
+- JWT refresh-token expiration
 - NVD API key
 - optional development bootstrap flag
 - AI provider API key

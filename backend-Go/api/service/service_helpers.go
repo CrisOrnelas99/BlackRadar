@@ -69,7 +69,7 @@ func NormalizeRegisterRequest(request dto.RegisterRequest) dto.RegisterRequest {
 
 // ValidateRegisterRequest validates the fields required to create an account.
 func ValidateRegisterRequest(request dto.RegisterRequest) error {
-	if strings.TrimSpace(request.Username) == "" || utf8.RuneCountInString(request.Username) < 3 || utf8.RuneCountInString(request.Username) > 50 {
+	if strings.TrimSpace(request.Username) == "" || utf8.RuneCountInString(request.Username) < 3 || utf8.RuneCountInString(request.Username) > 50 || strings.Contains(request.Username, "@") {
 		return ErrInvalidRequestData
 	}
 	if strings.TrimSpace(request.Password) == "" || utf8.RuneCountInString(request.Password) < 8 || utf8.RuneCountInString(request.Password) > 100 {
@@ -84,6 +84,11 @@ func ValidateRegisterRequest(request dto.RegisterRequest) error {
 	return nil
 }
 
+// IsEmailLikeLoginIdentifier reports whether the supplied login identifier should be treated as an email address.
+func IsEmailLikeLoginIdentifier(value string) bool {
+	return strings.Contains(strings.TrimSpace(value), "@")
+}
+
 // ValidateVulnerability validates the fields required to create or update a vulnerability.
 func ValidateVulnerability(vulnerability model.Vulnerability) error {
 	if strings.TrimSpace(vulnerability.CVEID) == "" || strings.TrimSpace(vulnerability.Title) == "" || strings.TrimSpace(vulnerability.Severity) == "" || strings.TrimSpace(vulnerability.Description) == "" || strings.TrimSpace(vulnerability.Status) == "" {
@@ -95,6 +100,25 @@ func ValidateVulnerability(vulnerability model.Vulnerability) error {
 // NormalizeCVEID trims and uppercases a CVE identifier before lookup.
 func NormalizeCVEID(cveID string) string {
 	return strings.ToUpper(strings.TrimSpace(cveID))
+}
+
+// NormalizeSeverity converts external severity strings into the app's canonical title-case form.
+func NormalizeSeverity(value string) string {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	switch normalized {
+	case "":
+		return ""
+	case "low":
+		return "Low"
+	case "medium":
+		return "Medium"
+	case "high":
+		return "High"
+	case "critical":
+		return "Critical"
+	default:
+		return strings.ToUpper(strings.TrimSpace(value))
+	}
 }
 
 // ValidateCVEID verifies the identifier is safe to use with the NVD CVE API.

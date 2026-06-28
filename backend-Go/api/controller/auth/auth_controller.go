@@ -58,6 +58,43 @@ func (c *AuthController) Login(ec *appcontext.GinContext) {
 	ec.JSON(http.StatusOK, loginResponse)
 }
 
+// Refresh exchanges a refresh token for fresh credentials.
+func (c *AuthController) Refresh(ec *appcontext.GinContext) {
+	var request dto.RefreshRequest
+	if basecontroller.BindJSON(ec, &request) {
+		return
+	}
+
+	refreshResponse, err := c.authService.Refresh(ec, request)
+	if err != nil {
+		if handleAuthServiceError(ec, err, "Error refreshing token") {
+			return
+		}
+		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error refreshing token")
+		return
+	}
+
+	ec.JSON(http.StatusOK, refreshResponse)
+}
+
+// Logout revokes the current refresh token session.
+func (c *AuthController) Logout(ec *appcontext.GinContext) {
+	var request dto.RefreshRequest
+	if basecontroller.BindJSON(ec, &request) {
+		return
+	}
+
+	if err := c.authService.Logout(ec, request); err != nil {
+		if handleAuthServiceError(ec, err, "Error logging out") {
+			return
+		}
+		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error logging out")
+		return
+	}
+
+	ec.Status(http.StatusOK)
+}
+
 // handleAuthServiceError maps auth service sentinels to HTTP responses.
 func handleAuthServiceError(ec *appcontext.GinContext, err error, fallbackMessage string) bool {
 	var serviceErr *baseservice.ServiceError

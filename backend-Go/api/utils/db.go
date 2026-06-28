@@ -73,6 +73,7 @@ func RunMigrations(ctx context.Context, database *gorm.DB) error {
 	if err := database.WithContext(ctx).AutoMigrate(
 		&model.Vulnerability{},
 		&model.Asset{},
+		&model.RefreshSession{},
 	); err != nil {
 		return err
 	}
@@ -111,6 +112,7 @@ func ensureIndexes(ctx context.Context, database *gorm.DB) error {
 		`ALTER TABLE users DROP CONSTRAINT IF EXISTS uk6dotkott2kjsp8vw4d0m25fb7`,
 		`CREATE INDEX IF NOT EXISTS idx_assets_user_id ON assets (user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_vulnerabilities_user_id ON vulnerabilities (user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_refresh_sessions_user_id ON refresh_sessions (user_id)`,
 		`DROP INDEX IF EXISTS idx_vulnerabilities_cve_id`,
 		`DO $$
 		BEGIN
@@ -162,6 +164,14 @@ func ensureIndexes(ctx context.Context, database *gorm.DB) error {
 				SELECT 1 FROM vulnerabilities WHERE user_id = 0
 			) THEN
 				ALTER TABLE vulnerabilities ADD CONSTRAINT fk_vulnerabilities_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+			END IF;
+		END $$`,
+		`DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM pg_constraint WHERE conname = 'fk_refresh_sessions_user'
+			) THEN
+				ALTER TABLE refresh_sessions ADD CONSTRAINT fk_refresh_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 			END IF;
 		END $$`,
 		`ALTER TABLE asset_vulnerabilities DROP CONSTRAINT IF EXISTS fkavovmmqdpqv6hacqhae27ngt1`,

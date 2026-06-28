@@ -17,7 +17,7 @@ import (
 
 // TestAuthControllerHandlers verifies the auth controller request flow.
 func TestAuthControllerHandlers(t *testing.T) {
-	svc := &fakeAuthService{loginResponse: dto.LoginResponse{Token: "token", User: dto.UserResponse{ID: 1, Username: "analyst", Email: "analyst@example.com"}}}
+	svc := &fakeAuthService{loginResponse: dto.LoginResponse{Token: "token", RefreshToken: "refresh", User: dto.UserResponse{ID: 1, Username: "analyst", Email: "analyst@example.com"}}}
 	controller := NewAuthController(svc)
 
 	t.Run("register", func(t *testing.T) {
@@ -37,12 +37,32 @@ func TestAuthControllerHandlers(t *testing.T) {
 			t.Fatal("expected Login to be called")
 		}
 	})
+
+	t.Run("refresh", func(t *testing.T) {
+		ec := newAuthContext(t, http.MethodPost, "/auth/refresh", `{"refreshToken":"refresh"}`)
+		ec.Request.Header.Set("Content-Type", "application/json")
+		controller.Refresh(ec)
+		if svc.refreshCalls != 1 {
+			t.Fatal("expected Refresh to be called")
+		}
+	})
+
+	t.Run("logout", func(t *testing.T) {
+		ec := newAuthContext(t, http.MethodPost, "/auth/logout", `{"refreshToken":"refresh"}`)
+		ec.Request.Header.Set("Content-Type", "application/json")
+		controller.Logout(ec)
+		if svc.logoutCalls != 1 {
+			t.Fatal("expected Logout to be called")
+		}
+	})
 }
 
 type fakeAuthService struct {
 	loginResponse dto.LoginResponse
 	registerCalls int
 	loginCalls    int
+	refreshCalls  int
+	logoutCalls   int
 }
 
 func (f *fakeAuthService) Register(ec *appcontext.GinContext, request dto.RegisterRequest) error {
@@ -53,6 +73,16 @@ func (f *fakeAuthService) Register(ec *appcontext.GinContext, request dto.Regist
 func (f *fakeAuthService) Login(ec *appcontext.GinContext, request dto.LoginRequest) (dto.LoginResponse, error) {
 	f.loginCalls++
 	return f.loginResponse, nil
+}
+
+func (f *fakeAuthService) Refresh(ec *appcontext.GinContext, request dto.RefreshRequest) (dto.LoginResponse, error) {
+	f.refreshCalls++
+	return f.loginResponse, nil
+}
+
+func (f *fakeAuthService) Logout(ec *appcontext.GinContext, request dto.RefreshRequest) error {
+	f.logoutCalls++
+	return nil
 }
 
 var _ baseservice.AuthService = (*fakeAuthService)(nil)

@@ -168,6 +168,27 @@ Rules:
 * Use least-privilege access for database accounts, cloud roles, API tokens, and CI/CD credentials.
 * Define retention and deletion rules for attachments, logs, audit data, and exports.
 
+## 2.4 Token and session handling
+
+This application uses JWT access tokens together with server-side refresh-token sessions.
+
+Rules:
+
+* Access tokens must be short-lived.
+* Refresh tokens must be validated against server-side session state.
+* Logout must revoke the stored session, not just clear a client-side value.
+* Protected requests must fail closed if the token session is missing or revoked.
+* Refresh-token rotation must revoke the old session and issue a new session identifier.
+* Do not store refresh tokens in browser local storage.
+* Do not treat a valid access token as sufficient if the server-side session has been revoked.
+
+Implementation note:
+
+* Login issues both an access token and a refresh token.
+* The access token is bound to a session ID and is checked against the refresh-session table on protected requests.
+* Refresh requests rotate the session and return a new token pair.
+* Logout revokes the refresh session and invalidates the paired access token on subsequent protected requests.
+
 ---
 
 # 3. OWASP Top 10:2025 Requirements
@@ -447,6 +468,7 @@ Attackers gain access through weak passwords, stolen credentials, weak recovery 
 * Avoid user enumeration: use generic messages such as “Invalid username or password.”
 * Store passwords only with strong adaptive password hashing.
 * Use short-lived access tokens.
+* Use server-side refresh-token sessions when refresh tokens are implemented.
 * Validate JWT issuer, audience, expiration, signature, scopes, and intended use.
 * Do not accept tokens with unexpected algorithms or unsigned tokens.
 * Rotate or invalidate sessions after logout, password reset, privilege change, suspicious activity, and account disablement.
@@ -486,6 +508,15 @@ The application treats untrusted code, builds, packages, webhooks, serialized da
 * Do not load remote scripts, plugins, or browser code from untrusted sources.
 * Do not use external CDN assets unless approved, integrity-protected, and compatible with CSP.
 * Do not trust data merely because it came from a “known” URL; validate schema, type, size, and expected fields.
+
+### Application-specific auth integrity rule
+
+The auth flow must not rely solely on client-held JWTs for session validity.
+
+* Access tokens are verified for signature, issuer, audience, scope, token use, and expiry.
+* The server must also confirm that the paired session ID is still active.
+* Refresh tokens are the only credential that can renew the session.
+* Refresh token rotation must not leave the old session active.
 
 ### External API rule
 

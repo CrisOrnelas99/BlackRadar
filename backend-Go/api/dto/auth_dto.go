@@ -16,6 +16,11 @@ type LoginRequest struct {
 	Password    string `json:"password"`
 }
 
+// RefreshRequest contains the refresh token used to exchange for a new access token.
+type RefreshRequest struct {
+	RefreshToken string `json:"refreshToken"`
+}
+
 // UserResponse exposes the user fields safe for API responses.
 type UserResponse struct {
 	ID       int64  `json:"id"`
@@ -25,8 +30,9 @@ type UserResponse struct {
 
 // LoginResponse returns the issued token and the authenticated user summary.
 type LoginResponse struct {
-	Token string       `json:"token"`
-	User  UserResponse `json:"user"`
+	Token        string       `json:"token"`
+	RefreshToken string       `json:"refreshToken"`
+	User         UserResponse `json:"user"`
 }
 
 // ToUserResponse converts the persistence user model into a response DTO.

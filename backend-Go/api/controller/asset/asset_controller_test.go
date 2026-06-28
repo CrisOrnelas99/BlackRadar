@@ -68,6 +68,9 @@ func (f *fakeAssetService) DeleteAsset(ec *appcontext.GinContext, id int64) (mod
 func (f *fakeAssetService) AssignVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error) {
 	return f.asset, f.err
 }
+func (f *fakeAssetService) AssignVulnerabilityByCVE(ec *appcontext.GinContext, assetID int64, cveID string) (model.Asset, error) {
+	return f.asset, f.err
+}
 func (f *fakeAssetService) RemoveVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error) {
 	return f.asset, f.err
 }

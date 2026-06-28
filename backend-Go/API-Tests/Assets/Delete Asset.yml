@@ -1,11 +1,11 @@
 info:
-  name: Get Asset Details
+  name: Delete Asset
   type: http
-  seq: 2
+  seq: 6
 
 http:
-  method: GET
-  url: http://localhost:8080/api/assets/9000000002
+  method: DELETE
+  url: http://localhost:8080/api/assets/{{assetId}}
   auth: inherit
 
 settings:

@@ -2,8 +2,10 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"golang.org/x/crypto/bcrypt"
@@ -16,16 +18,18 @@ import (
 	baserepository "secureops/backend-go/api/repository"
 	"secureops/backend-go/api/security"
 	baseservice "secureops/backend-go/api/service"
+	"secureops/backend-go/api/utils"
 )
 
 type authServiceImpl struct {
-	jwtManager     *security.JWTManager
-	userRepository baserepository.UserRepository
+	jwtManager               *security.JWTManager
+	userRepository           baserepository.UserRepository
+	refreshSessionRepository baserepository.RefreshSessionRepository
 }
 
 // NewAuthService creates an authentication service backed by the supplied dependencies.
-func NewAuthService(jwtManager *security.JWTManager, userRepository baserepository.UserRepository) baseservice.AuthService {
-	return &authServiceImpl{jwtManager: jwtManager, userRepository: userRepository}
+func NewAuthService(jwtManager *security.JWTManager, userRepository baserepository.UserRepository, refreshSessionRepository baserepository.RefreshSessionRepository) baseservice.AuthService {
+	return &authServiceImpl{jwtManager: jwtManager, userRepository: userRepository, refreshSessionRepository: refreshSessionRepository}
 }
 
 // Register validates and creates a new user account.
@@ -67,14 +71,21 @@ func (s *authServiceImpl) Register(ec *appcontext.GinContext, request dto.Regist
 // Login validates credentials and returns a signed access token.
 func (s *authServiceImpl) Login(ec *appcontext.GinContext, request dto.LoginRequest) (dto.LoginResponse, error) {
 	request.UserOrEmail = strings.TrimSpace(request.UserOrEmail)
-	if strings.Contains(request.UserOrEmail, "@") {
+	isEmailLogin := baseservice.IsEmailLikeLoginIdentifier(request.UserOrEmail)
+	if isEmailLogin {
 		request.UserOrEmail = strings.ToLower(request.UserOrEmail)
 	}
 	if request.UserOrEmail == "" || utf8.RuneCountInString(request.Password) < 8 || utf8.RuneCountInString(request.Password) > 100 {
 		return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
 	}
 
-	user, err := s.userRepository.FindByUsernameOrEmail(ec, request.UserOrEmail)
+	var user model.User
+	var err error
+	if isEmailLogin {
+		user, err = s.userRepository.FindByEmail(ec, request.UserOrEmail)
+	} else {
+		user, err = s.userRepository.FindByUsername(ec, request.UserOrEmail)
+	}
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
@@ -90,13 +101,162 @@ func (s *authServiceImpl) Login(ec *appcontext.GinContext, request dto.LoginRequ
 		return dto.LoginResponse{}, fmt.Errorf("missing jwt manager")
 	}
 
-	token, err := s.jwtManager.GenerateToken(user.Username)
+	refreshTokenID := utils.NewTokenID()
+	token, err := s.jwtManager.GenerateToken(user.Username, refreshTokenID)
 	if err != nil {
+		return dto.LoginResponse{}, err
+	}
+	refreshToken, err := s.jwtManager.GenerateRefreshToken(user.Username, refreshTokenID)
+	if err != nil {
+		return dto.LoginResponse{}, err
+	}
+	if err := s.saveRefreshSession(ec, user.ID, refreshTokenID); err != nil {
 		return dto.LoginResponse{}, err
 	}
 
 	return dto.LoginResponse{
-		Token: token,
-		User:  dto.ToUserResponse(user),
+		Token:        token,
+		RefreshToken: refreshToken,
+		User:         dto.ToUserResponse(user),
 	}, nil
+}
+
+// Refresh validates a refresh token and returns rotated credentials.
+func (s *authServiceImpl) Refresh(ec *appcontext.GinContext, request dto.RefreshRequest) (dto.LoginResponse, error) {
+	refreshToken := strings.TrimSpace(request.RefreshToken)
+	if refreshToken == "" {
+		return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+	}
+
+	if s.jwtManager == nil {
+		return dto.LoginResponse{}, fmt.Errorf("missing jwt manager")
+	}
+
+	claims, err := s.jwtManager.ExtractRefreshClaims(refreshToken)
+	if err != nil {
+		return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+	}
+
+	user, err := s.userRepository.FindByUsername(ec, claims.Subject)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+		}
+		return dto.LoginResponse{}, baseservice.TranslateRepositoryError(err)
+	}
+
+	session, err := s.refreshSessionRepository.FindActiveByTokenIDForUser(ec, claims.ID, user.ID)
+	if err != nil {
+		return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+	}
+
+	if session.UserID != user.ID {
+		return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+	}
+
+	newRefreshTokenID := utils.NewTokenID()
+	accessToken, err := s.jwtManager.GenerateToken(user.Username, newRefreshTokenID)
+	if err != nil {
+		return dto.LoginResponse{}, err
+	}
+	newRefreshToken, err := s.jwtManager.GenerateRefreshToken(user.Username, newRefreshTokenID)
+	if err != nil {
+		return dto.LoginResponse{}, err
+	}
+	if err := s.rotateRefreshSession(ec, session, newRefreshTokenID); err != nil {
+		return dto.LoginResponse{}, err
+	}
+
+	return dto.LoginResponse{
+		Token:        accessToken,
+		RefreshToken: newRefreshToken,
+		User:         dto.ToUserResponse(user),
+	}, nil
+}
+
+// Logout revokes the current refresh token session.
+func (s *authServiceImpl) Logout(ec *appcontext.GinContext, request dto.RefreshRequest) error {
+	refreshToken := strings.TrimSpace(request.RefreshToken)
+	if refreshToken == "" {
+		return baseservice.ErrInvalidCredentials
+	}
+
+	if s.jwtManager == nil {
+		return fmt.Errorf("missing jwt manager")
+	}
+
+	claims, err := s.jwtManager.ExtractRefreshClaims(refreshToken)
+	if err != nil {
+		return baseservice.ErrInvalidCredentials
+	}
+
+	user, err := s.userRepository.FindByUsername(ec, claims.Subject)
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return baseservice.ErrInvalidCredentials
+		}
+		return baseservice.TranslateRepositoryError(err)
+	}
+
+	if err := s.refreshSessionRepository.RevokeByTokenIDForUser(ec, claims.ID, user.ID); err != nil {
+		if errors.Is(err, baserepository.ErrRefreshSessionNotFound) {
+			return baseservice.ErrInvalidCredentials
+		}
+		return baseservice.TranslateRepositoryError(err)
+	}
+
+	return nil
+}
+
+func (s *authServiceImpl) saveRefreshSession(ec *appcontext.GinContext, userID int64, tokenID string) error {
+	return s.refreshSessionRepository.Save(ec, model.RefreshSession{
+		TokenID:    tokenID,
+		UserID:     userID,
+		DeviceName: requestDeviceName(ec),
+		ExpiresAt:  time.Now().UTC().Add(s.jwtManager.RefreshExpiration()),
+	})
+}
+
+func (s *authServiceImpl) rotateRefreshSession(ec *appcontext.GinContext, session model.RefreshSession, newTokenID string) error {
+	newSession := model.RefreshSession{
+		TokenID:    newTokenID,
+		UserID:     session.UserID,
+		DeviceName: session.DeviceName,
+		ExpiresAt:  time.Now().UTC().Add(s.jwtManager.RefreshExpiration()),
+	}
+
+	if ec == nil || ec.Database() == nil {
+		if err := s.refreshSessionRepository.RevokeByTokenIDForUser(ec, session.TokenID, session.UserID); err != nil {
+			return baseservice.TranslateRepositoryError(err)
+		}
+		return s.refreshSessionRepository.Save(ec, newSession)
+	}
+
+	transactionDatabase := ec.Database()
+	return transactionDatabase.WithContext(ec.RequestContext()).Transaction(func(tx *gorm.DB) error {
+		txContext := *ec
+		txContext.SetDatabase(tx)
+
+		if err := s.refreshSessionRepository.RevokeByTokenIDForUser(&txContext, session.TokenID, session.UserID); err != nil {
+			return baseservice.TranslateRepositoryError(err)
+		}
+		if err := s.refreshSessionRepository.Save(&txContext, newSession); err != nil {
+			return baseservice.TranslateRepositoryError(err)
+		}
+		return nil
+	})
+}
+
+func requestDeviceName(ec *appcontext.GinContext) string {
+	if ec == nil || ec.Context == nil || ec.Request == nil {
+		return "unknown"
+	}
+	deviceName := strings.TrimSpace(ec.Request.UserAgent())
+	if deviceName == "" {
+		return "unknown"
+	}
+	if len(deviceName) > 255 {
+		return deviceName[:255]
+	}
+	return deviceName
 }

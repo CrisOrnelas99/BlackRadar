@@ -9,9 +9,9 @@ import (
 )
 
 func TestJWTManagerGenerateTokenAndExtractUsername(t *testing.T) {
-	manager := NewJWTManager("test-secret", time.Hour, "issuer", "audience")
+	manager := NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
 
-	token, err := manager.GenerateToken("analyst")
+	token, err := manager.GenerateToken("analyst", "session-1")
 	if err != nil {
 		t.Fatalf("expected token generation to succeed: %v", err)
 	}
@@ -29,9 +29,9 @@ func TestJWTManagerGenerateTokenAndExtractUsername(t *testing.T) {
 }
 
 func TestJWTManagerGenerateTokenIncludesExpectedClaims(t *testing.T) {
-	manager := NewJWTManager("test-secret", time.Hour, "issuer", "audience")
+	manager := NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
 
-	tokenString, err := manager.GenerateToken("analyst")
+	tokenString, err := manager.GenerateToken("analyst", "session-1")
 	if err != nil {
 		t.Fatalf("expected token generation to succeed: %v", err)
 	}
@@ -52,8 +52,8 @@ func TestJWTManagerGenerateTokenIncludesExpectedClaims(t *testing.T) {
 	if claims.Scope != accessScope {
 		t.Fatalf("expected scope %q, got %q", accessScope, claims.Scope)
 	}
-	if claims.TokenUse != tokenUse {
-		t.Fatalf("expected token use %q, got %q", tokenUse, claims.TokenUse)
+	if claims.TokenUse != tokenUseAccess {
+		t.Fatalf("expected token use %q, got %q", tokenUseAccess, claims.TokenUse)
 	}
 	if claims.ExpiresAt == nil {
 		t.Fatal("expected expiration claim to be set")
@@ -61,9 +61,9 @@ func TestJWTManagerGenerateTokenIncludesExpectedClaims(t *testing.T) {
 }
 
 func TestJWTManagerRequiresSecret(t *testing.T) {
-	manager := NewJWTManager("", time.Hour, "issuer", "audience")
+	manager := NewJWTManager("", time.Hour, time.Hour*24, "issuer", "audience")
 
-	token, err := manager.GenerateToken("analyst")
+	token, err := manager.GenerateToken("analyst", "session-1")
 	if !errors.Is(err, ErrMissingSecret) {
 		t.Fatalf("expected ErrMissingSecret from GenerateToken, got token=%q err=%v", token, err)
 	}
@@ -75,7 +75,7 @@ func TestJWTManagerRequiresSecret(t *testing.T) {
 }
 
 func TestJWTManagerRejectsInvalidTokens(t *testing.T) {
-	manager := NewJWTManager("test-secret", time.Hour, "issuer", "audience")
+	manager := NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
 
 	tests := []struct {
 		name  string
@@ -89,17 +89,18 @@ func TestJWTManagerRejectsInvalidTokens(t *testing.T) {
 			name: "wrong signing secret",
 			token: signToken(t, "wrong-secret", AccessClaims{
 				Scope:            accessScope,
-				TokenUse:         tokenUse,
-				RegisteredClaims: validRegisteredClaims("analyst"),
+				TokenUse:         tokenUseAccess,
+				RegisteredClaims: validRegisteredClaims("analyst", "session-1"),
 			}),
 		},
 		{
 			name: "expired token",
 			token: signToken(t, "test-secret", AccessClaims{
 				Scope:    accessScope,
-				TokenUse: tokenUse,
+				TokenUse: tokenUseAccess,
 				RegisteredClaims: jwt.RegisteredClaims{
 					Subject:   "analyst",
+					ID:        "session-1",
 					Issuer:    "issuer",
 					Audience:  jwt.ClaimStrings{"audience"},
 					IssuedAt:  jwt.NewNumericDate(time.Now().Add(-2 * time.Hour)),
@@ -111,9 +112,10 @@ func TestJWTManagerRejectsInvalidTokens(t *testing.T) {
 			name: "wrong issuer",
 			token: signToken(t, "test-secret", AccessClaims{
 				Scope:    accessScope,
-				TokenUse: tokenUse,
+				TokenUse: tokenUseAccess,
 				RegisteredClaims: jwt.RegisteredClaims{
 					Subject:   "analyst",
+					ID:        "session-1",
 					Issuer:    "other-issuer",
 					Audience:  jwt.ClaimStrings{"audience"},
 					IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -125,9 +127,10 @@ func TestJWTManagerRejectsInvalidTokens(t *testing.T) {
 			name: "wrong audience",
 			token: signToken(t, "test-secret", AccessClaims{
 				Scope:    accessScope,
-				TokenUse: tokenUse,
+				TokenUse: tokenUseAccess,
 				RegisteredClaims: jwt.RegisteredClaims{
 					Subject:   "analyst",
+					ID:        "session-1",
 					Issuer:    "issuer",
 					Audience:  jwt.ClaimStrings{"other-audience"},
 					IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -139,9 +142,10 @@ func TestJWTManagerRejectsInvalidTokens(t *testing.T) {
 			name: "missing expiration",
 			token: signToken(t, "test-secret", AccessClaims{
 				Scope:    accessScope,
-				TokenUse: tokenUse,
+				TokenUse: tokenUseAccess,
 				RegisteredClaims: jwt.RegisteredClaims{
 					Subject:  "analyst",
+					ID:       "session-1",
 					Issuer:   "issuer",
 					Audience: jwt.ClaimStrings{"audience"},
 					IssuedAt: jwt.NewNumericDate(time.Now()),
@@ -161,7 +165,7 @@ func TestJWTManagerRejectsInvalidTokens(t *testing.T) {
 }
 
 func TestJWTManagerRejectsInvalidApplicationClaims(t *testing.T) {
-	manager := NewJWTManager("test-secret", time.Hour, "issuer", "audience")
+	manager := NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
 
 	tests := []struct {
 		name      string
@@ -172,9 +176,10 @@ func TestJWTManagerRejectsInvalidApplicationClaims(t *testing.T) {
 			name: "missing subject",
 			claims: AccessClaims{
 				Scope:    accessScope,
-				TokenUse: tokenUse,
+				TokenUse: tokenUseAccess,
 				RegisteredClaims: jwt.RegisteredClaims{
 					Issuer:    "issuer",
+					ID:        "session-1",
 					Audience:  jwt.ClaimStrings{"audience"},
 					IssuedAt:  jwt.NewNumericDate(time.Now()),
 					ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
@@ -186,8 +191,8 @@ func TestJWTManagerRejectsInvalidApplicationClaims(t *testing.T) {
 			name: "invalid scope",
 			claims: AccessClaims{
 				Scope:            "admin",
-				TokenUse:         tokenUse,
-				RegisteredClaims: validRegisteredClaims("analyst"),
+				TokenUse:         tokenUseAccess,
+				RegisteredClaims: validRegisteredClaims("analyst", "session-1"),
 			},
 			expectErr: ErrInvalidScope,
 		},
@@ -195,8 +200,8 @@ func TestJWTManagerRejectsInvalidApplicationClaims(t *testing.T) {
 			name: "invalid token use",
 			claims: AccessClaims{
 				Scope:            accessScope,
-				TokenUse:         "refresh",
-				RegisteredClaims: validRegisteredClaims("analyst"),
+				TokenUse:         tokenUseRefresh,
+				RegisteredClaims: validRegisteredClaims("analyst", "session-1"),
 			},
 			expectErr: ErrInvalidTokenUse,
 		},
@@ -211,6 +216,26 @@ func TestJWTManagerRejectsInvalidApplicationClaims(t *testing.T) {
 				t.Fatalf("expected %v, got username=%q err=%v", tt.expectErr, username, err)
 			}
 		})
+	}
+}
+
+func TestJWTManagerGeneratesAndValidatesRefreshTokens(t *testing.T) {
+	manager := NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
+
+	token, err := manager.GenerateRefreshToken("analyst", "refresh-session-1")
+	if err != nil {
+		t.Fatalf("expected refresh token generation to succeed: %v", err)
+	}
+
+	claims, err := manager.ExtractRefreshClaims(token)
+	if err != nil {
+		t.Fatalf("expected refresh token extraction to succeed: %v", err)
+	}
+	if claims.Subject != "analyst" {
+		t.Fatalf("expected refresh username analyst, got %q", claims.Subject)
+	}
+	if claims.ID != "refresh-session-1" {
+		t.Fatalf("expected refresh token id refresh-session-1, got %q", claims.ID)
 	}
 }
 
@@ -233,9 +258,10 @@ func signToken(t *testing.T, secret string, claims AccessClaims) string {
 	return token
 }
 
-func validRegisteredClaims(subject string) jwt.RegisteredClaims {
+func validRegisteredClaims(subject string, id string) jwt.RegisteredClaims {
 	return jwt.RegisteredClaims{
 		Subject:   subject,
+		ID:        id,
 		Issuer:    "issuer",
 		Audience:  jwt.ClaimStrings{"audience"},
 		IssuedAt:  jwt.NewNumericDate(time.Now()),

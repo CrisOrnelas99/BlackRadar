@@ -13,6 +13,7 @@ import (
 
 	appcontext "secureops/backend-go/api/context"
 	"secureops/backend-go/api/model"
+	baserepository "secureops/backend-go/api/repository"
 	"secureops/backend-go/api/security"
 )
 
@@ -199,7 +200,8 @@ func TestRequireAdmin(t *testing.T) {
 }
 
 func TestJWTAuthenticationFilterRejectsInvalidRequests(t *testing.T) {
-	jwtManager := security.NewJWTManager("test-secret", time.Hour, "issuer", "audience")
+	jwtManager := security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
+	sessionLookup := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: 42}}
 
 	tests := []struct {
 		name       string
@@ -219,21 +221,21 @@ func TestJWTAuthenticationFilterRejectsInvalidRequests(t *testing.T) {
 		{
 			name: "unknown user",
 			headerFunc: func(t *testing.T) string {
-				return "Bearer " + mustGenerateToken(t, jwtManager, "analyst")
+				return "Bearer " + mustGenerateToken(t, jwtManager, "analyst", "session-1")
 			},
 			lookup: &fakeUserLookup{exists: false},
 		},
 		{
 			name: "lookup error",
 			headerFunc: func(t *testing.T) string {
-				return "Bearer " + mustGenerateToken(t, jwtManager, "analyst")
+				return "Bearer " + mustGenerateToken(t, jwtManager, "analyst", "session-1")
 			},
 			lookup: &fakeUserLookup{exists: true, existsErr: errors.New("lookup failed")},
 		},
 		{
 			name: "find user error",
 			headerFunc: func(t *testing.T) string {
-				return "Bearer " + mustGenerateToken(t, jwtManager, "analyst")
+				return "Bearer " + mustGenerateToken(t, jwtManager, "analyst", "session-1")
 			},
 			lookup: &fakeUserLookup{exists: true, findErr: errors.New("find failed")},
 		},
@@ -247,7 +249,7 @@ func TestJWTAuthenticationFilterRejectsInvalidRequests(t *testing.T) {
 			}
 
 			router := gin.New()
-			router.Use(JWTAuthenticationFilter(jwtManager, tt.lookup))
+			router.Use(JWTAuthenticationFilter(jwtManager, tt.lookup, sessionLookup))
 			router.GET("/private", func(ctx *gin.Context) {
 				t.Fatal("handler should not run for invalid authentication")
 			})
@@ -269,7 +271,7 @@ func TestJWTAuthenticationFilterRejectsInvalidRequests(t *testing.T) {
 }
 
 func TestJWTAuthenticationFilterSetsAuthenticatedUserContext(t *testing.T) {
-	jwtManager := security.NewJWTManager("test-secret", time.Hour, "issuer", "audience")
+	jwtManager := security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
 	lookup := &fakeUserLookup{
 		exists: true,
 		user: model.User{
@@ -278,11 +280,12 @@ func TestJWTAuthenticationFilterSetsAuthenticatedUserContext(t *testing.T) {
 			Role:     model.RoleUser,
 		},
 	}
-	token := mustGenerateToken(t, jwtManager, "analyst")
+	token := mustGenerateToken(t, jwtManager, "analyst", "session-1")
+	sessionLookup := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: 42}}
 
 	router := gin.New()
 	router.Use(RequestContext())
-	router.Use(JWTAuthenticationFilter(jwtManager, lookup))
+	router.Use(JWTAuthenticationFilter(jwtManager, lookup, sessionLookup))
 	router.GET("/private", func(ctx *gin.Context) {
 		ec := appcontext.FromGinContext(ctx)
 		if ec.Username() != "analyst" {
@@ -372,15 +375,26 @@ func (f *fakeUserLookup) FindByUsername(ec *appcontext.GinContext, username stri
 	return f.user, f.findErr
 }
 
-func mustGenerateToken(t *testing.T, jwtManager *security.JWTManager, username string) string {
+func mustGenerateToken(t *testing.T, jwtManager *security.JWTManager, username string, tokenID string) string {
 	t.Helper()
 
-	token, err := jwtManager.GenerateToken(username)
+	token, err := jwtManager.GenerateToken(username, tokenID)
 	if err != nil {
 		t.Fatalf("failed to generate token: %v", err)
 	}
 
 	return token
+}
+
+type fakeRefreshSessionLookup struct {
+	session model.RefreshSession
+}
+
+func (f *fakeRefreshSessionLookup) FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID int64) (model.RefreshSession, error) {
+	if f.session.TokenID == tokenID && f.session.UserID == userID {
+		return f.session, nil
+	}
+	return model.RefreshSession{}, baserepository.ErrRefreshSessionNotFound
 }
 
 func performRequest(router http.Handler, method string, target string, mutate func(*http.Request)) *httptest.ResponseRecorder {

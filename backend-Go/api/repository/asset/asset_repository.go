@@ -63,9 +63,20 @@ func (r *AssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (mo
 		return model.Asset{}, baserepository.ErrInvalidData
 	}
 
-	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Create(&asset).Error
-	if err != nil {
+	for attempt := 0; attempt < 3; attempt++ {
+		if asset.ID == 0 || attempt > 0 {
+			asset.ID = utils.NewRandomID()
+		}
+
+		err := r.dbForContext(ec).WithContext(ec.RequestContext()).Create(&asset).Error
+		if err == nil {
+			return asset, nil
+		}
+
 		databaseErr := utils.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, utils.ErrUniqueViolation) && utils.IsPrimaryKeyViolation(err) {
+			continue
+		}
 		if errors.Is(databaseErr, utils.ErrForeignKeyViolation) {
 			return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidReference, databaseErr)
 		}
@@ -74,7 +85,8 @@ func (r *AssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (mo
 		}
 		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrCreateFailed, databaseErr)
 	}
-	return asset, nil
+
+	return model.Asset{}, fmt.Errorf("%w: exhausted random id retries", baserepository.ErrCreateFailed)
 }
 
 // UpdateForUser updates an asset owned by the specified user.
@@ -120,7 +132,15 @@ func (r *AssetRepository) DeleteForUser(ec *appcontext.GinContext, id int64, use
 		if err := tx.Exec("DELETE FROM asset_vulnerabilities WHERE asset_id = ?", asset.ID).Error; err != nil {
 			return err
 		}
-		return tx.Delete(&asset).Error
+		if err := tx.Delete(&asset).Error; err != nil {
+			return err
+		}
+		for _, vulnerability := range asset.Vulnerabilities {
+			if err := deleteOrphanedVulnerability(tx, vulnerability); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrDeleteFailed, err)
@@ -163,7 +183,12 @@ func (r *AssetRepository) RemoveVulnerabilityForUser(ec *appcontext.GinContext, 
 		return model.Asset{}, err
 	}
 
-	err = r.dbForContext(ec).WithContext(ec.RequestContext()).Model(&asset).Association("Vulnerabilities").Delete(&vulnerability)
+	err = r.dbForContext(ec).WithContext(ec.RequestContext()).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&asset).Association("Vulnerabilities").Delete(&vulnerability); err != nil {
+			return err
+		}
+		return deleteOrphanedVulnerability(tx, vulnerability)
+	})
 	if err != nil {
 		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrDeleteFailed, err)
 	}
@@ -190,4 +215,16 @@ func (r *AssetRepository) findAssetAndVulnerabilityForUser(ec *appcontext.GinCon
 	}
 
 	return asset, vulnerability, nil
+}
+
+// deleteOrphanedVulnerability removes a vulnerability when no assets still reference it.
+func deleteOrphanedVulnerability(tx *gorm.DB, vulnerability model.Vulnerability) error {
+	var count int64
+	if err := tx.Table("asset_vulnerabilities").Where("vulnerability_id = ?", vulnerability.ID).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+	return tx.Delete(&vulnerability).Error
 }

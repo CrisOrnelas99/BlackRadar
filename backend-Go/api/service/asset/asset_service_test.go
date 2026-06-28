@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	appcontext "secureops/backend-go/api/context"
+	"secureops/backend-go/api/dto"
 	"secureops/backend-go/api/model"
 	baserepository "secureops/backend-go/api/repository"
 	baseservice "secureops/backend-go/api/service"
@@ -20,7 +21,7 @@ import (
 // TestAssetService verifies the happy-path asset service flow.
 func TestAssetService(t *testing.T) {
 	repo := &fakeAssetRepository{asset: sampleAsset(), assets: []model.Asset{sampleAsset()}}
-	svc := NewAssetService(repo)
+	svc := NewAssetService(repo, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{})
 	ctx := newServiceContext(t, 42)
 
 	if _, err := svc.GetAllAssets(ctx); err != nil {
@@ -57,7 +58,7 @@ func TestAssetServiceHelpers(t *testing.T) {
 
 // TestAssetServiceValidationAndTranslation verifies validation and error mapping.
 func TestAssetServiceValidationAndTranslation(t *testing.T) {
-	svc := NewAssetService(&fakeAssetRepository{findErr: baserepository.ErrAssetNotFound})
+	svc := NewAssetService(&fakeAssetRepository{findErr: baserepository.ErrAssetNotFound}, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{})
 	ctx := newServiceContext(t, 42)
 
 	if _, err := svc.GetAsset(ctx, 1); !errors.Is(err, baseservice.ErrNotFound) {
@@ -68,10 +69,39 @@ func TestAssetServiceValidationAndTranslation(t *testing.T) {
 	}
 }
 
+// TestAssetServiceAssignVulnerabilityByCVE verifies the NVD-backed assignment flow stores local data.
+func TestAssetServiceAssignVulnerabilityByCVE(t *testing.T) {
+	assetRepo := &fakeAssetRepository{asset: sampleAsset()}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: baserepository.ErrVulnerabilityNotFound}
+	nvdSvc := &fakeNVDLookupService{response: dto.CVELookupResponse{
+		CVEID:       "CVE-2024-3094",
+		Title:       "XZ Utils Backdoor",
+		Description: "Example NVD response",
+		Severity:    "Critical",
+	}}
+	svc := NewAssetService(assetRepo, vulnRepo, nvdSvc)
+	ctx := newServiceContext(t, 42)
+
+	assigned, err := svc.AssignVulnerabilityByCVE(ctx, 1, "cve-2024-3094")
+	if err != nil {
+		t.Fatalf("expected assign by cve to succeed, got %v", err)
+	}
+	if assigned.ID != assetRepo.asset.ID {
+		t.Fatalf("expected assigned asset to be returned, got %d", assigned.ID)
+	}
+	if !nvdSvc.called {
+		t.Fatal("expected NVD lookup to be called")
+	}
+	if vulnRepo.saved.CVEID != "CVE-2024-3094" {
+		t.Fatalf("expected local vulnerability to be saved, got %q", vulnRepo.saved.CVEID)
+	}
+}
+
 type fakeAssetRepository struct {
-	assets  []model.Asset
-	asset   model.Asset
-	findErr error
+	assets   []model.Asset
+	asset    model.Asset
+	findErr  error
+	assigned bool
 }
 
 // FindAllByUser returns the configured fake asset list.
@@ -104,6 +134,7 @@ func (f *fakeAssetRepository) DeleteForUser(ec *appcontext.GinContext, id int64,
 
 // AssignVulnerabilityForUser returns the configured fake asset.
 func (f *fakeAssetRepository) AssignVulnerabilityForUser(ec *appcontext.GinContext, assetID int64, userID int64, vulnerabilityID int64) (model.Asset, error) {
+	f.assigned = true
 	return f.asset, nil
 }
 
@@ -113,6 +144,66 @@ func (f *fakeAssetRepository) RemoveVulnerabilityForUser(ec *appcontext.GinConte
 }
 
 var _ baserepository.AssetRepository = (*fakeAssetRepository)(nil)
+
+type fakeVulnerabilityRepository struct {
+	findErr error
+	saved   model.Vulnerability
+	updated model.Vulnerability
+}
+
+func (f *fakeVulnerabilityRepository) FindAllByUser(ec *appcontext.GinContext, userID int64) ([]model.Vulnerability, error) {
+	return nil, nil
+}
+
+func (f *fakeVulnerabilityRepository) FindByIDForUser(ec *appcontext.GinContext, id int64, userID int64) (model.Vulnerability, error) {
+	return model.Vulnerability{}, nil
+}
+
+func (f *fakeVulnerabilityRepository) ExistsByCVEIDForUser(ec *appcontext.GinContext, cveID string, userID int64) (bool, error) {
+	return false, nil
+}
+
+func (f *fakeVulnerabilityRepository) ExistsByCVEIDExcludingIDForUser(ec *appcontext.GinContext, cveID string, id int64, userID int64) (bool, error) {
+	return false, nil
+}
+
+func (f *fakeVulnerabilityRepository) FindByCVEIDForUser(ec *appcontext.GinContext, cveID string, userID int64) (model.Vulnerability, error) {
+	if f.findErr != nil {
+		return model.Vulnerability{}, f.findErr
+	}
+	return f.saved, nil
+}
+
+func (f *fakeVulnerabilityRepository) Save(ec *appcontext.GinContext, vulnerability model.Vulnerability) (model.Vulnerability, error) {
+	f.saved = vulnerability
+	f.saved.ID = 99
+	return f.saved, nil
+}
+
+func (f *fakeVulnerabilityRepository) UpdateForUser(ec *appcontext.GinContext, id int64, userID int64, vulnerability model.Vulnerability) (model.Vulnerability, error) {
+	f.updated = vulnerability
+	f.updated.ID = id
+	return f.updated, nil
+}
+
+func (f *fakeVulnerabilityRepository) DeleteForUser(ec *appcontext.GinContext, id int64, userID int64) (model.Vulnerability, error) {
+	return model.Vulnerability{}, nil
+}
+
+var _ baserepository.VulnerabilityRepository = (*fakeVulnerabilityRepository)(nil)
+
+type fakeNVDLookupService struct {
+	response dto.CVELookupResponse
+	err      error
+	called   bool
+}
+
+func (f *fakeNVDLookupService) LookupCVE(ec *appcontext.GinContext, cveID string) (dto.CVELookupResponse, error) {
+	f.called = true
+	return f.response, f.err
+}
+
+var _ baseservice.NVDLookupService = (*fakeNVDLookupService)(nil)
 
 // newServiceContext creates a request context with an authenticated user ID.
 func newServiceContext(t *testing.T, userID int64) *appcontext.GinContext {
