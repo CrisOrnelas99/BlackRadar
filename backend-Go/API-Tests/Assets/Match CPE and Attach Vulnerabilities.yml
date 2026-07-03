@@ -13,4 +13,3 @@ settings:
   timeout: 120000
   followRedirects: true
   maxRedirects: 5
-​

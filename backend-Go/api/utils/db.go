@@ -76,13 +76,18 @@ func RunMigrations(ctx context.Context, database *gorm.DB) error {
 	if err := database.WithContext(ctx).AutoMigrate(
 		&model.Organization{},
 		&model.Vulnerability{},
+		&model.AssetAssessment{},
 		&model.Asset{},
 		&model.RefreshSession{},
 	); err != nil {
 		return err
 	}
 
-	return ensureIndexes(ctx, database)
+	if err := ensureIndexes(ctx, database); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // ensureOrganizationSchema creates the organization table and required columns when they do not already exist.
@@ -205,32 +210,100 @@ func ensureIndexes(ctx context.Context, database *gorm.DB) error {
 				ALTER TABLE assets ADD CONSTRAINT fk_assets_organization FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
 			END IF;
 		END $$`,
-		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS product_fingerprint TEXT`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS vendor TEXT`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS product TEXT`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS version TEXT`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS device_model TEXT`,
-		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS selected_cpe TEXT`,
-		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS cpe_confidence DOUBLE PRECISION`,
-		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS cpe_review_status VARCHAR NOT NULL DEFAULT 'needs_review'`,
-		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS cpe_review_notes TEXT`,
-		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS cpe_candidate_count INTEGER NOT NULL DEFAULT 0`,
-		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS cpe_matched_at TIMESTAMP WITH TIME ZONE`,
-		`ALTER TABLE assets ALTER COLUMN ip_address DROP NOT NULL`,
-		`UPDATE assets SET cpe_review_status = 'needs_review' WHERE cpe_review_status IS NULL OR cpe_review_status = ''`,
-		`UPDATE assets SET cpe_candidate_count = 0 WHERE cpe_candidate_count IS NULL`,
+		`ALTER TABLE assets ALTER COLUMN risk_level DROP DEFAULT`,
+		`ALTER TABLE assets ALTER COLUMN risk_level DROP NOT NULL`,
+		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS asset_assessment_id BIGINT`,
+		`ALTER TABLE assets DROP CONSTRAINT IF EXISTS fk_assets_asset_assessment`,
+		`DO $$
+		DECLARE
+			has_legacy_match_columns BOOLEAN;
+		BEGIN
+			SELECT EXISTS (
+				SELECT 1
+				FROM information_schema.columns
+				WHERE table_schema = current_schema()
+				  AND table_name = 'assets'
+				  AND column_name = 'risk_score'
+			) INTO has_legacy_match_columns;
+
+			IF has_legacy_match_columns THEN
+				INSERT INTO asset_assessments (
+					id,
+					risk_score,
+					product_fingerprint,
+					selected_cpe,
+					cpe_confidence,
+					cpe_review_status,
+					cpe_review_notes,
+					cpe_candidate_count,
+					cpe_matched_at,
+					created_at,
+					updated_at
+				)
+				SELECT
+					a.id,
+					COALESCE(a.risk_score, 0),
+					a.product_fingerprint,
+					a.selected_cpe,
+					a.cpe_confidence,
+					COALESCE(NULLIF(a.cpe_review_status, ''), 'needs_review'),
+					a.cpe_review_notes,
+					COALESCE(a.cpe_candidate_count, 0),
+					a.cpe_matched_at,
+					COALESCE(a.created_at, NOW()),
+					COALESCE(a.updated_at, NOW())
+				FROM assets a
+				WHERE a.asset_assessment_id IS NULL
+				ON CONFLICT (id) DO NOTHING;
+			ELSE
+				INSERT INTO asset_assessments (
+					id,
+					risk_score,
+					cpe_review_status,
+					cpe_candidate_count,
+					created_at,
+					updated_at
+				)
+				SELECT
+					a.id,
+					0,
+					'needs_review',
+					0,
+					COALESCE(a.created_at, NOW()),
+					COALESCE(a.updated_at, NOW())
+				FROM assets a
+				WHERE a.asset_assessment_id IS NULL
+				ON CONFLICT (id) DO NOTHING;
+			END IF;
+		END $$`,
+		`UPDATE assets SET asset_assessment_id = id WHERE asset_assessment_id IS NULL`,
 		`DO $$
 		BEGIN
 			IF NOT EXISTS (
-				SELECT 1 FROM pg_constraint WHERE conname = 'chk_assets_cpe_review_status'
+				SELECT 1 FROM pg_constraint WHERE conname = 'chk_asset_assessments_cpe_review_status'
 			) THEN
-				ALTER TABLE assets ADD CONSTRAINT chk_assets_cpe_review_status CHECK (cpe_review_status IN ('accepted', 'needs_review', 'rejected'));
+				ALTER TABLE asset_assessments ADD CONSTRAINT chk_asset_assessments_cpe_review_status CHECK (cpe_review_status IN ('accepted', 'needs_review', 'rejected'));
 			END IF;
 		END $$`,
-		`ALTER TABLE assets ALTER COLUMN cpe_review_status SET DEFAULT 'needs_review'`,
-		`ALTER TABLE assets ALTER COLUMN cpe_review_status SET NOT NULL`,
-		`ALTER TABLE assets ALTER COLUMN cpe_candidate_count SET DEFAULT 0`,
-		`ALTER TABLE assets ALTER COLUMN cpe_candidate_count SET NOT NULL`,
+		`ALTER TABLE asset_assessments ALTER COLUMN cpe_review_status SET DEFAULT 'needs_review'`,
+		`ALTER TABLE asset_assessments ALTER COLUMN cpe_review_status SET NOT NULL`,
+		`ALTER TABLE asset_assessments ALTER COLUMN cpe_candidate_count SET DEFAULT 0`,
+		`ALTER TABLE asset_assessments ALTER COLUMN cpe_candidate_count SET NOT NULL`,
+		`ALTER TABLE asset_assessments ALTER COLUMN risk_score SET DEFAULT 0`,
+		`ALTER TABLE asset_assessments ALTER COLUMN risk_score SET NOT NULL`,
+		`ALTER TABLE assets DROP COLUMN IF EXISTS risk_score`,
+		`ALTER TABLE assets DROP COLUMN IF EXISTS product_fingerprint`,
+		`ALTER TABLE assets DROP COLUMN IF EXISTS selected_cpe`,
+		`ALTER TABLE assets DROP COLUMN IF EXISTS cpe_confidence`,
+		`ALTER TABLE assets DROP COLUMN IF EXISTS cpe_review_status`,
+		`ALTER TABLE assets DROP COLUMN IF EXISTS cpe_review_notes`,
+		`ALTER TABLE assets DROP COLUMN IF EXISTS cpe_candidate_count`,
+		`ALTER TABLE assets DROP COLUMN IF EXISTS cpe_matched_at`,
+		`ALTER TABLE assets DROP CONSTRAINT IF EXISTS chk_assets_cpe_review_status`,
 		`ALTER TABLE assets ALTER COLUMN organization_id SET NOT NULL`,
 		`DO $$
 		BEGIN
@@ -269,5 +342,88 @@ func ensureIndexes(ctx context.Context, database *gorm.DB) error {
 		}
 	}
 
+	if err := remapAssetAssessmentIDs(ctx, database); err != nil {
+		return err
+	}
+
+	postRemapStatements := []string{
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_assets_asset_assessment_id ON assets (asset_assessment_id)`,
+		`DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM pg_constraint WHERE conname = 'fk_assets_asset_assessment'
+			) THEN
+				ALTER TABLE assets ADD CONSTRAINT fk_assets_asset_assessment FOREIGN KEY (asset_assessment_id) REFERENCES asset_assessments(id) ON UPDATE CASCADE;
+			END IF;
+		END $$`,
+		`ALTER TABLE assets ALTER COLUMN asset_assessment_id SET NOT NULL`,
+	}
+
+	for _, statement := range postRemapStatements {
+		if err := database.WithContext(ctx).Exec(statement).Error; err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+// remapAssetAssessmentIDs gives existing asset assessment rows arbitrary IDs so they are decoupled from asset IDs.
+func remapAssetAssessmentIDs(ctx context.Context, database *gorm.DB) error {
+	type idRow struct {
+		ID int64 `gorm:"column:id"`
+	}
+
+	var assessmentIDs []idRow
+	if err := database.WithContext(ctx).Table("asset_assessments").Order("id").Find(&assessmentIDs).Error; err != nil {
+		return err
+	}
+	if len(assessmentIDs) == 0 {
+		return nil
+	}
+
+	var assetIDs []int64
+	if err := database.WithContext(ctx).Table("assets").Order("id").Pluck("id", &assetIDs).Error; err != nil {
+		return err
+	}
+
+	reservedIDs := make(map[int64]struct{}, len(assessmentIDs)+len(assetIDs))
+	for _, id := range assetIDs {
+		reservedIDs[id] = struct{}{}
+	}
+	for _, row := range assessmentIDs {
+		reservedIDs[row.ID] = struct{}{}
+	}
+
+	return database.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, row := range assessmentIDs {
+			newID, err := nextDistinctID(reservedIDs, row.ID)
+			if err != nil {
+				return err
+			}
+			if err := tx.Exec(`UPDATE asset_assessments SET id = ? WHERE id = ?`, newID, row.ID).Error; err != nil {
+				return err
+			}
+			if err := tx.Exec(`UPDATE assets SET asset_assessment_id = ? WHERE asset_assessment_id = ?`, newID, row.ID).Error; err != nil {
+				return err
+			}
+			reservedIDs[newID] = struct{}{}
+		}
+		return nil
+	})
+}
+
+// nextDistinctID returns a random identifier that does not collide with any reserved IDs or the excluded value.
+func nextDistinctID(reserved map[int64]struct{}, excluded int64) (int64, error) {
+	for attempts := 0; attempts < 1024; attempts++ {
+		id := NewRandomID()
+		if id == excluded {
+			continue
+		}
+		if _, exists := reserved[id]; exists {
+			continue
+		}
+		return id, nil
+	}
+	return 0, fmt.Errorf("exhausted random id retries while remapping asset assessments")
 }

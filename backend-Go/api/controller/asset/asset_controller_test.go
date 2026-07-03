@@ -2,6 +2,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -23,7 +24,7 @@ func TestAssetControllerHandlers(t *testing.T) {
 	controller := NewAssetController(svc, &fakeAssetMatchService{asset: sampleAsset()})
 
 	t.Run("get assets", func(t *testing.T) {
-		ec := newAssetContext(t, http.MethodGet, "/assets", "")
+		ec, _ := newAssetContext(t, http.MethodGet, "/assets", "")
 		controller.GetAssets(ec)
 		if svc.getAllCalls != 1 {
 			t.Fatal("expected GetAllAssets to be called")
@@ -31,18 +32,34 @@ func TestAssetControllerHandlers(t *testing.T) {
 	})
 
 	t.Run("create asset", func(t *testing.T) {
-		ec := newAssetContext(t, http.MethodPost, "/assets", `{"name":"Asset 1","type":"Server","owner":"IT","criticality":"High"}`)
+		ec, recorder := newAssetContext(t, http.MethodPost, "/assets", `{"name":"Asset 1","type":"Server","owner":"IT","criticality":"High"}`)
 		ec.Request.Header.Set("Content-Type", "application/json")
 		controller.CreateAsset(ec)
 		if svc.createCalls != 1 {
 			t.Fatal("expected CreateAsset to be called")
+		}
+		var response map[string]any
+		if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+			t.Fatalf("failed to decode create asset response: %v", err)
+		}
+		if _, exists := response["riskScore"]; exists {
+			t.Fatal("expected create asset response not to expose riskScore")
+		}
+		if _, exists := response["assetAssessmentId"]; !exists {
+			t.Fatal("expected create asset response to expose assetAssessmentId")
+		}
+		if _, exists := response["riskLevel"]; !exists {
+			t.Fatal("expected create asset response to expose riskLevel")
+		}
+		if response["riskLevel"] != nil {
+			t.Fatalf("expected create asset response riskLevel to be null, got %#v", response["riskLevel"])
 		}
 	})
 
 	t.Run("create asset with raw text does not auto-match vulnerabilities", func(t *testing.T) {
 		svc := &fakeAssetService{asset: sampleAsset()}
 		controller := NewAssetController(svc, &fakeAssetMatchService{asset: sampleAsset()})
-		ec := newAssetContext(t, http.MethodPost, "/assets", `{"name":"Asset 1","type":"Server","owner":"IT","criticality":"High","rawText":"Vendor: Tukaani\nProduct: xz\nVersion: 5.6.1"}`)
+		ec, _ := newAssetContext(t, http.MethodPost, "/assets", `{"name":"Asset 1","type":"Server","owner":"IT","criticality":"High","rawText":"Vendor: Tukaani\nProduct: xz\nVersion: 5.6.1"}`)
 		ec.Request.Header.Set("Content-Type", "application/json")
 		controller.CreateAsset(ec)
 		if svc.createCalls != 1 {
@@ -51,7 +68,7 @@ func TestAssetControllerHandlers(t *testing.T) {
 	})
 
 	t.Run("create asset from ai mode", func(t *testing.T) {
-		ec := newAssetContext(t, http.MethodPost, "/assets", `{"aiMode":true,"rawText":"I have an Amazon Ring doorbell running firmware 3.4.6."}`)
+		ec, _ := newAssetContext(t, http.MethodPost, "/assets", `{"aiMode":true,"rawText":"I have an Amazon Ring doorbell running firmware 3.4.6."}`)
 		ec.Request.Header.Set("Content-Type", "application/json")
 		controller.CreateAsset(ec)
 		if svc.createFromAICalls != 1 {
@@ -59,25 +76,25 @@ func TestAssetControllerHandlers(t *testing.T) {
 		}
 	})
 
-	t.Run("match asset cpe", func(t *testing.T) {
-		matchSvc := &fakeAssetMatchService{asset: sampleAsset()}
-		controller := NewAssetController(svc, matchSvc)
-		ec := newAssetContext(t, http.MethodPost, "/assets/1/match-cpe", "")
-		ec.AddParam("id", "1")
-		controller.MatchAssetCPE(ec)
-		if matchSvc.calls != 1 {
-			t.Fatalf("expected AnalyzeAndPersistAssetMatch to be called once, got %d", matchSvc.calls)
-		}
-	})
-
 	t.Run("match asset cpe and attach vulnerabilities", func(t *testing.T) {
 		matchSvc := &fakeAssetMatchService{asset: sampleAsset()}
 		controller := NewAssetController(svc, matchSvc)
-		ec := newAssetContext(t, http.MethodPost, "/assets/1/match-cpe/vulnerabilities", "")
+		ec, recorder := newAssetContext(t, http.MethodPost, "/assets/1/match-cpe/vulnerabilities", "")
 		ec.AddParam("id", "1")
 		controller.MatchAssetCPEAndAttachVulnerabilities(ec)
 		if matchSvc.attachCalls != 1 {
 			t.Fatalf("expected AnalyzePersistAndAttachVulnerabilities to be called once, got %d", matchSvc.attachCalls)
+		}
+		var response map[string]any
+		if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+			t.Fatalf("failed to decode match-and-attach response: %v", err)
+		}
+		assetValue, exists := response["asset"].(map[string]any)
+		if !exists {
+			t.Fatal("expected match-and-attach response to include nested asset object")
+		}
+		if _, exists := assetValue["vulnerabilities"]; !exists {
+			t.Fatal("expected nested asset object to include vulnerabilities")
 		}
 	})
 }
@@ -142,7 +159,7 @@ func (f *fakeAssetService) RemoveVulnerability(ec *appcontext.GinContext, assetI
 var _ baseservice.AssetService = (*fakeAssetService)(nil)
 
 // newAssetContext creates a test Gin context for asset controller tests.
-func newAssetContext(t *testing.T, method string, target string, body string) *appcontext.GinContext {
+func newAssetContext(t *testing.T, method string, target string, body string) (*appcontext.GinContext, *httptest.ResponseRecorder) {
 	t.Helper()
 
 	recorder := httptest.NewRecorder()
@@ -154,12 +171,28 @@ func newAssetContext(t *testing.T, method string, target string, body string) *a
 	ctx.Request = req
 	ec := appcontext.NewGinContext(ctx, "txn-123", nil)
 	appcontext.SetGinContext(ctx, ec)
-	return ec
+	return ec, recorder
 }
 
 // sampleAsset returns a reusable asset fixture.
 func sampleAsset() model.Asset {
-	return model.Asset{ID: 1, Name: "Asset 1", Type: "Server", Owner: "IT", Criticality: "High"}
+	assessmentID := int64(9)
+	return model.Asset{
+		ID:                1,
+		AssetAssessmentID: &assessmentID,
+		Name:              "Asset 1",
+		Type:              "Server",
+		Owner:             "IT",
+		Criticality:       "High",
+		Vulnerabilities: []model.Vulnerability{
+			{ID: 10, CVEID: "CVE-2026-0001", Title: "Issue", Severity: "High", Description: "desc", Status: "Open"},
+		},
+		Assessment: &model.AssetAssessment{
+			ID:              assessmentID,
+			RiskScore:       12,
+			CPEReviewStatus: model.AssetCPEReviewStatusNeedsReview,
+		},
+	}
 }
 
 var _ = errors.New

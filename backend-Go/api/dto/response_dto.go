@@ -28,28 +28,46 @@ type VulnerabilityResponse struct {
 
 // AssetResponse exposes the public asset fields returned by the API.
 type AssetResponse struct {
-	ID                 int64                   `json:"id"`
-	Name               string                  `json:"name"`
-	Type               string                  `json:"type"`
-	OperatingSystem    *string                 `json:"operatingSystem"`
-	Vendor             *string                 `json:"vendor,omitempty"`
-	Product            *string                 `json:"product,omitempty"`
-	Version            *string                 `json:"version,omitempty"`
-	DeviceModel        *string                 `json:"deviceModel,omitempty"`
-	Owner              string                  `json:"owner"`
-	Criticality        string                  `json:"criticality"`
-	RiskScore          int16                   `json:"riskScore"`
-	RiskLevel          string                  `json:"riskLevel"`
-	ProductFingerprint *string                 `json:"productFingerprint,omitempty"`
-	SelectedCPE        *string                 `json:"selectedCpe,omitempty"`
-	CPEConfidence      *float64                `json:"cpeConfidence,omitempty"`
-	CPEReviewStatus    string                  `json:"cpeReviewStatus"`
-	CPEReviewNotes     *string                 `json:"cpeReviewNotes,omitempty"`
-	CPECandidateCount  int                     `json:"cpeCandidateCount"`
-	CPEMatchedAt       *time.Time              `json:"cpeMatchedAt,omitempty"`
-	Vulnerabilities    []VulnerabilityResponse `json:"vulnerabilities,omitempty"`
-	CreatedAt          time.Time               `json:"createdAt"`
-	UpdatedAt          time.Time               `json:"updatedAt"`
+	ID                int64     `json:"id"`
+	AssetAssessmentID *int64    `json:"assetAssessmentId,omitempty"`
+	Name              string    `json:"name"`
+	Type              string    `json:"type"`
+	OperatingSystem   *string   `json:"operatingSystem"`
+	Vendor            *string   `json:"vendor,omitempty"`
+	Product           *string   `json:"product,omitempty"`
+	Version           *string   `json:"version,omitempty"`
+	Owner             string    `json:"owner"`
+	Criticality       string    `json:"criticality"`
+	RiskLevel         *string   `json:"riskLevel"`
+	CreatedAt         time.Time `json:"createdAt"`
+	UpdatedAt         time.Time `json:"updatedAt"`
+}
+
+// AssetWithVulnerabilitiesResponse exposes the minimal asset shape with attached vulnerabilities.
+type AssetWithVulnerabilitiesResponse struct {
+	AssetResponse
+	Vulnerabilities []VulnerabilityResponse `json:"vulnerabilities,omitempty"`
+}
+
+// AssetAssessmentResponse exposes the linked asset assessment metadata separately from the asset record.
+type AssetAssessmentResponse struct {
+	ID                 *int64     `json:"id,omitempty"`
+	RiskScore          int16      `json:"riskScore"`
+	ProductFingerprint *string    `json:"productFingerprint,omitempty"`
+	SelectedCPE        *string    `json:"selectedCpe,omitempty"`
+	CPEConfidence      *float64   `json:"cpeConfidence,omitempty"`
+	CPEReviewStatus    string     `json:"cpeReviewStatus"`
+	CPEReviewNotes     *string    `json:"cpeReviewNotes,omitempty"`
+	CPECandidateCount  int        `json:"cpeCandidateCount"`
+	CPEMatchedAt       *time.Time `json:"cpeMatchedAt,omitempty"`
+	CreatedAt          *time.Time `json:"createdAt,omitempty"`
+	UpdatedAt          *time.Time `json:"updatedAt,omitempty"`
+}
+
+// AssetMatchResponse returns the asset and linked assessment separately for match-oriented workflows.
+type AssetMatchResponse struct {
+	Asset           AssetWithVulnerabilitiesResponse `json:"asset"`
+	AssetAssessment AssetAssessmentResponse          `json:"assetAssessment"`
 }
 
 // ToVulnerabilityResponseDTO converts a vulnerability model into its response DTO.
@@ -77,34 +95,20 @@ func ToVulnerabilityResponseDTOs(vulnerabilities []model.Vulnerability) []Vulner
 
 // ToAssetResponseDTO converts an asset model into its response DTO.
 func ToAssetResponseDTO(asset model.Asset) AssetResponse {
-	reviewStatus := asset.CPEReviewStatus
-	if reviewStatus == "" {
-		reviewStatus = model.AssetCPEReviewStatusNeedsReview
-	}
-
 	return AssetResponse{
-		ID:                 asset.ID,
-		Name:               asset.Name,
-		Type:               asset.Type,
-		OperatingSystem:    asset.OperatingSystem,
-		Vendor:             asset.Vendor,
-		Product:            asset.Product,
-		Version:            asset.Version,
-		DeviceModel:        asset.DeviceModel,
-		Owner:              asset.Owner,
-		Criticality:        asset.Criticality,
-		RiskScore:          asset.RiskScore,
-		RiskLevel:          asset.RiskLevel,
-		ProductFingerprint: asset.ProductFingerprint,
-		SelectedCPE:        asset.SelectedCPE,
-		CPEConfidence:      asset.CPEConfidence,
-		CPEReviewStatus:    reviewStatus,
-		CPEReviewNotes:     asset.CPEReviewNotes,
-		CPECandidateCount:  asset.CPECandidateCount,
-		CPEMatchedAt:       asset.CPEMatchedAt,
-		Vulnerabilities:    ToVulnerabilityResponseDTOs(asset.Vulnerabilities),
-		CreatedAt:          asset.CreatedAt,
-		UpdatedAt:          asset.UpdatedAt,
+		ID:                asset.ID,
+		AssetAssessmentID: asset.AssetAssessmentID,
+		Name:              asset.Name,
+		Type:              asset.Type,
+		OperatingSystem:   asset.OperatingSystem,
+		Vendor:            asset.Vendor,
+		Product:           asset.Product,
+		Version:           asset.Version,
+		Owner:             asset.Owner,
+		Criticality:       asset.Criticality,
+		RiskLevel:         asset.RiskLevel,
+		CreatedAt:         asset.CreatedAt,
+		UpdatedAt:         asset.UpdatedAt,
 	}
 }
 
@@ -115,4 +119,51 @@ func ToAssetResponseDTOs(assets []model.Asset) []AssetResponse {
 		result = append(result, ToAssetResponseDTO(asset))
 	}
 	return result
+}
+
+// ToAssetWithVulnerabilitiesResponseDTO converts an asset into the minimal asset response plus vulnerability details.
+func ToAssetWithVulnerabilitiesResponseDTO(asset model.Asset) AssetWithVulnerabilitiesResponse {
+	return AssetWithVulnerabilitiesResponse{
+		AssetResponse:   ToAssetResponseDTO(asset),
+		Vulnerabilities: ToVulnerabilityResponseDTOs(asset.Vulnerabilities),
+	}
+}
+
+// ToAssetAssessmentResponseDTO converts an asset's linked assessment into its response DTO.
+func ToAssetAssessmentResponseDTO(asset model.Asset) AssetAssessmentResponse {
+	response := AssetAssessmentResponse{
+		ID:              asset.AssetAssessmentID,
+		RiskScore:       0,
+		CPEReviewStatus: model.AssetCPEReviewStatusNeedsReview,
+	}
+
+	if asset.Assessment == nil {
+		return response
+	}
+
+	if response.ID == nil {
+		response.ID = &asset.Assessment.ID
+	}
+	response.RiskScore = asset.Assessment.RiskScore
+	response.ProductFingerprint = asset.Assessment.ProductFingerprint
+	response.SelectedCPE = asset.Assessment.SelectedCPE
+	response.CPEConfidence = asset.Assessment.CPEConfidence
+	response.CPEReviewNotes = asset.Assessment.CPEReviewNotes
+	response.CPECandidateCount = asset.Assessment.CPECandidateCount
+	response.CPEMatchedAt = asset.Assessment.CPEMatchedAt
+	response.CreatedAt = &asset.Assessment.CreatedAt
+	response.UpdatedAt = &asset.Assessment.UpdatedAt
+	if asset.Assessment.CPEReviewStatus != "" {
+		response.CPEReviewStatus = asset.Assessment.CPEReviewStatus
+	}
+
+	return response
+}
+
+// ToAssetMatchResponseDTO converts an asset into the separated match workflow response shape.
+func ToAssetMatchResponseDTO(asset model.Asset) AssetMatchResponse {
+	return AssetMatchResponse{
+		Asset:           ToAssetWithVulnerabilitiesResponseDTO(asset),
+		AssetAssessment: ToAssetAssessmentResponseDTO(asset),
+	}
 }

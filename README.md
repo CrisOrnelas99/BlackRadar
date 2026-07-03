@@ -92,7 +92,7 @@ The repository currently contains these working foundations:
 - backend OpenAI provider configuration and text-generation boundary
 - AI-assisted asset creation from raw text through the backend
 - AI-assisted asset product fingerprinting and CPE ranking
-- persisted asset CPE metadata, confidence, review status, review notes, candidate count, and matched timestamp
+- persisted asset assessment metadata, including risk score, product fingerprint, selected CPE, confidence, review status, review notes, candidate count, and matched timestamp
 - CPE-based NVD CVE lookup and bounded vulnerability attachment to assets
 - admin-only AI diagnostic endpoints
 - organization-aware registration and tenant membership
@@ -282,20 +282,18 @@ Assets
 - `POST /api/assets`
 - `PUT /api/assets/{id}`
 - `DELETE /api/assets/{id}`
-- `POST /api/assets/{id}/match-cpe`
 
 `POST /api/assets` also supports backend AI-assisted asset creation when the request uses `aiMode` with `rawText`.
 
 Vulnerabilities
 - `GET /api/vulnerabilities`
 - `GET /api/vulnerabilities/{id}`
-- `POST /api/vulnerabilities`
+- `POST /api/vulnerabilities` with `cveId`, `title`, `severity`, `description`, and `status`
 - `PUT /api/vulnerabilities/{id}`
 - `DELETE /api/vulnerabilities/{id}`
 
 Assignment
 - `POST /api/assets/{assetId}/vulnerabilities/{vulnerabilityId}`
-- `POST /api/assets/{assetId}/vulnerabilities/cve/{cveId}`
 - `POST /api/assets/{assetId}/match-cpe/vulnerabilities`
 - `DELETE /api/assets/{assetId}/vulnerabilities/{vulnerabilityId}`
 
@@ -333,7 +331,7 @@ The current model is centered on:
 - `refresh_sessions`
 
 Users, assets, and vulnerabilities are scoped to one organization.
-Assets also store optional product matching fields such as product fingerprint, selected CPE, confidence, review status, review notes, candidate count, and match timestamp.
+Assets keep core inventory fields plus `riskLevel`, `criticality`, and a linked assessment record. `riskLevel` stays null until vulnerabilities are attached and the backend derives a value from their severities. The linked `asset_assessments` data holds `riskScore`, product fingerprint, selected CPE, confidence, review status, review notes, candidate count, and match timestamp.
 
 Future expansions may include:
 
@@ -360,7 +358,7 @@ Assets should capture both business inventory and product fingerprint metadata:
 - operating system
 - owner
 - criticality
-- risk score / risk level
+- linked assessment data plus asset risk level
 - CPE metadata and sync timestamps
 
 ## Security Approach

@@ -56,6 +56,9 @@ func main() {
 	if err := utils.RunMigrations(ctx, gormDB); err != nil {
 		log.Fatalf("database migration failed: %v", err)
 	}
+	if err := utils.BackfillAssetRiskLevels(ctx, gormDB); err != nil {
+		log.Fatalf("asset risk level backfill failed: %v", err)
+	}
 	if err := bootstrap.Run(ctx, gormDB, cfg); err != nil {
 		log.Fatalf("bootstrap failed: %v", err)
 	}
@@ -100,28 +103,26 @@ func main() {
 	engine.Use(middleware.RequestFilter())
 	// Register all routes centrally in the controller package
 	controller.RegisterRoutes(engine, jwtManager, userRepository, refreshSessionRepository, controller.RouteHandlers{
-		RegisterAuth:             authController.Register,
-		LoginAuth:                authController.Login,
-		RefreshAuth:              authController.Refresh,
-		LogoutAuth:               authController.Logout,
-		GetAssets:                assetController.GetAssets,
-		GetAsset:                 assetController.GetAsset,
-		CreateAsset:              assetController.CreateAsset,
-		UpdateAsset:              assetController.UpdateAsset,
-		DeleteAsset:              assetController.DeleteAsset,
-		MatchAssetCPE:            assetController.MatchAssetCPE,
-		MatchAssetCPEAndAttach:   assetController.MatchAssetCPEAndAttachVulnerabilities,
-		TestAIProvider:           aiController.TestProvider,
-		SendAIMessage:            aiController.SendMessage,
-		AssignVulnerability:      assetController.AssignVulnerability,
-		AssignVulnerabilityByCVE: assetController.AssignVulnerabilityByCVE,
-		RemoveVulnerability:      assetController.RemoveVulnerability,
-		GetVulnerabilities:       vulnerabilityController.GetVulnerabilities,
-		GetVulnerability:         vulnerabilityController.GetVulnerability,
-		CreateVulnerability:      vulnerabilityController.CreateVulnerability,
-		UpdateVulnerability:      vulnerabilityController.UpdateVulnerability,
-		DeleteVulnerability:      vulnerabilityController.DeleteVulnerability,
-		LookupCVE:                nvdController.LookupCVE,
+		RegisterAuth:           authController.Register,
+		LoginAuth:              authController.Login,
+		RefreshAuth:            authController.Refresh,
+		LogoutAuth:             authController.Logout,
+		GetAssets:              assetController.GetAssets,
+		GetAsset:               assetController.GetAsset,
+		CreateAsset:            assetController.CreateAsset,
+		UpdateAsset:            assetController.UpdateAsset,
+		DeleteAsset:            assetController.DeleteAsset,
+		MatchAssetCPEAndAttach: assetController.MatchAssetCPEAndAttachVulnerabilities,
+		TestAIProvider:         aiController.TestProvider,
+		SendAIMessage:          aiController.SendMessage,
+		AssignVulnerability:    assetController.AssignVulnerability,
+		RemoveVulnerability:    assetController.RemoveVulnerability,
+		GetVulnerabilities:     vulnerabilityController.GetVulnerabilities,
+		GetVulnerability:       vulnerabilityController.GetVulnerability,
+		CreateVulnerability:    vulnerabilityController.CreateVulnerability,
+		UpdateVulnerability:    vulnerabilityController.UpdateVulnerability,
+		DeleteVulnerability:    vulnerabilityController.DeleteVulnerability,
+		LookupCVE:              nvdController.LookupCVE,
 	})
 
 	log.Printf("Go backend running on :%s", cfg.Port)

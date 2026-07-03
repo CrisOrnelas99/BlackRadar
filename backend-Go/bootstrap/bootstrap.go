@@ -22,6 +22,7 @@ const (
 	bootstrapUserID          int64 = 7700000000000000001
 	bootstrapAssetID         int64 = 7700000000000000002
 	bootstrapVulnerabilityID int64 = 7700000000000000003
+	bootstrapAssessmentID    int64 = 7700000000000000004
 
 	bootstrapAssetName        = "Test Device"
 	bootstrapAssetType        = "Device"
@@ -104,7 +105,20 @@ func clearBootstrapData(ctx context.Context, database *gorm.DB) error {
 		).Error; err != nil {
 			return fmt.Errorf("delete bootstrap asset vulnerabilities: %w", err)
 		}
-		if err := tx.Exec(`DELETE FROM assets WHERE organization_id = ?`, organization.ID).Error; err != nil {
+		if err := tx.Exec(
+			`WITH deleted_assets AS (
+				DELETE FROM assets
+				WHERE organization_id = ?
+				RETURNING asset_assessment_id
+			)
+			DELETE FROM asset_assessments
+			WHERE id IN (
+				SELECT asset_assessment_id
+				FROM deleted_assets
+				WHERE asset_assessment_id IS NOT NULL
+			)`,
+			organization.ID,
+		).Error; err != nil {
 			return fmt.Errorf("delete bootstrap assets: %w", err)
 		}
 		if err := tx.Exec(`DELETE FROM vulnerabilities WHERE organization_id = ?`, organization.ID).Error; err != nil {
@@ -167,22 +181,35 @@ func seedBootstrapUser(ctx context.Context, database *gorm.DB, organizationID in
 
 func seedBootstrapAsset(ctx context.Context, database *gorm.DB, organizationID int64, userID int64) (model.Asset, error) {
 	operatingSystem := bootstrapAssetOS
-	asset := model.Asset{
-		ID:              bootstrapAssetID,
-		OrganizationID:  organizationID,
-		UserID:          userID,
-		Name:            bootstrapAssetName,
-		Type:            bootstrapAssetType,
-		OperatingSystem: &operatingSystem,
-		Owner:           bootstrapAssetOwner,
-		Criticality:     bootstrapAssetCriticality,
-		RiskScore:       0,
-		RiskLevel:       "Low",
+	assessment := model.AssetAssessment{
+		ID:              bootstrapAssessmentID,
+		CPEReviewStatus: model.AssetCPEReviewStatusNeedsReview,
 	}
-	if err := database.WithContext(ctx).Create(&asset).Error; err != nil {
-		return model.Asset{}, fmt.Errorf("create bootstrap asset: %w", err)
+	asset := model.Asset{
+		ID:                bootstrapAssetID,
+		OrganizationID:    organizationID,
+		UserID:            userID,
+		AssetAssessmentID: &assessment.ID,
+		Name:              bootstrapAssetName,
+		Type:              bootstrapAssetType,
+		OperatingSystem:   &operatingSystem,
+		Owner:             bootstrapAssetOwner,
+		Criticality:       bootstrapAssetCriticality,
+		RiskLevel:         nil,
+	}
+	if err := database.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&assessment).Error; err != nil {
+			return fmt.Errorf("create bootstrap asset assessment: %w", err)
+		}
+		if err := tx.Create(&asset).Error; err != nil {
+			return fmt.Errorf("create bootstrap asset: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return model.Asset{}, err
 	}
 
+	asset.Assessment = &assessment
 	return asset, nil
 }
 

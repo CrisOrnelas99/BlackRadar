@@ -36,8 +36,7 @@ func (r AssetRequest) ToDataModel() model.Asset {
 		DeviceModel:     trimOptionalString(r.DeviceModel),
 		Owner:           strings.TrimSpace(r.Owner),
 		Criticality:     strings.TrimSpace(r.Criticality),
-		RiskScore:       0,
-		RiskLevel:       "Low",
+		RiskLevel:       nil,
 	}
 }
 

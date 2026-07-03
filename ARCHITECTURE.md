@@ -48,7 +48,7 @@ The Go backend owns:
 - NVD CPE candidate lookup for saved assets
 - OpenAI-backed asset extraction from raw text
 - OpenAI-backed CPE candidate ranking and bounded CVE relevance ranking
-- persistence of asset product fingerprint, selected CPE, confidence, review status, review notes, candidate count, and match timestamp
+- persistence of linked asset-assessment data for risk score, product fingerprint, selected CPE, confidence, review status, review notes, candidate count, and match timestamp
 - admin-only AI provider diagnostics
 - endpoint rate limiting for auth, NVD lookup, and AI-assisted paths
 - structured request logging and security logging
@@ -96,8 +96,9 @@ Core current entities:
 
 Organizations are the tenant boundary. Users belong to one organization, and assets and vulnerabilities are queried by organization membership.
 
-Assets also store product matching metadata used by the AI/NVD flow:
+Assets keep core inventory data in `assets`, while AI/NVD match state and mutable scoring live in a linked `asset_assessments` record. `risk_level` stays null until vulnerabilities are attached and the backend derives a value from their severities:
 
+- risk_score
 - product_fingerprint
 - selected_cpe
 - cpe_confidence
@@ -132,7 +133,6 @@ Implemented asset routes:
 - `POST /api/assets`
 - `PUT /api/assets/{id}`
 - `DELETE /api/assets/{id}`
-- `POST /api/assets/{id}/match-cpe`
 
 `POST /api/assets` supports normal structured asset creation and backend AI-assisted creation from `rawText` when `aiMode` is enabled.
 
@@ -140,14 +140,13 @@ Implemented vulnerability routes:
 
 - `GET /api/vulnerabilities`
 - `GET /api/vulnerabilities/{id}`
-- `POST /api/vulnerabilities`
+- `POST /api/vulnerabilities` accepts `cveId`, `title`, `severity`, `description`, and `status`
 - `PUT /api/vulnerabilities/{id}`
 - `DELETE /api/vulnerabilities/{id}`
 
 Implemented assignment routes:
 
 - `POST /api/assets/{assetId}/vulnerabilities/{vulnerabilityId}`
-- `POST /api/assets/{assetId}/vulnerabilities/cve/{cveId}`
 - `POST /api/assets/{assetId}/match-cpe/vulnerabilities`
 - `DELETE /api/assets/{assetId}/vulnerabilities/{vulnerabilityId}`
 
@@ -196,7 +195,7 @@ Implemented backend AI flows:
 - build a product fingerprint from saved asset data and sanitized text
 - query NVD CPE candidates through the backend
 - ask OpenAI to rank only the provided NVD CPE candidates
-- store selected CPE, confidence, review status, review notes, candidate count, and match time on the asset
+- store selected CPE, confidence, review status, review notes, candidate count, and match time in the linked asset assessment
 - fetch NVD CVEs for the selected CPE and attach bounded results to the asset
 - use keyword fallback and AI CVE ranking only against NVD-returned CVE candidates
 

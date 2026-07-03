@@ -34,7 +34,11 @@ func (r *AssetRepository) dbForContext(ec *appcontext.GinContext) *gorm.DB {
 // FindAllByOrganization returns all assets owned by the specified organization.
 func (r *AssetRepository) FindAllByOrganization(ec *appcontext.GinContext, organizationID int64) ([]model.Asset, error) {
 	var assets []model.Asset
-	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("organization_id = ?", organizationID).Order("id").Find(&assets).Error
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
+		Preload("Assessment").
+		Where("organization_id = ?", organizationID).
+		Order("id").
+		Find(&assets).Error
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
 	}
@@ -45,6 +49,7 @@ func (r *AssetRepository) FindAllByOrganization(ec *appcontext.GinContext, organ
 func (r *AssetRepository) FindByIDForOrganization(ec *appcontext.GinContext, id int64, organizationID int64) (model.Asset, error) {
 	var asset model.Asset
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
+		Preload("Assessment").
 		Preload("Vulnerabilities", "organization_id = ?", organizationID).
 		Where("organization_id = ?", organizationID).
 		First(&asset, id).Error
@@ -68,7 +73,23 @@ func (r *AssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (mo
 			asset.ID = utils.NewRandomID()
 		}
 
-		err := r.dbForContext(ec).WithContext(ec.RequestContext()).Create(&asset).Error
+		assessment := model.AssetAssessment{
+			CPEReviewStatus: model.AssetCPEReviewStatusNeedsReview,
+		}
+
+		err := r.dbForContext(ec).WithContext(ec.RequestContext()).Transaction(func(tx *gorm.DB) error {
+			if err := createAssetAssessmentWithRandomID(tx, &assessment); err != nil {
+				return err
+			}
+
+			asset.AssetAssessmentID = &assessment.ID
+			if err := tx.Create(&asset).Error; err != nil {
+				return err
+			}
+
+			asset.Assessment = &assessment
+			return nil
+		})
 		if err == nil {
 			return asset, nil
 		}
@@ -135,19 +156,41 @@ func (r *AssetRepository) UpdateMatchAnalysisForOrganization(ec *appcontext.GinC
 		return model.Asset{}, err
 	}
 
-	asset.ProductFingerprint = analysis.ProductFingerprint
-	asset.SelectedCPE = analysis.SelectedCPE
-	asset.CPEConfidence = analysis.CPEConfidence
-	asset.CPEReviewStatus = analysis.CPEReviewStatus
-	asset.CPEReviewNotes = analysis.CPEReviewNotes
-	asset.CPECandidateCount = analysis.CPECandidateCount
-	asset.CPEMatchedAt = analysis.CPEMatchedAt
+	err = r.dbForContext(ec).WithContext(ec.RequestContext()).Transaction(func(tx *gorm.DB) error {
+		assessment := model.AssetAssessment{}
+		if asset.Assessment != nil {
+			assessment = *asset.Assessment
+		}
 
-	err = r.dbForContext(ec).WithContext(ec.RequestContext()).Save(&asset).Error
+		assessment.ProductFingerprint = analysis.ProductFingerprint
+		assessment.SelectedCPE = analysis.SelectedCPE
+		assessment.CPEConfidence = analysis.CPEConfidence
+		assessment.CPEReviewStatus = analysis.CPEReviewStatus
+		assessment.CPEReviewNotes = analysis.CPEReviewNotes
+		assessment.CPECandidateCount = analysis.CPECandidateCount
+		assessment.CPEMatchedAt = analysis.CPEMatchedAt
+
+		if asset.AssetAssessmentID == nil {
+			if err := createAssetAssessmentWithRandomID(tx, &assessment); err != nil {
+				return err
+			}
+			asset.AssetAssessmentID = &assessment.ID
+			if err := tx.Model(&asset).Update("asset_assessment_id", assessment.ID).Error; err != nil {
+				return err
+			}
+			return nil
+		}
+
+		assessment.ID = *asset.AssetAssessmentID
+		return tx.Save(&assessment).Error
+	})
 	if err != nil {
 		databaseErr := utils.TranslateDatabaseError(err)
 		if errors.Is(databaseErr, utils.ErrCheckConstraintViolation) {
 			return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidData, databaseErr)
+		}
+		if errors.Is(databaseErr, utils.ErrForeignKeyViolation) {
+			return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidReference, databaseErr)
 		}
 		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrUpdateFailed, databaseErr)
 	}
@@ -168,6 +211,11 @@ func (r *AssetRepository) DeleteForOrganization(ec *appcontext.GinContext, id in
 		}
 		if err := tx.Delete(&asset).Error; err != nil {
 			return err
+		}
+		if asset.AssetAssessmentID != nil {
+			if err := tx.Delete(&model.AssetAssessment{}, *asset.AssetAssessmentID).Error; err != nil {
+				return err
+			}
 		}
 		for _, vulnerability := range asset.Vulnerabilities {
 			if err := deleteOrphanedVulnerability(tx, vulnerability); err != nil {
@@ -195,7 +243,12 @@ func (r *AssetRepository) AssignVulnerabilityForOrganization(ec *appcontext.GinC
 		}
 	}
 
-	err = r.dbForContext(ec).WithContext(ec.RequestContext()).Model(&asset).Association("Vulnerabilities").Append(&vulnerability)
+	err = r.dbForContext(ec).WithContext(ec.RequestContext()).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&asset).Association("Vulnerabilities").Append(&vulnerability); err != nil {
+			return err
+		}
+		return baserepository.RefreshAssetRiskLevel(tx, assetID, organizationID)
+	})
 	if err != nil {
 		databaseErr := utils.TranslateDatabaseError(err)
 		if errors.Is(databaseErr, utils.ErrUniqueViolation) {
@@ -221,12 +274,14 @@ func (r *AssetRepository) RemoveVulnerabilityForOrganization(ec *appcontext.GinC
 		if err := tx.Model(&asset).Association("Vulnerabilities").Delete(&vulnerability); err != nil {
 			return err
 		}
-		return deleteOrphanedVulnerability(tx, vulnerability)
+		if err := deleteOrphanedVulnerability(tx, vulnerability); err != nil {
+			return err
+		}
+		return baserepository.RefreshAssetRiskLevel(tx, assetID, organizationID)
 	})
 	if err != nil {
 		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrDeleteFailed, err)
 	}
-
 	return r.FindByIDForOrganization(ec, assetID, organizationID)
 }
 
@@ -261,4 +316,28 @@ func deleteOrphanedVulnerability(tx *gorm.DB, vulnerability model.Vulnerability)
 		return nil
 	}
 	return tx.Delete(&vulnerability).Error
+}
+
+// createAssetAssessmentWithRandomID persists an asset assessment with a random public identifier.
+func createAssetAssessmentWithRandomID(tx *gorm.DB, assessment *model.AssetAssessment) error {
+	for attempt := 0; attempt < 3; attempt++ {
+		assignRandomAssetAssessmentID(assessment)
+		err := tx.Create(assessment).Error
+		if err == nil {
+			return nil
+		}
+
+		databaseErr := utils.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, utils.ErrUniqueViolation) && utils.IsPrimaryKeyViolation(err) {
+			continue
+		}
+		return err
+	}
+
+	return fmt.Errorf("exhausted random id retries for asset assessment")
+}
+
+// assignRandomAssetAssessmentID sets a non-zero arbitrary public identifier on the assessment.
+func assignRandomAssetAssessmentID(assessment *model.AssetAssessment) {
+	assessment.ID = utils.NewRandomID()
 }

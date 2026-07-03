@@ -112,27 +112,25 @@ func TestRegisterRoutes(t *testing.T) {
 	nvdLookupCalled := false
 
 	basecontroller.RegisterRoutes(engine, jwtManager, lookup, sessions, basecontroller.RouteHandlers{
-		RegisterAuth:             authController.Register,
-		LoginAuth:                authController.Login,
-		RefreshAuth:              authController.Refresh,
-		LogoutAuth:               authController.Logout,
-		GetAssets:                assetController.GetAssets,
-		GetAsset:                 assetController.GetAsset,
-		CreateAsset:              assetController.CreateAsset,
-		UpdateAsset:              assetController.UpdateAsset,
-		DeleteAsset:              assetController.DeleteAsset,
-		MatchAssetCPE:            assetController.MatchAssetCPE,
-		MatchAssetCPEAndAttach:   assetController.MatchAssetCPEAndAttachVulnerabilities,
-		TestAIProvider:           aiController.TestProvider,
-		SendAIMessage:            aiController.SendMessage,
-		AssignVulnerability:      assetController.AssignVulnerability,
-		AssignVulnerabilityByCVE: assetController.AssignVulnerabilityByCVE,
-		RemoveVulnerability:      assetController.RemoveVulnerability,
-		GetVulnerabilities:       vulnerabilityController.GetVulnerabilities,
-		GetVulnerability:         vulnerabilityController.GetVulnerability,
-		CreateVulnerability:      vulnerabilityController.CreateVulnerability,
-		UpdateVulnerability:      vulnerabilityController.UpdateVulnerability,
-		DeleteVulnerability:      vulnerabilityController.DeleteVulnerability,
+		RegisterAuth:           authController.Register,
+		LoginAuth:              authController.Login,
+		RefreshAuth:            authController.Refresh,
+		LogoutAuth:             authController.Logout,
+		GetAssets:              assetController.GetAssets,
+		GetAsset:               assetController.GetAsset,
+		CreateAsset:            assetController.CreateAsset,
+		UpdateAsset:            assetController.UpdateAsset,
+		DeleteAsset:            assetController.DeleteAsset,
+		MatchAssetCPEAndAttach: assetController.MatchAssetCPEAndAttachVulnerabilities,
+		TestAIProvider:         aiController.TestProvider,
+		SendAIMessage:          aiController.SendMessage,
+		AssignVulnerability:    assetController.AssignVulnerability,
+		RemoveVulnerability:    assetController.RemoveVulnerability,
+		GetVulnerabilities:     vulnerabilityController.GetVulnerabilities,
+		GetVulnerability:       vulnerabilityController.GetVulnerability,
+		CreateVulnerability:    vulnerabilityController.CreateVulnerability,
+		UpdateVulnerability:    vulnerabilityController.UpdateVulnerability,
+		DeleteVulnerability:    vulnerabilityController.DeleteVulnerability,
 		LookupCVE: func(ec *appcontext.GinContext) {
 			nvdLookupCalled = true
 			ec.JSON(http.StatusOK, gin.H{"cveId": ec.Param("cveId")})
@@ -192,14 +190,6 @@ func TestRegisterRoutes(t *testing.T) {
 	engine.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected auth logout route status %d, got %d", http.StatusOK, recorder.Code)
-	}
-
-	recorder = httptest.NewRecorder()
-	request = httptest.NewRequest(http.MethodPost, "/api/assets/1/vulnerabilities/cve/CVE-2024-3094", nil)
-	request.Header.Set("Authorization", "Bearer "+token)
-	engine.ServeHTTP(recorder, request)
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected CVE assignment route status %d, got %d", http.StatusOK, recorder.Code)
 	}
 
 	recorder = httptest.NewRecorder()

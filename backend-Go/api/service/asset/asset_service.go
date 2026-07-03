@@ -254,8 +254,7 @@ func assetFromAIExtraction(raw string) (model.Asset, error) {
 		DeviceModel:     stringPtrFromValue(extraction.DeviceModel),
 		Owner:           firstNonEmptyString(extraction.Owner, "unassigned"),
 		Criticality:     firstNonEmptyString(extraction.Criticality, "Medium"),
-		RiskScore:       0,
-		RiskLevel:       "Low",
+		RiskLevel:       nil,
 	}
 
 	if strings.TrimSpace(asset.Name) == "" {

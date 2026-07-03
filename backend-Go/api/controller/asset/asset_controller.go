@@ -203,7 +203,7 @@ func (c *AssetController) MatchAssetCPE(ec *appcontext.GinContext) {
 		return
 	}
 
-	ec.JSON(http.StatusOK, dto.ToAssetResponseDTO(asset))
+	ec.JSON(http.StatusOK, dto.ToAssetMatchResponseDTO(asset))
 }
 
 // MatchAssetCPEAndAttachVulnerabilities matches a CPE, fetches NVD CVEs, and attaches them to the asset.
@@ -222,7 +222,7 @@ func (c *AssetController) MatchAssetCPEAndAttachVulnerabilities(ec *appcontext.G
 		return
 	}
 
-	ec.JSON(http.StatusOK, dto.ToAssetResponseDTO(asset))
+	ec.JSON(http.StatusOK, dto.ToAssetMatchResponseDTO(asset))
 }
 
 // handleAssetServiceError maps asset service sentinels to HTTP responses.
