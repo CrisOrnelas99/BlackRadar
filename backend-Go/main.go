@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -11,11 +12,13 @@ import (
 
 	"secureops/backend-go/api/config"
 	"secureops/backend-go/api/controller"
+	controllerai "secureops/backend-go/api/controller/ai"
 	controllerasset "secureops/backend-go/api/controller/asset"
 	controllerauth "secureops/backend-go/api/controller/auth"
 	controllernvd "secureops/backend-go/api/controller/nvd"
 	controllervulnerability "secureops/backend-go/api/controller/vulnerability"
 	nvdexternal "secureops/backend-go/api/external/nvd"
+	openaiexternal "secureops/backend-go/api/external/openai"
 	"secureops/backend-go/api/middleware"
 	repositoryasset "secureops/backend-go/api/repository/asset"
 	repositoryorganization "secureops/backend-go/api/repository/organization"
@@ -70,11 +73,21 @@ func main() {
 		log.Fatalf("nvd client configuration failed: %v", err)
 	}
 	nvdLookupService := servicenvd.NewNVDLookupService(nvdClient)
-	assetService := serviceasset.NewAssetService(assetRepository, vulnerabilityRepository, nvdLookupService)
+	cpeClient, err := nvdexternal.NewCPEClient(cfg.NVDCPEAPIBaseURL, cfg.NVDAPIKey)
+	if err != nil {
+		log.Fatalf("nvd cpe client configuration failed: %v", err)
+	}
+	openAIClient, err := openaiexternal.NewClientWithHTTPClient(cfg.OpenAIAPIEndpoint, cfg.OpenAIAPIKey, cfg.OpenAIModel, &http.Client{Timeout: cfg.OpenAITimeout})
+	if err != nil {
+		log.Fatalf("openai client configuration failed: %v", err)
+	}
+	assetMatchService := serviceasset.NewAssetMatchService(assetRepository, vulnerabilityRepository, cpeClient, nvdClient, openAIClient)
+	assetService := serviceasset.NewAssetService(assetRepository, vulnerabilityRepository, nvdLookupService, openAIClient)
 	vulnerabilityService := servicevulnerability.NewVulnerabilityService(vulnerabilityRepository)
 
 	authController := controllerauth.NewAuthController(authService)
-	assetController := controllerasset.NewAssetController(assetService)
+	aiController := controllerai.NewAIController(openAIClient)
+	assetController := controllerasset.NewAssetController(assetService, assetMatchService)
 	vulnerabilityController := controllervulnerability.NewVulnerabilityController(vulnerabilityService)
 	nvdController := controllernvd.NewNVDController(nvdLookupService)
 
@@ -96,6 +109,10 @@ func main() {
 		CreateAsset:              assetController.CreateAsset,
 		UpdateAsset:              assetController.UpdateAsset,
 		DeleteAsset:              assetController.DeleteAsset,
+		MatchAssetCPE:            assetController.MatchAssetCPE,
+		MatchAssetCPEAndAttach:   assetController.MatchAssetCPEAndAttachVulnerabilities,
+		TestAIProvider:           aiController.TestProvider,
+		SendAIMessage:            aiController.SendMessage,
 		AssignVulnerability:      assetController.AssignVulnerability,
 		AssignVulnerabilityByCVE: assetController.AssignVulnerabilityByCVE,
 		RemoveVulnerability:      assetController.RemoveVulnerability,

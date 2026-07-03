@@ -31,7 +31,8 @@ Key capabilities include:
 - backend-enforced authorization and security controls
 - backend rate limiting on auth and NVD lookup endpoints
 - short-lived access tokens with server-side refresh-token sessions
-- planned vulnerability intelligence, organization switching, workflow, alerting, and AI-assisted features listed below
+- backend OpenAI-assisted asset creation, CPE matching, and NVD vulnerability attachment
+- planned organization switching, workflow, alerting, frontend AI flows, and chatbot features listed below
 
 The platform supports multiple inventory contexts, including organization portfolios, applications, home networks, and imported raw asset lists.
 
@@ -64,7 +65,7 @@ Go Gin/GORM backend
   |
   +--> cve-sync-service-go (planned)
   +--> NVD / NIST APIs
-  `--> AI provider API
+  `--> OpenAI API
 ```
 
 ### Design principles
@@ -85,6 +86,15 @@ The repository currently contains these working foundations:
 - asset CRUD API and models
 - vulnerability CRUD API and models
 - asset-to-vulnerability assignment endpoints
+- CVE lookup through the backend NVD integration
+- asset-to-vulnerability assignment by CVE ID
+- NVD CPE candidate search support
+- backend OpenAI provider configuration and text-generation boundary
+- AI-assisted asset creation from raw text through the backend
+- AI-assisted asset product fingerprinting and CPE ranking
+- persisted asset CPE metadata, confidence, review status, review notes, candidate count, and matched timestamp
+- CPE-based NVD CVE lookup and bounded vulnerability attachment to assets
+- admin-only AI diagnostic endpoints
 - organization-aware registration and tenant membership
 - controller → service → repository layering
 - GORM AutoMigrate provisioning
@@ -98,9 +108,7 @@ Future work documented in `ARCHITECTURE.md` includes:
 - organization listing and active organization switching
 - application-aware scoping on top of the organization boundary
 - multi-organization membership with active organization switching
-- asset fingerprinting with vendor/product/version metadata
-- NVD/NIST CVE import and local vulnerability persistence
-- AI-assisted asset ingestion and relevance review
+- frontend workflows for AI-assisted asset creation, CPE review, and vulnerability attachment
 - asset-scoped chatbot and guided security answers
 - remediation workflows, work orders, checklist items, and exceptions
 - alerting and CVE refresh services
@@ -247,7 +255,7 @@ Typical values include:
 - PostgreSQL database host, port, name, user, password
 - JWT secret and expiration
 - NVD API key
-- AI provider API key
+- OpenAI API key
 - internal service URLs
 
 Important:
@@ -274,6 +282,9 @@ Assets
 - `POST /api/assets`
 - `PUT /api/assets/{id}`
 - `DELETE /api/assets/{id}`
+- `POST /api/assets/{id}/match-cpe`
+
+`POST /api/assets` also supports backend AI-assisted asset creation when the request uses `aiMode` with `rawText`.
 
 Vulnerabilities
 - `GET /api/vulnerabilities`
@@ -284,13 +295,21 @@ Vulnerabilities
 
 Assignment
 - `POST /api/assets/{assetId}/vulnerabilities/{vulnerabilityId}`
+- `POST /api/assets/{assetId}/vulnerabilities/cve/{cveId}`
+- `POST /api/assets/{assetId}/match-cpe/vulnerabilities`
 - `DELETE /api/assets/{assetId}/vulnerabilities/{vulnerabilityId}`
+
+NVD
+- `GET /api/nvd/cves/{cveId}`
+
+AI diagnostics
+- `GET /api/ai/test`
+- `POST /api/ai/message`
 
 ### Planned API areas
 
 - `GET /api/organizations`
 - `POST /api/organizations/switch`
-- `POST /api/assets/{id}/import-nvd-vulnerabilities`
 - `POST /api/assets/{id}/chat`
 - asset alert endpoints
 - organization-scoped work order workflows
@@ -311,8 +330,10 @@ The current model is centered on:
 - `assets`
 - `vulnerabilities`
 - `asset_vulnerabilities`
+- `refresh_sessions`
 
 Users, assets, and vulnerabilities are scoped to one organization.
+Assets also store optional product matching fields such as product fingerprint, selected CPE, confidence, review status, review notes, candidate count, and match timestamp.
 
 Future expansions may include:
 
@@ -337,7 +358,6 @@ Assets should capture both business inventory and product fingerprint metadata:
 - product
 - version
 - operating system
-- IP address
 - owner
 - criticality
 - risk score / risk level
@@ -360,11 +380,14 @@ Security principles:
 - local persistence of vulnerability data over live UI lookups
 - safe error handling without secret leakage
 - request sanitization and validation before processing
+- rate limiting for AI-assisted matching and diagnostic routes
 
 AI-specific guidance:
 
-- keep AI provider keys server-side
+- keep OpenAI API keys server-side
 - use AI as an assist layer, not a source of truth
+- validate JSON model output before using it
+- require review for ambiguous or low-confidence matches
 - ground chatbot answers in local data
 
 ## Security Guidance for Coding Agents

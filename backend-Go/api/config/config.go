@@ -13,21 +13,28 @@ import (
 
 // Config holds app settings loaded from environment variables.
 type Config struct {
-	Environment       string
-	Port              string
-	DatabaseURL       string
-	JWTSecret         string
-	JWTExpiration     time.Duration
+	Environment          string
+	Port                 string
+	DatabaseURL          string
+	JWTSecret            string
+	JWTExpiration        time.Duration
 	JWTRefreshExpiration time.Duration
-	JWTIssuer         string
-	JWTAudience       string
-	CorsAllowedOrigin string
-	NVDAPIBaseURL     string
-	NVDAPIKey         string
-	BootstrapDevData  bool
+	JWTIssuer            string
+	JWTAudience          string
+	CorsAllowedOrigin    string
+	NVDAPIBaseURL        string
+	NVDCPEAPIBaseURL     string
+	NVDAPIKey            string
+	OpenAIAPIEndpoint    string
+	OpenAIAPIKey         string
+	OpenAIModel          string
+	OpenAITimeout        time.Duration
+	BootstrapDevData     bool
 }
 
 const nvdCVEAPIBaseURL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+const nvdCPEAPIBaseURL = "https://services.nvd.nist.gov/rest/json/cpes/2.0"
+const openAIResponsesEndpoint = "https://api.openai.com/v1/responses"
 
 // Load reads environment variables and fills default values for missing settings.
 func Load() Config {
@@ -54,6 +61,8 @@ func Load() Config {
 	jwtIssuer := env("JWT_ISSUER", "secureops")
 	jwtAudience := env("JWT_AUDIENCE", "secureops-api")
 	nvdAPIKey := env("NVD_API_KEY", "")
+	openAIAPIKey := env("OPENAI_API_KEY", "")
+	openAIModel := env("OPENAI_MODEL", "gpt-4.1-mini")
 	bootstrapDevData := strings.EqualFold(env("BOOTSTRAP_DEV_DATA", "false"), "true")
 	corsAllowedOrigin := env("CORS_ALLOWED_ORIGIN", "http://localhost:4200")
 	if isProduction {
@@ -68,20 +77,29 @@ func Load() Config {
 	if err != nil || refreshExpirationMs <= 0 {
 		refreshExpirationMs = 604800000
 	}
+	openAITimeoutSeconds, err := strconv.Atoi(env("OPENAI_TIMEOUT_SECONDS", "20"))
+	if err != nil || openAITimeoutSeconds <= 0 {
+		openAITimeoutSeconds = 20
+	}
 
 	return Config{
-		Environment:       environment,
-		Port:              port,
-		DatabaseURL:       databaseURL,
-		JWTSecret:         jwtSecret,
-		JWTExpiration:     time.Duration(expirationMs) * time.Millisecond,
+		Environment:          environment,
+		Port:                 port,
+		DatabaseURL:          databaseURL,
+		JWTSecret:            jwtSecret,
+		JWTExpiration:        time.Duration(expirationMs) * time.Millisecond,
 		JWTRefreshExpiration: time.Duration(refreshExpirationMs) * time.Millisecond,
-		JWTIssuer:         jwtIssuer,
-		JWTAudience:       jwtAudience,
-		CorsAllowedOrigin: corsAllowedOrigin,
-		NVDAPIBaseURL:     nvdCVEAPIBaseURL,
-		NVDAPIKey:         nvdAPIKey,
-		BootstrapDevData:  bootstrapDevData,
+		JWTIssuer:            jwtIssuer,
+		JWTAudience:          jwtAudience,
+		CorsAllowedOrigin:    corsAllowedOrigin,
+		NVDAPIBaseURL:        nvdCVEAPIBaseURL,
+		NVDCPEAPIBaseURL:     nvdCPEAPIBaseURL,
+		NVDAPIKey:            nvdAPIKey,
+		OpenAIAPIEndpoint:    openAIResponsesEndpoint,
+		OpenAIAPIKey:         openAIAPIKey,
+		OpenAIModel:          openAIModel,
+		OpenAITimeout:        time.Duration(openAITimeoutSeconds) * time.Second,
+		BootstrapDevData:     bootstrapDevData,
 	}
 }
 

@@ -27,6 +27,8 @@ type AssetService interface {
 	GetAsset(ec *appcontext.GinContext, id int64) (model.Asset, error)
 	// CreateAsset creates a new asset record.
 	CreateAsset(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error)
+	// CreateAssetFromAI creates an asset from raw text extracted by the backend AI provider.
+	CreateAssetFromAI(ec *appcontext.GinContext, rawText string) (model.Asset, error)
 	// UpdateAsset updates an existing asset by ID.
 	UpdateAsset(ec *appcontext.GinContext, id int64, asset model.Asset) (model.Asset, error)
 	// DeleteAsset removes an asset by ID.
@@ -37,6 +39,14 @@ type AssetService interface {
 	AssignVulnerabilityByCVE(ec *appcontext.GinContext, assetID int64, cveID string) (model.Asset, error)
 	// RemoveVulnerability detaches a vulnerability from an asset.
 	RemoveVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error)
+}
+
+// AssetMatchService defines the operations available for AI-assisted asset matching.
+type AssetMatchService interface {
+	// AnalyzeAndPersistAssetMatch normalizes saved asset fields, ranks NVD candidates, and stores the result.
+	AnalyzeAndPersistAssetMatch(ec *appcontext.GinContext, assetID int64) (model.Asset, error)
+	// AnalyzePersistAndAttachVulnerabilities matches a CPE, fetches NVD CVEs, and attaches them to the asset.
+	AnalyzePersistAndAttachVulnerabilities(ec *appcontext.GinContext, assetID int64) (model.Asset, error)
 }
 
 // VulnerabilityService defines the operations available for vulnerability management.

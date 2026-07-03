@@ -20,7 +20,7 @@ import (
 // TestAssetControllerHandlers verifies the asset controller request flow.
 func TestAssetControllerHandlers(t *testing.T) {
 	svc := &fakeAssetService{asset: sampleAsset(), assets: []model.Asset{sampleAsset()}}
-	controller := NewAssetController(svc)
+	controller := NewAssetController(svc, &fakeAssetMatchService{asset: sampleAsset()})
 
 	t.Run("get assets", func(t *testing.T) {
 		ec := newAssetContext(t, http.MethodGet, "/assets", "")
@@ -31,21 +31,81 @@ func TestAssetControllerHandlers(t *testing.T) {
 	})
 
 	t.Run("create asset", func(t *testing.T) {
-		ec := newAssetContext(t, http.MethodPost, "/assets", `{"name":"Asset 1","type":"Server","ipAddress":"10.0.0.10","owner":"IT","criticality":"High"}`)
+		ec := newAssetContext(t, http.MethodPost, "/assets", `{"name":"Asset 1","type":"Server","owner":"IT","criticality":"High"}`)
 		ec.Request.Header.Set("Content-Type", "application/json")
 		controller.CreateAsset(ec)
 		if svc.createCalls != 1 {
 			t.Fatal("expected CreateAsset to be called")
 		}
 	})
+
+	t.Run("create asset with raw text does not auto-match vulnerabilities", func(t *testing.T) {
+		svc := &fakeAssetService{asset: sampleAsset()}
+		controller := NewAssetController(svc, &fakeAssetMatchService{asset: sampleAsset()})
+		ec := newAssetContext(t, http.MethodPost, "/assets", `{"name":"Asset 1","type":"Server","owner":"IT","criticality":"High","rawText":"Vendor: Tukaani\nProduct: xz\nVersion: 5.6.1"}`)
+		ec.Request.Header.Set("Content-Type", "application/json")
+		controller.CreateAsset(ec)
+		if svc.createCalls != 1 {
+			t.Fatalf("expected CreateAsset to be called once, got %d", svc.createCalls)
+		}
+	})
+
+	t.Run("create asset from ai mode", func(t *testing.T) {
+		ec := newAssetContext(t, http.MethodPost, "/assets", `{"aiMode":true,"rawText":"I have an Amazon Ring doorbell running firmware 3.4.6."}`)
+		ec.Request.Header.Set("Content-Type", "application/json")
+		controller.CreateAsset(ec)
+		if svc.createFromAICalls != 1 {
+			t.Fatalf("expected CreateAssetFromAI to be called once, got %d", svc.createFromAICalls)
+		}
+	})
+
+	t.Run("match asset cpe", func(t *testing.T) {
+		matchSvc := &fakeAssetMatchService{asset: sampleAsset()}
+		controller := NewAssetController(svc, matchSvc)
+		ec := newAssetContext(t, http.MethodPost, "/assets/1/match-cpe", "")
+		ec.AddParam("id", "1")
+		controller.MatchAssetCPE(ec)
+		if matchSvc.calls != 1 {
+			t.Fatalf("expected AnalyzeAndPersistAssetMatch to be called once, got %d", matchSvc.calls)
+		}
+	})
+
+	t.Run("match asset cpe and attach vulnerabilities", func(t *testing.T) {
+		matchSvc := &fakeAssetMatchService{asset: sampleAsset()}
+		controller := NewAssetController(svc, matchSvc)
+		ec := newAssetContext(t, http.MethodPost, "/assets/1/match-cpe/vulnerabilities", "")
+		ec.AddParam("id", "1")
+		controller.MatchAssetCPEAndAttachVulnerabilities(ec)
+		if matchSvc.attachCalls != 1 {
+			t.Fatalf("expected AnalyzePersistAndAttachVulnerabilities to be called once, got %d", matchSvc.attachCalls)
+		}
+	})
 }
 
 type fakeAssetService struct {
-	assets      []model.Asset
+	assets            []model.Asset
+	asset             model.Asset
+	err               error
+	getAllCalls       int
+	createCalls       int
+	createFromAICalls int
+}
+
+type fakeAssetMatchService struct {
 	asset       model.Asset
 	err         error
-	getAllCalls int
-	createCalls int
+	calls       int
+	attachCalls int
+}
+
+func (f *fakeAssetMatchService) AnalyzeAndPersistAssetMatch(ec *appcontext.GinContext, assetID int64) (model.Asset, error) {
+	f.calls++
+	return f.asset, f.err
+}
+
+func (f *fakeAssetMatchService) AnalyzePersistAndAttachVulnerabilities(ec *appcontext.GinContext, assetID int64) (model.Asset, error) {
+	f.attachCalls++
+	return f.asset, f.err
 }
 
 func (f *fakeAssetService) GetAllAssets(ec *appcontext.GinContext) ([]model.Asset, error) {
@@ -57,6 +117,10 @@ func (f *fakeAssetService) GetAsset(ec *appcontext.GinContext, id int64) (model.
 }
 func (f *fakeAssetService) CreateAsset(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
 	f.createCalls++
+	return f.asset, f.err
+}
+func (f *fakeAssetService) CreateAssetFromAI(ec *appcontext.GinContext, rawText string) (model.Asset, error) {
+	f.createFromAICalls++
 	return f.asset, f.err
 }
 func (f *fakeAssetService) UpdateAsset(ec *appcontext.GinContext, id int64, asset model.Asset) (model.Asset, error) {
@@ -95,7 +159,7 @@ func newAssetContext(t *testing.T, method string, target string, body string) *a
 
 // sampleAsset returns a reusable asset fixture.
 func sampleAsset() model.Asset {
-	return model.Asset{ID: 1, Name: "Asset 1", Type: "Server", IPAddress: "10.0.0.10", Owner: "IT", Criticality: "High"}
+	return model.Asset{ID: 1, Name: "Asset 1", Type: "Server", Owner: "IT", Criticality: "High"}
 }
 
 var _ = errors.New

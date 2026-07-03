@@ -13,7 +13,6 @@ http:
       {
         "name": "Laptop-02",
         "type": "Device",
-        "ipAddress": "10.0.0.11",
         "operatingSystem": "Windows 11",
         "owner": "system_admin",
         "criticality": "Medium"

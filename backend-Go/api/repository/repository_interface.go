@@ -50,6 +50,8 @@ type AssetRepository interface {
 	Save(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error)
 	// UpdateForOrganization updates an existing asset for an organization.
 	UpdateForOrganization(ec *appcontext.GinContext, id int64, organizationID int64, asset model.Asset) (model.Asset, error)
+	// UpdateMatchAnalysisForOrganization stores backend-generated CPE match state for an asset.
+	UpdateMatchAnalysisForOrganization(ec *appcontext.GinContext, id int64, organizationID int64, analysis AssetMatchUpdate) (model.Asset, error)
 	// DeleteForOrganization deletes an organization's asset.
 	DeleteForOrganization(ec *appcontext.GinContext, id int64, organizationID int64) (model.Asset, error)
 	// AssignVulnerabilityForOrganization associates a vulnerability with an organization's asset.

@@ -28,18 +28,28 @@ type VulnerabilityResponse struct {
 
 // AssetResponse exposes the public asset fields returned by the API.
 type AssetResponse struct {
-	ID              int64                   `json:"id"`
-	Name            string                  `json:"name"`
-	Type            string                  `json:"type"`
-	IPAddress       string                  `json:"ipAddress"`
-	OperatingSystem *string                 `json:"operatingSystem"`
-	Owner           string                  `json:"owner"`
-	Criticality     string                  `json:"criticality"`
-	RiskScore       int16                   `json:"riskScore"`
-	RiskLevel       string                  `json:"riskLevel"`
-	Vulnerabilities []VulnerabilityResponse `json:"vulnerabilities,omitempty"`
-	CreatedAt       time.Time               `json:"createdAt"`
-	UpdatedAt       time.Time               `json:"updatedAt"`
+	ID                 int64                   `json:"id"`
+	Name               string                  `json:"name"`
+	Type               string                  `json:"type"`
+	OperatingSystem    *string                 `json:"operatingSystem"`
+	Vendor             *string                 `json:"vendor,omitempty"`
+	Product            *string                 `json:"product,omitempty"`
+	Version            *string                 `json:"version,omitempty"`
+	DeviceModel        *string                 `json:"deviceModel,omitempty"`
+	Owner              string                  `json:"owner"`
+	Criticality        string                  `json:"criticality"`
+	RiskScore          int16                   `json:"riskScore"`
+	RiskLevel          string                  `json:"riskLevel"`
+	ProductFingerprint *string                 `json:"productFingerprint,omitempty"`
+	SelectedCPE        *string                 `json:"selectedCpe,omitempty"`
+	CPEConfidence      *float64                `json:"cpeConfidence,omitempty"`
+	CPEReviewStatus    string                  `json:"cpeReviewStatus"`
+	CPEReviewNotes     *string                 `json:"cpeReviewNotes,omitempty"`
+	CPECandidateCount  int                     `json:"cpeCandidateCount"`
+	CPEMatchedAt       *time.Time              `json:"cpeMatchedAt,omitempty"`
+	Vulnerabilities    []VulnerabilityResponse `json:"vulnerabilities,omitempty"`
+	CreatedAt          time.Time               `json:"createdAt"`
+	UpdatedAt          time.Time               `json:"updatedAt"`
 }
 
 // ToVulnerabilityResponseDTO converts a vulnerability model into its response DTO.
@@ -67,19 +77,34 @@ func ToVulnerabilityResponseDTOs(vulnerabilities []model.Vulnerability) []Vulner
 
 // ToAssetResponseDTO converts an asset model into its response DTO.
 func ToAssetResponseDTO(asset model.Asset) AssetResponse {
+	reviewStatus := asset.CPEReviewStatus
+	if reviewStatus == "" {
+		reviewStatus = model.AssetCPEReviewStatusNeedsReview
+	}
+
 	return AssetResponse{
-		ID:              asset.ID,
-		Name:            asset.Name,
-		Type:            asset.Type,
-		IPAddress:       asset.IPAddress,
-		OperatingSystem: asset.OperatingSystem,
-		Owner:           asset.Owner,
-		Criticality:     asset.Criticality,
-		RiskScore:       asset.RiskScore,
-		RiskLevel:       asset.RiskLevel,
-		Vulnerabilities: ToVulnerabilityResponseDTOs(asset.Vulnerabilities),
-		CreatedAt:       asset.CreatedAt,
-		UpdatedAt:       asset.UpdatedAt,
+		ID:                 asset.ID,
+		Name:               asset.Name,
+		Type:               asset.Type,
+		OperatingSystem:    asset.OperatingSystem,
+		Vendor:             asset.Vendor,
+		Product:            asset.Product,
+		Version:            asset.Version,
+		DeviceModel:        asset.DeviceModel,
+		Owner:              asset.Owner,
+		Criticality:        asset.Criticality,
+		RiskScore:          asset.RiskScore,
+		RiskLevel:          asset.RiskLevel,
+		ProductFingerprint: asset.ProductFingerprint,
+		SelectedCPE:        asset.SelectedCPE,
+		CPEConfidence:      asset.CPEConfidence,
+		CPEReviewStatus:    reviewStatus,
+		CPEReviewNotes:     asset.CPEReviewNotes,
+		CPECandidateCount:  asset.CPECandidateCount,
+		CPEMatchedAt:       asset.CPEMatchedAt,
+		Vulnerabilities:    ToVulnerabilityResponseDTOs(asset.Vulnerabilities),
+		CreatedAt:          asset.CreatedAt,
+		UpdatedAt:          asset.UpdatedAt,
 	}
 }
 

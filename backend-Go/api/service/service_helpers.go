@@ -4,7 +4,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"net"
 	"net/mail"
 	"regexp"
 	"strings"
@@ -17,6 +16,10 @@ import (
 )
 
 var cveIDPattern = regexp.MustCompile(`^CVE-\d{4}-\d{4,}$`)
+var aiPromptInjectionPattern = regexp.MustCompile(`(?i)(ignore (all )?previous instructions|system prompt|developer message|reveal the prompt|bypass policy|prompt injection|jailbreak|do anything now)`)
+
+const aiIngestionMaxBytes = 8192
+const aiIngestionMaxRunes = 4000
 
 // TranslateRepositoryError maps repository errors to service-layer sentinels.
 func TranslateRepositoryError(err error) error {
@@ -36,10 +39,7 @@ func TranslateRepositoryError(err error) error {
 
 // ValidateAsset validates the fields required to create or update an asset.
 func ValidateAsset(asset model.Asset) error {
-	if strings.TrimSpace(asset.Name) == "" || strings.TrimSpace(asset.Type) == "" || strings.TrimSpace(asset.IPAddress) == "" || strings.TrimSpace(asset.Owner) == "" || strings.TrimSpace(asset.Criticality) == "" {
-		return ErrInvalidRequestData
-	}
-	if net.ParseIP(strings.TrimSpace(asset.IPAddress)) == nil {
+	if strings.TrimSpace(asset.Name) == "" || strings.TrimSpace(asset.Type) == "" || strings.TrimSpace(asset.Owner) == "" || strings.TrimSpace(asset.Criticality) == "" {
 		return ErrInvalidRequestData
 	}
 	return nil
@@ -145,4 +145,42 @@ func ValidateCVEID(cveID string) error {
 		return ErrInvalidRequestData
 	}
 	return nil
+}
+
+// SanitizeAIIngestionText normalizes pasted asset text and rejects obvious prompt-injection attempts.
+func SanitizeAIIngestionText(rawText string) (string, error) {
+	if !utf8.ValidString(rawText) {
+		return "", ErrInvalidRequestData
+	}
+
+	trimmed := strings.TrimSpace(rawText)
+	if trimmed == "" {
+		return "", ErrInvalidRequestData
+	}
+	if len(trimmed) > aiIngestionMaxBytes || utf8.RuneCountInString(trimmed) > aiIngestionMaxRunes {
+		return "", ErrInvalidRequestData
+	}
+	if aiPromptInjectionPattern.MatchString(trimmed) {
+		return "", ErrInvalidRequestData
+	}
+
+	normalized := strings.ReplaceAll(trimmed, "\r\n", "\n")
+	normalized = strings.ReplaceAll(normalized, "\r", "\n")
+	normalized = strings.Map(func(r rune) rune {
+		switch r {
+		case '\n', '\t':
+			return r
+		}
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, normalized)
+
+	lines := strings.Split(normalized, "\n")
+	for i, line := range lines {
+		lines[i] = strings.TrimSpace(strings.Join(strings.Fields(line), " "))
+	}
+
+	return strings.TrimSpace(strings.Join(lines, "\n")), nil
 }

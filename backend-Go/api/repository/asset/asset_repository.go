@@ -59,7 +59,7 @@ func (r *AssetRepository) FindByIDForOrganization(ec *appcontext.GinContext, id 
 
 // Save creates a new asset record.
 func (r *AssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
-	if asset.OrganizationID <= 0 || asset.UserID <= 0 || asset.Name == "" || asset.Type == "" || asset.IPAddress == "" || asset.Owner == "" || asset.Criticality == "" {
+	if asset.OrganizationID <= 0 || asset.UserID <= 0 || asset.Name == "" || asset.Type == "" || asset.Owner == "" || asset.Criticality == "" {
 		return model.Asset{}, baserepository.ErrInvalidData
 	}
 
@@ -91,7 +91,7 @@ func (r *AssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (mo
 
 // UpdateForOrganization updates an asset owned by the specified organization.
 func (r *AssetRepository) UpdateForOrganization(ec *appcontext.GinContext, id int64, organizationID int64, updates model.Asset) (model.Asset, error) {
-	if updates.Name == "" || updates.Type == "" || updates.IPAddress == "" || updates.Owner == "" || updates.Criticality == "" {
+	if updates.Name == "" || updates.Type == "" || updates.Owner == "" || updates.Criticality == "" {
 		return model.Asset{}, baserepository.ErrInvalidData
 	}
 
@@ -102,8 +102,11 @@ func (r *AssetRepository) UpdateForOrganization(ec *appcontext.GinContext, id in
 
 	asset.Name = updates.Name
 	asset.Type = updates.Type
-	asset.IPAddress = updates.IPAddress
 	asset.OperatingSystem = updates.OperatingSystem
+	asset.Vendor = updates.Vendor
+	asset.Product = updates.Product
+	asset.Version = updates.Version
+	asset.DeviceModel = updates.DeviceModel
 	asset.Owner = updates.Owner
 	asset.Criticality = updates.Criticality
 
@@ -118,6 +121,37 @@ func (r *AssetRepository) UpdateForOrganization(ec *appcontext.GinContext, id in
 		}
 		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrUpdateFailed, databaseErr)
 	}
+	return r.FindByIDForOrganization(ec, id, organizationID)
+}
+
+// UpdateMatchAnalysisForOrganization stores backend-generated CPE match state for an asset.
+func (r *AssetRepository) UpdateMatchAnalysisForOrganization(ec *appcontext.GinContext, id int64, organizationID int64, analysis baserepository.AssetMatchUpdate) (model.Asset, error) {
+	if analysis.CPEReviewStatus == "" {
+		return model.Asset{}, baserepository.ErrInvalidData
+	}
+
+	asset, err := r.FindByIDForOrganization(ec, id, organizationID)
+	if err != nil {
+		return model.Asset{}, err
+	}
+
+	asset.ProductFingerprint = analysis.ProductFingerprint
+	asset.SelectedCPE = analysis.SelectedCPE
+	asset.CPEConfidence = analysis.CPEConfidence
+	asset.CPEReviewStatus = analysis.CPEReviewStatus
+	asset.CPEReviewNotes = analysis.CPEReviewNotes
+	asset.CPECandidateCount = analysis.CPECandidateCount
+	asset.CPEMatchedAt = analysis.CPEMatchedAt
+
+	err = r.dbForContext(ec).WithContext(ec.RequestContext()).Save(&asset).Error
+	if err != nil {
+		databaseErr := utils.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, utils.ErrCheckConstraintViolation) {
+			return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidData, databaseErr)
+		}
+		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrUpdateFailed, databaseErr)
+	}
+
 	return r.FindByIDForOrganization(ec, id, organizationID)
 }
 

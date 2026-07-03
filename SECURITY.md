@@ -10,7 +10,7 @@ This repository is SecureOps, a business asset and vulnerability-management web 
 * Frontend: Angular, Angular SSR, TypeScript, Node/Express, RxJS, and Vitest
 * Local orchestration: Docker Compose with PostgreSQL and the Go backend
 * External integrations: vulnerability and threat-data APIs, including NIST/NVD-style sources
-* Future features may include focused Go services, remediation workflows, work orders, audit trails, collaboration, and AI/chat assistance.
+* Future features may include focused Go services, remediation workflows, work orders, audit trails, collaboration, and OpenAI-backed AI/chat assistance.
 
 Use this file with `README.md`, `ARCHITECTURE.md`, and `AGENTS.md`. When those files describe current implementation or planned behavior, this file defines the security rules that coding agents must preserve while working in this repo.
 
@@ -813,12 +813,27 @@ When chatbot functionality is added:
 * Do not let the model bypass authorization, tenant isolation, approval workflows, or server-side policy checks.
 * Retrieve only records the authenticated user is authorized to access.
 * Scope every retrieval query by tenant and permission.
-* Do not send secrets, full audit logs, access tokens, credentials, or sensitive tenant data to an external AI provider without explicit approval.
+* Do not send secrets, full audit logs, access tokens, credentials, or sensitive tenant data to an external AI provider such as OpenAI without explicit approval.
 * Require server-side policy checks before an AI-driven action creates, updates, closes, suppresses, or approves a workflow item.
 * Present AI actions as proposals requiring user confirmation.
 * Log AI tool requests and outcomes without logging sensitive prompt content unnecessarily.
 * Defend against prompt injection by treating all retrieved and user-provided text as data, not instructions.
 * Restrict AI tools to small, purpose-built operations with explicit input validation and authorization.
+
+## 7.1 Locked prompt policy
+
+For any backend AI feature that ranks, summarizes, or extracts data:
+
+* Keep the instruction block in backend code, not in the frontend, not in the request body, and not in configuration that a user can change.
+* Use one hardcoded system prompt per use case, version it with the code, and test it like application logic.
+* Put user content, retrieved records, and candidate lists in a separate user/data message.
+* Tell the model explicitly that user text is untrusted data and that embedded instructions must be ignored.
+* Require JSON-only output with a fixed schema.
+* Reject responses that do not match the schema or that include prose, markdown, or code fences.
+* Cap prompt size, candidate count, and response size before sending anything to the model.
+* Prefer read-only AI behavior first; any write action needs explicit server-side confirmation and authorization.
+* Treat model output as advisory until backend validation accepts it.
+* Add regression tests for prompt-injection text, oversized inputs, malformed outputs, and candidate spoofing.
 
 ---
 

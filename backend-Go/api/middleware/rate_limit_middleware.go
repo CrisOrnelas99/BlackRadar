@@ -54,6 +54,15 @@ func NVDLookupRateLimit() gin.HandlerFunc {
 	})
 }
 
+// AIRateLimit throttles AI-assisted ingestion and ranking requests.
+func AIRateLimit() gin.HandlerFunc {
+	return newRateLimitMiddleware(RateLimitRule{
+		Name:   "ai_ingestion",
+		Limit:  5,
+		Window: defaultRateLimitWindow,
+	})
+}
+
 func newRateLimitMiddleware(rule RateLimitRule) gin.HandlerFunc {
 	limiter := newFixedWindowRateLimiter(rule, time.Now)
 

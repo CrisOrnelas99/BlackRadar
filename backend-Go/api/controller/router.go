@@ -20,6 +20,10 @@ type RouteHandlers struct {
 	CreateAsset              func(*appcontext.GinContext)
 	UpdateAsset              func(*appcontext.GinContext)
 	DeleteAsset              func(*appcontext.GinContext)
+	MatchAssetCPE            func(*appcontext.GinContext)
+	MatchAssetCPEAndAttach   func(*appcontext.GinContext)
+	TestAIProvider           func(*appcontext.GinContext)
+	SendAIMessage            func(*appcontext.GinContext)
 	AssignVulnerability      func(*appcontext.GinContext)
 	AssignVulnerabilityByCVE func(*appcontext.GinContext)
 	RemoveVulnerability      func(*appcontext.GinContext)
@@ -52,12 +56,14 @@ func RegisterRoutes(router *gin.Engine, jwtManager *security.JWTManager, userLoo
 		protected.POST("/assets", appcontext.Wrap(handlers.CreateAsset))
 		protected.PUT("/assets/:id", appcontext.Wrap(handlers.UpdateAsset))
 		protected.DELETE("/assets/:id", appcontext.Wrap(handlers.DeleteAsset))
+		protected.POST("/assets/:id/match-cpe", appcontext.Wrap(handlers.MatchAssetCPE))
 
 		adminOnly := protected.Group("/")
 		adminOnly.Use(middleware.RequireAdmin())
 		{
 			adminOnly.POST("/assets/:id/vulnerabilities/:vulnerabilityId", appcontext.Wrap(handlers.AssignVulnerability))
 			adminOnly.POST("/assets/:id/vulnerabilities/cve/:cveId", appcontext.Wrap(handlers.AssignVulnerabilityByCVE))
+			adminOnly.POST("/assets/:id/match-cpe/vulnerabilities", middleware.AIRateLimit(), appcontext.Wrap(handlers.MatchAssetCPEAndAttach))
 			adminOnly.DELETE("/assets/:id/vulnerabilities/:vulnerabilityId", appcontext.Wrap(handlers.RemoveVulnerability))
 
 			adminOnly.GET("/vulnerabilities", appcontext.Wrap(handlers.GetVulnerabilities))
@@ -69,6 +75,12 @@ func RegisterRoutes(router *gin.Engine, jwtManager *security.JWTManager, userLoo
 			nvd := adminOnly.Group("/nvd", middleware.NVDLookupRateLimit())
 			{
 				nvd.GET("/cves/:cveId", appcontext.Wrap(handlers.LookupCVE))
+			}
+
+			ai := adminOnly.Group("/ai", middleware.AIRateLimit())
+			{
+				ai.GET("/test", appcontext.Wrap(handlers.TestAIProvider))
+				ai.POST("/message", appcontext.Wrap(handlers.SendAIMessage))
 			}
 		}
 	}

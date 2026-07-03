@@ -1,0 +1,29 @@
+info:
+  name: Create Asset Structured Product
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: http://localhost:8080/api/assets
+  auth: inherit
+  body:
+    type: json
+    data: |
+      {
+        "name": "Ring Video Doorbell Structured Test",
+        "type": "IoT Camera",
+        "operatingSystem": "Ring Firmware",
+        "vendor": "Amazon",
+        "product": "Ring Video Doorbell Firmware",
+        "version": "3.4.6",
+        "deviceModel": "Ring Video Doorbell",
+        "owner": "system_admin",
+        "criticality": "High"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 120000
+  followRedirects: true
+  maxRedirects: 5

@@ -21,7 +21,7 @@ import (
 // TestAssetService verifies the happy-path asset service flow.
 func TestAssetService(t *testing.T) {
 	repo := &fakeAssetRepository{asset: sampleAsset(), assets: []model.Asset{sampleAsset()}}
-	svc := NewAssetService(repo, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{})
+	svc := NewAssetService(repo, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{}, nil)
 	ctx := newServiceContext(t, 42, 99)
 
 	if _, err := svc.GetAllAssets(ctx); err != nil {
@@ -61,7 +61,7 @@ func TestAssetServiceHelpers(t *testing.T) {
 
 // TestAssetServiceValidationAndTranslation verifies validation and error mapping.
 func TestAssetServiceValidationAndTranslation(t *testing.T) {
-	svc := NewAssetService(&fakeAssetRepository{findErr: baserepository.ErrAssetNotFound}, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{})
+	svc := NewAssetService(&fakeAssetRepository{findErr: baserepository.ErrAssetNotFound}, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{}, nil)
 	ctx := newServiceContext(t, 42, 99)
 
 	if _, err := svc.GetAsset(ctx, 1); !errors.Is(err, baseservice.ErrNotFound) {
@@ -74,7 +74,7 @@ func TestAssetServiceValidationAndTranslation(t *testing.T) {
 
 func TestAssetServiceRejectsWrongOrganization(t *testing.T) {
 	repo := &fakeAssetRepository{asset: sampleAsset(), expectedOrganizationID: 99}
-	svc := NewAssetService(repo, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{})
+	svc := NewAssetService(repo, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{}, nil)
 	ctx := newServiceContext(t, 42, 100)
 
 	if _, err := svc.GetAsset(ctx, 1); !errors.Is(err, baseservice.ErrNotFound) {
@@ -92,7 +92,7 @@ func TestAssetServiceAssignVulnerabilityByCVE(t *testing.T) {
 		Description: "Example NVD response",
 		Severity:    "Critical",
 	}}
-	svc := NewAssetService(assetRepo, vulnRepo, nvdSvc)
+	svc := NewAssetService(assetRepo, vulnRepo, nvdSvc, nil)
 	ctx := newServiceContext(t, 42, 99)
 	ctx.SetUserRole(model.RoleAdmin)
 
@@ -111,8 +111,67 @@ func TestAssetServiceAssignVulnerabilityByCVE(t *testing.T) {
 	}
 }
 
+func TestAssetServiceCreateAssetFromAI(t *testing.T) {
+	createdAsset := sampleAsset()
+	createdAsset.ID = 88
+	repo := &fakeAssetRepository{asset: createdAsset}
+	ai := &fakeTextGenerationService{
+		response: dto.TextGenerationResponse{
+			Text: `{"name":"Ring Video Doorbell","type":"IoT Camera","operatingSystem":"Ring Firmware","vendor":"Amazon","product":"Ring Video Doorbell Firmware","version":"3.4.6","deviceModel":"Ring Video Doorbell","owner":"","criticality":"","confidence":0.91,"reviewNotes":"single asset extracted"}`,
+		},
+	}
+	svc := NewAssetService(repo, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{}, ai)
+	ctx := newServiceContext(t, 42, 99)
+	ctx.SetUserRole(model.RoleAdmin)
+
+	asset, err := svc.CreateAssetFromAI(ctx, "I have an Amazon Ring Video Doorbell running firmware 3.4.6.")
+	if err != nil {
+		t.Fatalf("expected ai asset creation to succeed, got %v", err)
+	}
+	if asset.ID != 88 {
+		t.Fatalf("expected created asset id 88, got %d", asset.ID)
+	}
+	if repo.saved.Name != "Ring Video Doorbell" {
+		t.Fatalf("expected ai-created asset name, got %q", repo.saved.Name)
+	}
+	if repo.saved.Owner != "unassigned" {
+		t.Fatalf("expected safe owner default, got %q", repo.saved.Owner)
+	}
+	if repo.saved.Criticality != "Medium" {
+		t.Fatalf("expected safe criticality default, got %q", repo.saved.Criticality)
+	}
+}
+
+func TestAssetServiceCreateAssetFromAIAllowsNoNetworkAddressField(t *testing.T) {
+	createdAsset := sampleAsset()
+	createdAsset.ID = 89
+	repo := &fakeAssetRepository{asset: createdAsset}
+	ai := &fakeTextGenerationService{
+		response: dto.TextGenerationResponse{
+			Text: `{"name":"WP-Ultimate-Map WordPress Plugin","type":"Web Application","operatingSystem":"WordPress","vendor":"","product":"WP-Ultimate-Map","version":"1.1","deviceModel":"","owner":"","criticality":"","confidence":0.86,"reviewNotes":"single asset extracted"}`,
+		},
+	}
+	svc := NewAssetService(repo, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{}, ai)
+	ctx := newServiceContext(t, 42, 99)
+	ctx.SetUserRole(model.RoleAdmin)
+
+	asset, err := svc.CreateAssetFromAI(ctx, "We have WP-Ultimate-Map plugin Software for WordPress. The version number is 1.1")
+	if err != nil {
+		t.Fatalf("expected ai asset creation to succeed, got %v", err)
+	}
+	if asset.ID != 89 {
+		t.Fatalf("expected created asset id 89, got %d", asset.ID)
+	}
+	if repo.saved.Owner != "unassigned" {
+		t.Fatalf("expected safe owner default, got %q", repo.saved.Owner)
+	}
+	if repo.saved.Criticality != "Medium" {
+		t.Fatalf("expected safe criticality default, got %q", repo.saved.Criticality)
+	}
+}
+
 func TestAssetServiceRejectsVulnerabilityActionsForNonAdmin(t *testing.T) {
-	svc := NewAssetService(&fakeAssetRepository{asset: sampleAsset()}, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{})
+	svc := NewAssetService(&fakeAssetRepository{asset: sampleAsset()}, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{}, nil)
 	ctx := newServiceContext(t, 42, 99)
 	ctx.SetUserRole(model.RoleUser)
 
@@ -130,9 +189,12 @@ func TestAssetServiceRejectsVulnerabilityActionsForNonAdmin(t *testing.T) {
 type fakeAssetRepository struct {
 	assets                 []model.Asset
 	asset                  model.Asset
+	saved                  model.Asset
 	findErr                error
 	assigned               bool
 	expectedOrganizationID int64
+	matchUpdate            baserepository.AssetMatchUpdate
+	updateMatchCalls       int
 }
 
 // FindAllByUser returns the configured fake asset list.
@@ -156,12 +218,23 @@ func (f *fakeAssetRepository) FindByIDForOrganization(ec *appcontext.GinContext,
 
 // Save returns the supplied fake asset.
 func (f *fakeAssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
+	if f.asset.ID > 0 {
+		asset.ID = f.asset.ID
+	}
+	f.saved = asset
 	return asset, nil
 }
 
 // UpdateForOrganization returns the supplied fake asset.
 func (f *fakeAssetRepository) UpdateForOrganization(ec *appcontext.GinContext, id int64, organizationID int64, asset model.Asset) (model.Asset, error) {
 	return asset, nil
+}
+
+// UpdateMatchAnalysisForOrganization returns the configured fake asset after recording the match update.
+func (f *fakeAssetRepository) UpdateMatchAnalysisForOrganization(ec *appcontext.GinContext, id int64, organizationID int64, analysis baserepository.AssetMatchUpdate) (model.Asset, error) {
+	f.updateMatchCalls++
+	f.matchUpdate = analysis
+	return f.asset, nil
 }
 
 // DeleteForOrganization returns the configured fake asset.
@@ -258,5 +331,5 @@ func newServiceContext(t *testing.T, userID int64, organizationID int64) *appcon
 
 // sampleAsset returns a reusable asset fixture.
 func sampleAsset() model.Asset {
-	return model.Asset{OrganizationID: 99, Name: "Asset 1", Type: "Server", IPAddress: "10.0.0.10", Owner: "IT", Criticality: "High"}
+	return model.Asset{OrganizationID: 99, Name: "Asset 1", Type: "Server", Owner: "IT", Criticality: "High"}
 }

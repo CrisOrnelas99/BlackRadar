@@ -9,17 +9,19 @@ import (
 	appcontext "secureops/backend-go/api/context"
 	basecontroller "secureops/backend-go/api/controller"
 	"secureops/backend-go/api/dto"
+	"secureops/backend-go/api/model"
 	baseservice "secureops/backend-go/api/service"
 )
 
 // AssetController handles asset-related HTTP requests.
 type AssetController struct {
-	assetService baseservice.AssetService
+	assetService      baseservice.AssetService
+	assetMatchService baseservice.AssetMatchService
 }
 
 // NewAssetController creates a new AssetController.
-func NewAssetController(assetService baseservice.AssetService) *AssetController {
-	return &AssetController{assetService: assetService}
+func NewAssetController(assetService baseservice.AssetService, assetMatchService baseservice.AssetMatchService) *AssetController {
+	return &AssetController{assetService: assetService, assetMatchService: assetMatchService}
 }
 
 // GetAssets returns all assets for the authenticated user.
@@ -62,9 +64,14 @@ func (c *AssetController) CreateAsset(ec *appcontext.GinContext) {
 		return
 	}
 
-	asset := request.ToDataModel()
-
-	created, err := c.assetService.CreateAsset(ec, asset)
+	var created model.Asset
+	var err error
+	if request.AIMode {
+		created, err = c.assetService.CreateAssetFromAI(ec, request.RawText)
+	} else {
+		asset := request.ToDataModel()
+		created, err = c.assetService.CreateAsset(ec, asset)
+	}
 	if err != nil {
 		if handleAssetServiceError(ec, err, "Error creating asset") {
 			return
@@ -180,6 +187,44 @@ func (c *AssetController) RemoveVulnerability(ec *appcontext.GinContext) {
 	ec.JSON(http.StatusOK, dto.ToAssetResponseDTO(asset))
 }
 
+// MatchAssetCPE normalizes saved asset fields, ranks NVD candidates, and stores the selected match metadata.
+func (c *AssetController) MatchAssetCPE(ec *appcontext.GinContext) {
+	id, err := basecontroller.ParseID(ec.Param("id"))
+	if basecontroller.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid positive integer") {
+		return
+	}
+
+	asset, err := c.assetMatchService.AnalyzeAndPersistAssetMatch(ec, id)
+	if err != nil {
+		if handleAssetServiceError(ec, err, "Error matching asset CPE") {
+			return
+		}
+		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error matching asset CPE")
+		return
+	}
+
+	ec.JSON(http.StatusOK, dto.ToAssetResponseDTO(asset))
+}
+
+// MatchAssetCPEAndAttachVulnerabilities matches a CPE, fetches NVD CVEs, and attaches them to the asset.
+func (c *AssetController) MatchAssetCPEAndAttachVulnerabilities(ec *appcontext.GinContext) {
+	id, err := basecontroller.ParseID(ec.Param("id"))
+	if basecontroller.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid positive integer") {
+		return
+	}
+
+	asset, err := c.assetMatchService.AnalyzePersistAndAttachVulnerabilities(ec, id)
+	if err != nil {
+		if handleAssetServiceError(ec, err, "Error matching asset and assigning vulnerabilities") {
+			return
+		}
+		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error matching asset and assigning vulnerabilities")
+		return
+	}
+
+	ec.JSON(http.StatusOK, dto.ToAssetResponseDTO(asset))
+}
+
 // handleAssetServiceError maps asset service sentinels to HTTP responses.
 func handleAssetServiceError(ec *appcontext.GinContext, err error, fallbackMessage string) bool {
 	var serviceErr *baseservice.ServiceError
@@ -202,6 +247,10 @@ func handleAssetServiceError(ec *appcontext.GinContext, err error, fallbackMessa
 		}
 		if errors.Is(err, baseservice.ErrForbidden) {
 			basecontroller.HandleError(ec, http.StatusForbidden, err, baseservice.ErrForbidden.Error())
+			return true
+		}
+		if errors.Is(err, baseservice.ErrExternalService) {
+			basecontroller.HandleError(ec, http.StatusBadGateway, err, "External service unavailable")
 			return true
 		}
 	}

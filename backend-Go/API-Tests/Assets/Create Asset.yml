@@ -11,9 +11,8 @@ http:
     type: json
     data: |
       {
-        "name": "Laptop-02",
+        "name": "Manual Laptop Asset",
         "type": "Device",
-        "ipAddress": "10.0.0.11",
         "operatingSystem": "Windows 11",
         "owner": "system_admin",
         "criticality": "High"

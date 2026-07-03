@@ -1,0 +1,23 @@
+info:
+  name: Create Asset AI Mode
+  type: http
+  seq: 6
+
+http:
+  method: POST
+  url: http://localhost:8080/api/assets
+  body:
+    type: json
+    data: |
+      {
+        "aiMode": true,
+        "rawText": "Create one asset for an Amazon Ring Video Doorbell camera at IP address 10.0.0.93. It runs Ring Video Doorbell Firmware version 3.4.6. Treat it as an IoT Camera owned by system_admin with High criticality."
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 120000
+  followRedirects: true
+  maxRedirects: 5
+​

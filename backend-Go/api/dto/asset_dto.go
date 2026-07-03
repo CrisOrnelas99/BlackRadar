@@ -11,10 +11,15 @@ import (
 type AssetRequest struct {
 	Name            string  `json:"name"`
 	Type            string  `json:"type"`
-	IPAddress       string  `json:"ipAddress"`
 	OperatingSystem *string `json:"operatingSystem"`
+	Vendor          *string `json:"vendor,omitempty"`
+	Product         *string `json:"product,omitempty"`
+	Version         *string `json:"version,omitempty"`
+	DeviceModel     *string `json:"deviceModel,omitempty"`
 	Owner           string  `json:"owner"`
 	Criticality     string  `json:"criticality"`
+	AIMode          bool    `json:"aiMode,omitempty"`
+	RawText         string  `json:"rawText,omitempty"`
 }
 
 // ToDataModel converts the request into the persistence model with trimmed values.
@@ -24,8 +29,11 @@ func (r AssetRequest) ToDataModel() model.Asset {
 	return model.Asset{
 		Name:            strings.TrimSpace(r.Name),
 		Type:            strings.TrimSpace(r.Type),
-		IPAddress:       strings.TrimSpace(r.IPAddress),
 		OperatingSystem: operatingSystem,
+		Vendor:          trimOptionalString(r.Vendor),
+		Product:         trimOptionalString(r.Product),
+		Version:         trimOptionalString(r.Version),
+		DeviceModel:     trimOptionalString(r.DeviceModel),
 		Owner:           strings.TrimSpace(r.Owner),
 		Criticality:     strings.TrimSpace(r.Criticality),
 		RiskScore:       0,

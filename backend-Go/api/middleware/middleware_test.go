@@ -182,6 +182,26 @@ func TestAuthRateLimitMiddlewareReturns429(t *testing.T) {
 	}
 }
 
+func TestAIRateLimitMiddlewareReturns429(t *testing.T) {
+	router := gin.New()
+	router.Use(AIRateLimit())
+	router.GET("/ai", func(ctx *gin.Context) {
+		ctx.Status(http.StatusOK)
+	})
+
+	for i := 0; i < 5; i++ {
+		recorder := performRequest(router, http.MethodGet, "/ai", nil)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected request %d to be allowed, got %d", i+1, recorder.Code)
+		}
+	}
+
+	recorder := performRequest(router, http.MethodGet, "/ai", nil)
+	if recorder.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected rate-limited request to return %d, got %d", http.StatusTooManyRequests, recorder.Code)
+	}
+}
+
 func TestRequireAdmin(t *testing.T) {
 	tests := []struct {
 		name           string

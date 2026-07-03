@@ -2,6 +2,7 @@
 package controller_test
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -17,6 +18,7 @@ import (
 
 	appcontext "secureops/backend-go/api/context"
 	basecontroller "secureops/backend-go/api/controller"
+	controllerai "secureops/backend-go/api/controller/ai"
 	controllerasset "secureops/backend-go/api/controller/asset"
 	controllerauth "secureops/backend-go/api/controller/auth"
 	controllervulnerability "secureops/backend-go/api/controller/vulnerability"
@@ -47,7 +49,7 @@ func TestControllerHelper(t *testing.T) {
 	})
 
 	t.Run("bind json", func(t *testing.T) {
-		ec, recorder := newControllerContext(t, http.MethodPost, "/assets", `{"name":"Asset 1","type":"Server","ipAddress":"192.168.1.10","owner":"IT","criticality":"High"}`)
+		ec, recorder := newControllerContext(t, http.MethodPost, "/assets", `{"name":"Asset 1","type":"Server","owner":"IT","criticality":"High"}`)
 		ec.Request.Header.Set("Content-Type", "application/json")
 
 		var request dto.AssetRequest
@@ -104,7 +106,8 @@ func TestRegisterRoutes(t *testing.T) {
 	sessions := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: 1}}
 
 	authController := controllerauth.NewAuthController(&fakeAuthService{})
-	assetController := controllerasset.NewAssetController(&fakeAssetService{asset: sampleAsset(), assets: []model.Asset{sampleAsset()}})
+	aiController := controllerai.NewAIController(&fakeTextGenerationService{response: dto.TextGenerationResponse{Text: `{"ok":true}`, FinishReason: "stop"}})
+	assetController := controllerasset.NewAssetController(&fakeAssetService{asset: sampleAsset(), assets: []model.Asset{sampleAsset()}}, &fakeAssetMatchService{asset: sampleAsset()})
 	vulnerabilityController := controllervulnerability.NewVulnerabilityController(&fakeVulnerabilityService{vulnerability: sampleVulnerability(), vulnerabilities: []model.Vulnerability{sampleVulnerability()}})
 	nvdLookupCalled := false
 
@@ -118,6 +121,10 @@ func TestRegisterRoutes(t *testing.T) {
 		CreateAsset:              assetController.CreateAsset,
 		UpdateAsset:              assetController.UpdateAsset,
 		DeleteAsset:              assetController.DeleteAsset,
+		MatchAssetCPE:            assetController.MatchAssetCPE,
+		MatchAssetCPEAndAttach:   assetController.MatchAssetCPEAndAttachVulnerabilities,
+		TestAIProvider:           aiController.TestProvider,
+		SendAIMessage:            aiController.SendMessage,
 		AssignVulnerability:      assetController.AssignVulnerability,
 		AssignVulnerabilityByCVE: assetController.AssignVulnerabilityByCVE,
 		RemoveVulnerability:      assetController.RemoveVulnerability,
@@ -155,6 +162,23 @@ func TestRegisterRoutes(t *testing.T) {
 	}
 
 	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodGet, "/api/ai/test", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected AI test route status %d, got %d", http.StatusOK, recorder.Code)
+	}
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodPost, "/api/ai/message", strings.NewReader(`{"message":"Say hello."}`))
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected AI message route status %d, got %d", http.StatusOK, recorder.Code)
+	}
+
+	recorder = httptest.NewRecorder()
 	request = httptest.NewRequest(http.MethodPost, "/api/auth/refresh", strings.NewReader(`{"refreshToken":"refresh"}`))
 	request.Header.Set("Content-Type", "application/json")
 	engine.ServeHTTP(recorder, request)
@@ -176,6 +200,14 @@ func TestRegisterRoutes(t *testing.T) {
 	engine.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected CVE assignment route status %d, got %d", http.StatusOK, recorder.Code)
+	}
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodPost, "/api/assets/1/match-cpe/vulnerabilities", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected combined match route status %d, got %d", http.StatusOK, recorder.Code)
 	}
 }
 
@@ -217,6 +249,31 @@ func TestRegisterRoutesRejectsVulnerabilityRoutesForNonAdmin(t *testing.T) {
 	engine.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusForbidden {
 		t.Fatalf("expected NVD route to be forbidden, got %d", recorder.Code)
+	}
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodGet, "/api/ai/test", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("expected AI test route to be forbidden, got %d", recorder.Code)
+	}
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodPost, "/api/ai/message", strings.NewReader(`{"message":"Say hello."}`))
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("expected AI message route to be forbidden, got %d", recorder.Code)
+	}
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodPost, "/api/assets/1/match-cpe/vulnerabilities", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("expected combined match route to be forbidden, got %d", recorder.Code)
 	}
 }
 
@@ -273,6 +330,28 @@ type fakeAssetService struct {
 	asset  model.Asset
 }
 
+type fakeAssetMatchService struct {
+	asset model.Asset
+}
+
+type fakeTextGenerationService struct {
+	response dto.TextGenerationResponse
+}
+
+func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request dto.TextGenerationRequest) (dto.TextGenerationResponse, error) {
+	return f.response, nil
+}
+
+// AnalyzeAndPersistAssetMatch returns the configured fake asset.
+func (f *fakeAssetMatchService) AnalyzeAndPersistAssetMatch(ec *appcontext.GinContext, assetID int64) (model.Asset, error) {
+	return f.asset, nil
+}
+
+// AnalyzePersistAndAttachVulnerabilities returns the configured fake asset.
+func (f *fakeAssetMatchService) AnalyzePersistAndAttachVulnerabilities(ec *appcontext.GinContext, assetID int64) (model.Asset, error) {
+	return f.asset, nil
+}
+
 // GetAllAssets returns the configured fake assets.
 func (f *fakeAssetService) GetAllAssets(ec *appcontext.GinContext) ([]model.Asset, error) {
 	return f.assets, nil
@@ -285,6 +364,11 @@ func (f *fakeAssetService) GetAsset(ec *appcontext.GinContext, id int64) (model.
 
 // CreateAsset returns the configured fake asset.
 func (f *fakeAssetService) CreateAsset(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
+	return f.asset, nil
+}
+
+// CreateAssetFromAI returns the configured fake asset.
+func (f *fakeAssetService) CreateAssetFromAI(ec *appcontext.GinContext, rawText string) (model.Asset, error) {
 	return f.asset, nil
 }
 
@@ -346,6 +430,7 @@ func (f *fakeVulnerabilityService) DeleteVulnerability(ec *appcontext.GinContext
 var _ middleware.UserLookup = (*fakeUserLookup)(nil)
 var _ service.AuthService = (*fakeAuthService)(nil)
 var _ service.AssetService = (*fakeAssetService)(nil)
+var _ service.AssetMatchService = (*fakeAssetMatchService)(nil)
 var _ service.VulnerabilityService = (*fakeVulnerabilityService)(nil)
 
 // newControllerContext creates a test Gin context and recorder.
@@ -369,7 +454,7 @@ func newControllerContext(t *testing.T, method string, target string, body strin
 
 // sampleAsset returns a reusable asset fixture.
 func sampleAsset() model.Asset {
-	return model.Asset{ID: 1, Name: "Asset 1", Type: "Server", IPAddress: "10.0.0.10", Owner: "IT", Criticality: "High"}
+	return model.Asset{ID: 1, Name: "Asset 1", Type: "Server", Owner: "IT", Criticality: "High"}
 }
 
 // sampleVulnerability returns a reusable vulnerability fixture.

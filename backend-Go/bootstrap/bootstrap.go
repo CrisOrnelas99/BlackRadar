@@ -25,7 +25,6 @@ const (
 
 	bootstrapAssetName        = "Test Device"
 	bootstrapAssetType        = "Device"
-	bootstrapAssetIPAddress   = "10.0.0.10"
 	bootstrapAssetOS          = "Linux"
 	bootstrapAssetOwner       = "system_admin"
 	bootstrapAssetCriticality = "High"
@@ -174,7 +173,6 @@ func seedBootstrapAsset(ctx context.Context, database *gorm.DB, organizationID i
 		UserID:          userID,
 		Name:            bootstrapAssetName,
 		Type:            bootstrapAssetType,
-		IPAddress:       bootstrapAssetIPAddress,
 		OperatingSystem: &operatingSystem,
 		Owner:           bootstrapAssetOwner,
 		Criticality:     bootstrapAssetCriticality,

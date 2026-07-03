@@ -205,6 +205,32 @@ func ensureIndexes(ctx context.Context, database *gorm.DB) error {
 				ALTER TABLE assets ADD CONSTRAINT fk_assets_organization FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
 			END IF;
 		END $$`,
+		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS product_fingerprint TEXT`,
+		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS vendor TEXT`,
+		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS product TEXT`,
+		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS version TEXT`,
+		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS device_model TEXT`,
+		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS selected_cpe TEXT`,
+		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS cpe_confidence DOUBLE PRECISION`,
+		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS cpe_review_status VARCHAR NOT NULL DEFAULT 'needs_review'`,
+		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS cpe_review_notes TEXT`,
+		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS cpe_candidate_count INTEGER NOT NULL DEFAULT 0`,
+		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS cpe_matched_at TIMESTAMP WITH TIME ZONE`,
+		`ALTER TABLE assets ALTER COLUMN ip_address DROP NOT NULL`,
+		`UPDATE assets SET cpe_review_status = 'needs_review' WHERE cpe_review_status IS NULL OR cpe_review_status = ''`,
+		`UPDATE assets SET cpe_candidate_count = 0 WHERE cpe_candidate_count IS NULL`,
+		`DO $$
+		BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM pg_constraint WHERE conname = 'chk_assets_cpe_review_status'
+			) THEN
+				ALTER TABLE assets ADD CONSTRAINT chk_assets_cpe_review_status CHECK (cpe_review_status IN ('accepted', 'needs_review', 'rejected'));
+			END IF;
+		END $$`,
+		`ALTER TABLE assets ALTER COLUMN cpe_review_status SET DEFAULT 'needs_review'`,
+		`ALTER TABLE assets ALTER COLUMN cpe_review_status SET NOT NULL`,
+		`ALTER TABLE assets ALTER COLUMN cpe_candidate_count SET DEFAULT 0`,
+		`ALTER TABLE assets ALTER COLUMN cpe_candidate_count SET NOT NULL`,
 		`ALTER TABLE assets ALTER COLUMN organization_id SET NOT NULL`,
 		`DO $$
 		BEGIN

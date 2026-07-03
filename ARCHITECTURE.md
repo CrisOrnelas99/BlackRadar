@@ -13,7 +13,7 @@ SecureOps is a cybersecurity asset-risk platform built around:
 - Go Gin/GORM backend
 - PostgreSQL persistence
 - NVD / NIST vulnerability data
-- AI-assisted asset ingestion planned behind the backend
+- backend OpenAI-assisted asset creation, product matching, and vulnerability relevance support
 - focused Go services for limited background tasks
 - HTTPS/TLS termination at the deployment boundary with server-side certificate handling
 - GitHub Actions CI/CD for automated validation, build artifacts, and protected releases
@@ -21,7 +21,7 @@ SecureOps is a cybersecurity asset-risk platform built around:
 - organization-scoped tenancy enforced by the backend
 - future multi-organization membership can be layered on top of the tenant boundary with server-side active-organization switching
 
-The backend is the trust boundary. Angular never talks directly to NVD, AI providers, or internal services.
+The backend is the trust boundary. Angular never talks directly to NVD, OpenAI, or internal services.
 
 ## Current Runtime Shape
 
@@ -45,7 +45,12 @@ The Go backend owns:
 - vulnerability CRUD
 - asset-to-vulnerability assignment
 - NVD lookup and local vulnerability persistence
-- endpoint rate limiting for auth and NVD lookup paths
+- NVD CPE candidate lookup for saved assets
+- OpenAI-backed asset extraction from raw text
+- OpenAI-backed CPE candidate ranking and bounded CVE relevance ranking
+- persistence of asset product fingerprint, selected CPE, confidence, review status, review notes, candidate count, and match timestamp
+- admin-only AI provider diagnostics
+- endpoint rate limiting for auth, NVD lookup, and AI-assisted paths
 - structured request logging and security logging
 - safe error handling and input validation
 - cloud deployment compatibility for managed services such as ECR, ECS/Fargate, RDS, ALB/ACM, CloudWatch, Secrets Manager, and EventBridge
@@ -91,6 +96,16 @@ Core current entities:
 
 Organizations are the tenant boundary. Users belong to one organization, and assets and vulnerabilities are queried by organization membership.
 
+Assets also store product matching metadata used by the AI/NVD flow:
+
+- product_fingerprint
+- selected_cpe
+- cpe_confidence
+- cpe_review_status
+- cpe_review_notes
+- cpe_candidate_count
+- cpe_matched_at
+
 Planned data expansion includes:
 
 - organization memberships and active organization state
@@ -117,6 +132,9 @@ Implemented asset routes:
 - `POST /api/assets`
 - `PUT /api/assets/{id}`
 - `DELETE /api/assets/{id}`
+- `POST /api/assets/{id}/match-cpe`
+
+`POST /api/assets` supports normal structured asset creation and backend AI-assisted creation from `rawText` when `aiMode` is enabled.
 
 Implemented vulnerability routes:
 
@@ -130,11 +148,17 @@ Implemented assignment routes:
 
 - `POST /api/assets/{assetId}/vulnerabilities/{vulnerabilityId}`
 - `POST /api/assets/{assetId}/vulnerabilities/cve/{cveId}`
+- `POST /api/assets/{assetId}/match-cpe/vulnerabilities`
 - `DELETE /api/assets/{assetId}/vulnerabilities/{vulnerabilityId}`
 
 Implemented NVD route:
 
 - `GET /api/nvd/cves/{cveId}`
+
+Implemented AI diagnostic routes:
+
+- `GET /api/ai/test`
+- `POST /api/ai/message`
 
 ## Planned Backend Surfaces
 
@@ -142,7 +166,6 @@ The backend remains the trust boundary for future feature work. Planned surfaces
 
 - `GET /api/organizations`
 - `POST /api/organizations/switch`
-- `POST /api/assets/{id}/import-nvd-vulnerabilities`
 - `POST /api/assets/{id}/chat`
 - `POST /api/sync/nvd`
 - `GET /api/alerts`
@@ -162,6 +185,29 @@ NVD integration lives in the backend because it needs:
 - authorization-aware business logic
 
 NVD results are stored locally instead of live-querying the browser repeatedly.
+
+## AI-Assisted Asset Matching
+
+AI integration is backend-only. The current backend uses OpenAI for bounded assistance, while NVD remains the source of truth for CPE and CVE data.
+
+Implemented backend AI flows:
+
+- create one asset draft from raw text through `POST /api/assets` with `aiMode`
+- build a product fingerprint from saved asset data and sanitized text
+- query NVD CPE candidates through the backend
+- ask OpenAI to rank only the provided NVD CPE candidates
+- store selected CPE, confidence, review status, review notes, candidate count, and match time on the asset
+- fetch NVD CVEs for the selected CPE and attach bounded results to the asset
+- use keyword fallback and AI CVE ranking only against NVD-returned CVE candidates
+
+Safety boundaries:
+
+- OpenAI credentials stay server-side.
+- Prompts are locked in backend code.
+- User text is treated as untrusted data.
+- Model output must be JSON and is validated before use.
+- AI may rank, extract, and summarize, but it must not invent vulnerabilities or override NVD data.
+- Ambiguous or low-confidence results are marked `needs_review`.
 
 ## Code Structure
 
@@ -195,6 +241,9 @@ Typical local variables:
 - `POSTGRES_PASSWORD`
 - `POSTGRES_PORT`
 - `NVD_API_KEY`
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+- `OPENAI_TIMEOUT_SECONDS`
 - `BOOTSTRAP_DEV_DATA`
 
 ## Security Notes
