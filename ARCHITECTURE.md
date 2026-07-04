@@ -1,13 +1,13 @@
-# SecureOps Architecture
+# BlackRadar Security Platform Architecture
 
 ## Purpose
 
-This document describes the current technical architecture of SecureOps.
+This document describes the current technical architecture of BlackRadar Security Platform.
 Use it with `README.md`, `CLEANCODE.md`, and `SECURITY.md`.
 
 ## System Overview
 
-SecureOps is a cybersecurity asset-risk platform built around:
+BlackRadar Security Platform is a cybersecurity asset-risk platform built around:
 
 - Angular frontend
 - Go Gin/GORM backend

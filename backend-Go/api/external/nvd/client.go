@@ -269,7 +269,7 @@ func (c *Client) doRequest(ctx context.Context, requestURL string) (*http.Respon
 		return nil, fmt.Errorf("%w: build request", ErrNVDUnavailable)
 	}
 	request.Header.Set("Accept", "application/json")
-	request.Header.Set("User-Agent", "SecureOps backend-go NVD client")
+	request.Header.Set("User-Agent", "BlackRadar backend-go NVD client")
 	if c.apiKey != "" {
 		request.Header.Set("apiKey", c.apiKey)
 	}

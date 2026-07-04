@@ -4,7 +4,7 @@
 
 This document is the mandatory security policy for humans and coding agents working on this application.
 
-This repository is SecureOps, a business asset and vulnerability-management web application built with:
+This repository is BlackRadar Security Platform, a business asset and vulnerability-management web application built with:
 
 * Backend: Go, Gin, GORM, PostgreSQL, pgx, BCrypt, and JWT
 * Frontend: Angular, Angular SSR, TypeScript, Node/Express, RxJS, and Vitest

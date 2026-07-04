@@ -1,6 +1,6 @@
-# SecureOps
+# BlackRadar Security Platform
 
-SecureOps is a focused cybersecurity asset risk platform. It combines asset inventory, vulnerability intelligence, and AI-assisted workflows to help teams understand risk across organizations, applications, home networks, and imported asset inventories.
+BlackRadar Security Platform is a focused cybersecurity asset risk platform. It combines asset inventory, vulnerability intelligence, and AI-assisted workflows to help teams understand risk across organizations, applications, home networks, and imported asset inventories.
 
 For implementation details and agent rules, use `ARCHITECTURE.md`, `CLEANCODE.md`, and `SECURITY.md` together. `README.md` stays at the product and setup level.
 
@@ -20,7 +20,7 @@ For implementation details and agent rules, use `ARCHITECTURE.md`, `CLEANCODE.md
 
 ## What This Project Is
 
-SecureOps is designed as a practical, developer-friendly security application rather than a full enterprise SIEM.
+BlackRadar Security Platform is designed as a practical, developer-friendly security application rather than a full enterprise SIEM.
 It demonstrates how a secure backend trust boundary, external vulnerability data, and AI-assisted ingestion can work together in one system.
 
 Key capabilities include:
@@ -38,7 +38,7 @@ The platform supports multiple inventory contexts, including organization portfo
 
 ## Architecture
 
-SecureOps is intentionally designed with clear component separation.
+BlackRadar Security Platform is intentionally designed with clear component separation.
 The backend is the primary security boundary and owner of authorization, persistence, external integration, and AI orchestration.
 See `ARCHITECTURE.md` for the technical layout and `CLEANCODE.md` for code-structure rules that keep the implementation consistent with that layout.
 
@@ -363,7 +363,7 @@ Assets should capture both business inventory and product fingerprint metadata:
 
 ## Security Approach
 
-SecureOps is organized around strong backend controls and safe external integration.
+BlackRadar Security Platform is organized around strong backend controls and safe external integration.
 
 Security principles:
 

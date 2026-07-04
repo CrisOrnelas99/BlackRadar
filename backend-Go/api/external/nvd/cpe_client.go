@@ -73,7 +73,7 @@ func (c *CPEClient) SearchCandidates(ctx context.Context, request dto.CPEMatchRe
 		return nil, fmt.Errorf("%w: build request", ErrNVDUnavailable)
 	}
 	httpRequest.Header.Set("Accept", "application/json")
-	httpRequest.Header.Set("User-Agent", "SecureOps backend-go NVD client")
+	httpRequest.Header.Set("User-Agent", "BlackRadar backend-go NVD client")
 	if c.apiKey != "" {
 		httpRequest.Header.Set("apiKey", c.apiKey)
 	}

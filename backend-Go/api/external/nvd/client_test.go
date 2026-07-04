@@ -20,7 +20,7 @@ func TestClientLookupCVE(t *testing.T) {
 		if request.URL.Query().Get("cveIds") != "CVE-2021-44228" {
 			t.Fatalf("expected cveIds query, got %q", request.URL.RawQuery)
 		}
-		if request.Header.Get("User-Agent") != "SecureOps backend-go NVD client" {
+		if request.Header.Get("User-Agent") != "BlackRadar backend-go NVD client" {
 			t.Fatalf("expected user agent to be set, got %q", request.Header.Get("User-Agent"))
 		}
 		if request.Header.Get("apiKey") != "server-side-key" {
