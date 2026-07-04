@@ -54,6 +54,7 @@ func (s *assetServiceImpl) GetAsset(ec *appcontext.GinContext, id int64) (model.
 
 // CreateAsset validates and saves a new asset for the authenticated user.
 func (s *assetServiceImpl) CreateAsset(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
+	asset = normalizeAssetDisplayFields(asset)
 	if err := baseservice.ValidateAsset(asset); err != nil {
 		return model.Asset{}, err
 	}
@@ -66,6 +67,15 @@ func (s *assetServiceImpl) CreateAsset(ec *appcontext.GinContext, asset model.As
 	if err != nil {
 		return model.Asset{}, err
 	}
+
+	exists, err := s.assetRepository.ExistsBySignatureForOrganization(ec, asset, organizationID)
+	if err != nil {
+		return model.Asset{}, baseservice.TranslateRepositoryError(err)
+	}
+	if exists {
+		return model.Asset{}, baseservice.ErrConflict
+	}
+
 	asset.UserID = userID
 	asset.OrganizationID = organizationID
 
@@ -99,6 +109,7 @@ func (s *assetServiceImpl) CreateAssetFromAI(ec *appcontext.GinContext, rawText 
 
 // UpdateAsset validates and updates an existing asset for the authenticated user.
 func (s *assetServiceImpl) UpdateAsset(ec *appcontext.GinContext, id int64, asset model.Asset) (model.Asset, error) {
+	asset = normalizeAssetDisplayFields(asset)
 	if err := baseservice.ValidateAsset(asset); err != nil {
 		return model.Asset{}, err
 	}
@@ -256,6 +267,7 @@ func assetFromAIExtraction(raw string) (model.Asset, error) {
 		Criticality:     firstNonEmptyString(extraction.Criticality, "Medium"),
 		RiskLevel:       nil,
 	}
+	asset = normalizeAssetDisplayFields(asset)
 
 	if strings.TrimSpace(asset.Name) == "" {
 		asset.Name = fallbackAssetName(asset)
@@ -282,6 +294,25 @@ func fallbackAssetName(asset model.Asset) string {
 	return strings.Join(values, " ")
 }
 
+func normalizeAssetDisplayFields(asset model.Asset) model.Asset {
+	asset.Name = baseservice.NormalizeDisplayText(asset.Name)
+	asset.Type = baseservice.NormalizeDisplayText(asset.Type)
+	asset.OperatingSystem = baseservice.NormalizeOptionalDisplayText(asset.OperatingSystem)
+	asset.Vendor = baseservice.NormalizeOptionalDisplayText(asset.Vendor)
+	asset.Product = baseservice.NormalizeOptionalDisplayText(asset.Product)
+	asset.DeviceModel = baseservice.NormalizeOptionalDisplayText(asset.DeviceModel)
+	asset.Owner = baseservice.NormalizeDisplayText(asset.Owner)
+	asset.Criticality = baseservice.NormalizeDisplayText(asset.Criticality)
+	return asset
+}
+
+func optionalString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(*value)
+}
+
 func decodeJSONOnly(raw string, target any) error {
 	trimmed := strings.TrimSpace(raw)
 	trimmed = strings.TrimPrefix(trimmed, "```json")
@@ -303,11 +334,4 @@ func stringPtrFromValue(value string) *string {
 		return nil
 	}
 	return &trimmed
-}
-
-func optionalString(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return strings.TrimSpace(*value)
 }

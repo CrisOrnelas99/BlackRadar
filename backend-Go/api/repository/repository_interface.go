@@ -46,6 +46,8 @@ type AssetRepository interface {
 	FindAllByOrganization(ec *appcontext.GinContext, organizationID int64) ([]model.Asset, error)
 	// FindByIDForOrganization returns a specific asset for an organization.
 	FindByIDForOrganization(ec *appcontext.GinContext, id int64, organizationID int64) (model.Asset, error)
+	// ExistsBySignatureForOrganization checks whether an asset with the supplied normalized fields already exists for an organization.
+	ExistsBySignatureForOrganization(ec *appcontext.GinContext, asset model.Asset, organizationID int64) (bool, error)
 	// Save persists a new asset.
 	Save(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error)
 	// UpdateForOrganization updates an existing asset for an organization.

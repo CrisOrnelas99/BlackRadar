@@ -7,6 +7,7 @@ import (
 	"net/mail"
 	"regexp"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	appcontext "secureops/backend-go/api/context"
@@ -20,6 +21,29 @@ var aiPromptInjectionPattern = regexp.MustCompile(`(?i)(ignore (all )?previous i
 
 const aiIngestionMaxBytes = 8192
 const aiIngestionMaxRunes = 4000
+
+var displayAcronyms = map[string]string{
+	"api":   "API",
+	"aws":   "AWS",
+	"cpe":   "CPE",
+	"cve":   "CVE",
+	"cpu":   "CPU",
+	"dns":   "DNS",
+	"http":  "HTTP",
+	"https": "HTTPS",
+	"id":    "ID",
+	"iot":   "IoT",
+	"ip":    "IP",
+	"it":    "IT",
+	"nvd":   "NVD",
+	"os":    "OS",
+	"sql":   "SQL",
+	"ssh":   "SSH",
+	"tls":   "TLS",
+	"ui":    "UI",
+	"url":   "URL",
+	"vm":    "VM",
+}
 
 // TranslateRepositoryError maps repository errors to service-layer sentinels.
 func TranslateRepositoryError(err error) error {
@@ -43,6 +67,84 @@ func ValidateAsset(asset model.Asset) error {
 		return ErrInvalidRequestData
 	}
 	return nil
+}
+
+// NormalizeDisplayText trims, title-cases, and preserves known acronyms for human-facing labels.
+func NormalizeDisplayText(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return ""
+	}
+
+	words := strings.Fields(trimmed)
+	for index, word := range words {
+		words[index] = normalizeDisplayWord(word)
+	}
+
+	return strings.Join(words, " ")
+}
+
+// NormalizeOptionalDisplayText normalizes an optional human-facing label while preserving nil for empty values.
+func NormalizeOptionalDisplayText(value *string) *string {
+	if value == nil {
+		return nil
+	}
+
+	normalized := NormalizeDisplayText(*value)
+	if normalized == "" {
+		return nil
+	}
+
+	return &normalized
+}
+
+func normalizeDisplayWord(word string) string {
+	if word == "" {
+		return ""
+	}
+
+	lower := strings.ToLower(word)
+	if acronym, ok := displayAcronyms[lower]; ok {
+		return acronym
+	}
+	if isAllUpper(word) {
+		return word
+	}
+	if hasMixedCase(word) {
+		return word
+	}
+
+	runes := []rune(lower)
+	runes[0] = unicode.ToUpper(runes[0])
+	return string(runes)
+}
+
+func isAllUpper(value string) bool {
+	hasLetter := false
+	for _, r := range value {
+		if !unicode.IsLetter(r) {
+			continue
+		}
+		hasLetter = true
+		if unicode.IsLower(r) {
+			return false
+		}
+	}
+	return hasLetter
+}
+
+func hasMixedCase(value string) bool {
+	hasUpper := false
+	hasLower := false
+	for _, r := range value {
+		if unicode.IsUpper(r) {
+			hasUpper = true
+		}
+		if unicode.IsLower(r) {
+			hasLower = true
+		}
+	}
+	return hasUpper && hasLower
 }
 
 // AuthenticatedUserID returns the authenticated user ID from the request context.

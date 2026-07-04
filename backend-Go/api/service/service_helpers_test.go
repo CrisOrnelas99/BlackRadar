@@ -50,6 +50,18 @@ func TestAssetValidationAllowsNoNetworkAddressField(t *testing.T) {
 	}
 }
 
+func TestNormalizeDisplayText(t *testing.T) {
+	if NormalizeDisplayText("aws athena") != "AWS Athena" {
+		t.Fatalf("expected acronym and title case normalization, got %q", NormalizeDisplayText("aws athena"))
+	}
+	if NormalizeDisplayText("cloud engineer") != "Cloud Engineer" {
+		t.Fatalf("expected title case normalization, got %q", NormalizeDisplayText("cloud engineer"))
+	}
+	if NormalizeDisplayText("AWS Athena") != "AWS Athena" {
+		t.Fatalf("expected existing acronym casing to be preserved, got %q", NormalizeDisplayText("AWS Athena"))
+	}
+}
+
 // TestAIIngestionSanitization verifies asset text is bounded and prompt-injection attempts are rejected.
 func TestAIIngestionSanitization(t *testing.T) {
 	sanitized, err := SanitizeAIIngestionText("Vendor: Dell\r\nProduct: Latitude 7420\nVersion: 1.2")

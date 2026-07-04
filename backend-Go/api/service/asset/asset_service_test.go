@@ -30,6 +30,9 @@ func TestAssetService(t *testing.T) {
 	if _, err := svc.CreateAsset(ctx, sampleAsset()); err != nil {
 		t.Fatalf("expected CreateAsset to succeed, got %v", err)
 	}
+	if repo.saved.Name != "Asset 1" || repo.saved.Owner != "IT" {
+		t.Fatalf("expected manual asset fields to stay title-cased, got name=%q owner=%q", repo.saved.Name, repo.saved.Owner)
+	}
 	if _, err := svc.UpdateAsset(ctx, 1, sampleAsset()); err != nil {
 		t.Fatalf("expected UpdateAsset to succeed, got %v", err)
 	}
@@ -69,6 +72,54 @@ func TestAssetServiceValidationAndTranslation(t *testing.T) {
 	}
 	if _, err := svc.CreateAsset(ctx, model.Asset{}); !errors.Is(err, baseservice.ErrInvalidRequestData) {
 		t.Fatalf("expected invalid request data, got %v", err)
+	}
+}
+
+func TestAssetServiceCreateAssetNormalizesDisplayFields(t *testing.T) {
+	repo := &fakeAssetRepository{}
+	svc := NewAssetService(repo, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{}, nil)
+	ctx := newServiceContext(t, 42, 99)
+
+	created, err := svc.CreateAsset(ctx, model.Asset{
+		Name:        "aws athena",
+		Type:        "cloud service",
+		Vendor:      stringPtr("amazon"),
+		Product:     stringPtr("athena"),
+		Owner:       "cloud engineer",
+		Criticality: "medium",
+	})
+	if err != nil {
+		t.Fatalf("expected create asset to succeed, got %v", err)
+	}
+	if created.Name != "AWS Athena" {
+		t.Fatalf("expected normalized name, got %q", created.Name)
+	}
+	if repo.saved.Owner != "Cloud Engineer" {
+		t.Fatalf("expected normalized owner, got %q", repo.saved.Owner)
+	}
+	if got := optionalString(repo.saved.Vendor); got != "Amazon" {
+		t.Fatalf("expected normalized vendor, got %q", got)
+	}
+	if got := optionalString(repo.saved.Product); got != "Athena" {
+		t.Fatalf("expected normalized product, got %q", got)
+	}
+}
+
+func TestAssetServiceRejectsDuplicateAssetSignaturePerOrganization(t *testing.T) {
+	repo := &fakeAssetRepository{signatureExists: true}
+	svc := NewAssetService(repo, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{}, nil)
+	ctx := newServiceContext(t, 42, 99)
+
+	_, err := svc.CreateAsset(ctx, model.Asset{
+		Name:        "Asset A",
+		Type:        "Cloud Service",
+		Vendor:      stringPtr("Amazon"),
+		Product:     stringPtr("Athena"),
+		Owner:       "cloud engineer",
+		Criticality: "Medium",
+	})
+	if !errors.Is(err, baseservice.ErrConflict) {
+		t.Fatalf("expected duplicate asset signature to be rejected with conflict, got %v", err)
 	}
 }
 
@@ -134,7 +185,7 @@ func TestAssetServiceCreateAssetFromAI(t *testing.T) {
 	if repo.saved.Name != "Ring Video Doorbell" {
 		t.Fatalf("expected ai-created asset name, got %q", repo.saved.Name)
 	}
-	if repo.saved.Owner != "unassigned" {
+	if repo.saved.Owner != "Unassigned" {
 		t.Fatalf("expected safe owner default, got %q", repo.saved.Owner)
 	}
 	if repo.saved.Criticality != "Medium" {
@@ -162,7 +213,7 @@ func TestAssetServiceCreateAssetFromAIAllowsNoNetworkAddressField(t *testing.T) 
 	if asset.ID != 89 {
 		t.Fatalf("expected created asset id 89, got %d", asset.ID)
 	}
-	if repo.saved.Owner != "unassigned" {
+	if repo.saved.Owner != "Unassigned" {
 		t.Fatalf("expected safe owner default, got %q", repo.saved.Owner)
 	}
 	if repo.saved.Criticality != "Medium" {
@@ -192,6 +243,7 @@ type fakeAssetRepository struct {
 	saved                  model.Asset
 	findErr                error
 	assigned               bool
+	signatureExists        bool
 	expectedOrganizationID int64
 	matchUpdate            baserepository.AssetMatchUpdate
 	updateMatchCalls       int
@@ -214,6 +266,11 @@ func (f *fakeAssetRepository) FindByIDForOrganization(ec *appcontext.GinContext,
 		return model.Asset{}, f.findErr
 	}
 	return f.asset, nil
+}
+
+// ExistsBySignatureForOrganization reports whether the fake duplicate exists.
+func (f *fakeAssetRepository) ExistsBySignatureForOrganization(ec *appcontext.GinContext, asset model.Asset, organizationID int64) (bool, error) {
+	return f.signatureExists, nil
 }
 
 // Save returns the supplied fake asset.
@@ -332,4 +389,8 @@ func newServiceContext(t *testing.T, userID int64, organizationID int64) *appcon
 // sampleAsset returns a reusable asset fixture.
 func sampleAsset() model.Asset {
 	return model.Asset{OrganizationID: 99, Name: "Asset 1", Type: "Server", Owner: "IT", Criticality: "High"}
+}
+
+func stringPtr(value string) *string {
+	return &value
 }

@@ -4,6 +4,7 @@ package repository
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -60,6 +61,53 @@ func (r *AssetRepository) FindByIDForOrganization(ec *appcontext.GinContext, id 
 		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
 	}
 	return asset, nil
+}
+
+// ExistsBySignatureForOrganization reports whether a tenant already has an asset with the same normalized signature.
+func (r *AssetRepository) ExistsBySignatureForOrganization(ec *appcontext.GinContext, asset model.Asset, organizationID int64) (bool, error) {
+	normalizedName := strings.ToLower(strings.TrimSpace(asset.Name))
+	normalizedType := strings.ToLower(strings.TrimSpace(asset.Type))
+	normalizedOwner := strings.ToLower(strings.TrimSpace(asset.Owner))
+	normalizedCriticality := strings.ToLower(strings.TrimSpace(asset.Criticality))
+	if normalizedName == "" || normalizedType == "" || normalizedOwner == "" || normalizedCriticality == "" {
+		return false, nil
+	}
+
+	normalizedOperatingSystem := strings.ToLower(strings.TrimSpace(optionalAssetString(asset.OperatingSystem)))
+	normalizedVendor := strings.ToLower(strings.TrimSpace(optionalAssetString(asset.Vendor)))
+	normalizedProduct := strings.ToLower(strings.TrimSpace(optionalAssetString(asset.Product)))
+	normalizedVersion := strings.ToLower(strings.TrimSpace(optionalAssetString(asset.Version)))
+	normalizedDeviceModel := strings.ToLower(strings.TrimSpace(optionalAssetString(asset.DeviceModel)))
+
+	var count int64
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
+		Model(&model.Asset{}).
+		Where(`organization_id = ?
+			AND LOWER(name) = ?
+			AND LOWER(type) = ?
+			AND LOWER(owner) = ?
+			AND LOWER(criticality) = ?
+			AND LOWER(COALESCE(operating_system, '')) = ?
+			AND LOWER(COALESCE(vendor, '')) = ?
+			AND LOWER(COALESCE(product, '')) = ?
+			AND LOWER(COALESCE(version, '')) = ?
+			AND LOWER(COALESCE(device_model, '')) = ?`,
+			organizationID,
+			normalizedName,
+			normalizedType,
+			normalizedOwner,
+			normalizedCriticality,
+			normalizedOperatingSystem,
+			normalizedVendor,
+			normalizedProduct,
+			normalizedVersion,
+			normalizedDeviceModel,
+		).
+		Count(&count).Error
+	if err != nil {
+		return false, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+	}
+	return count > 0, nil
 }
 
 // Save creates a new asset record.
@@ -340,4 +388,11 @@ func createAssetAssessmentWithRandomID(tx *gorm.DB, assessment *model.AssetAsses
 // assignRandomAssetAssessmentID sets a non-zero arbitrary public identifier on the assessment.
 func assignRandomAssetAssessmentID(assessment *model.AssetAssessment) {
 	assessment.ID = utils.NewRandomID()
+}
+
+func optionalAssetString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
