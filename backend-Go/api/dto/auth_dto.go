@@ -1,7 +1,11 @@
 // Package dto defines request and response data transfer objects for the API.
 package dto
 
-import "secureops/backend-go/api/model"
+import (
+	"time"
+
+	"secureops/backend-go/api/model"
+)
 
 // RegisterRequest contains the fields required to create a user account.
 type RegisterRequest struct {
@@ -31,9 +35,11 @@ type UserResponse struct {
 
 // LoginResponse returns the issued token and the authenticated user summary.
 type LoginResponse struct {
-	Token        string       `json:"token"`
-	RefreshToken string       `json:"refreshToken"`
-	User         UserResponse `json:"user"`
+	User                  UserResponse `json:"user"`
+	Token                 string       `json:"token"`
+	TokenExpiresAt        time.Time    `json:"tokenExpiresAt"`
+	RefreshToken          string       `json:"refreshToken"`
+	RefreshTokenExpiresAt time.Time    `json:"refreshTokenExpiresAt"`
 }
 
 // ToUserResponse converts the persistence user model into a response DTO.

@@ -186,6 +186,7 @@ Rules:
 Implementation note:
 
 * Login issues both an access token and a refresh token.
+* Login and refresh responses include explicit `tokenExpiresAt` and `refreshTokenExpiresAt` timestamps.
 * The access token is bound to a session ID and is checked against the refresh-session table on protected requests.
 * Refresh requests rotate the session and return a new token pair.
 * Logout revokes the refresh session and invalidates the paired access token on subsequent protected requests.

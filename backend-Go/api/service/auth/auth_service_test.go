@@ -48,6 +48,15 @@ func TestAuthService(t *testing.T) {
 	if loginResponse.RefreshToken == "" {
 		t.Fatal("expected refresh token to be populated")
 	}
+	if loginResponse.TokenExpiresAt.IsZero() {
+		t.Fatal("expected token expiration to be populated")
+	}
+	if loginResponse.RefreshTokenExpiresAt.IsZero() {
+		t.Fatal("expected refresh token expiration to be populated")
+	}
+	if !loginResponse.RefreshTokenExpiresAt.After(loginResponse.TokenExpiresAt) {
+		t.Fatalf("expected refresh token expiry to outlast access token expiry, got access=%v refresh=%v", loginResponse.TokenExpiresAt, loginResponse.RefreshTokenExpiresAt)
+	}
 }
 
 // TestAuthServiceHelpers verifies authentication helper behavior.

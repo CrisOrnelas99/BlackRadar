@@ -64,6 +64,7 @@ Important notes:
 
 - access tokens are short-lived
 - refresh tokens are stored and validated server-side through the refresh-session table
+- login and refresh responses include `tokenExpiresAt` and `refreshTokenExpiresAt`
 - logout revokes the stored session
 - protected requests check both the access token and the active session state
 - login resolves `userOrEmail` by shape: email-like values use email lookup, everything else uses username lookup
@@ -77,9 +78,10 @@ Important notes:
 2. Backend verifies the password.
 3. Backend issues an access token and refresh token pair.
 4. Backend stores the refresh session in PostgreSQL.
-5. Protected requests use `Authorization: Bearer <access token>`.
-6. Refresh requests use `POST /api/auth/refresh` with the refresh token in the body.
-7. Logout uses `POST /api/auth/logout` with the refresh token in the body.
+5. Login and refresh responses return the user first, then the access token, access expiry, refresh token, and refresh expiry.
+6. Protected requests use `Authorization: Bearer <access token>`.
+7. Refresh requests use `POST /api/auth/refresh` with the refresh token in the body.
+8. Logout uses `POST /api/auth/logout` with the refresh token in the body.
 
 > Note: access-token and refresh-token character length is an implementation detail, not a security property. In this codebase both are JWTs, so length should not be used as a design rule.
 

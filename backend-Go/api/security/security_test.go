@@ -28,6 +28,12 @@ func TestJWTManagerGenerateTokenAndExtractUsername(t *testing.T) {
 	if username != "analyst" {
 		t.Fatalf("expected username analyst, got %q", username)
 	}
+	if manager.AccessExpiration() != time.Hour {
+		t.Fatalf("expected access expiration %s, got %s", time.Hour, manager.AccessExpiration())
+	}
+	if manager.RefreshExpiration() != 24*time.Hour {
+		t.Fatalf("expected refresh expiration %s, got %s", 24*time.Hour, manager.RefreshExpiration())
+	}
 }
 
 func TestJWTManagerGenerateTokenIncludesExpectedClaims(t *testing.T) {

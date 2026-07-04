@@ -50,6 +50,11 @@ func (s *JWTManager) RefreshExpiration() time.Duration {
 	return s.refreshExpiration
 }
 
+// AccessExpiration returns the configured access token lifetime.
+func (s *JWTManager) AccessExpiration() time.Duration {
+	return s.expiration
+}
+
 // ExtractUsername validates an access token and returns the subject username.
 func (s *JWTManager) ExtractUsername(tokenString string) (string, error) {
 	claims, err := s.ExtractAccessClaims(tokenString)

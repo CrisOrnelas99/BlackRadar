@@ -135,6 +135,9 @@ func (s *authServiceImpl) Login(ec *appcontext.GinContext, request dto.LoginRequ
 	}
 
 	refreshTokenID := utils.NewTokenID()
+	now := time.Now().UTC()
+	accessExpiresAt := now.Add(s.jwtManager.AccessExpiration())
+	refreshExpiresAt := now.Add(s.jwtManager.RefreshExpiration())
 	token, err := s.jwtManager.GenerateToken(user.Username, refreshTokenID)
 	if err != nil {
 		return dto.LoginResponse{}, err
@@ -143,14 +146,16 @@ func (s *authServiceImpl) Login(ec *appcontext.GinContext, request dto.LoginRequ
 	if err != nil {
 		return dto.LoginResponse{}, err
 	}
-	if err := s.saveRefreshSession(ec, user.ID, refreshTokenID); err != nil {
+	if err := s.saveRefreshSession(ec, user.ID, refreshTokenID, refreshExpiresAt); err != nil {
 		return dto.LoginResponse{}, err
 	}
 
 	return dto.LoginResponse{
-		Token:        token,
-		RefreshToken: refreshToken,
-		User:         dto.ToUserResponse(user),
+		User:                  dto.ToUserResponse(user),
+		Token:                 token,
+		TokenExpiresAt:        accessExpiresAt,
+		RefreshToken:          refreshToken,
+		RefreshTokenExpiresAt: refreshExpiresAt,
 	}, nil
 }
 
@@ -188,6 +193,9 @@ func (s *authServiceImpl) Refresh(ec *appcontext.GinContext, request dto.Refresh
 	}
 
 	newRefreshTokenID := utils.NewTokenID()
+	now := time.Now().UTC()
+	accessExpiresAt := now.Add(s.jwtManager.AccessExpiration())
+	refreshExpiresAt := now.Add(s.jwtManager.RefreshExpiration())
 	accessToken, err := s.jwtManager.GenerateToken(user.Username, newRefreshTokenID)
 	if err != nil {
 		return dto.LoginResponse{}, err
@@ -196,14 +204,16 @@ func (s *authServiceImpl) Refresh(ec *appcontext.GinContext, request dto.Refresh
 	if err != nil {
 		return dto.LoginResponse{}, err
 	}
-	if err := s.rotateRefreshSession(ec, session, newRefreshTokenID); err != nil {
+	if err := s.rotateRefreshSession(ec, session, newRefreshTokenID, refreshExpiresAt); err != nil {
 		return dto.LoginResponse{}, err
 	}
 
 	return dto.LoginResponse{
-		Token:        accessToken,
-		RefreshToken: newRefreshToken,
-		User:         dto.ToUserResponse(user),
+		User:                  dto.ToUserResponse(user),
+		Token:                 accessToken,
+		TokenExpiresAt:        accessExpiresAt,
+		RefreshToken:          newRefreshToken,
+		RefreshTokenExpiresAt: refreshExpiresAt,
 	}, nil
 }
 
@@ -241,21 +251,21 @@ func (s *authServiceImpl) Logout(ec *appcontext.GinContext, request dto.RefreshR
 	return nil
 }
 
-func (s *authServiceImpl) saveRefreshSession(ec *appcontext.GinContext, userID int64, tokenID string) error {
+func (s *authServiceImpl) saveRefreshSession(ec *appcontext.GinContext, userID int64, tokenID string, expiresAt time.Time) error {
 	return s.refreshSessionRepository.Save(ec, model.RefreshSession{
 		TokenID:    tokenID,
 		UserID:     userID,
 		DeviceName: requestDeviceName(ec),
-		ExpiresAt:  time.Now().UTC().Add(s.jwtManager.RefreshExpiration()),
+		ExpiresAt:  expiresAt,
 	})
 }
 
-func (s *authServiceImpl) rotateRefreshSession(ec *appcontext.GinContext, session model.RefreshSession, newTokenID string) error {
+func (s *authServiceImpl) rotateRefreshSession(ec *appcontext.GinContext, session model.RefreshSession, newTokenID string, expiresAt time.Time) error {
 	newSession := model.RefreshSession{
 		TokenID:    newTokenID,
 		UserID:     session.UserID,
 		DeviceName: session.DeviceName,
-		ExpiresAt:  time.Now().UTC().Add(s.jwtManager.RefreshExpiration()),
+		ExpiresAt:  expiresAt,
 	}
 
 	if ec == nil || ec.Database() == nil {
