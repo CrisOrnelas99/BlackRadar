@@ -5,7 +5,6 @@ target/
 .idea/
 *.iml
 Roadmap.md
-Agents.md
 .gocache/
 .angular/
 npm-debug.log*
@@ -23,3 +22,4 @@ frontend-angular/.env
 backend-Go/bin/
 API_Tests/*
 git-workflow.txt
+AGENTS.md
