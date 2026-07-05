@@ -30,8 +30,11 @@ func TestLoadUsesDefaults(t *testing.T) {
 	if cfg.JWTAudience != "secureops-api" {
 		t.Fatalf("expected default JWT audience secureops-api, got %q", cfg.JWTAudience)
 	}
-	if cfg.CorsAllowedOrigin != "http://localhost:4200" {
-		t.Fatalf("expected default CORS allowed origin http://localhost:4200, got %q", cfg.CorsAllowedOrigin)
+	if len(cfg.CorsAllowedOrigins) != 2 {
+		t.Fatalf("expected two default CORS allowed origins, got %d", len(cfg.CorsAllowedOrigins))
+	}
+	if cfg.CorsAllowedOrigins[0] != "http://localhost:4200" || cfg.CorsAllowedOrigins[1] != "http://localhost:4000" {
+		t.Fatalf("unexpected default CORS allowed origins: %#v", cfg.CorsAllowedOrigins)
 	}
 	if cfg.NVDAPIBaseURL != nvdCVEAPIBaseURL {
 		t.Fatalf("expected default NVD API base URL, got %q", cfg.NVDAPIBaseURL)
@@ -76,6 +79,7 @@ func TestLoadUsesEnvironment(t *testing.T) {
 	t.Setenv("OPENAI_MODEL", "gpt-4.1")
 	t.Setenv("OPENAI_TIMEOUT_SECONDS", "45")
 	t.Setenv("BOOTSTRAP_DEV_DATA", "true")
+	t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000, http://localhost:4200")
 
 	cfg := Load()
 
@@ -111,6 +115,9 @@ func TestLoadUsesEnvironment(t *testing.T) {
 	}
 	if !cfg.BootstrapDevData {
 		t.Fatal("expected bootstrap dev data to be enabled")
+	}
+	if len(cfg.CorsAllowedOrigins) != 2 || cfg.CorsAllowedOrigins[0] != "http://localhost:3000" || cfg.CorsAllowedOrigins[1] != "http://localhost:4200" {
+		t.Fatalf("unexpected configured CORS allowed origins: %#v", cfg.CorsAllowedOrigins)
 	}
 }
 
@@ -172,29 +179,32 @@ func TestValidateAllowsEmptyJwtSecretInDevelopment(t *testing.T) {
 	}
 }
 
-// TestValidateRequiresCorsAllowedOriginInProduction ensures production requires CORS_ALLOWED_ORIGIN.
-func TestValidateRequiresCorsAllowedOriginInProduction(t *testing.T) {
+// TestValidateRequiresCorsAllowedOriginsInProduction ensures production requires CORS allowlist values.
+func TestValidateRequiresCorsAllowedOriginsInProduction(t *testing.T) {
 	clearConfigEnv(t)
 	t.Setenv("GO_ENV", "production")
 	t.Setenv("JWT_SECRET", "test-secret")
 	t.Setenv("DATABASE_URL", "postgres://user:pass@db:5432/app")
-	t.Setenv("CORS_ALLOWED_ORIGIN", "https://example.com")
+	t.Setenv("CORS_ALLOWED_ORIGINS", "https://example.com")
 
 	cfg := Load()
 	if err := cfg.Validate(); err != nil {
-		t.Fatalf("expected Validate to succeed when CORS_ALLOWED_ORIGIN is present, got %v", err)
+		t.Fatalf("expected Validate to succeed when CORS_ALLOWED_ORIGINS is present, got %v", err)
 	}
 }
 
-// TestLoadUsesCustomCorsAllowedOrigin verifies Load sets CorsAllowedOrigin from the environment.
-func TestLoadUsesCustomCorsAllowedOrigin(t *testing.T) {
+// TestLoadUsesCustomCorsAllowedOrigins verifies Load sets CorsAllowedOrigins from the environment.
+func TestLoadUsesCustomCorsAllowedOrigins(t *testing.T) {
 	clearConfigEnv(t)
-	t.Setenv("CORS_ALLOWED_ORIGIN", "https://example.com")
+	t.Setenv("CORS_ALLOWED_ORIGINS", "https://example.com, https://admin.example.com")
 
 	cfg := Load()
 
-	if cfg.CorsAllowedOrigin != "https://example.com" {
-		t.Fatalf("expected CORS allowed origin https://example.com, got %q", cfg.CorsAllowedOrigin)
+	if len(cfg.CorsAllowedOrigins) != 2 {
+		t.Fatalf("expected 2 CORS allowed origins, got %d", len(cfg.CorsAllowedOrigins))
+	}
+	if cfg.CorsAllowedOrigins[0] != "https://example.com" || cfg.CorsAllowedOrigins[1] != "https://admin.example.com" {
+		t.Fatalf("unexpected CORS allowed origins: %#v", cfg.CorsAllowedOrigins)
 	}
 }
 
@@ -218,6 +228,8 @@ func clearConfigEnv(t *testing.T) {
 		"OPENAI_MODEL",
 		"OPENAI_TIMEOUT_SECONDS",
 		"BOOTSTRAP_DEV_DATA",
+		"CORS_ALLOWED_ORIGINS",
+		"CORS_ALLOWED_ORIGIN",
 	}
 
 	for _, key := range keys {

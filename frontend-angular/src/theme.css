@@ -1,0 +1,19 @@
+:root {
+  --BlackRadar-color-light-blue: #bed9ef;
+  --BlackRadar-color-dark-blue: #0c2240;
+  --BlackRadar-color-dark-gray: #3a3c40;
+  --BlackRadar-color-light-gray: #6c7073;
+  --BlackRadar-color-navy-black: #1e2932;
+  --BlackRadar-color-white: #dee0e2;
+  --brandRadar-color-blue: #3a7ca5;
+
+  --BlackRadar-color-error: #780606;
+  --BlackRadar-color-success: #91D590;
+  --BlackRadar-color-warning: #DFA033;
+
+  --brand-font-body: "Source Sans Pro", "Segoe UI", Arial, sans-serif;
+  --brand-font-title: Georgia, "Times New Roman", serif;
+
+  --brand-radius-lg: 1.5rem;
+  --brand-radius-md: 1rem;
+}

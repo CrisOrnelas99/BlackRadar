@@ -254,6 +254,8 @@ Typical values include:
 
 - PostgreSQL database host, port, name, user, password
 - JWT secret and expiration
+- allowed frontend origins for backend CORS, such as `http://localhost:4200,http://localhost:4000`
+- frontend SSR API origin for CSP, such as `http://localhost:8080`
 - NVD API key
 - OpenAI API key
 - internal service URLs

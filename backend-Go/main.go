@@ -99,7 +99,7 @@ func main() {
 	engine.Use(middleware.RequestContext())
 	engine.Use(middleware.SecurityHeaders())
 	engine.Use(middleware.GormMiddleware(gormDB))
-	engine.Use(middleware.Cors(cfg.CorsAllowedOrigin))
+	engine.Use(middleware.Cors(cfg.CorsAllowedOrigins))
 	engine.Use(middleware.RequestFilter())
 	// Register all routes centrally in the controller package
 	controller.RegisterRoutes(engine, jwtManager, userRepository, refreshSessionRepository, controller.RouteHandlers{

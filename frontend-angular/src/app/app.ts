@@ -1,12 +1,16 @@
-// Root application component that renders the shell and active route content.
-import { Component } from '@angular/core';
-import { RouterLink, RouterOutlet } from '@angular/router';
+// Root application component that renders the shell, route content, and global banner host.
+import { Component, inject } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
+
+import { StatusBannerComponent } from './components/status-banner/status-banner';
+import { BannerService } from './services/banner/banner';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterLink, RouterOutlet],
+  imports: [RouterOutlet, StatusBannerComponent],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
 export class App {
+  readonly bannerService = inject(BannerService);
 }

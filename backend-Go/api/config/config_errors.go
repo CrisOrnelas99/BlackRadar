@@ -9,7 +9,7 @@ func (e ConfigError) Error() string {
 }
 
 var (
-	ErrMissingJWTSecret         = &ConfigError{Message: "JWT_SECRET is required in production"}
-	ErrMissingCorsAllowedOrigin = &ConfigError{Message: "CORS_ALLOWED_ORIGIN is required in production"}
-	ErrMissingDatabaseURL       = &ConfigError{Message: "database connection settings are required in production"}
+	ErrMissingJWTSecret          = &ConfigError{Message: "JWT_SECRET is required in production"}
+	ErrMissingCorsAllowedOrigins = &ConfigError{Message: "CORS_ALLOWED_ORIGINS or CORS_ALLOWED_ORIGIN is required in production"}
+	ErrMissingDatabaseURL        = &ConfigError{Message: "database connection settings are required in production"}
 )

@@ -21,7 +21,7 @@ type Config struct {
 	JWTRefreshExpiration time.Duration
 	JWTIssuer            string
 	JWTAudience          string
-	CorsAllowedOrigin    string
+	CorsAllowedOrigins   []string
 	NVDAPIBaseURL        string
 	NVDCPEAPIBaseURL     string
 	NVDAPIKey            string
@@ -35,6 +35,7 @@ type Config struct {
 const nvdCVEAPIBaseURL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 const nvdCPEAPIBaseURL = "https://services.nvd.nist.gov/rest/json/cpes/2.0"
 const openAIResponsesEndpoint = "https://api.openai.com/v1/responses"
+const defaultDevCorsAllowedOrigins = "http://localhost:4200,http://localhost:4000"
 
 // Load reads environment variables and fills default values for missing settings.
 func Load() Config {
@@ -64,9 +65,12 @@ func Load() Config {
 	openAIAPIKey := env("OPENAI_API_KEY", "")
 	openAIModel := env("OPENAI_MODEL", "gpt-4.1-mini")
 	bootstrapDevData := strings.EqualFold(env("BOOTSTRAP_DEV_DATA", "false"), "true")
-	corsAllowedOrigin := env("CORS_ALLOWED_ORIGIN", "http://localhost:4200")
+	corsAllowedOrigins := parseCSV(env("CORS_ALLOWED_ORIGINS", defaultDevCorsAllowedOrigins))
 	if isProduction {
-		corsAllowedOrigin = env("CORS_ALLOWED_ORIGIN", "")
+		corsAllowedOrigins = parseCSV(firstNonEmpty(
+			env("CORS_ALLOWED_ORIGINS", ""),
+			env("CORS_ALLOWED_ORIGIN", ""),
+		))
 	}
 
 	expirationMs, err := strconv.Atoi(env("JWT_EXPIRATION_MS", "3600000"))
@@ -91,7 +95,7 @@ func Load() Config {
 		JWTRefreshExpiration: time.Duration(refreshExpirationMs) * time.Millisecond,
 		JWTIssuer:            jwtIssuer,
 		JWTAudience:          jwtAudience,
-		CorsAllowedOrigin:    corsAllowedOrigin,
+		CorsAllowedOrigins:   corsAllowedOrigins,
 		NVDAPIBaseURL:        nvdCVEAPIBaseURL,
 		NVDCPEAPIBaseURL:     nvdCPEAPIBaseURL,
 		NVDAPIKey:            nvdAPIKey,
@@ -109,8 +113,8 @@ func (cfg Config) Validate() error {
 		if cfg.JWTSecret == "" {
 			return ErrMissingJWTSecret
 		}
-		if cfg.CorsAllowedOrigin == "" {
-			return ErrMissingCorsAllowedOrigin
+		if len(cfg.CorsAllowedOrigins) == 0 {
+			return ErrMissingCorsAllowedOrigins
 		}
 		if cfg.DatabaseURL == "" {
 			return ErrMissingDatabaseURL
@@ -122,4 +126,41 @@ func (cfg Config) Validate() error {
 // PasswordCost returns the bcrypt cost factor used for password hashing.
 func PasswordCost() int {
 	return bcrypt.DefaultCost
+}
+
+// parseCSV converts a comma-separated environment value into a de-duplicated allowlist.
+func parseCSV(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+
+	entries := strings.Split(value, ",")
+	allowed := make([]string, 0, len(entries))
+	seen := make(map[string]struct{}, len(entries))
+
+	for _, entry := range entries {
+		origin := strings.TrimSpace(entry)
+		if origin == "" {
+			continue
+		}
+		if _, exists := seen[origin]; exists {
+			continue
+		}
+
+		seen[origin] = struct{}{}
+		allowed = append(allowed, origin)
+	}
+
+	return allowed
+}
+
+// firstNonEmpty returns the first non-empty string from the provided values.
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+
+	return ""
 }

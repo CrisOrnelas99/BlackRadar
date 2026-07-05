@@ -1,0 +1,5 @@
+:host{display:block}
+.status-banner{min-width:18rem;width:max-content;max-width:20rem;margin:0;padding:.88rem 1.25rem;border-radius:999px;font-size:.88rem;font-weight:700;line-height:1.35;box-shadow:0 18px 34px rgba(30,41,50,.18);backdrop-filter:blur(10px)}
+.status-banner--validation{background:rgba(120,6,6,.18);color:var(--BlackRadar-color-error);border:1px solid rgba(120,6,6,.28)}
+.status-banner--error{background:rgba(12,34,64,.14);color:var(--BlackRadar-color-dark-blue);border:1px solid rgba(12,34,64,.22)}
+.status-banner--success{background:rgba(145,213,144,.22);color:var(--BlackRadar-color-dark-blue);border:1px solid rgba(145,213,144,.42)}

@@ -9,14 +9,17 @@ import express from 'express';
 import { join } from 'node:path';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
+const apiOrigin = process.env['API_ORIGIN'] || 'http://localhost:8080';
 
 const app = express();
 const angularApp = new AngularNodeAppEngine();
 
+// Applies security headers to every server response.
 app.use((req, res, next) => {
+  const connectSrc = buildConnectSrc(apiOrigin);
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'",
+    `default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src ${connectSrc}`,
   );
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
@@ -27,7 +30,18 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static files from /browser.
+// Builds an explicit connect-src allowlist for same-origin requests and the local API origin.
+function buildConnectSrc(apiOrigin: string): string {
+  const sources = new Set(["'self'"]);
+
+  if (apiOrigin.trim()) {
+    sources.add(apiOrigin.trim());
+  }
+
+  return Array.from(sources).join(' ');
+}
+
+// Serves prebuilt browser assets with long-lived caching.
 app.use(
   express.static(browserDistFolder, {
     maxAge: '1y',
@@ -36,7 +50,7 @@ app.use(
   }),
 );
 
-// Handle all other requests by rendering the Angular application.
+// Handles all other requests by rendering the Angular application.
 app.use((req, res, next) => {
   angularApp
     .handle(req)
@@ -44,9 +58,10 @@ app.use((req, res, next) => {
     .catch(next);
 });
 
-// Start the server when this module is executed directly or under PM2.
+// Starts the server when this module is executed directly or under PM2.
 if (isMainModule(import.meta.url) || process.env['pm_id']) {
   const port = process.env['PORT'] || 4000;
+  // Binds the Express server to the configured port.
   app.listen(port, (error) => {
     if (error) {
       throw error;

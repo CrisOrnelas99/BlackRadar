@@ -773,6 +773,13 @@ For bearer-token flows:
 * Validate tokens server-side on every request.
 * Never assume a token being present means the user is authorized for the requested resource.
 
+For browser login forms:
+
+* Use standard HTML form controls and appropriate `autocomplete` values for usernames and passwords.
+* Keep validation client-side for usability only; enforce all real checks on the server.
+* Do not persist credentials, tokens, or session identifiers in browser storage, URLs, or form state after submission.
+* Keep login failures generic so the browser does not reveal whether a username or password was wrong.
+
 ---
 
 # 6. API Security Requirements

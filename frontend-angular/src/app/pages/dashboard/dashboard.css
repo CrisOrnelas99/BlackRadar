@@ -1,0 +1,56 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  font-family: var(--brand-font-body);
+}
+
+.dashboard-shell {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, var(--BlackRadar-color-white) 0%, #f5f7fa 100%);
+}
+
+.dashboard-card {
+  width: min(100%, 32rem);
+  padding: 2rem;
+  border-radius: var(--brand-radius-lg);
+  background: linear-gradient(180deg, var(--BlackRadar-color-white) 0%, #c9cfd6 100%);
+  border: 1px solid rgba(30, 41, 50, 0.16);
+  box-shadow: 0 18px 50px rgba(30, 41, 50, 0.14);
+  color: var(--BlackRadar-color-navy-black);
+  text-align: center;
+}
+
+.dashboard-kicker {
+  margin: 0 0 0.75rem;
+  font-family: var(--brand-font-title);
+  color: var(--brandRadar-color-blue);
+  font-size: 1.1rem;
+}
+
+.dashboard-card h1 {
+  margin: 0;
+  font-family: var(--brand-font-title);
+  color: var(--brandRadar-color-blue);
+  font-size: clamp(2rem, 4vw, 2.75rem);
+}
+
+.dashboard-copy {
+  margin: 0.9rem 0 0;
+  color: var(--BlackRadar-color-light-gray);
+}
+
+.dashboard-button {
+  margin-top: 1.5rem;
+  border: 0;
+  border-radius: var(--brand-radius-md);
+  padding: 1rem 1.15rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--BlackRadar-color-white);
+  background: linear-gradient(135deg, var(--BlackRadar-color-dark-blue) 0%, var(--BlackRadar-color-navy-black) 55%, var(--BlackRadar-color-light-gray) 100%);
+  box-shadow: 0 16px 30px rgba(30, 41, 50, 0.24);
+  cursor: pointer;
+}

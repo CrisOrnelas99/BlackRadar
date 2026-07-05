@@ -1,0 +1,3 @@
+<p class="status-banner" [class.status-banner--validation]="tone() === 'validation'" [class.status-banner--error]="tone() === 'error'" [class.status-banner--success]="tone() === 'success'" role="alert" aria-live="polite">
+  {{ message() }}
+</p>
