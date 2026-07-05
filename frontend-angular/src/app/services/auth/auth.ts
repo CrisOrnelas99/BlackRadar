@@ -1,7 +1,7 @@
 // Authentication service for login, session persistence, and token refresh.
 import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Inject, Injectable, PLATFORM_ID } from '@angular/core';
+import { Inject, Injectable, PLATFORM_ID, signal } from '@angular/core';
 import { Observable, finalize, shareReplay, tap, throwError, timeout } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
@@ -16,6 +16,7 @@ export interface LoginResponse {
     id: number;
     username: string;
     email: string;
+    organization: string;
   };
   token: string;
   tokenExpiresAt: string;
@@ -30,11 +31,15 @@ export const authStorageKey = 'secureops.auth';
 })
 export class AuthService {
   private refreshRequest$: Observable<LoginResponse> | null = null;
+  readonly session = signal<LoginResponse | null>(null);
 
   constructor(
     private readonly httpClient: HttpClient,
     @Inject(PLATFORM_ID) private readonly platformId: object,
-  ) {}
+  ) {
+    // Hydrates the in-memory session signal from browser storage during client startup.
+    this.syncSessionFromStorage();
+  }
 
   // Sends credentials to the backend login endpoint and stores the returned session.
   login(request: LoginRequest): Observable<LoginResponse> {
@@ -48,11 +53,7 @@ export class AuthService {
 
   // Reports whether a usable session exists in browser storage.
   isAuthenticated(): boolean {
-    if (!isPlatformBrowser(this.platformId)) {
-      return false;
-    }
-
-    return this.readSession() !== null;
+    return this.session() !== null;
   }
 
   // Clears the saved session from browser storage.
@@ -62,15 +63,12 @@ export class AuthService {
     }
 
     localStorage.removeItem(authStorageKey);
+    this.session.set(null);
   }
 
   // Returns the saved login response when the app is running in a browser.
   getSession(): LoginResponse | null {
-    if (!isPlatformBrowser(this.platformId)) {
-      return null;
-    }
-
-    return this.readSession();
+    return this.session();
   }
 
   // Returns the current access token from the stored session.
@@ -118,6 +116,16 @@ export class AuthService {
     }
 
     localStorage.setItem(authStorageKey, JSON.stringify(session));
+    this.session.set(session);
+  }
+
+  // Re-reads the browser session storage into the in-memory signal.
+  syncSessionFromStorage(): void {
+    if (!isPlatformBrowser(this.platformId)) {
+      return;
+    }
+
+    this.session.set(this.readSession());
   }
 
   // Reads and validates the stored session payload from browser storage.

@@ -31,6 +31,21 @@ func (r *OrganizationRepository) dbForContext(ec *appcontext.GinContext) *gorm.D
 	return r.db
 }
 
+// FindByID returns an organization that matches the supplied identifier.
+func (r *OrganizationRepository) FindByID(ec *appcontext.GinContext, id int64) (model.Organization, error) {
+	var organization model.Organization
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
+		Where("id = ?", id).
+		First(&organization).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return model.Organization{}, gorm.ErrRecordNotFound
+	}
+	if err != nil {
+		return model.Organization{}, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+	}
+	return organization, nil
+}
+
 // FindByName returns an organization that matches the supplied normalized name.
 func (r *OrganizationRepository) FindByName(ec *appcontext.GinContext, name string) (model.Organization, error) {
 	var organization model.Organization

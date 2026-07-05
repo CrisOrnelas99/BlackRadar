@@ -28,9 +28,10 @@ type RefreshRequest struct {
 
 // UserResponse exposes the user fields safe for API responses.
 type UserResponse struct {
-	ID       int64  `json:"id"`
-	Username string `json:"username"`
-	Email    string `json:"email"`
+	ID           int64  `json:"id"`
+	Username     string `json:"username"`
+	Email        string `json:"email"`
+	Organization string `json:"organization"`
 }
 
 // LoginResponse returns the issued token and the authenticated user summary.
@@ -43,10 +44,11 @@ type LoginResponse struct {
 }
 
 // ToUserResponse converts the persistence user model into a response DTO.
-func ToUserResponse(user model.User) UserResponse {
+func ToUserResponse(user model.User, organizationName string) UserResponse {
 	return UserResponse{
-		ID:       user.ID,
-		Username: user.Username,
-		Email:    user.Email,
+		ID:           user.ID,
+		Username:     user.Username,
+		Email:        user.Email,
+		Organization: organizationName,
 	}
 }

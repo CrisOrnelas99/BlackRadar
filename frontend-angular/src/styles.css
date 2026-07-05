@@ -3,6 +3,32 @@
 @source "./app/**/*.{html,ts}";
 
 app-login-page{display:block;min-height:100vh;font-family:var(--brand-font-body)}
+app-root{display:block;min-height:100vh;font-family:var(--brand-font-body);background:linear-gradient(180deg,#f8fafc 0%,var(--BlackRadar-color-white) 100%)}
+app-root{--brand-popup-right:0;--brand-banner-top:4.95rem}
+app-top-menu{--menu-line:color-mix(in srgb,var(--BlackRadar-color-light-blue) 18%,transparent);--menu-line-strong:color-mix(in srgb,var(--BlackRadar-color-light-blue) 28%,transparent);--menu-soft:color-mix(in srgb,var(--BlackRadar-color-light-blue) 8%,transparent);--menu-soft-hover:color-mix(in srgb,var(--BlackRadar-color-light-blue) 14%,transparent);--menu-outline:color-mix(in srgb,var(--brandRadar-color-blue) 32%,transparent);--menu-panel-line:color-mix(in srgb,var(--BlackRadar-color-light-blue) 10%,transparent);--menu-panel-bg:linear-gradient(180deg,var(--BlackRadar-color-white) 0%,color-mix(in srgb,var(--BlackRadar-color-white) 88%,var(--BlackRadar-color-light-blue) 12%) 100%);--menu-panel-shadow:0 22px 42px color-mix(in srgb,var(--BlackRadar-color-navy-black) 16%,transparent);--menu-link-hover:color-mix(in srgb,var(--brandRadar-color-blue) 12%,transparent)}
+app-top-menu .top-menu-shell{position:sticky;top:0;z-index:900;display:flex;align-items:center;justify-content:space-between;gap:.8rem;padding:.72rem 1.15rem;background-color:var(--BlackRadar-color-navy-black);background-image:none;border-bottom:1px solid var(--menu-line);box-shadow:0 12px 28px color-mix(in srgb,var(--BlackRadar-color-navy-black) 18%,transparent);color:var(--BlackRadar-color-white)}
+app-top-menu .top-menu-brand{font-family:var(--brand-font-title);font-size:1.25rem;font-weight:700;letter-spacing:-.04em;color:var(--BlackRadar-color-light-blue)}
+app-top-menu .top-menu-actions{display:flex;align-items:center;gap:.65rem}
+app-top-menu .top-menu-profile,app-top-menu .top-menu-nav{position:relative}
+app-top-menu .top-menu-name,app-top-menu .top-menu-hamburger,app-top-menu .top-menu-link,app-top-menu .top-menu-logout{font:inherit}
+app-top-menu .top-menu-name,app-top-menu .top-menu-hamburger{border:1px solid var(--menu-line);background:var(--menu-soft);color:var(--BlackRadar-color-white);transition:background 160ms ease,border-color 160ms ease,transform 160ms ease}
+app-top-menu .top-menu-name{min-width:9rem;max-width:min(34vw,13rem);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-radius:999px;padding:.55rem .9rem;font-weight:700}
+app-top-menu .top-menu-hamburger{display:grid;gap:.18rem;place-items:center;width:2.7rem;height:2.7rem;border-radius:.9rem;padding:.55rem;cursor:pointer}
+app-top-menu .top-menu-hamburger span{display:block;width:1.1rem;height:2px;border-radius:999px;background:currentColor}
+app-top-menu .top-menu-name:hover,app-top-menu .top-menu-hamburger:hover{background:var(--menu-soft-hover);border-color:var(--menu-line-strong);transform:translateY(-1px)}
+app-top-menu .top-menu-name:focus-visible,app-top-menu .top-menu-hamburger:focus-visible,app-top-menu .top-menu-link:focus-visible,app-top-menu .top-menu-logout:focus-visible{outline:3px solid var(--menu-outline);outline-offset:3px}
+app-top-menu .top-menu-profile-panel,app-top-menu .top-menu-dropdown{position:absolute;top:calc(100% + 1.35rem);border:1px solid var(--menu-panel-line);border-radius:1.15rem;background:var(--menu-panel-bg);box-shadow:var(--menu-panel-shadow);animation:topMenuReveal .22s ease;color:var(--BlackRadar-color-navy-black)}
+app-top-menu .top-menu-profile-panel{right:-3.35rem;display:grid;gap:.35rem;width:13rem;min-width:13rem;max-width:13rem;padding:.95rem 1rem 1rem}
+app-top-menu .top-menu-panel-label{margin:0;font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--BlackRadar-color-light-gray)}
+app-top-menu .top-menu-panel-value{margin:0 0 .4rem;font-size:1rem;font-weight:700;color:var(--BlackRadar-color-dark-blue);word-break:break-word}
+app-top-menu .top-menu-logout{margin-top:.35rem;border:0;border-radius:.9rem;padding:.7rem .95rem;font-weight:700;color:var(--BlackRadar-color-white);background:var(--BlackRadar-color-navy-black);cursor:pointer}
+app-top-menu .top-menu-dropdown{right:0;display:grid;min-width:13rem;padding:.45rem}
+app-top-menu .top-menu-link{display:flex;align-items:center;gap:.65rem;border:0;border-radius:.9rem;padding:.75rem .9rem;background:transparent;color:var(--BlackRadar-color-dark-blue);font-weight:700;text-align:left;cursor:pointer;transition:background 160ms ease,transform 160ms ease}
+app-top-menu .top-menu-link:hover{background:var(--menu-link-hover);transform:translateX(-1px)}
+app-top-menu .top-menu-link-icon{display:grid;place-items:center;width:1.85rem;height:1.85rem;border-radius:.75rem;background:var(--menu-link-hover);color:var(--brandRadar-color-blue)}
+app-top-menu .top-menu-link-icon svg{width:1rem;height:1rem;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+@keyframes topMenuReveal{from{opacity:0;transform:translateY(-.35rem)}to{opacity:1;transform:translateY(0)}}
+@media (max-width:640px){app-top-menu .top-menu-shell{padding:.68rem .85rem}app-top-menu .top-menu-brand{font-size:1.1rem}app-top-menu .top-menu-actions{gap:.5rem}app-top-menu .top-menu-name{min-width:0;max-width:9rem;padding:.55rem .8rem}app-top-menu .top-menu-profile-panel{right:-3.2rem;width:min(13rem,88vw);min-width:min(13rem,88vw);max-width:min(13rem,88vw)}app-top-menu .top-menu-dropdown{right:-.15rem;min-width:11.5rem}app-top-menu .top-menu-profile-panel,app-top-menu .top-menu-dropdown{top:calc(100% + 1.35rem)}}
 app-login-page .login-shell{display:grid;place-items:center;min-height:100vh;padding:1.5rem;background:linear-gradient(135deg,var(--BlackRadar-color-white) 0%,#f5f7fa 100%)}
 app-login-page .login-stage{position:relative;width:min(100%,35rem)}
 app-login-page .login-card{width:100%;padding:2rem 2rem 1.35rem;border-radius:var(--brand-radius-lg);background:linear-gradient(180deg,var(--BlackRadar-color-white) 0%,#c9cfd6 100%);border:1px solid rgba(30,41,50,.16);box-shadow:0 18px 50px rgba(30,41,50,.14);color:var(--BlackRadar-color-navy-black)}
@@ -11,7 +37,7 @@ app-login-page .login-header h1{margin:0;font-family:var(--brand-font-title);fon
 app-login-page .login-header p{margin:.75rem 0 0;color:var(--BlackRadar-color-light-gray);line-height:1.6}
 app-login-page .login-form{display:grid;gap:1rem;margin-top:1.75rem}
 app-login-page .login-submit{position:relative;display:grid;justify-items:center;margin-top:.25rem}
-app-root .app-banner-host{position:fixed;top:1.65rem;right:clamp(.9rem,4vw,2.6rem);z-index:1000;animation:appBannerSlideDown 1.15s cubic-bezier(.2,.7,.18,1);transform:translateY(0);pointer-events:none}
+app-root .app-banner-host{position:fixed;top:var(--brand-banner-top);right:var(--brand-popup-right);z-index:1000;animation:appBannerSlideDown 1.15s cubic-bezier(.2,.7,.18,1);transform:translateY(0);pointer-events:none}
 app-login-page .field{display:grid;gap:.5rem}
 app-login-page .field label{font-size:.95rem;font-weight:700;color:var(--brandRadar-color-blue)}
 app-login-page .input-shell{position:relative}
@@ -25,4 +51,4 @@ app-login-page .login-button{width:75%}
 app-login-page .login-button:hover{transform:translateY(-1px);box-shadow:0 20px 38px rgba(30,41,50,.32);filter:saturate(1.03)}
 app-login-page .login-button:focus-visible{outline:3px solid rgba(12,34,64,.25);outline-offset:3px}
 @keyframes appBannerSlideDown{from{transform:translateY(-3rem)}to{transform:translateY(0)}}
-@media (max-width:640px){app-login-page .login-shell{padding:1rem}app-login-page .login-stage{width:100%}app-login-page .login-card{padding:1.25rem 1.25rem 1.18rem;border-radius:1.25rem}app-login-page .login-submit{margin-top:.2rem}app-login-page .login-button{width:82%}app-root .app-banner-host{top:1.1rem;right:.85rem}}
+@media (max-width:640px){app-login-page .login-shell{padding:1rem}app-login-page .login-stage{width:100%}app-login-page .login-card{padding:1.25rem 1.25rem 1.18rem;border-radius:1.25rem}app-login-page .login-submit{margin-top:.2rem}app-login-page .login-button{width:82%}app-root{--brand-banner-top:4.45rem}}

@@ -77,7 +77,7 @@ func (s *authServiceImpl) Register(ec *appcontext.GinContext, request dto.Regist
 		return dto.UserResponse{}, baseservice.TranslateRepositoryError(err)
 	}
 
-	return dto.ToUserResponse(user), nil
+	return dto.ToUserResponse(user, organization.Name), nil
 }
 
 func (s *authServiceImpl) findOrCreateOrganization(ec *appcontext.GinContext, organizationName string) (model.Organization, error) {
@@ -130,6 +130,14 @@ func (s *authServiceImpl) Login(ec *appcontext.GinContext, request dto.LoginRequ
 		return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
 	}
 
+	organization, err := s.organizationRepository.FindByID(ec, user.OrganizationID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+		}
+		return dto.LoginResponse{}, baseservice.TranslateRepositoryError(err)
+	}
+
 	if s.jwtManager == nil {
 		return dto.LoginResponse{}, fmt.Errorf("missing jwt manager")
 	}
@@ -151,7 +159,7 @@ func (s *authServiceImpl) Login(ec *appcontext.GinContext, request dto.LoginRequ
 	}
 
 	return dto.LoginResponse{
-		User:                  dto.ToUserResponse(user),
+		User:                  dto.ToUserResponse(user, organization.Name),
 		Token:                 token,
 		TokenExpiresAt:        accessExpiresAt,
 		RefreshToken:          refreshToken,
@@ -192,6 +200,14 @@ func (s *authServiceImpl) Refresh(ec *appcontext.GinContext, request dto.Refresh
 		return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
 	}
 
+	organization, err := s.organizationRepository.FindByID(ec, user.OrganizationID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+		}
+		return dto.LoginResponse{}, baseservice.TranslateRepositoryError(err)
+	}
+
 	newRefreshTokenID := utils.NewTokenID()
 	now := time.Now().UTC()
 	accessExpiresAt := now.Add(s.jwtManager.AccessExpiration())
@@ -209,7 +225,7 @@ func (s *authServiceImpl) Refresh(ec *appcontext.GinContext, request dto.Refresh
 	}
 
 	return dto.LoginResponse{
-		User:                  dto.ToUserResponse(user),
+		User:                  dto.ToUserResponse(user, organization.Name),
 		Token:                 accessToken,
 		TokenExpiresAt:        accessExpiresAt,
 		RefreshToken:          newRefreshToken,

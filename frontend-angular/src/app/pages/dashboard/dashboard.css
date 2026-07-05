@@ -2,6 +2,7 @@
   display: block;
   min-height: 100vh;
   font-family: var(--brand-font-body);
+  background: var(--BlackRadar-color-white);
 }
 
 .dashboard-shell {
@@ -9,16 +10,16 @@
   place-items: center;
   min-height: 100vh;
   padding: 1.5rem;
-  background: linear-gradient(135deg, var(--BlackRadar-color-white) 0%, #f5f7fa 100%);
+  background: var(--BlackRadar-color-white);
 }
 
 .dashboard-card {
   width: min(100%, 32rem);
   padding: 2rem;
   border-radius: var(--brand-radius-lg);
-  background: linear-gradient(180deg, var(--BlackRadar-color-white) 0%, #c9cfd6 100%);
-  border: 1px solid rgba(30, 41, 50, 0.16);
-  box-shadow: 0 18px 50px rgba(30, 41, 50, 0.14);
+  background: var(--BlackRadar-color-white);
+  border: 1px solid color-mix(in srgb, var(--BlackRadar-color-navy-black) 12%, transparent);
+  box-shadow: 0 18px 50px color-mix(in srgb, var(--BlackRadar-color-navy-black) 14%, transparent);
   color: var(--BlackRadar-color-navy-black);
   text-align: center;
 }
@@ -50,7 +51,7 @@
   font-size: 1rem;
   font-weight: 800;
   color: var(--BlackRadar-color-white);
-  background: linear-gradient(135deg, var(--BlackRadar-color-dark-blue) 0%, var(--BlackRadar-color-navy-black) 55%, var(--BlackRadar-color-light-gray) 100%);
-  box-shadow: 0 16px 30px rgba(30, 41, 50, 0.24);
+  background: var(--BlackRadar-color-navy-black);
+  box-shadow: 0 16px 30px color-mix(in srgb, var(--BlackRadar-color-navy-black) 24%, transparent);
   cursor: pointer;
 }

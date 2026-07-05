@@ -24,6 +24,8 @@ type UserRepository interface {
 
 // OrganizationRepository defines persistence operations for tenant organizations.
 type OrganizationRepository interface {
+	// FindByID returns an organization by its identifier.
+	FindByID(ec *appcontext.GinContext, id int64) (model.Organization, error)
 	// FindByName returns an organization by its normalized name.
 	FindByName(ec *appcontext.GinContext, name string) (model.Organization, error)
 	// Save persists a new organization record.

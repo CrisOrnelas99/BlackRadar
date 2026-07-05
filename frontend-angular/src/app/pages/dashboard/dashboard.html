@@ -1,3 +1,7 @@
+@if (session(); as currentSession) {
+  <app-top-menu [session]="currentSession" currentUrl="/dashboard"></app-top-menu>
+}
+
 <section class="dashboard-shell">
   <div class="dashboard-card">
     <p class="dashboard-kicker">Authenticated</p>
@@ -5,6 +9,5 @@
     <p class="dashboard-copy">
       Signed in as <strong>{{ userEmail || 'unknown user' }}</strong>.
     </p>
-    <button type="button" class="dashboard-button" (click)="signOut()">Sign out</button>
   </div>
 </section>

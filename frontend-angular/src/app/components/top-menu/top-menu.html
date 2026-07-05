@@ -1,0 +1,45 @@
+<header class="top-menu-shell">
+  <div class="top-menu-brand">
+    <span>BlackRadar</span>
+  </div>
+
+  <div class="top-menu-actions">
+    <div class="top-menu-profile">
+      <button type="button" class="top-menu-name" (click)="toggleProfileMenu()" [attr.aria-expanded]="isProfileMenuOpen">
+        {{ displayName }}
+      </button>
+
+      @if (isProfileMenuOpen) {
+        <section class="top-menu-profile-panel">
+          <p class="top-menu-panel-label">Email</p>
+          <p class="top-menu-panel-value">{{ session().user.email }}</p>
+          <p class="top-menu-panel-label">Organization</p>
+          <p class="top-menu-panel-value">{{ organizationName }}</p>
+          <button type="button" class="top-menu-logout" (click)="signOut()">Log out</button>
+        </section>
+      }
+    </div>
+
+    <div class="top-menu-nav">
+      <button type="button" class="top-menu-hamburger" (click)="toggleNavigationMenu()" aria-label="Open navigation menu" [attr.aria-expanded]="isNavigationMenuOpen">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      @if (isNavigationMenuOpen) {
+        <nav class="top-menu-dropdown" aria-label="Primary navigation">
+          <button type="button" class="top-menu-link" (click)="navigateToDashboard()">
+            <span class="top-menu-link-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                <path d="M3 10.5 12 3l9 7.5" />
+                <path d="M5.5 9.5V21h13V9.5" />
+              </svg>
+            </span>
+            <span>Dashboard</span>
+          </button>
+        </nav>
+      }
+    </div>
+  </div>
+</header>

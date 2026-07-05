@@ -1,5 +1,7 @@
 <div class="app-shell">
-  <router-outlet></router-outlet>
+  <main class="app-route-shell">
+    <router-outlet></router-outlet>
+  </main>
 
   @if (bannerService.banner(); as banner) {
     <app-status-banner

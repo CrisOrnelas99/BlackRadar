@@ -38,6 +38,9 @@ func TestAuthService(t *testing.T) {
 	if registerResponse.ID != 1 || registerResponse.Username != "analyst" || registerResponse.Email != "analyst@example.com" {
 		t.Fatalf("unexpected register response: %#v", registerResponse)
 	}
+	if registerResponse.Organization != "home" {
+		t.Fatalf("expected register response organization home, got %#v", registerResponse)
+	}
 	loginResponse, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "analyst", Password: "Password1!"})
 	if err != nil {
 		t.Fatalf("expected Login to succeed, got %v", err)
@@ -56,6 +59,9 @@ func TestAuthService(t *testing.T) {
 	}
 	if !loginResponse.RefreshTokenExpiresAt.After(loginResponse.TokenExpiresAt) {
 		t.Fatalf("expected refresh token expiry to outlast access token expiry, got access=%v refresh=%v", loginResponse.TokenExpiresAt, loginResponse.RefreshTokenExpiresAt)
+	}
+	if loginResponse.User.Organization != "home" {
+		t.Fatalf("expected login response organization home, got %#v", loginResponse.User)
 	}
 }
 
@@ -151,6 +157,17 @@ type fakeUserRepository struct {
 type fakeOrganizationRepository struct {
 	organization model.Organization
 	findErr      error
+}
+
+// FindByID returns the configured fake organization.
+func (f *fakeOrganizationRepository) FindByID(ec *appcontext.GinContext, id int64) (model.Organization, error) {
+	if f.findErr != nil {
+		return model.Organization{}, f.findErr
+	}
+	if f.organization.ID == 0 || f.organization.ID != id {
+		return model.Organization{}, gorm.ErrRecordNotFound
+	}
+	return f.organization, nil
 }
 
 func (f *fakeOrganizationRepository) FindByName(ec *appcontext.GinContext, name string) (model.Organization, error) {
