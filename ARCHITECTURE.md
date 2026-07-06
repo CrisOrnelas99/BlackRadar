@@ -104,6 +104,8 @@ Core current entities:
 
 Organizations are the tenant boundary. Users belong to one organization, and assets and vulnerabilities are queried by organization membership.
 
+Current delete behavior uses GORM soft deletes for core records that need auditability and recovery semantics. Models include `gorm.DeletedAt`, so normal GORM queries automatically exclude rows where `deleted_at` is set.
+
 Assets keep core inventory data in `assets`, while AI/NVD match state and mutable scoring live in a linked `asset_assessments` record. `risk_level` stays null until vulnerabilities are attached and the backend derives a value from their severities:
 
 - risk_score
@@ -124,6 +126,21 @@ Planned data expansion includes:
 - alerts and alert acknowledgements
 - chat sessions and retrieved context records
 - CVE sync history and import audit records
+- soft-delete metadata such as `deleted_at` on security-sensitive and audit-relevant records
+
+## Soft Delete Model
+
+The backend uses GORM soft deletes for security-sensitive and audit-relevant records by adding `gorm.DeletedAt` or equivalent `deleted_at` metadata to models and schema.
+
+Behavior:
+
+- Normal application deletes mark `deleted_at` instead of physically removing rows.
+- Normal GORM queries exclude soft-deleted rows.
+- `Unscoped()` is reserved for explicit cleanup, retention, or administrative recovery paths.
+- Unique indexes that must allow reuse after deletion are scoped to active rows, for example `WHERE deleted_at IS NULL`.
+- The asset-vulnerability bridge includes `deleted_at`; repository joins explicitly filter active bridge rows because GORM does not automatically apply soft-delete predicates to every joined table.
+- Authentication and authorization continue to revalidate live database state so deleted or disabled users, revoked sessions, and removed permissions cannot keep access through stale JWT claims.
+- Soft-deleted records should remain available for audit, incident response, and recovery according to retention policy.
 
 ## Request-Scoped Database Transactions
 

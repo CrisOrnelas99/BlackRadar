@@ -77,6 +77,7 @@ func RunMigrations(ctx context.Context, database *gorm.DB) error {
 		&model.Organization{},
 		&model.Vulnerability{},
 		&model.AssetAssessment{},
+		&model.AssetVulnerability{},
 		&model.Asset{},
 		&model.RefreshSession{},
 	); err != nil {
@@ -95,9 +96,12 @@ func ensureOrganizationSchema(ctx context.Context, database *gorm.DB) error {
 	statements := []string{
 		`CREATE TABLE IF NOT EXISTS organizations (
 			id BIGSERIAL PRIMARY KEY,
-			name TEXT NOT NULL
+			name TEXT NOT NULL,
+			deleted_at TIMESTAMPTZ
 		)`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_organizations_name ON organizations (name)`,
+		`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
+		`DROP INDEX IF EXISTS idx_organizations_name`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_organizations_name_active ON organizations (name) WHERE deleted_at IS NULL`,
 	}
 
 	for _, statement := range statements {
@@ -118,10 +122,12 @@ func ensureUserSchema(ctx context.Context, database *gorm.DB) error {
 			username TEXT NOT NULL,
 			email VARCHAR NOT NULL,
 			password_hash VARCHAR NOT NULL,
-			role VARCHAR NOT NULL DEFAULT 'user'
+			role VARCHAR NOT NULL DEFAULT 'user',
+			deleted_at TIMESTAMPTZ
 		)`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR NOT NULL DEFAULT 'user'`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
 	}
 
 	for _, statement := range statements {
@@ -136,8 +142,10 @@ func ensureUserSchema(ctx context.Context, database *gorm.DB) error {
 // ensureIndexes applies the indexes and constraints required by the current schema.
 func ensureIndexes(ctx context.Context, database *gorm.DB) error {
 	statements := []string{
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users (username)`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email)`,
+		`DROP INDEX IF EXISTS idx_users_username`,
+		`DROP INDEX IF EXISTS idx_users_email`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_active ON users (username) WHERE deleted_at IS NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_active ON users (email) WHERE deleted_at IS NULL`,
 		`CREATE INDEX IF NOT EXISTS idx_users_organization_id ON users (organization_id)`,
 		`ALTER TABLE users DROP CONSTRAINT IF EXISTS ukr43af9ap4edm43mmtq01oddj6`,
 		`ALTER TABLE users DROP CONSTRAINT IF EXISTS uk6dotkott2kjsp8vw4d0m25fb7`,
@@ -151,14 +159,15 @@ func ensureIndexes(ctx context.Context, database *gorm.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_vulnerabilities_organization_id ON vulnerabilities (organization_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_refresh_sessions_user_id ON refresh_sessions (user_id)`,
 		`DROP INDEX IF EXISTS idx_vulnerabilities_cve_id`,
+		`DROP INDEX IF EXISTS idx_vulnerabilities_org_cve_id`,
 		`DO $$
 		BEGIN
 			IF NOT EXISTS (
 				SELECT 1 FROM vulnerabilities WHERE organization_id IS NULL
 			) AND NOT EXISTS (
-				SELECT 1 FROM vulnerabilities GROUP BY organization_id, cve_id HAVING count(*) > 1
+				SELECT 1 FROM vulnerabilities WHERE deleted_at IS NULL GROUP BY organization_id, cve_id HAVING count(*) > 1
 			) THEN
-				CREATE UNIQUE INDEX IF NOT EXISTS idx_vulnerabilities_org_cve_id ON vulnerabilities (organization_id, cve_id);
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_vulnerabilities_org_cve_id ON vulnerabilities (organization_id, cve_id) WHERE deleted_at IS NULL;
 			END IF;
 		END $$`,
 		`DO $$
@@ -217,6 +226,15 @@ func ensureIndexes(ctx context.Context, database *gorm.DB) error {
 		`ALTER TABLE assets ALTER COLUMN risk_level DROP DEFAULT`,
 		`ALTER TABLE assets ALTER COLUMN risk_level DROP NOT NULL`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS asset_assessment_id BIGINT`,
+		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
+		`ALTER TABLE vulnerabilities ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
+		`ALTER TABLE asset_assessments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
+		`ALTER TABLE asset_vulnerabilities ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ`,
+		`ALTER TABLE asset_vulnerabilities ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
+		`UPDATE asset_vulnerabilities SET created_at = COALESCE(created_at, NOW()) WHERE created_at IS NULL`,
+		`ALTER TABLE asset_vulnerabilities DROP CONSTRAINT IF EXISTS asset_vulnerabilities_pkey`,
+		`DROP INDEX IF EXISTS idx_asset_vulnerabilities_active`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_asset_vulnerabilities_active ON asset_vulnerabilities (asset_id, vulnerability_id) WHERE deleted_at IS NULL`,
 		`ALTER TABLE assets DROP CONSTRAINT IF EXISTS fk_assets_asset_assessment`,
 		`DO $$
 		DECLARE

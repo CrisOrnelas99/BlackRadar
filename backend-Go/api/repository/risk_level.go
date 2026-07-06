@@ -48,15 +48,22 @@ func RiskLevelPointerFromVulnerabilities(vulnerabilities []model.Vulnerability) 
 // RefreshAssetRiskLevel recalculates and persists the risk level for a single asset.
 func RefreshAssetRiskLevel(tx *gorm.DB, assetID int64, organizationID int64) error {
 	var asset model.Asset
-	if err := tx.Preload("Vulnerabilities", "organization_id = ?", organizationID).
-		Where("organization_id = ?", organizationID).
+	if err := tx.Where("organization_id = ?", organizationID).
 		First(&asset, assetID).Error; err != nil {
+		return err
+	}
+
+	var vulnerabilities []model.Vulnerability
+	if err := tx.Model(&model.Vulnerability{}).
+		Joins("JOIN asset_vulnerabilities av ON av.vulnerability_id = vulnerabilities.id AND av.deleted_at IS NULL").
+		Where("av.asset_id = ? AND vulnerabilities.organization_id = ?", assetID, organizationID).
+		Find(&vulnerabilities).Error; err != nil {
 		return err
 	}
 
 	return tx.Model(&model.Asset{}).
 		Where("id = ? AND organization_id = ?", assetID, organizationID).
-		Update("risk_level", RiskLevelPointerFromVulnerabilities(asset.Vulnerabilities)).Error
+		Update("risk_level", RiskLevelPointerFromVulnerabilities(vulnerabilities)).Error
 }
 
 func riskLevelRank(riskLevel string) int {

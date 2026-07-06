@@ -235,7 +235,7 @@ func assignBootstrapVulnerability(ctx context.Context, database *gorm.DB, asset 
 	var assignmentCount int64
 	err := database.WithContext(ctx).
 		Table("asset_vulnerabilities").
-		Where("asset_id = ? AND vulnerability_id = ?", asset.ID, vulnerability.ID).
+		Where("asset_id = ? AND vulnerability_id = ? AND deleted_at IS NULL", asset.ID, vulnerability.ID).
 		Count(&assignmentCount).Error
 	if err != nil {
 		return fmt.Errorf("check bootstrap assignment: %w", err)

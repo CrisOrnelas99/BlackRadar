@@ -51,7 +51,6 @@ func (r *AssetRepository) FindByIDForOrganization(ec *appcontext.GinContext, id 
 	var asset model.Asset
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Preload("Assessment").
-		Preload("Vulnerabilities", "organization_id = ?", organizationID).
 		Where("organization_id = ?", organizationID).
 		First(&asset, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -59,6 +58,9 @@ func (r *AssetRepository) FindByIDForOrganization(ec *appcontext.GinContext, id 
 	}
 	if err != nil {
 		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+	}
+	if err := r.loadActiveVulnerabilitiesForAsset(ec, &asset, organizationID); err != nil {
+		return model.Asset{}, err
 	}
 	return asset, nil
 }
@@ -254,7 +256,9 @@ func (r *AssetRepository) DeleteForOrganization(ec *appcontext.GinContext, id in
 	}
 
 	err = r.dbForContext(ec).WithContext(ec.RequestContext()).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec("DELETE FROM asset_vulnerabilities WHERE asset_id = ?", asset.ID).Error; err != nil {
+		if err := tx.Model(&model.AssetVulnerability{}).
+			Where("asset_id = ? AND deleted_at IS NULL", asset.ID).
+			Update("deleted_at", gorm.Expr("NOW()")).Error; err != nil {
 			return err
 		}
 		if err := tx.Delete(&asset).Error; err != nil {
@@ -319,7 +323,9 @@ func (r *AssetRepository) RemoveVulnerabilityForOrganization(ec *appcontext.GinC
 	}
 
 	err = r.dbForContext(ec).WithContext(ec.RequestContext()).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&asset).Association("Vulnerabilities").Delete(&vulnerability); err != nil {
+		if err := tx.Model(&model.AssetVulnerability{}).
+			Where("asset_id = ? AND vulnerability_id = ? AND deleted_at IS NULL", asset.ID, vulnerability.ID).
+			Update("deleted_at", gorm.Expr("NOW()")).Error; err != nil {
 			return err
 		}
 		if err := deleteOrphanedVulnerability(tx, vulnerability); err != nil {
@@ -354,10 +360,27 @@ func (r *AssetRepository) findAssetAndVulnerabilityForOrganization(ec *appcontex
 	return asset, vulnerability, nil
 }
 
+func (r *AssetRepository) loadActiveVulnerabilitiesForAsset(ec *appcontext.GinContext, asset *model.Asset, organizationID int64) error {
+	var vulnerabilities []model.Vulnerability
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
+		Model(&model.Vulnerability{}).
+		Joins("JOIN asset_vulnerabilities av ON av.vulnerability_id = vulnerabilities.id AND av.deleted_at IS NULL").
+		Where("av.asset_id = ? AND vulnerabilities.organization_id = ?", asset.ID, organizationID).
+		Order("vulnerabilities.id").
+		Find(&vulnerabilities).Error
+	if err != nil {
+		return fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+	}
+	asset.Vulnerabilities = vulnerabilities
+	return nil
+}
+
 // deleteOrphanedVulnerability removes a vulnerability when no assets still reference it.
 func deleteOrphanedVulnerability(tx *gorm.DB, vulnerability model.Vulnerability) error {
 	var count int64
-	if err := tx.Table("asset_vulnerabilities").Where("vulnerability_id = ?", vulnerability.ID).Count(&count).Error; err != nil {
+	if err := tx.Model(&model.AssetVulnerability{}).
+		Where("vulnerability_id = ? AND deleted_at IS NULL", vulnerability.ID).
+		Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {

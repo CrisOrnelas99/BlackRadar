@@ -118,6 +118,7 @@ Future work documented in `ARCHITECTURE.md` includes:
 - remediation workflows, work orders, checklist items, and exceptions
 - alerting and CVE refresh services
 - dashboard analytics and risk trend reporting
+- soft-delete and retention behavior for audit-relevant records
 - organization-aware API and UI flows for assets, vulnerabilities, and memberships
 - HTTPS/TLS enforcement with certificate handling at the deployment boundary
 - backend-issued internal service certificates for privileged `/internal` service authentication
@@ -386,6 +387,7 @@ Security principles:
 - planned backend-issued service certificates for privileged internal service authentication
 - backend-only AI and external service keys
 - local persistence of vulnerability data over live UI lookups
+- soft-delete support for records that need recovery, retention, or forensic auditability
 - safe error handling without secret leakage
 - request sanitization and validation before processing
 - rate limiting for AI-assisted matching and diagnostic routes

@@ -1,7 +1,11 @@
 // Package model defines the persistence and domain structs used by GORM.
 package model
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 // Asset represents a tenant-scoped asset stored in PostgreSQL.
 type Asset struct {
@@ -23,6 +27,7 @@ type Asset struct {
 	Vulnerabilities   []Vulnerability  `gorm:"many2many:asset_vulnerabilities;" json:"vulnerabilities,omitempty"`
 	CreatedAt         time.Time        `gorm:"column:created_at" json:"createdAt"`
 	UpdatedAt         time.Time        `gorm:"column:updated_at" json:"updatedAt"`
+	DeletedAt         gorm.DeletedAt   `gorm:"column:deleted_at;index" json:"-"`
 }
 
 // TableName returns the PostgreSQL table name for Asset.

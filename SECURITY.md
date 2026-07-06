@@ -243,6 +243,21 @@ Rules:
 * Nested GORM transactions may be used intentionally for savepoint behavior, such as rolling back a focused inner operation while preserving the outer request transaction.
 * Add or update tests when changing transaction commit/rollback behavior.
 
+## 2.8 Soft-delete and retention rules
+
+The implemented core models use GORM soft deletes where recovery, auditability, and forensic traceability matter. Delete endpoints still require the same authorization, audit, and review discipline as other high-impact actions.
+
+Rules:
+
+* Add explicit `deleted_at` metadata to records that need recovery, auditability, or forensic traceability.
+* Use GORM soft deletes for normal application deletion paths instead of physical deletion.
+* Restrict `Unscoped()` reads and hard deletes to approved cleanup, retention, recovery, or test utilities.
+* Scope uniqueness rules to active records when identifiers may be reused after deletion.
+* Manually filter soft-deleted join-table rows in joins and association queries where GORM does not add the predicate automatically.
+* Ensure deleted users, disabled accounts, revoked sessions, and removed permissions cannot authenticate or authorize through stale JWT claims.
+* Preserve tenant scoping on soft-deleted records; deleted data is still tenant data.
+* Audit deletion, restoration, hard deletion, and retention cleanup actions.
+
 ---
 
 # 3. OWASP Top 10:2025 Requirements
@@ -266,6 +281,7 @@ Users can access data or actions beyond their intended permissions. Common examp
 * Enforce authentication and authorization server-side for every endpoint.
 * Scope every tenant-owned GORM query by `organization_id`.
 * Check ownership and permission before update/delete operations.
+* Treat soft-deleted records as inaccessible to normal application users unless an explicit administrative recovery or audit path authorizes access.
 * Use policy functions or middleware shared across routes; do not duplicate authorization logic inconsistently.
 * Return `403 Forbidden` for known-but-disallowed resources and avoid excessive detail that enables record enumeration.
 * Use explicit CORS origin allowlists. Never allow arbitrary origins with credentials.
@@ -736,6 +752,8 @@ Detailed error causes belong in protected structured logs, not in browser respon
 * Scope all tenant-owned queries by organization, and only fall back to user-owned scope for legacy code that has not yet been migrated.
 * Use the request-scoped transaction from context for request-owned repository work.
 * Use nested GORM transactions only when savepoint behavior or focused multi-step persistence is intentional.
+* Prefer soft deletes for security-sensitive or audit-relevant records.
+* Do not use `Unscoped()` unless the caller is an explicit retention, recovery, cleanup, or test path.
 * Use a least-privileged database account for the running application.
 * Use a separate migration account where practical.
 * Do not run automatic schema changes against production without approval.
@@ -932,6 +950,7 @@ Before deployment:
 * [ ] TLS is enforced
 * [ ] Internal service certificates are verified and route-scoped before privileged `/internal` work is allowed
 * [ ] Request-scoped transaction commit and rollback behavior is tested
+* [ ] Destructive delete paths are audited, and soft-delete paths cannot expose deleted records to normal users
 * [ ] Database credentials are least privilege
 * [ ] Logs are structured, redacted, retained, and monitored
 * [ ] Error responses are safe
