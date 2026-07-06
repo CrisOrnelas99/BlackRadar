@@ -360,7 +360,7 @@ func TestRequireAdmin(t *testing.T) {
 
 func TestJWTAuthenticationFilterRejectsInvalidRequests(t *testing.T) {
 	jwtManager := security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
-	sessionLookup := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: 42}}
+	sessionLookup := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: "00000000-0000-4000-8000-000000000042"}}
 
 	tests := []struct {
 		name       string
@@ -434,14 +434,14 @@ func TestJWTAuthenticationFilterSetsAuthenticatedUserContext(t *testing.T) {
 	lookup := &fakeUserLookup{
 		exists: true,
 		user: model.User{
-			ID:             42,
-			OrganizationID: 99,
+			Model:          model.Model{ID: "00000000-0000-4000-8000-000000000042"},
+			OrganizationID: "00000000-0000-4000-8000-000000000099",
 			Username:       "analyst",
 			Role:           model.RoleUser,
 		},
 	}
 	token := mustGenerateToken(t, jwtManager, "analyst", "session-1")
-	sessionLookup := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: 42}}
+	sessionLookup := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: "00000000-0000-4000-8000-000000000042"}}
 
 	router := gin.New()
 	router.Use(RequestContext())
@@ -451,13 +451,13 @@ func TestJWTAuthenticationFilterSetsAuthenticatedUserContext(t *testing.T) {
 		if ec.Username() != "analyst" {
 			t.Fatalf("expected username analyst, got %v", ec.Username())
 		}
-		if ec.UserID() != int64(42) {
+		if ec.UserID() != "00000000-0000-4000-8000-000000000042" {
 			t.Fatalf("expected user ID 42, got %v", ec.UserID())
 		}
 		if ec.UserRole() != model.RoleUser {
 			t.Fatalf("expected user role %s, got %v", model.RoleUser, ec.UserRole())
 		}
-		if ec.OrganizationID() != int64(99) {
+		if ec.OrganizationID() != "00000000-0000-4000-8000-000000000099" {
 			t.Fatalf("expected organization ID 99, got %v", ec.OrganizationID())
 		}
 		if lookup.existsContext == nil || lookup.findContext == nil {
@@ -553,7 +553,7 @@ type fakeRefreshSessionLookup struct {
 	session model.RefreshSession
 }
 
-func (f *fakeRefreshSessionLookup) FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID int64) (model.RefreshSession, error) {
+func (f *fakeRefreshSessionLookup) FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID string) (model.RefreshSession, error) {
 	if f.session.TokenID == tokenID && f.session.UserID == userID {
 		return f.session, nil
 	}

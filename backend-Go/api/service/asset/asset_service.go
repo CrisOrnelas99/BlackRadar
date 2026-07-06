@@ -43,7 +43,7 @@ func (s *assetServiceImpl) GetAllAssets(ec *appcontext.GinContext) ([]model.Asse
 }
 
 // GetAsset returns a single asset owned by the authenticated user.
-func (s *assetServiceImpl) GetAsset(ec *appcontext.GinContext, id int64) (model.Asset, error) {
+func (s *assetServiceImpl) GetAsset(ec *appcontext.GinContext, id string) (model.Asset, error) {
 	organizationID, err := baseservice.AuthenticatedOrganizationID(ec)
 	if err != nil {
 		return model.Asset{}, err
@@ -108,7 +108,7 @@ func (s *assetServiceImpl) CreateAssetFromAI(ec *appcontext.GinContext, rawText 
 }
 
 // UpdateAsset validates and updates an existing asset for the authenticated user.
-func (s *assetServiceImpl) UpdateAsset(ec *appcontext.GinContext, id int64, asset model.Asset) (model.Asset, error) {
+func (s *assetServiceImpl) UpdateAsset(ec *appcontext.GinContext, id string, asset model.Asset) (model.Asset, error) {
 	asset = normalizeAssetDisplayFields(asset)
 	if err := baseservice.ValidateAsset(asset); err != nil {
 		return model.Asset{}, err
@@ -124,7 +124,7 @@ func (s *assetServiceImpl) UpdateAsset(ec *appcontext.GinContext, id int64, asse
 }
 
 // DeleteAsset removes an asset owned by the authenticated user.
-func (s *assetServiceImpl) DeleteAsset(ec *appcontext.GinContext, id int64) (model.Asset, error) {
+func (s *assetServiceImpl) DeleteAsset(ec *appcontext.GinContext, id string) (model.Asset, error) {
 	organizationID, err := baseservice.AuthenticatedOrganizationID(ec)
 	if err != nil {
 		return model.Asset{}, err
@@ -134,7 +134,7 @@ func (s *assetServiceImpl) DeleteAsset(ec *appcontext.GinContext, id int64) (mod
 }
 
 // AssignVulnerability attaches a vulnerability to an asset owned by the authenticated user.
-func (s *assetServiceImpl) AssignVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error) {
+func (s *assetServiceImpl) AssignVulnerability(ec *appcontext.GinContext, assetID string, vulnerabilityID string) (model.Asset, error) {
 	role := ""
 	if ec != nil {
 		role = ec.UserRole()
@@ -152,7 +152,7 @@ func (s *assetServiceImpl) AssignVulnerability(ec *appcontext.GinContext, assetI
 }
 
 // AssignVulnerabilityByCVE looks up or stores a local vulnerability by CVE ID, then assigns it to the asset.
-func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, assetID int64, cveID string) (model.Asset, error) {
+func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, assetID string, cveID string) (model.Asset, error) {
 	role := ""
 	if ec != nil {
 		role = ec.UserRole()
@@ -200,7 +200,7 @@ func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, a
 }
 
 // RemoveVulnerability removes a vulnerability from an asset owned by the authenticated user.
-func (s *assetServiceImpl) RemoveVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error) {
+func (s *assetServiceImpl) RemoveVulnerability(ec *appcontext.GinContext, assetID string, vulnerabilityID string) (model.Asset, error) {
 	role := ""
 	if ec != nil {
 		role = ec.UserRole()
@@ -217,7 +217,7 @@ func (s *assetServiceImpl) RemoveVulnerability(ec *appcontext.GinContext, assetI
 	return asset, baseservice.TranslateRepositoryError(err)
 }
 
-func (s *assetServiceImpl) saveNVDVulnerability(ec *appcontext.GinContext, organizationID int64, response dto.CVELookupResponse, existing model.Vulnerability) (model.Vulnerability, error) {
+func (s *assetServiceImpl) saveNVDVulnerability(ec *appcontext.GinContext, organizationID string, response dto.CVELookupResponse, existing model.Vulnerability) (model.Vulnerability, error) {
 	vulnerability := model.Vulnerability{
 		OrganizationID: organizationID,
 		UserID:         ec.UserID(),
@@ -228,7 +228,7 @@ func (s *assetServiceImpl) saveNVDVulnerability(ec *appcontext.GinContext, organ
 		Status:         "Open",
 	}
 
-	if existing.ID > 0 {
+	if existing.ID != "" {
 		return s.vulnerabilityRepository.UpdateForOrganization(ec, existing.ID, organizationID, vulnerability)
 	}
 

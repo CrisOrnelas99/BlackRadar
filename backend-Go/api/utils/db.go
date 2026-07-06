@@ -66,6 +66,9 @@ func isPostgresError(err error, code string) bool {
 
 // RunMigrations applies the database schema setup used by this application.
 func RunMigrations(ctx context.Context, database *gorm.DB) error {
+	if err := database.WithContext(ctx).Exec(`CREATE EXTENSION IF NOT EXISTS pgcrypto`).Error; err != nil {
+		return err
+	}
 	if err := ensureOrganizationSchema(ctx, database); err != nil {
 		return err
 	}
@@ -95,11 +98,15 @@ func RunMigrations(ctx context.Context, database *gorm.DB) error {
 func ensureOrganizationSchema(ctx context.Context, database *gorm.DB) error {
 	statements := []string{
 		`CREATE TABLE IF NOT EXISTS organizations (
-			id BIGSERIAL PRIMARY KEY,
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 			name TEXT NOT NULL,
-			deleted_at TIMESTAMPTZ
+			created_at TIMESTAMPTZ,
+			updated_at TIMESTAMPTZ,
+			deleted_at TIMESTAMPTZ,
+			updated_by_id UUID
 		)`,
 		`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
+		`ALTER TABLE organizations ADD COLUMN IF NOT EXISTS updated_by_id UUID`,
 		`DROP INDEX IF EXISTS idx_organizations_name`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_organizations_name_active ON organizations (name) WHERE deleted_at IS NULL`,
 	}
@@ -117,17 +124,21 @@ func ensureOrganizationSchema(ctx context.Context, database *gorm.DB) error {
 func ensureUserSchema(ctx context.Context, database *gorm.DB) error {
 	statements := []string{
 		`CREATE TABLE IF NOT EXISTS users (
-			id BIGSERIAL PRIMARY KEY,
-			organization_id BIGINT,
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			organization_id UUID,
 			username TEXT NOT NULL,
 			email VARCHAR NOT NULL,
 			password_hash VARCHAR NOT NULL,
 			role VARCHAR NOT NULL DEFAULT 'user',
-			deleted_at TIMESTAMPTZ
+			created_at TIMESTAMPTZ,
+			updated_at TIMESTAMPTZ,
+			deleted_at TIMESTAMPTZ,
+			updated_by_id UUID
 		)`,
-		`ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id BIGINT`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS organization_id UUID`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR NOT NULL DEFAULT 'user'`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_by_id UUID`,
 	}
 
 	for _, statement := range statements {
@@ -225,10 +236,13 @@ func ensureIndexes(ctx context.Context, database *gorm.DB) error {
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS device_model TEXT`,
 		`ALTER TABLE assets ALTER COLUMN risk_level DROP DEFAULT`,
 		`ALTER TABLE assets ALTER COLUMN risk_level DROP NOT NULL`,
-		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS asset_assessment_id BIGINT`,
+		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS asset_assessment_id UUID`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
+		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS updated_by_id UUID`,
 		`ALTER TABLE vulnerabilities ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
+		`ALTER TABLE vulnerabilities ADD COLUMN IF NOT EXISTS updated_by_id UUID`,
 		`ALTER TABLE asset_assessments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
+		`ALTER TABLE asset_assessments ADD COLUMN IF NOT EXISTS updated_by_id UUID`,
 		`ALTER TABLE asset_vulnerabilities ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ`,
 		`ALTER TABLE asset_vulnerabilities ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
 		`UPDATE asset_vulnerabilities SET created_at = COALESCE(created_at, NOW()) WHERE created_at IS NULL`,
@@ -327,8 +341,6 @@ func ensureIndexes(ctx context.Context, database *gorm.DB) error {
 		BEGIN
 			IF NOT EXISTS (
 				SELECT 1 FROM pg_constraint WHERE conname = 'fk_vulnerabilities_user'
-			) AND NOT EXISTS (
-				SELECT 1 FROM vulnerabilities WHERE user_id = 0
 			) THEN
 				ALTER TABLE vulnerabilities ADD CONSTRAINT fk_vulnerabilities_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 			END IF;
@@ -360,10 +372,6 @@ func ensureIndexes(ctx context.Context, database *gorm.DB) error {
 		}
 	}
 
-	if err := remapAssetAssessmentIDs(ctx, database); err != nil {
-		return err
-	}
-
 	postRemapStatements := []string{
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_assets_asset_assessment_id ON assets (asset_assessment_id)`,
 		`DO $$
@@ -384,64 +392,4 @@ func ensureIndexes(ctx context.Context, database *gorm.DB) error {
 	}
 
 	return nil
-}
-
-// remapAssetAssessmentIDs gives existing asset assessment rows arbitrary IDs so they are decoupled from asset IDs.
-func remapAssetAssessmentIDs(ctx context.Context, database *gorm.DB) error {
-	type idRow struct {
-		ID int64 `gorm:"column:id"`
-	}
-
-	var assessmentIDs []idRow
-	if err := database.WithContext(ctx).Table("asset_assessments").Order("id").Find(&assessmentIDs).Error; err != nil {
-		return err
-	}
-	if len(assessmentIDs) == 0 {
-		return nil
-	}
-
-	var assetIDs []int64
-	if err := database.WithContext(ctx).Table("assets").Order("id").Pluck("id", &assetIDs).Error; err != nil {
-		return err
-	}
-
-	reservedIDs := make(map[int64]struct{}, len(assessmentIDs)+len(assetIDs))
-	for _, id := range assetIDs {
-		reservedIDs[id] = struct{}{}
-	}
-	for _, row := range assessmentIDs {
-		reservedIDs[row.ID] = struct{}{}
-	}
-
-	return database.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		for _, row := range assessmentIDs {
-			newID, err := nextDistinctID(reservedIDs, row.ID)
-			if err != nil {
-				return err
-			}
-			if err := tx.Exec(`UPDATE asset_assessments SET id = ? WHERE id = ?`, newID, row.ID).Error; err != nil {
-				return err
-			}
-			if err := tx.Exec(`UPDATE assets SET asset_assessment_id = ? WHERE asset_assessment_id = ?`, newID, row.ID).Error; err != nil {
-				return err
-			}
-			reservedIDs[newID] = struct{}{}
-		}
-		return nil
-	})
-}
-
-// nextDistinctID returns a random identifier that does not collide with any reserved IDs or the excluded value.
-func nextDistinctID(reserved map[int64]struct{}, excluded int64) (int64, error) {
-	for attempts := 0; attempts < 1024; attempts++ {
-		id := NewRandomID()
-		if id == excluded {
-			continue
-		}
-		if _, exists := reserved[id]; exists {
-			continue
-		}
-		return id, nil
-	}
-	return 0, fmt.Errorf("exhausted random id retries while remapping asset assessments")
 }

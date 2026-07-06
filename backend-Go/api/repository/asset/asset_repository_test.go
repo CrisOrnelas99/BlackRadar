@@ -39,14 +39,14 @@ func TestAssignRandomAssetAssessmentID(t *testing.T) {
 		CPEReviewStatus: model.AssetCPEReviewStatusNeedsReview,
 	}
 
-	if assessment.ID != 0 {
+	if assessment.ID != "" {
 		t.Fatal("expected zero-value assessment id before initialization")
 	}
 
 	assignRandomAssetAssessmentID(&assessment)
 
-	if assessment.ID <= 0 {
-		t.Fatalf("expected positive random assessment id, got %d", assessment.ID)
+	if assessment.ID == "" || len(assessment.ID) != 36 {
+		t.Fatalf("expected UUID assessment id, got %q", assessment.ID)
 	}
 	if assessment.CPEReviewStatus != model.AssetCPEReviewStatusNeedsReview {
 		t.Fatalf("expected review status to remain %q, got %q", model.AssetCPEReviewStatusNeedsReview, assessment.CPEReviewStatus)

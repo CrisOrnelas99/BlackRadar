@@ -15,8 +15,8 @@ import (
 // and derived from attached vulnerabilities.
 func BackfillAssetRiskLevels(ctx context.Context, database *gorm.DB) error {
 	type assetRow struct {
-		ID             int64 `gorm:"column:id"`
-		OrganizationID int64 `gorm:"column:organization_id"`
+		ID             string `gorm:"column:id"`
+		OrganizationID string `gorm:"column:organization_id"`
 	}
 
 	var assets []assetRow

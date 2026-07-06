@@ -46,7 +46,7 @@ func RiskLevelPointerFromVulnerabilities(vulnerabilities []model.Vulnerability) 
 }
 
 // RefreshAssetRiskLevel recalculates and persists the risk level for a single asset.
-func RefreshAssetRiskLevel(tx *gorm.DB, assetID int64, organizationID int64) error {
+func RefreshAssetRiskLevel(tx *gorm.DB, assetID string, organizationID string) error {
 	var asset model.Asset
 	if err := tx.Where("organization_id = ?", organizationID).
 		First(&asset, assetID).Error; err != nil {

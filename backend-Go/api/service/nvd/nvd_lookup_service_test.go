@@ -22,7 +22,7 @@ import (
 func TestNVDLookupService(t *testing.T) {
 	client := &fakeCVELookupClient{response: sampleCVELookupResponse()}
 	svc := NewNVDLookupService(client)
-	ec := newNVDServiceContext(t, 42)
+	ec := newNVDServiceContext(t, "00000000-0000-4000-8000-000000000042")
 
 	response, err := svc.LookupCVE(ec, " cve-2021-44228 ")
 	if err != nil {
@@ -40,7 +40,7 @@ func TestNVDLookupService(t *testing.T) {
 func TestNVDLookupServiceValidation(t *testing.T) {
 	client := &fakeCVELookupClient{response: sampleCVELookupResponse()}
 	svc := NewNVDLookupService(client)
-	ec := newNVDServiceContext(t, 42)
+	ec := newNVDServiceContext(t, "00000000-0000-4000-8000-000000000042")
 
 	_, err := svc.LookupCVE(ec, "https://evil.example/cve")
 	if !errors.Is(err, baseservice.ErrInvalidRequestData) {
@@ -66,7 +66,7 @@ func TestNVDLookupServiceErrorMapping(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := NewNVDLookupService(&fakeCVELookupClient{err: tc.err})
-			ec := newNVDServiceContext(t, 42)
+			ec := newNVDServiceContext(t, "00000000-0000-4000-8000-000000000042")
 
 			_, err := svc.LookupCVE(ec, "CVE-2021-44228")
 			if !errors.Is(err, tc.want) {
@@ -89,7 +89,7 @@ func (f *fakeCVELookupClient) LookupCVE(ctx context.Context, cveID string) (dto.
 	return f.response, f.err
 }
 
-func newNVDServiceContext(t *testing.T, userID int64) *appcontext.GinContext {
+func newNVDServiceContext(t *testing.T, userID string) *appcontext.GinContext {
 	t.Helper()
 
 	recorder := httptest.NewRecorder()

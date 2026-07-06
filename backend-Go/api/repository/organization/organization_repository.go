@@ -32,7 +32,7 @@ func (r *OrganizationRepository) dbForContext(ec *appcontext.GinContext) *gorm.D
 }
 
 // FindByID returns an organization that matches the supplied identifier.
-func (r *OrganizationRepository) FindByID(ec *appcontext.GinContext, id int64) (model.Organization, error) {
+func (r *OrganizationRepository) FindByID(ec *appcontext.GinContext, id string) (model.Organization, error) {
 	var organization model.Organization
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Where("id = ?", id).
@@ -69,7 +69,7 @@ func (r *OrganizationRepository) Save(ec *appcontext.GinContext, organization mo
 	}
 
 	for attempt := 0; attempt < 3; attempt++ {
-		if organization.ID == 0 || attempt > 0 {
+		if organization.ID == "" || attempt > 0 {
 			organization.ID = utils.NewRandomID()
 		}
 

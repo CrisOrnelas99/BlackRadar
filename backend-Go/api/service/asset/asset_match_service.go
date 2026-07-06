@@ -158,7 +158,7 @@ func (s *assetMatchServiceImpl) AnalyzeAssetMatch(ctx context.Context, asset mod
 }
 
 // AnalyzeAndPersistAssetMatch analyzes an asset and stores the result on the asset record.
-func (s *assetMatchServiceImpl) AnalyzeAndPersistAssetMatch(ec *appcontext.GinContext, assetID int64) (model.Asset, error) {
+func (s *assetMatchServiceImpl) AnalyzeAndPersistAssetMatch(ec *appcontext.GinContext, assetID string) (model.Asset, error) {
 	organizationID, err := baseservice.AuthenticatedOrganizationID(ec)
 	if err != nil {
 		return model.Asset{}, err
@@ -197,7 +197,7 @@ func (s *assetMatchServiceImpl) AnalyzeAndPersistAssetMatch(ec *appcontext.GinCo
 }
 
 // AnalyzePersistAndAttachVulnerabilities matches a CPE, fetches NVD CVEs for it, and attaches them to the asset.
-func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appcontext.GinContext, assetID int64) (model.Asset, error) {
+func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appcontext.GinContext, assetID string) (model.Asset, error) {
 	role := ""
 	if ec != nil {
 		role = ec.UserRole()
@@ -461,7 +461,7 @@ func (s *assetMatchServiceImpl) findKeywordFallbackCVEs(ctx context.Context, ana
 	}, nil
 }
 
-func (s *assetMatchServiceImpl) findOrSaveNVDVulnerability(ec *appcontext.GinContext, organizationID int64, response dto.CVELookupResponse) (model.Vulnerability, error) {
+func (s *assetMatchServiceImpl) findOrSaveNVDVulnerability(ec *appcontext.GinContext, organizationID string, response dto.CVELookupResponse) (model.Vulnerability, error) {
 	normalizedCVEID := baseservice.NormalizeCVEID(response.CVEID)
 	if err := baseservice.ValidateCVEID(normalizedCVEID); err != nil {
 		return model.Vulnerability{}, err
@@ -494,7 +494,7 @@ func (s *assetMatchServiceImpl) findOrSaveNVDVulnerability(ec *appcontext.GinCon
 	})
 }
 
-func (s *assetMatchServiceImpl) persistMatchAnalysis(ec *appcontext.GinContext, assetID int64, organizationID int64, analysis AssetMatchAnalysis) (model.Asset, error) {
+func (s *assetMatchServiceImpl) persistMatchAnalysis(ec *appcontext.GinContext, assetID string, organizationID string, analysis AssetMatchAnalysis) (model.Asset, error) {
 	matchedAt := s.now().UTC()
 	reviewStatus := analysis.ReviewStatus
 	if reviewStatus != model.AssetCPEReviewStatusAccepted {

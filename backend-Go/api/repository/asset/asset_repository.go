@@ -33,7 +33,7 @@ func (r *AssetRepository) dbForContext(ec *appcontext.GinContext) *gorm.DB {
 }
 
 // FindAllByOrganization returns all assets owned by the specified organization.
-func (r *AssetRepository) FindAllByOrganization(ec *appcontext.GinContext, organizationID int64) ([]model.Asset, error) {
+func (r *AssetRepository) FindAllByOrganization(ec *appcontext.GinContext, organizationID string) ([]model.Asset, error) {
 	var assets []model.Asset
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Preload("Assessment").
@@ -47,7 +47,7 @@ func (r *AssetRepository) FindAllByOrganization(ec *appcontext.GinContext, organ
 }
 
 // FindByIDForOrganization returns a single asset owned by the specified organization.
-func (r *AssetRepository) FindByIDForOrganization(ec *appcontext.GinContext, id int64, organizationID int64) (model.Asset, error) {
+func (r *AssetRepository) FindByIDForOrganization(ec *appcontext.GinContext, id string, organizationID string) (model.Asset, error) {
 	var asset model.Asset
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Preload("Assessment").
@@ -66,7 +66,7 @@ func (r *AssetRepository) FindByIDForOrganization(ec *appcontext.GinContext, id 
 }
 
 // ExistsBySignatureForOrganization reports whether a tenant already has an asset with the same normalized signature.
-func (r *AssetRepository) ExistsBySignatureForOrganization(ec *appcontext.GinContext, asset model.Asset, organizationID int64) (bool, error) {
+func (r *AssetRepository) ExistsBySignatureForOrganization(ec *appcontext.GinContext, asset model.Asset, organizationID string) (bool, error) {
 	normalizedName := strings.ToLower(strings.TrimSpace(asset.Name))
 	normalizedType := strings.ToLower(strings.TrimSpace(asset.Type))
 	normalizedOwner := strings.ToLower(strings.TrimSpace(asset.Owner))
@@ -114,12 +114,12 @@ func (r *AssetRepository) ExistsBySignatureForOrganization(ec *appcontext.GinCon
 
 // Save creates a new asset record.
 func (r *AssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
-	if asset.OrganizationID <= 0 || asset.UserID <= 0 || asset.Name == "" || asset.Type == "" || asset.Owner == "" || asset.Criticality == "" {
+	if asset.OrganizationID == "" || asset.UserID == "" || asset.Name == "" || asset.Type == "" || asset.Owner == "" || asset.Criticality == "" {
 		return model.Asset{}, baserepository.ErrInvalidData
 	}
 
 	for attempt := 0; attempt < 3; attempt++ {
-		if asset.ID == 0 || attempt > 0 {
+		if asset.ID == "" || attempt > 0 {
 			asset.ID = utils.NewRandomID()
 		}
 
@@ -161,7 +161,7 @@ func (r *AssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (mo
 }
 
 // UpdateForOrganization updates an asset owned by the specified organization.
-func (r *AssetRepository) UpdateForOrganization(ec *appcontext.GinContext, id int64, organizationID int64, updates model.Asset) (model.Asset, error) {
+func (r *AssetRepository) UpdateForOrganization(ec *appcontext.GinContext, id string, organizationID string, updates model.Asset) (model.Asset, error) {
 	if updates.Name == "" || updates.Type == "" || updates.Owner == "" || updates.Criticality == "" {
 		return model.Asset{}, baserepository.ErrInvalidData
 	}
@@ -180,6 +180,7 @@ func (r *AssetRepository) UpdateForOrganization(ec *appcontext.GinContext, id in
 	asset.DeviceModel = updates.DeviceModel
 	asset.Owner = updates.Owner
 	asset.Criticality = updates.Criticality
+	setUpdatedBy(ec, &asset.Model)
 
 	err = r.dbForContext(ec).WithContext(ec.RequestContext()).Save(&asset).Error
 	if err != nil {
@@ -196,7 +197,7 @@ func (r *AssetRepository) UpdateForOrganization(ec *appcontext.GinContext, id in
 }
 
 // UpdateMatchAnalysisForOrganization stores backend-generated CPE match state for an asset.
-func (r *AssetRepository) UpdateMatchAnalysisForOrganization(ec *appcontext.GinContext, id int64, organizationID int64, analysis baserepository.AssetMatchUpdate) (model.Asset, error) {
+func (r *AssetRepository) UpdateMatchAnalysisForOrganization(ec *appcontext.GinContext, id string, organizationID string, analysis baserepository.AssetMatchUpdate) (model.Asset, error) {
 	if analysis.CPEReviewStatus == "" {
 		return model.Asset{}, baserepository.ErrInvalidData
 	}
@@ -219,6 +220,7 @@ func (r *AssetRepository) UpdateMatchAnalysisForOrganization(ec *appcontext.GinC
 		assessment.CPEReviewNotes = analysis.CPEReviewNotes
 		assessment.CPECandidateCount = analysis.CPECandidateCount
 		assessment.CPEMatchedAt = analysis.CPEMatchedAt
+		setUpdatedBy(ec, &assessment.Model)
 
 		if asset.AssetAssessmentID == nil {
 			if err := createAssetAssessmentWithRandomID(tx, &assessment); err != nil {
@@ -249,7 +251,7 @@ func (r *AssetRepository) UpdateMatchAnalysisForOrganization(ec *appcontext.GinC
 }
 
 // DeleteForOrganization deletes an asset owned by the specified organization.
-func (r *AssetRepository) DeleteForOrganization(ec *appcontext.GinContext, id int64, organizationID int64) (model.Asset, error) {
+func (r *AssetRepository) DeleteForOrganization(ec *appcontext.GinContext, id string, organizationID string) (model.Asset, error) {
 	asset, err := r.FindByIDForOrganization(ec, id, organizationID)
 	if err != nil {
 		return model.Asset{}, err
@@ -283,7 +285,11 @@ func (r *AssetRepository) DeleteForOrganization(ec *appcontext.GinContext, id in
 }
 
 // AssignVulnerabilityForOrganization associates a vulnerability with an asset owned by the specified organization.
-func (r *AssetRepository) AssignVulnerabilityForOrganization(ec *appcontext.GinContext, assetID int64, organizationID int64, vulnerabilityID int64) (model.Asset, error) {
+func (r *AssetRepository) AssignVulnerabilityForOrganization(ec *appcontext.GinContext, assetID string, organizationID string, vulnerabilityID string) (model.Asset, error) {
+	if err := baserepository.RequireAdminFromDatabase(ec, r.dbForContext(ec)); err != nil {
+		return model.Asset{}, err
+	}
+
 	asset, vulnerability, err := r.findAssetAndVulnerabilityForOrganization(ec, assetID, organizationID, vulnerabilityID)
 	if err != nil {
 		return model.Asset{}, err
@@ -316,7 +322,11 @@ func (r *AssetRepository) AssignVulnerabilityForOrganization(ec *appcontext.GinC
 }
 
 // RemoveVulnerabilityForOrganization removes a vulnerability from an asset owned by the specified organization.
-func (r *AssetRepository) RemoveVulnerabilityForOrganization(ec *appcontext.GinContext, assetID int64, organizationID int64, vulnerabilityID int64) (model.Asset, error) {
+func (r *AssetRepository) RemoveVulnerabilityForOrganization(ec *appcontext.GinContext, assetID string, organizationID string, vulnerabilityID string) (model.Asset, error) {
+	if err := baserepository.RequireAdminFromDatabase(ec, r.dbForContext(ec)); err != nil {
+		return model.Asset{}, err
+	}
+
 	asset, vulnerability, err := r.findAssetAndVulnerabilityForOrganization(ec, assetID, organizationID, vulnerabilityID)
 	if err != nil {
 		return model.Asset{}, err
@@ -340,7 +350,7 @@ func (r *AssetRepository) RemoveVulnerabilityForOrganization(ec *appcontext.GinC
 }
 
 // findAssetAndVulnerabilityForOrganization loads the asset and vulnerability for the specified organization.
-func (r *AssetRepository) findAssetAndVulnerabilityForOrganization(ec *appcontext.GinContext, assetID int64, organizationID int64, vulnerabilityID int64) (model.Asset, model.Vulnerability, error) {
+func (r *AssetRepository) findAssetAndVulnerabilityForOrganization(ec *appcontext.GinContext, assetID string, organizationID string, vulnerabilityID string) (model.Asset, model.Vulnerability, error) {
 	asset, err := r.FindByIDForOrganization(ec, assetID, organizationID)
 	if err != nil {
 		return model.Asset{}, model.Vulnerability{}, err
@@ -360,7 +370,7 @@ func (r *AssetRepository) findAssetAndVulnerabilityForOrganization(ec *appcontex
 	return asset, vulnerability, nil
 }
 
-func (r *AssetRepository) loadActiveVulnerabilitiesForAsset(ec *appcontext.GinContext, asset *model.Asset, organizationID int64) error {
+func (r *AssetRepository) loadActiveVulnerabilitiesForAsset(ec *appcontext.GinContext, asset *model.Asset, organizationID string) error {
 	var vulnerabilities []model.Vulnerability
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Model(&model.Vulnerability{}).
@@ -411,6 +421,14 @@ func createAssetAssessmentWithRandomID(tx *gorm.DB, assessment *model.AssetAsses
 // assignRandomAssetAssessmentID sets a non-zero arbitrary public identifier on the assessment.
 func assignRandomAssetAssessmentID(assessment *model.AssetAssessment) {
 	assessment.ID = utils.NewRandomID()
+}
+
+func setUpdatedBy(ec *appcontext.GinContext, target *model.Model) {
+	if ec == nil || target == nil || ec.UserID() == "" {
+		return
+	}
+	userID := ec.UserID()
+	target.UpdatedByID = &userID
 }
 
 func optionalAssetString(value *string) string {

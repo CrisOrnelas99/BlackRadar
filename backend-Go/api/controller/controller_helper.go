@@ -6,7 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"strconv"
+	"regexp"
 	"strings"
 
 	appcontext "secureops/backend-go/api/context"
@@ -14,6 +14,8 @@ import (
 )
 
 const maxJSONBodyBytes int64 = 1 << 20
+
+var uuidPattern = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 
 // BindJSON parses an application/json request body into the provided destination.
 func BindJSON(ec *appcontext.GinContext, destination any) bool {
@@ -83,33 +85,33 @@ func errorCode(status int) string {
 }
 
 // ParseID validates a path or query identifier as a positive integer.
-func ParseID(value string) (int64, error) {
+func ParseID(value string) (string, error) {
 	return parseID(value)
 }
 
 // ParsePair validates the asset and vulnerability identifiers from a request context.
-func ParsePair(ec *appcontext.GinContext) (int64, int64, bool) {
+func ParsePair(ec *appcontext.GinContext) (string, string, bool) {
 	return parsePair(ec)
 }
 
-// parseID parses a positive integer identifier.
-func parseID(value string) (int64, error) {
-	id, err := strconv.ParseInt(value, 10, 64)
-	if err != nil || id <= 0 {
-		return 0, ErrInvalidIdentifier
+// parseID validates a UUID identifier.
+func parseID(value string) (string, error) {
+	id := strings.ToLower(strings.TrimSpace(value))
+	if !uuidPattern.MatchString(id) {
+		return "", ErrInvalidIdentifier
 	}
 	return id, nil
 }
 
 // parsePair parses the asset and vulnerability identifiers from the request.
-func parsePair(ec *appcontext.GinContext) (int64, int64, bool) {
+func parsePair(ec *appcontext.GinContext) (string, string, bool) {
 	assetID, err := parseID(ec.Param("id"))
 	if err != nil {
-		return 0, 0, false
+		return "", "", false
 	}
 	vulnerabilityID, err := parseID(ec.Param("vulnerabilityId"))
 	if err != nil {
-		return 0, 0, false
+		return "", "", false
 	}
 	return assetID, vulnerabilityID, true
 }

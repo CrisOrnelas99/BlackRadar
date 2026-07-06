@@ -6,7 +6,7 @@ import "time"
 // RefreshSession represents a server-side refresh token session for a user.
 type RefreshSession struct {
 	TokenID    string     `gorm:"column:token_id;primaryKey" json:"-"`
-	UserID     int64      `gorm:"column:user_id;index;not null" json:"-"`
+	UserID     string     `gorm:"type:uuid;column:user_id;index;not null" json:"-"`
 	DeviceName string     `gorm:"column:device_name;not null" json:"deviceName"`
 	RevokedAt  *time.Time `gorm:"column:revoked_at" json:"-"`
 	ExpiresAt  time.Time  `gorm:"column:expires_at;not null" json:"expiresAt"`

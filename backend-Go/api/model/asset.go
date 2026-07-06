@@ -1,18 +1,12 @@
 // Package model defines the persistence and domain structs used by GORM.
 package model
 
-import (
-	"time"
-
-	"gorm.io/gorm"
-)
-
 // Asset represents a tenant-scoped asset stored in PostgreSQL.
 type Asset struct {
-	ID                int64            `gorm:"primaryKey" json:"id"`
-	OrganizationID    int64            `gorm:"column:organization_id;index" json:"-"`
-	UserID            int64            `gorm:"column:user_id;index" json:"-"`
-	AssetAssessmentID *int64           `gorm:"column:asset_assessment_id;not null;uniqueIndex" json:"-"`
+	Model
+	OrganizationID    string           `gorm:"type:uuid;column:organization_id;index" json:"-"`
+	UserID            string           `gorm:"type:uuid;column:user_id;index" json:"-"`
+	AssetAssessmentID *string          `gorm:"type:uuid;column:asset_assessment_id;not null;uniqueIndex" json:"-"`
 	Name              string           `gorm:"not null" json:"name"`
 	Type              string           `gorm:"not null" json:"type"`
 	OperatingSystem   *string          `gorm:"column:operating_system" json:"operatingSystem"`
@@ -25,9 +19,6 @@ type Asset struct {
 	RiskLevel         *string          `gorm:"column:risk_level" json:"riskLevel"`
 	Assessment        *AssetAssessment `gorm:"foreignKey:AssetAssessmentID;references:ID" json:"-"`
 	Vulnerabilities   []Vulnerability  `gorm:"many2many:asset_vulnerabilities;" json:"vulnerabilities,omitempty"`
-	CreatedAt         time.Time        `gorm:"column:created_at" json:"createdAt"`
-	UpdatedAt         time.Time        `gorm:"column:updated_at" json:"updatedAt"`
-	DeletedAt         gorm.DeletedAt   `gorm:"column:deleted_at;index" json:"-"`
 }
 
 // TableName returns the PostgreSQL table name for Asset.

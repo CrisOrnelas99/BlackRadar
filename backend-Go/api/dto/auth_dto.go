@@ -28,7 +28,7 @@ type RefreshRequest struct {
 
 // UserResponse exposes the user fields safe for API responses.
 type UserResponse struct {
-	ID           int64  `json:"id"`
+	ID           string `json:"id"`
 	Username     string `json:"username"`
 	Email        string `json:"email"`
 	Organization string `json:"organization"`

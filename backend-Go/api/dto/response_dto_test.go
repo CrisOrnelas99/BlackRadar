@@ -13,7 +13,7 @@ func stringPtr(value string) *string {
 }
 
 func TestToAssetResponseDTOIncludesMatchMetadata(t *testing.T) {
-	assessmentID := int64(55)
+	assessmentID := "00000000-0000-4000-8000-000000000055"
 	matchedAt := time.Date(2026, time.January, 12, 10, 30, 0, 0, time.UTC)
 	productFingerprint := "vendor=dell;product=latitude 7420;version=1.2"
 	selectedCPE := "cpe:2.3:a:dell:latitude_7420:1.2:*:*:*:*:*:*:*"
@@ -22,7 +22,7 @@ func TestToAssetResponseDTOIncludesMatchMetadata(t *testing.T) {
 	riskScore := int16(72)
 
 	response := ToAssetResponseDTO(model.Asset{
-		ID:                7,
+		Model:             model.Model{ID: "00000000-0000-4000-8000-000000000007"},
 		AssetAssessmentID: &assessmentID,
 		Name:              "Asset 1",
 		Type:              "Server",
@@ -41,7 +41,7 @@ func TestToAssetResponseDTOIncludesMatchMetadata(t *testing.T) {
 	})
 
 	if response.AssetAssessmentID == nil || *response.AssetAssessmentID != assessmentID {
-		t.Fatalf("expected asset assessment id %d, got %#v", assessmentID, response.AssetAssessmentID)
+		t.Fatalf("expected asset assessment id %s, got %#v", assessmentID, response.AssetAssessmentID)
 	}
 	if response.RiskLevel != nil {
 		t.Fatalf("expected risk level to be null, got %#v", response.RiskLevel)
@@ -49,7 +49,7 @@ func TestToAssetResponseDTOIncludesMatchMetadata(t *testing.T) {
 }
 
 func TestToAssetMatchResponseDTOSeparatesAssessmentMetadata(t *testing.T) {
-	assessmentID := int64(55)
+	assessmentID := "00000000-0000-4000-8000-000000000055"
 	matchedAt := time.Date(2026, time.January, 12, 10, 30, 0, 0, time.UTC)
 	productFingerprint := "vendor=dell;product=latitude 7420;version=1.2"
 	selectedCPE := "cpe:2.3:a:dell:latitude_7420:1.2:*:*:*:*:*:*:*"
@@ -60,7 +60,7 @@ func TestToAssetMatchResponseDTOSeparatesAssessmentMetadata(t *testing.T) {
 	assessmentUpdatedAt := time.Date(2026, time.January, 12, 10, 31, 0, 0, time.UTC)
 
 	response := ToAssetMatchResponseDTO(model.Asset{
-		ID:                7,
+		Model:             model.Model{ID: "00000000-0000-4000-8000-000000000007"},
 		AssetAssessmentID: &assessmentID,
 		Name:              "Asset 1",
 		Type:              "Server",
@@ -68,10 +68,10 @@ func TestToAssetMatchResponseDTOSeparatesAssessmentMetadata(t *testing.T) {
 		Criticality:       "High",
 		RiskLevel:         stringPtr("Critical"),
 		Vulnerabilities: []model.Vulnerability{
-			{ID: 9, CVEID: "CVE-2026-0001", Title: "Issue", Severity: "High", Description: "desc", Status: "Open"},
+			{Model: model.Model{ID: "00000000-0000-4000-8000-000000000009"}, CVEID: "CVE-2026-0001", Title: "Issue", Severity: "High", Description: "desc", Status: "Open"},
 		},
 		Assessment: &model.AssetAssessment{
-			ID:                 assessmentID,
+			Model:              model.Model{ID: assessmentID, CreatedAt: assessmentCreatedAt, UpdatedAt: assessmentUpdatedAt},
 			RiskScore:          riskScore,
 			ProductFingerprint: &productFingerprint,
 			SelectedCPE:        &selectedCPE,
@@ -79,13 +79,11 @@ func TestToAssetMatchResponseDTOSeparatesAssessmentMetadata(t *testing.T) {
 			CPEReviewNotes:     &reviewNotes,
 			CPECandidateCount:  4,
 			CPEMatchedAt:       &matchedAt,
-			CreatedAt:          assessmentCreatedAt,
-			UpdatedAt:          assessmentUpdatedAt,
 		},
 	})
 
 	if response.Asset.AssetAssessmentID == nil || *response.Asset.AssetAssessmentID != assessmentID {
-		t.Fatalf("expected nested asset assessment id %d, got %#v", assessmentID, response.Asset.AssetAssessmentID)
+		t.Fatalf("expected nested asset assessment id %s, got %#v", assessmentID, response.Asset.AssetAssessmentID)
 	}
 	if len(response.Asset.Vulnerabilities) != 1 {
 		t.Fatalf("expected 1 vulnerability, got %d", len(response.Asset.Vulnerabilities))
@@ -94,7 +92,7 @@ func TestToAssetMatchResponseDTOSeparatesAssessmentMetadata(t *testing.T) {
 		t.Fatalf("expected nested asset risk level Critical, got %#v", response.Asset.RiskLevel)
 	}
 	if response.AssetAssessment.ID == nil || *response.AssetAssessment.ID != assessmentID {
-		t.Fatalf("expected assessment id %d, got %#v", assessmentID, response.AssetAssessment.ID)
+		t.Fatalf("expected assessment id %s, got %#v", assessmentID, response.AssetAssessment.ID)
 	}
 	if response.AssetAssessment.CPEReviewStatus != model.AssetCPEReviewStatusNeedsReview {
 		t.Fatalf("expected default review status %q, got %q", model.AssetCPEReviewStatusNeedsReview, response.AssetAssessment.CPEReviewStatus)
@@ -129,13 +127,13 @@ func TestToAssetMatchResponseDTOSeparatesAssessmentMetadata(t *testing.T) {
 }
 
 func TestToAssetAssessmentResponseDTODefaultsWithoutAssessment(t *testing.T) {
-	assessmentID := int64(77)
+	assessmentID := "00000000-0000-4000-8000-000000000077"
 	response := ToAssetAssessmentResponseDTO(model.Asset{
 		AssetAssessmentID: &assessmentID,
 	})
 
 	if response.ID == nil || *response.ID != assessmentID {
-		t.Fatalf("expected assessment id %d, got %#v", assessmentID, response.ID)
+		t.Fatalf("expected assessment id %s, got %#v", assessmentID, response.ID)
 	}
 	if response.RiskScore != 0 {
 		t.Fatalf("expected default risk score 0, got %d", response.RiskScore)

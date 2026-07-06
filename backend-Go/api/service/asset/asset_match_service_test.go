@@ -381,7 +381,7 @@ func TestAnalyzeAndPersistAssetMatchStoresResult(t *testing.T) {
 		now: func() time.Time { return fixedNow },
 	}
 
-	updated, err := svc.AnalyzeAndPersistAssetMatch(contextForTest(t), 1)
+	updated, err := svc.AnalyzeAndPersistAssetMatch(contextForTest(t), "00000000-0000-4000-8000-000000000001")
 	if err != nil {
 		t.Fatalf("expected persist to succeed, got %v", err)
 	}
@@ -395,7 +395,7 @@ func TestAnalyzeAndPersistAssetMatchStoresResult(t *testing.T) {
 		t.Fatalf("expected matched at %v, got %#v", fixedNow, repo.matchUpdate.CPEMatchedAt)
 	}
 	if updated.ID != repo.asset.ID {
-		t.Fatalf("expected stored asset to be returned, got %d", updated.ID)
+		t.Fatalf("expected stored asset to be returned, got %s", updated.ID)
 	}
 }
 
@@ -430,7 +430,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesStoresNVDResults(t *testing.T) {
 	ctx := contextForTest(t)
 	ctx.SetUserRole(model.RoleAdmin)
 
-	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, 1)
+	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, "00000000-0000-4000-8000-000000000001")
 	if err != nil {
 		t.Fatalf("expected combined match to succeed, got %v", err)
 	}
@@ -478,7 +478,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesNVDValidatedFallbackCPE(t *te
 	ctx := contextForTest(t)
 	ctx.SetUserRole(model.RoleAdmin)
 
-	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, 1)
+	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, "00000000-0000-4000-8000-000000000001")
 	if err != nil {
 		t.Fatalf("expected fallback combined match to succeed, got %v", err)
 	}
@@ -531,7 +531,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesFallsBackToFirmwareCPEWhenAIUnava
 	ctx := contextForTest(t)
 	ctx.SetUserRole(model.RoleAdmin)
 
-	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, 1)
+	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, "00000000-0000-4000-8000-000000000001")
 	if err != nil {
 		t.Fatalf("expected firmware fallback combined match to succeed, got %v", err)
 	}
@@ -588,7 +588,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesTriesFirmwareAliasFromOperatingSy
 	ctx := contextForTest(t)
 	ctx.SetUserRole(model.RoleAdmin)
 
-	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, 1)
+	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, "00000000-0000-4000-8000-000000000001")
 	if err != nil {
 		t.Fatalf("expected firmware alias fallback to attach CVE, got %v", err)
 	}
@@ -654,7 +654,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesKeywordFallbackAndAIRanking(t
 	ctx := contextForTest(t)
 	ctx.SetUserRole(model.RoleAdmin)
 
-	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, 1)
+	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, "00000000-0000-4000-8000-000000000001")
 	if err != nil {
 		t.Fatalf("expected keyword fallback to attach selected CVE, got %v", err)
 	}
@@ -732,7 +732,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesFallsThroughToAIKeywordFallbackWh
 	ctx := contextForTest(t)
 	ctx.SetUserRole(model.RoleAdmin)
 
-	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, 1)
+	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, "00000000-0000-4000-8000-000000000001")
 	if err != nil {
 		t.Fatalf("expected AI keyword fallback to attach CVE after empty selected CPE results, got %v", err)
 	}
@@ -804,7 +804,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesAIKeywordFallbackWhenExactCPE
 	ctx := contextForTest(t)
 	ctx.SetUserRole(model.RoleAdmin)
 
-	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, 1)
+	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, "00000000-0000-4000-8000-000000000001")
 	if err != nil {
 		t.Fatalf("expected AI keyword fallback to attach CVE after exact CPE version rejection, got %v", err)
 	}
@@ -875,7 +875,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesAggregatesAIKeywordSearchesBefore
 	ctx := contextForTest(t)
 	ctx.SetUserRole(model.RoleAdmin)
 
-	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, 1)
+	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, "00000000-0000-4000-8000-000000000001")
 	if err != nil {
 		t.Fatalf("expected keyword searches to be aggregated before ranking, got %v", err)
 	}
@@ -909,7 +909,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesStopsKeywordFallbackOnNVDUnavaila
 	ctx := contextForTest(t)
 	ctx.SetUserRole(model.RoleAdmin)
 
-	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, 1)
+	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, "00000000-0000-4000-8000-000000000001")
 	if err != nil {
 		t.Fatalf("expected unavailable NVD keyword fallback to persist review state, got %v", err)
 	}
@@ -1003,7 +1003,7 @@ func TestAnalyzeAndPersistAssetMatchReturnsReviewOnRepositoryError(t *testing.T)
 	repo := &fakeAssetRepository{asset: sampleMatchedAsset(), findErr: baserepository.ErrAssetNotFound}
 	svc := &assetMatchServiceImpl{assetRepository: repo, now: time.Now}
 
-	_, err := svc.AnalyzeAndPersistAssetMatch(contextForTest(t), 1)
+	_, err := svc.AnalyzeAndPersistAssetMatch(contextForTest(t), "00000000-0000-4000-8000-000000000001")
 	if !errors.Is(err, baseservice.ErrNotFound) {
 		t.Fatalf("expected not found error, got %v", err)
 	}
@@ -1074,8 +1074,8 @@ func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request dt
 
 func sampleMatchedAsset() model.Asset {
 	return model.Asset{
-		ID:              1,
-		OrganizationID:  99,
+		Model:           model.Model{ID: "00000000-0000-4000-8000-000000000001"},
+		OrganizationID:  "00000000-0000-4000-8000-000000000099",
 		Name:            "Dell Latitude 7420",
 		Type:            "Laptop",
 		OperatingSystem: ptrString("Windows 11 Pro"),
@@ -1091,8 +1091,8 @@ func contextForTest(t *testing.T) *appcontext.GinContext {
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 	ec := appcontext.NewGinContext(ctx, "txn-123", slog.New(slog.NewTextHandler(io.Discard, nil)))
-	ec.SetUserID(42)
-	ec.SetOrganizationID(99)
+	ec.SetUserID("00000000-0000-4000-8000-000000000042")
+	ec.SetOrganizationID("00000000-0000-4000-8000-000000000099")
 	appcontext.SetGinContext(ctx, ec)
 	return ec
 }

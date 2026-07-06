@@ -4,7 +4,6 @@ package controller
 import (
 	"errors"
 	"net/http"
-	"strconv"
 
 	appcontext "secureops/backend-go/api/context"
 	basecontroller "secureops/backend-go/api/controller"
@@ -132,7 +131,7 @@ func (c *AssetController) DeleteAsset(ec *appcontext.GinContext) {
 func (c *AssetController) AssignVulnerability(ec *appcontext.GinContext) {
 	assetID, vulnerabilityID, ok := basecontroller.ParsePair(ec)
 	if !ok {
-		basecontroller.HandleError(ec, http.StatusBadRequest, strconv.ErrSyntax, "Asset ID and vulnerability ID must be valid positive integers")
+		basecontroller.HandleError(ec, http.StatusBadRequest, basecontroller.ErrInvalidIdentifier, "Asset ID and vulnerability ID must be valid UUIDs")
 		return
 	}
 
@@ -171,7 +170,7 @@ func (c *AssetController) AssignVulnerabilityByCVE(ec *appcontext.GinContext) {
 func (c *AssetController) RemoveVulnerability(ec *appcontext.GinContext) {
 	assetID, vulnerabilityID, ok := basecontroller.ParsePair(ec)
 	if !ok {
-		basecontroller.HandleError(ec, http.StatusBadRequest, strconv.ErrSyntax, "Asset ID and vulnerability ID must be valid positive integers")
+		basecontroller.HandleError(ec, http.StatusBadRequest, basecontroller.ErrInvalidIdentifier, "Asset ID and vulnerability ID must be valid UUIDs")
 		return
 	}
 

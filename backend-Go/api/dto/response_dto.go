@@ -16,7 +16,7 @@ type ErrorResponse struct {
 
 // VulnerabilityResponse exposes the public vulnerability fields returned by the API.
 type VulnerabilityResponse struct {
-	ID          int64     `json:"id"`
+	ID          string    `json:"id"`
 	CVEID       string    `json:"cveId"`
 	Title       string    `json:"title"`
 	Severity    string    `json:"severity"`
@@ -28,8 +28,8 @@ type VulnerabilityResponse struct {
 
 // AssetResponse exposes the public asset fields returned by the API.
 type AssetResponse struct {
-	ID                int64     `json:"id"`
-	AssetAssessmentID *int64    `json:"assetAssessmentId,omitempty"`
+	ID                string    `json:"id"`
+	AssetAssessmentID *string   `json:"assetAssessmentId,omitempty"`
 	Name              string    `json:"name"`
 	Type              string    `json:"type"`
 	OperatingSystem   *string   `json:"operatingSystem"`
@@ -51,7 +51,7 @@ type AssetWithVulnerabilitiesResponse struct {
 
 // AssetAssessmentResponse exposes the linked asset assessment metadata separately from the asset record.
 type AssetAssessmentResponse struct {
-	ID                 *int64     `json:"id,omitempty"`
+	ID                 *string    `json:"id,omitempty"`
 	RiskScore          int16      `json:"riskScore"`
 	ProductFingerprint *string    `json:"productFingerprint,omitempty"`
 	SelectedCPE        *string    `json:"selectedCpe,omitempty"`

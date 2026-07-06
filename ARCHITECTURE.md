@@ -106,6 +106,51 @@ Organizations are the tenant boundary. Users belong to one organization, and ass
 
 Current delete behavior uses GORM soft deletes for core records that need auditability and recovery semantics. Models include `gorm.DeletedAt`, so normal GORM queries automatically exclude rows where `deleted_at` is set.
 
+## Database Layer
+
+The backend uses PostgreSQL through GORM. Database access flows through the request-scoped `GinContext` wrapper rather than through controller or service globals:
+
+```text
+PostgreSQL
+      |
+      v
+GORM
+      |
+      v
+GinContext.Database()
+      |
+      v
+Repository
+      |
+      v
+Service
+      |
+      v
+Controller
+```
+
+Request middleware creates a GORM transaction for normal HTTP requests and stores it on `GinContext` with `SetDatabase`. Repository methods receive `*GinContext` and call their context-aware database helper, which prefers `ec.Database()` when present. Repository structs still keep a base `*gorm.DB` fallback for startup, tests, and non-request paths, but request-owned work should use the transaction stored on `GinContext`.
+
+Current model rules:
+
+- Core models use PostgreSQL UUID primary keys represented as Go strings and generated with `gen_random_uuid()`.
+- Core audit-relevant models embed `model.Model`, which provides `id`, `created_at`, `updated_at`, `deleted_at`, and `updated_by_id`.
+- Optional database columns use pointer fields such as `*string`, `*float64`, and `*time.Time` so GORM can distinguish `NULL` from an empty value.
+- Mutable repository update paths stamp `UpdatedByID` from the authenticated request user where the model carries audit metadata.
+
+Repository rules:
+
+- Repositories are the only layer that talks directly to GORM/PostgreSQL.
+- Services depend on repository interfaces from the repository package.
+- Repositories translate database failures into repository sentinel errors and preserve lower-level causes with `%w`.
+- Repositories must keep tenant filters such as `organization_id = ?` on tenant-owned reads and writes.
+- Privileged mutation repositories revalidate the current user from PostgreSQL before writing, so stale JWT role claims are not enough to authorize admin work.
+- Relationship loading is explicit through `Preload(...)` or manually filtered joins.
+- Join-table soft-delete predicates are written manually where GORM does not apply them automatically.
+- Normal HTTP request operations should not begin or commit the outer transaction directly; middleware owns that lifecycle.
+
+Testing currently combines focused unit tests, context/database helper tests, repository tests that inject request-scoped GORM handles, middleware transaction tests, and an opt-in PostgreSQL integration test guarded by `INTEGRATION_DATABASE_URL`.
+
 Assets keep core inventory data in `assets`, while AI/NVD match state and mutable scoring live in a linked `asset_assessments` record. `risk_level` stays null until vulnerabilities are attached and the backend derives a value from their severities:
 
 - risk_score

@@ -22,20 +22,27 @@ import (
 	baseservice "secureops/backend-go/api/service"
 )
 
+const (
+	testUserID         = "00000000-0000-4000-8000-000000000001"
+	testUserIDSeven    = "00000000-0000-4000-8000-000000000007"
+	testUserIDFortyTwo = "00000000-0000-4000-8000-000000000042"
+	testOrgID          = "00000000-0000-4000-8000-000000000011"
+)
+
 // TestAuthService verifies the happy-path authentication service flow.
 func TestAuthService(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
 	repo := &fakeUserRepository{
-		user: model.User{ID: 1, OrganizationID: 11, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
+		user: model.User{Model: model.Model{ID: testUserID}, OrganizationID: testOrgID, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
-	svc := NewAuthService(security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{organization: model.Organization{ID: 11, Name: "home"}}, repo, &fakeRefreshSessionRepository{})
+	svc := NewAuthService(security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, &fakeRefreshSessionRepository{})
 	ctx := newAuthServiceContext(t)
 
 	registerResponse, err := svc.Register(ctx, dto.RegisterRequest{Username: "analyst", Email: "analyst@example.com", Organization: "home", Password: "Password1!"})
 	if err != nil {
 		t.Fatalf("expected Register to succeed, got %v", err)
 	}
-	if registerResponse.ID != 1 || registerResponse.Username != "analyst" || registerResponse.Email != "analyst@example.com" {
+	if registerResponse.ID != testUserID || registerResponse.Username != "analyst" || registerResponse.Email != "analyst@example.com" {
 		t.Fatalf("unexpected register response: %#v", registerResponse)
 	}
 	if registerResponse.Organization != "home" {
@@ -100,10 +107,10 @@ func TestAuthServiceValidationAndTranslation(t *testing.T) {
 func TestAuthServiceLogoutRejectsSecondLogout(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
 	repo := &fakeUserRepository{
-		user: model.User{ID: 7, OrganizationID: 11, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
+		user: model.User{Model: model.Model{ID: testUserIDSeven}, OrganizationID: testOrgID, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
 	sessions := &fakeRefreshSessionRepository{}
-	svc := NewAuthService(security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{organization: model.Organization{ID: 11, Name: "home"}}, repo, sessions)
+	svc := NewAuthService(security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, sessions)
 	ctx := newAuthServiceContext(t)
 
 	login, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "analyst", Password: "Password1!"})
@@ -123,9 +130,9 @@ func TestAuthServiceLogoutRejectsSecondLogout(t *testing.T) {
 func TestAuthServiceLoginResolvesUsernameAndEmailDeterministically(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
 	repo := &fakeUserRepository{
-		user: model.User{ID: 42, OrganizationID: 11, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
+		user: model.User{Model: model.Model{ID: testUserIDFortyTwo}, OrganizationID: testOrgID, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
-	svc := NewAuthService(security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{organization: model.Organization{ID: 11, Name: "home"}}, repo, &fakeRefreshSessionRepository{})
+	svc := NewAuthService(security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, &fakeRefreshSessionRepository{})
 	ctx := newAuthServiceContext(t)
 
 	if _, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "analyst", Password: "Password1!"}); err != nil {
@@ -160,11 +167,11 @@ type fakeOrganizationRepository struct {
 }
 
 // FindByID returns the configured fake organization.
-func (f *fakeOrganizationRepository) FindByID(ec *appcontext.GinContext, id int64) (model.Organization, error) {
+func (f *fakeOrganizationRepository) FindByID(ec *appcontext.GinContext, id string) (model.Organization, error) {
 	if f.findErr != nil {
 		return model.Organization{}, f.findErr
 	}
-	if f.organization.ID == 0 || f.organization.ID != id {
+	if f.organization.ID == "" || f.organization.ID != id {
 		return model.Organization{}, gorm.ErrRecordNotFound
 	}
 	return f.organization, nil
@@ -181,7 +188,7 @@ func (f *fakeOrganizationRepository) FindByName(ec *appcontext.GinContext, name 
 }
 
 func (f *fakeOrganizationRepository) Save(ec *appcontext.GinContext, organization model.Organization) (model.Organization, error) {
-	if organization.ID == 0 {
+	if organization.ID == "" {
 		organization.ID = f.organization.ID
 	}
 	f.organization = organization
@@ -202,7 +209,7 @@ func (f *fakeUserRepository) ExistsByEmail(ec *appcontext.GinContext, email stri
 
 // Save accepts the fake user without error.
 func (f *fakeUserRepository) Save(ec *appcontext.GinContext, user model.User) (model.User, error) {
-	if user.ID == 0 {
+	if user.ID == "" {
 		user.ID = f.user.ID
 	}
 	f.user = user
@@ -238,14 +245,14 @@ func (f *fakeRefreshSessionRepository) Save(ec *appcontext.GinContext, session m
 	return nil
 }
 
-func (f *fakeRefreshSessionRepository) FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID int64) (model.RefreshSession, error) {
+func (f *fakeRefreshSessionRepository) FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID string) (model.RefreshSession, error) {
 	if f.session.TokenID == "" || f.revoked || f.session.TokenID != tokenID || f.session.UserID != userID {
 		return model.RefreshSession{}, baserepository.ErrRefreshSessionNotFound
 	}
 	return f.session, nil
 }
 
-func (f *fakeRefreshSessionRepository) RevokeByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID int64) error {
+func (f *fakeRefreshSessionRepository) RevokeByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID string) error {
 	if f.session.TokenID == "" || f.revoked || f.session.TokenID != tokenID || f.session.UserID != userID {
 		return baserepository.ErrRefreshSessionNotFound
 	}

@@ -16,6 +16,7 @@ var (
 	ErrDuplicateData          = &RepositoryError{Message: "duplicate data"}
 	ErrInvalidReference       = &RepositoryError{Message: "invalid reference"}
 	ErrInvalidData            = &RepositoryError{Message: "invalid data"}
+	ErrForbidden              = &RepositoryError{Message: "forbidden"}
 	ErrCreateFailed           = &RepositoryError{Message: "create failed"}
 	ErrUpdateFailed           = &RepositoryError{Message: "update failed"}
 	ErrDeleteFailed           = &RepositoryError{Message: "delete failed"}

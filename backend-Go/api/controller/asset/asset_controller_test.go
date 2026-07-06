@@ -79,8 +79,8 @@ func TestAssetControllerHandlers(t *testing.T) {
 	t.Run("match asset cpe and attach vulnerabilities", func(t *testing.T) {
 		matchSvc := &fakeAssetMatchService{asset: sampleAsset()}
 		controller := NewAssetController(svc, matchSvc)
-		ec, recorder := newAssetContext(t, http.MethodPost, "/assets/1/match-cpe/vulnerabilities", "")
-		ec.AddParam("id", "1")
+		ec, recorder := newAssetContext(t, http.MethodPost, "/assets/00000000-0000-4000-8000-000000000001/match-cpe/vulnerabilities", "")
+		ec.AddParam("id", "00000000-0000-4000-8000-000000000001")
 		controller.MatchAssetCPEAndAttachVulnerabilities(ec)
 		if matchSvc.attachCalls != 1 {
 			t.Fatalf("expected AnalyzePersistAndAttachVulnerabilities to be called once, got %d", matchSvc.attachCalls)
@@ -115,12 +115,12 @@ type fakeAssetMatchService struct {
 	attachCalls int
 }
 
-func (f *fakeAssetMatchService) AnalyzeAndPersistAssetMatch(ec *appcontext.GinContext, assetID int64) (model.Asset, error) {
+func (f *fakeAssetMatchService) AnalyzeAndPersistAssetMatch(ec *appcontext.GinContext, assetID string) (model.Asset, error) {
 	f.calls++
 	return f.asset, f.err
 }
 
-func (f *fakeAssetMatchService) AnalyzePersistAndAttachVulnerabilities(ec *appcontext.GinContext, assetID int64) (model.Asset, error) {
+func (f *fakeAssetMatchService) AnalyzePersistAndAttachVulnerabilities(ec *appcontext.GinContext, assetID string) (model.Asset, error) {
 	f.attachCalls++
 	return f.asset, f.err
 }
@@ -129,7 +129,7 @@ func (f *fakeAssetService) GetAllAssets(ec *appcontext.GinContext) ([]model.Asse
 	f.getAllCalls++
 	return f.assets, f.err
 }
-func (f *fakeAssetService) GetAsset(ec *appcontext.GinContext, id int64) (model.Asset, error) {
+func (f *fakeAssetService) GetAsset(ec *appcontext.GinContext, id string) (model.Asset, error) {
 	return f.asset, f.err
 }
 func (f *fakeAssetService) CreateAsset(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
@@ -140,19 +140,19 @@ func (f *fakeAssetService) CreateAssetFromAI(ec *appcontext.GinContext, rawText 
 	f.createFromAICalls++
 	return f.asset, f.err
 }
-func (f *fakeAssetService) UpdateAsset(ec *appcontext.GinContext, id int64, asset model.Asset) (model.Asset, error) {
+func (f *fakeAssetService) UpdateAsset(ec *appcontext.GinContext, id string, asset model.Asset) (model.Asset, error) {
 	return f.asset, f.err
 }
-func (f *fakeAssetService) DeleteAsset(ec *appcontext.GinContext, id int64) (model.Asset, error) {
+func (f *fakeAssetService) DeleteAsset(ec *appcontext.GinContext, id string) (model.Asset, error) {
 	return f.asset, f.err
 }
-func (f *fakeAssetService) AssignVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error) {
+func (f *fakeAssetService) AssignVulnerability(ec *appcontext.GinContext, assetID string, vulnerabilityID string) (model.Asset, error) {
 	return f.asset, f.err
 }
-func (f *fakeAssetService) AssignVulnerabilityByCVE(ec *appcontext.GinContext, assetID int64, cveID string) (model.Asset, error) {
+func (f *fakeAssetService) AssignVulnerabilityByCVE(ec *appcontext.GinContext, assetID string, cveID string) (model.Asset, error) {
 	return f.asset, f.err
 }
-func (f *fakeAssetService) RemoveVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error) {
+func (f *fakeAssetService) RemoveVulnerability(ec *appcontext.GinContext, assetID string, vulnerabilityID string) (model.Asset, error) {
 	return f.asset, f.err
 }
 
@@ -176,19 +176,19 @@ func newAssetContext(t *testing.T, method string, target string, body string) (*
 
 // sampleAsset returns a reusable asset fixture.
 func sampleAsset() model.Asset {
-	assessmentID := int64(9)
+	assessmentID := "00000000-0000-4000-8000-000000000009"
 	return model.Asset{
-		ID:                1,
+		Model:             model.Model{ID: "00000000-0000-4000-8000-000000000001"},
 		AssetAssessmentID: &assessmentID,
 		Name:              "Asset 1",
 		Type:              "Server",
 		Owner:             "IT",
 		Criticality:       "High",
 		Vulnerabilities: []model.Vulnerability{
-			{ID: 10, CVEID: "CVE-2026-0001", Title: "Issue", Severity: "High", Description: "desc", Status: "Open"},
+			{Model: model.Model{ID: "00000000-0000-4000-8000-000000000010"}, CVEID: "CVE-2026-0001", Title: "Issue", Severity: "High", Description: "desc", Status: "Open"},
 		},
 		Assessment: &model.AssetAssessment{
-			ID:              assessmentID,
+			Model:           model.Model{ID: assessmentID},
 			RiskScore:       12,
 			CPEReviewStatus: model.AssetCPEReviewStatusNeedsReview,
 		},

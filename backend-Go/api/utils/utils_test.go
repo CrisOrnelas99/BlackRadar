@@ -11,8 +11,8 @@ import (
 func TestNewRandomID(t *testing.T) {
 	id := NewRandomID()
 
-	if id <= 0 {
-		t.Fatalf("expected positive random id, got %d", id)
+	if id == "" || len(id) != 36 {
+		t.Fatalf("expected UUID random id, got %q", id)
 	}
 }
 

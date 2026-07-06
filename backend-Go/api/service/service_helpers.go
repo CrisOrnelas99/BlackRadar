@@ -56,6 +56,8 @@ func TranslateRepositoryError(err error) error {
 		return wrapRepositoryError(ErrConflict, err)
 	case errors.Is(err, baserepository.ErrInvalidData), errors.Is(err, baserepository.ErrInvalidReference):
 		return wrapRepositoryError(ErrInvalidRequestData, err)
+	case errors.Is(err, baserepository.ErrForbidden):
+		return wrapRepositoryError(ErrForbidden, err)
 	default:
 		return wrapRepositoryError(ErrInternal, err)
 	}
@@ -152,28 +154,28 @@ func hasMixedCase(value string) bool {
 }
 
 // AuthenticatedUserID returns the authenticated user ID from the request context.
-func AuthenticatedUserID(ec *appcontext.GinContext) (int64, error) {
+func AuthenticatedUserID(ec *appcontext.GinContext) (string, error) {
 	if ec == nil {
-		return 0, ErrForbidden
+		return "", ErrForbidden
 	}
 
 	userID := ec.UserID()
-	if userID <= 0 {
-		return 0, ErrForbidden
+	if userID == "" {
+		return "", ErrForbidden
 	}
 
 	return userID, nil
 }
 
 // AuthenticatedOrganizationID returns the authenticated organization ID from the request context.
-func AuthenticatedOrganizationID(ec *appcontext.GinContext) (int64, error) {
+func AuthenticatedOrganizationID(ec *appcontext.GinContext) (string, error) {
 	if ec == nil {
-		return 0, ErrForbidden
+		return "", ErrForbidden
 	}
 
 	organizationID := ec.OrganizationID()
-	if organizationID <= 0 {
-		return 0, ErrForbidden
+	if organizationID == "" {
+		return "", ErrForbidden
 	}
 
 	return organizationID, nil

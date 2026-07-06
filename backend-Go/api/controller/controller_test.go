@@ -39,12 +39,12 @@ func TestMain(m *testing.M) {
 // TestControllerHelper verifies the shared controller helper functions.
 func TestControllerHelper(t *testing.T) {
 	t.Run("parse id", func(t *testing.T) {
-		id, err := basecontroller.ParseID("42")
+		id, err := basecontroller.ParseID("00000000-0000-4000-8000-000000000042")
 		if err != nil {
 			t.Fatalf("expected id to parse, got %v", err)
 		}
-		if id != 42 {
-			t.Fatalf("expected 42, got %d", id)
+		if id != "00000000-0000-4000-8000-000000000042" {
+			t.Fatalf("expected UUID, got %s", id)
 		}
 	})
 
@@ -102,8 +102,8 @@ func TestHealth(t *testing.T) {
 func TestRegisterRoutes(t *testing.T) {
 	engine := gin.New()
 	jwtManager := security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
-	lookup := &fakeUserLookup{exists: true, user: model.User{ID: 1, Username: "analyst", Role: model.RoleAdmin}}
-	sessions := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: 1}}
+	lookup := &fakeUserLookup{exists: true, user: model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, Username: "analyst", Role: model.RoleAdmin}}
+	sessions := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: "00000000-0000-4000-8000-000000000001"}}
 
 	authController := controllerauth.NewAuthController(&fakeAuthService{})
 	aiController := controllerai.NewAIController(&fakeTextGenerationService{response: dto.TextGenerationResponse{Text: `{"ok":true}`, FinishReason: "stop"}})
@@ -193,7 +193,7 @@ func TestRegisterRoutes(t *testing.T) {
 	}
 
 	recorder = httptest.NewRecorder()
-	request = httptest.NewRequest(http.MethodPost, "/api/assets/1/match-cpe/vulnerabilities", nil)
+	request = httptest.NewRequest(http.MethodPost, "/api/assets/00000000-0000-4000-8000-000000000001/match-cpe/vulnerabilities", nil)
 	request.Header.Set("Authorization", "Bearer "+token)
 	engine.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusOK {
@@ -204,8 +204,8 @@ func TestRegisterRoutes(t *testing.T) {
 func TestRegisterRoutesRejectsVulnerabilityRoutesForNonAdmin(t *testing.T) {
 	engine := gin.New()
 	jwtManager := security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
-	lookup := &fakeUserLookup{exists: true, user: model.User{ID: 1, Username: "analyst", Role: model.RoleUser}}
-	sessions := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: 1}}
+	lookup := &fakeUserLookup{exists: true, user: model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, Username: "analyst", Role: model.RoleUser}}
+	sessions := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: "00000000-0000-4000-8000-000000000001"}}
 
 	vulnerabilityController := controllervulnerability.NewVulnerabilityController(&fakeVulnerabilityService{vulnerability: sampleVulnerability(), vulnerabilities: []model.Vulnerability{sampleVulnerability()}})
 
@@ -259,7 +259,7 @@ func TestRegisterRoutesRejectsVulnerabilityRoutesForNonAdmin(t *testing.T) {
 	}
 
 	recorder = httptest.NewRecorder()
-	request = httptest.NewRequest(http.MethodPost, "/api/assets/1/match-cpe/vulnerabilities", nil)
+	request = httptest.NewRequest(http.MethodPost, "/api/assets/00000000-0000-4000-8000-000000000001/match-cpe/vulnerabilities", nil)
 	request.Header.Set("Authorization", "Bearer "+token)
 	engine.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusForbidden {
@@ -286,7 +286,7 @@ type fakeRefreshSessionLookup struct {
 	session model.RefreshSession
 }
 
-func (f *fakeRefreshSessionLookup) FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID int64) (model.RefreshSession, error) {
+func (f *fakeRefreshSessionLookup) FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID string) (model.RefreshSession, error) {
 	if f.session.TokenID == tokenID && f.session.UserID == userID {
 		return f.session, nil
 	}
@@ -297,7 +297,7 @@ type fakeAuthService struct{}
 
 // Register simulates a successful auth registration.
 func (f *fakeAuthService) Register(ec *appcontext.GinContext, request dto.RegisterRequest) (dto.UserResponse, error) {
-	return dto.UserResponse{ID: 1, Username: request.Username, Email: request.Email}, nil
+	return dto.UserResponse{ID: "00000000-0000-4000-8000-000000000001", Username: request.Username, Email: request.Email}, nil
 }
 
 // Login simulates a successful auth login.
@@ -333,12 +333,12 @@ func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request dt
 }
 
 // AnalyzeAndPersistAssetMatch returns the configured fake asset.
-func (f *fakeAssetMatchService) AnalyzeAndPersistAssetMatch(ec *appcontext.GinContext, assetID int64) (model.Asset, error) {
+func (f *fakeAssetMatchService) AnalyzeAndPersistAssetMatch(ec *appcontext.GinContext, assetID string) (model.Asset, error) {
 	return f.asset, nil
 }
 
 // AnalyzePersistAndAttachVulnerabilities returns the configured fake asset.
-func (f *fakeAssetMatchService) AnalyzePersistAndAttachVulnerabilities(ec *appcontext.GinContext, assetID int64) (model.Asset, error) {
+func (f *fakeAssetMatchService) AnalyzePersistAndAttachVulnerabilities(ec *appcontext.GinContext, assetID string) (model.Asset, error) {
 	return f.asset, nil
 }
 
@@ -348,7 +348,7 @@ func (f *fakeAssetService) GetAllAssets(ec *appcontext.GinContext) ([]model.Asse
 }
 
 // GetAsset returns the configured fake asset.
-func (f *fakeAssetService) GetAsset(ec *appcontext.GinContext, id int64) (model.Asset, error) {
+func (f *fakeAssetService) GetAsset(ec *appcontext.GinContext, id string) (model.Asset, error) {
 	return f.asset, nil
 }
 
@@ -363,27 +363,27 @@ func (f *fakeAssetService) CreateAssetFromAI(ec *appcontext.GinContext, rawText 
 }
 
 // UpdateAsset returns the configured fake asset.
-func (f *fakeAssetService) UpdateAsset(ec *appcontext.GinContext, id int64, asset model.Asset) (model.Asset, error) {
+func (f *fakeAssetService) UpdateAsset(ec *appcontext.GinContext, id string, asset model.Asset) (model.Asset, error) {
 	return f.asset, nil
 }
 
 // DeleteAsset returns the configured fake asset.
-func (f *fakeAssetService) DeleteAsset(ec *appcontext.GinContext, id int64) (model.Asset, error) {
+func (f *fakeAssetService) DeleteAsset(ec *appcontext.GinContext, id string) (model.Asset, error) {
 	return f.asset, nil
 }
 
 // AssignVulnerability returns the configured fake asset.
-func (f *fakeAssetService) AssignVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error) {
+func (f *fakeAssetService) AssignVulnerability(ec *appcontext.GinContext, assetID string, vulnerabilityID string) (model.Asset, error) {
 	return f.asset, nil
 }
 
 // AssignVulnerabilityByCVE returns the configured fake asset.
-func (f *fakeAssetService) AssignVulnerabilityByCVE(ec *appcontext.GinContext, assetID int64, cveID string) (model.Asset, error) {
+func (f *fakeAssetService) AssignVulnerabilityByCVE(ec *appcontext.GinContext, assetID string, cveID string) (model.Asset, error) {
 	return f.asset, nil
 }
 
 // RemoveVulnerability returns the configured fake asset.
-func (f *fakeAssetService) RemoveVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error) {
+func (f *fakeAssetService) RemoveVulnerability(ec *appcontext.GinContext, assetID string, vulnerabilityID string) (model.Asset, error) {
 	return f.asset, nil
 }
 
@@ -398,7 +398,7 @@ func (f *fakeVulnerabilityService) GetAllVulnerabilities(ec *appcontext.GinConte
 }
 
 // GetVulnerability returns the configured fake vulnerability.
-func (f *fakeVulnerabilityService) GetVulnerability(ec *appcontext.GinContext, id int64) (model.Vulnerability, error) {
+func (f *fakeVulnerabilityService) GetVulnerability(ec *appcontext.GinContext, id string) (model.Vulnerability, error) {
 	return f.vulnerability, nil
 }
 
@@ -408,12 +408,12 @@ func (f *fakeVulnerabilityService) CreateVulnerability(ec *appcontext.GinContext
 }
 
 // UpdateVulnerability returns the configured fake vulnerability.
-func (f *fakeVulnerabilityService) UpdateVulnerability(ec *appcontext.GinContext, id int64, vulnerability model.Vulnerability) (model.Vulnerability, error) {
+func (f *fakeVulnerabilityService) UpdateVulnerability(ec *appcontext.GinContext, id string, vulnerability model.Vulnerability) (model.Vulnerability, error) {
 	return f.vulnerability, nil
 }
 
 // DeleteVulnerability returns the configured fake vulnerability.
-func (f *fakeVulnerabilityService) DeleteVulnerability(ec *appcontext.GinContext, id int64) (model.Vulnerability, error) {
+func (f *fakeVulnerabilityService) DeleteVulnerability(ec *appcontext.GinContext, id string) (model.Vulnerability, error) {
 	return f.vulnerability, nil
 }
 
@@ -444,10 +444,10 @@ func newControllerContext(t *testing.T, method string, target string, body strin
 
 // sampleAsset returns a reusable asset fixture.
 func sampleAsset() model.Asset {
-	return model.Asset{ID: 1, Name: "Asset 1", Type: "Server", Owner: "IT", Criticality: "High"}
+	return model.Asset{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, Name: "Asset 1", Type: "Server", Owner: "IT", Criticality: "High"}
 }
 
 // sampleVulnerability returns a reusable vulnerability fixture.
 func sampleVulnerability() model.Vulnerability {
-	return model.Vulnerability{ID: 1, CVEID: "CVE-2026-0001", Title: "Issue", Severity: "High", Description: "desc", Status: "Open"}
+	return model.Vulnerability{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, CVEID: "CVE-2026-0001", Title: "Issue", Severity: "High", Description: "desc", Status: "Open"}
 }

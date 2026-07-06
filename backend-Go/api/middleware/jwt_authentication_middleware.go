@@ -23,7 +23,7 @@ type UserLookup interface {
 
 // RefreshSessionLookup defines how authentication middleware verifies that a token session is still active.
 type RefreshSessionLookup interface {
-	FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID int64) (model.RefreshSession, error)
+	FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID string) (model.RefreshSession, error)
 }
 
 // JWTAuthenticationFilter validates Authorization bearer tokens, resolves the authenticated user,

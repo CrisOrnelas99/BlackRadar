@@ -67,15 +67,15 @@ func Wrap(handler func(*GinContext)) gin.HandlerFunc {
 }
 
 // UserID returns the authenticated user ID stored in the request context.
-func (ec *GinContext) UserID() int64 {
+func (ec *GinContext) UserID() string {
 	userID, exists := ec.Get(userIDKey)
 	if !exists {
-		return 0
+		return ""
 	}
 
-	value, ok := userID.(int64)
+	value, ok := userID.(string)
 	if !ok {
-		return 0
+		return ""
 	}
 
 	return value
@@ -112,22 +112,22 @@ func (ec *GinContext) UserRole() string {
 }
 
 // OrganizationID returns the authenticated organization ID stored in the request context.
-func (ec *GinContext) OrganizationID() int64 {
+func (ec *GinContext) OrganizationID() string {
 	organizationID, exists := ec.Get(organizationIDKey)
 	if !exists {
-		return 0
+		return ""
 	}
 
-	value, ok := organizationID.(int64)
+	value, ok := organizationID.(string)
 	if !ok {
-		return 0
+		return ""
 	}
 
 	return value
 }
 
 // SetUserID stores the authenticated user ID on the request context.
-func (ec *GinContext) SetUserID(userID int64) {
+func (ec *GinContext) SetUserID(userID string) {
 	ec.Set(userIDKey, userID)
 }
 
@@ -142,7 +142,7 @@ func (ec *GinContext) SetUserRole(role string) {
 }
 
 // SetOrganizationID stores the authenticated organization ID on the request context.
-func (ec *GinContext) SetOrganizationID(organizationID int64) {
+func (ec *GinContext) SetOrganizationID(organizationID string) {
 	ec.Set(organizationIDKey, organizationID)
 }
 

@@ -267,7 +267,7 @@ func (s *authServiceImpl) Logout(ec *appcontext.GinContext, request dto.RefreshR
 	return nil
 }
 
-func (s *authServiceImpl) saveRefreshSession(ec *appcontext.GinContext, userID int64, tokenID string, expiresAt time.Time) error {
+func (s *authServiceImpl) saveRefreshSession(ec *appcontext.GinContext, userID string, tokenID string, expiresAt time.Time) error {
 	return s.refreshSessionRepository.Save(ec, model.RefreshSession{
 		TokenID:    tokenID,
 		UserID:     userID,

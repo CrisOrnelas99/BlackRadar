@@ -19,10 +19,10 @@ const (
 	bootstrapPassword     = "Password123!"
 	bootstrapOrganization = "admin_home"
 
-	bootstrapUserID          int64 = 7700000000000000001
-	bootstrapAssetID         int64 = 7700000000000000002
-	bootstrapVulnerabilityID int64 = 7700000000000000003
-	bootstrapAssessmentID    int64 = 7700000000000000004
+	bootstrapUserID          = "77000000-0000-4000-8000-000000000001"
+	bootstrapAssetID         = "77000000-0000-4000-8000-000000000002"
+	bootstrapVulnerabilityID = "77000000-0000-4000-8000-000000000003"
+	bootstrapAssessmentID    = "77000000-0000-4000-8000-000000000004"
 
 	bootstrapAssetName        = "Test Device"
 	bootstrapAssetType        = "Device"
@@ -157,7 +157,7 @@ func seedBootstrapOrganization(ctx context.Context, database *gorm.DB) (model.Or
 	return organization, nil
 }
 
-func seedBootstrapUser(ctx context.Context, database *gorm.DB, organizationID int64) (model.User, error) {
+func seedBootstrapUser(ctx context.Context, database *gorm.DB, organizationID string) (model.User, error) {
 	email := strings.ToLower(strings.TrimSpace(bootstrapEmail))
 	passwordHash, err := bcrypt.GenerateFromPassword([]byte(bootstrapPassword), config.PasswordCost())
 	if err != nil {
@@ -165,7 +165,7 @@ func seedBootstrapUser(ctx context.Context, database *gorm.DB, organizationID in
 	}
 
 	user := model.User{
-		ID:             bootstrapUserID,
+		Model:          model.Model{ID: bootstrapUserID},
 		OrganizationID: organizationID,
 		Username:       bootstrapUsername,
 		Email:          email,
@@ -179,14 +179,14 @@ func seedBootstrapUser(ctx context.Context, database *gorm.DB, organizationID in
 	return user, nil
 }
 
-func seedBootstrapAsset(ctx context.Context, database *gorm.DB, organizationID int64, userID int64) (model.Asset, error) {
+func seedBootstrapAsset(ctx context.Context, database *gorm.DB, organizationID string, userID string) (model.Asset, error) {
 	operatingSystem := bootstrapAssetOS
 	assessment := model.AssetAssessment{
-		ID:              bootstrapAssessmentID,
+		Model:           model.Model{ID: bootstrapAssessmentID},
 		CPEReviewStatus: model.AssetCPEReviewStatusNeedsReview,
 	}
 	asset := model.Asset{
-		ID:                bootstrapAssetID,
+		Model:             model.Model{ID: bootstrapAssetID},
 		OrganizationID:    organizationID,
 		UserID:            userID,
 		AssetAssessmentID: &assessment.ID,
@@ -213,9 +213,9 @@ func seedBootstrapAsset(ctx context.Context, database *gorm.DB, organizationID i
 	return asset, nil
 }
 
-func seedBootstrapVulnerability(ctx context.Context, database *gorm.DB, organizationID int64, userID int64) (model.Vulnerability, error) {
+func seedBootstrapVulnerability(ctx context.Context, database *gorm.DB, organizationID string, userID string) (model.Vulnerability, error) {
 	vulnerability := model.Vulnerability{
-		ID:             bootstrapVulnerabilityID,
+		Model:          model.Model{ID: bootstrapVulnerabilityID},
 		OrganizationID: organizationID,
 		UserID:         userID,
 		CVEID:          bootstrapCVEID,

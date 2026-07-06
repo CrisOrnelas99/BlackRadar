@@ -33,7 +33,7 @@ func (r *RefreshSessionRepository) dbForContext(ec *appcontext.GinContext) *gorm
 
 // Save creates a new refresh session.
 func (r *RefreshSessionRepository) Save(ec *appcontext.GinContext, session model.RefreshSession) error {
-	if session.TokenID == "" || session.UserID <= 0 || session.DeviceName == "" || session.ExpiresAt.IsZero() {
+	if session.TokenID == "" || session.UserID == "" || session.DeviceName == "" || session.ExpiresAt.IsZero() {
 		return baserepository.ErrInvalidData
 	}
 
@@ -55,7 +55,7 @@ func (r *RefreshSessionRepository) Save(ec *appcontext.GinContext, session model
 }
 
 // FindActiveByTokenIDForUser returns an unrevoked refresh session for a user.
-func (r *RefreshSessionRepository) FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID int64) (model.RefreshSession, error) {
+func (r *RefreshSessionRepository) FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID string) (model.RefreshSession, error) {
 	var session model.RefreshSession
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Where("token_id = ? AND user_id = ? AND revoked_at IS NULL", tokenID, userID).
@@ -70,7 +70,7 @@ func (r *RefreshSessionRepository) FindActiveByTokenIDForUser(ec *appcontext.Gin
 }
 
 // RevokeByTokenIDForUser marks the specified refresh session revoked.
-func (r *RefreshSessionRepository) RevokeByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID int64) error {
+func (r *RefreshSessionRepository) RevokeByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID string) error {
 	now := time.Now().UTC()
 	result := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Model(&model.RefreshSession{}).

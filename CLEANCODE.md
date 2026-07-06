@@ -1150,6 +1150,10 @@ Rules:
 * Avoid loading associations unless needed.
 * Inspect generated SQL when debugging performance.
 * Keep GORM-specific details inside repositories.
+* Use embedded `model.Model` for UUID identity, timestamps, soft deletes, and `updated_by_id` audit metadata on core mutable records.
+* Validate route IDs as UUIDs before passing them into services.
+* Set `updated_by_id` from trusted request context, never from request DTOs.
+* Revalidate privileged mutation permissions from PostgreSQL in repositories when stale JWT authorization would be risky.
 
 ## 9.2 Use pgx intentionally
 

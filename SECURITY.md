@@ -258,7 +258,20 @@ Rules:
 * Preserve tenant scoping on soft-deleted records; deleted data is still tenant data.
 * Audit deletion, restoration, hard deletion, and retention cleanup actions.
 
-## 2.9 Layered error handling
+## 2.9 Database identity and audit metadata
+
+Core database models use PostgreSQL UUID primary keys and shared embedded model metadata. UUIDs are generated server-side by PostgreSQL, not trusted from clients for create operations.
+
+Rules:
+
+* Treat route UUIDs as untrusted input and validate them before service calls.
+* Keep `created_at`, `updated_at`, `deleted_at`, and `updated_by_id` server-owned.
+* Set `updated_by_id` from authenticated request context for mutable update paths.
+* Do not allow clients to set `updated_by_id`, `organization_id`, `user_id`, roles, or tenant ownership fields through request bodies.
+* Privileged repositories must revalidate the current user from PostgreSQL before mutating admin-controlled data.
+* Stale JWT role claims are not sufficient authorization for privileged database writes.
+
+## 2.10 Layered error handling
 
 The Go backend uses repository, service, and controller error boundaries so lower-level implementation details do not leak into API responses.
 

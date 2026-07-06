@@ -24,29 +24,29 @@ type AssetService interface {
 	// GetAllAssets returns all assets available to the current authenticated user.
 	GetAllAssets(ec *appcontext.GinContext) ([]model.Asset, error)
 	// GetAsset returns a single asset by ID for the current authenticated user.
-	GetAsset(ec *appcontext.GinContext, id int64) (model.Asset, error)
+	GetAsset(ec *appcontext.GinContext, id string) (model.Asset, error)
 	// CreateAsset creates a new asset record.
 	CreateAsset(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error)
 	// CreateAssetFromAI creates an asset from raw text extracted by the backend AI provider.
 	CreateAssetFromAI(ec *appcontext.GinContext, rawText string) (model.Asset, error)
 	// UpdateAsset updates an existing asset by ID.
-	UpdateAsset(ec *appcontext.GinContext, id int64, asset model.Asset) (model.Asset, error)
+	UpdateAsset(ec *appcontext.GinContext, id string, asset model.Asset) (model.Asset, error)
 	// DeleteAsset removes an asset by ID.
-	DeleteAsset(ec *appcontext.GinContext, id int64) (model.Asset, error)
+	DeleteAsset(ec *appcontext.GinContext, id string) (model.Asset, error)
 	// AssignVulnerability attaches a vulnerability to an asset.
-	AssignVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error)
+	AssignVulnerability(ec *appcontext.GinContext, assetID string, vulnerabilityID string) (model.Asset, error)
 	// AssignVulnerabilityByCVE looks up a CVE, stores it locally, and attaches it to an asset.
-	AssignVulnerabilityByCVE(ec *appcontext.GinContext, assetID int64, cveID string) (model.Asset, error)
+	AssignVulnerabilityByCVE(ec *appcontext.GinContext, assetID string, cveID string) (model.Asset, error)
 	// RemoveVulnerability detaches a vulnerability from an asset.
-	RemoveVulnerability(ec *appcontext.GinContext, assetID int64, vulnerabilityID int64) (model.Asset, error)
+	RemoveVulnerability(ec *appcontext.GinContext, assetID string, vulnerabilityID string) (model.Asset, error)
 }
 
 // AssetMatchService defines the operations available for AI-assisted asset matching.
 type AssetMatchService interface {
 	// AnalyzeAndPersistAssetMatch normalizes saved asset fields, ranks NVD candidates, and stores the result.
-	AnalyzeAndPersistAssetMatch(ec *appcontext.GinContext, assetID int64) (model.Asset, error)
+	AnalyzeAndPersistAssetMatch(ec *appcontext.GinContext, assetID string) (model.Asset, error)
 	// AnalyzePersistAndAttachVulnerabilities matches a CPE, fetches NVD CVEs, and attaches them to the asset.
-	AnalyzePersistAndAttachVulnerabilities(ec *appcontext.GinContext, assetID int64) (model.Asset, error)
+	AnalyzePersistAndAttachVulnerabilities(ec *appcontext.GinContext, assetID string) (model.Asset, error)
 }
 
 // VulnerabilityService defines the operations available for vulnerability management.
@@ -54,13 +54,13 @@ type VulnerabilityService interface {
 	// GetAllVulnerabilities returns all vulnerabilities available to the current authenticated user.
 	GetAllVulnerabilities(ec *appcontext.GinContext) ([]model.Vulnerability, error)
 	// GetVulnerability returns a single vulnerability by ID for the current authenticated user.
-	GetVulnerability(ec *appcontext.GinContext, id int64) (model.Vulnerability, error)
+	GetVulnerability(ec *appcontext.GinContext, id string) (model.Vulnerability, error)
 	// CreateVulnerability creates a new vulnerability record.
 	CreateVulnerability(ec *appcontext.GinContext, vulnerability model.Vulnerability) (model.Vulnerability, error)
 	// UpdateVulnerability updates an existing vulnerability by ID.
-	UpdateVulnerability(ec *appcontext.GinContext, id int64, vulnerability model.Vulnerability) (model.Vulnerability, error)
+	UpdateVulnerability(ec *appcontext.GinContext, id string, vulnerability model.Vulnerability) (model.Vulnerability, error)
 	// DeleteVulnerability removes a vulnerability by ID.
-	DeleteVulnerability(ec *appcontext.GinContext, id int64) (model.Vulnerability, error)
+	DeleteVulnerability(ec *appcontext.GinContext, id string) (model.Vulnerability, error)
 }
 
 // NVDLookupService defines read-only CVE lookup operations backed by NVD data.

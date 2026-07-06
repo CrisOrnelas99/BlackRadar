@@ -45,7 +45,7 @@ func TestRefreshSessionRepositorySaveRejectsInvalidInput(t *testing.T) {
 
 	if err := repo.Save(nil, model.RefreshSession{
 		TokenID:    "token-1",
-		UserID:     1,
+		UserID:     "00000000-0000-4000-8000-000000000001",
 		DeviceName: "desktop",
 		ExpiresAt:  time.Time{},
 	}); err != baserepository.ErrInvalidData {
