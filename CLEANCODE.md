@@ -929,6 +929,25 @@ Rules:
 * Preserve useful internal error context through wrapping.
 * Do not return raw database, JWT, bcrypt, or external API errors directly to API clients.
 
+Layered Go API errors follow this repository -> service -> controller flow:
+
+* Repositories translate GORM, PostgreSQL, and constraint errors into repository sentinel errors.
+* Services translate repository sentinel errors into service sentinel errors.
+* Service translation must preserve the repository cause with `fmt.Errorf("%w: %w", serviceErr, repositoryErr)`.
+* Controllers check service errors with `errors.Is` and map them to HTTP status codes.
+* Controllers must use the shared `HandleError` helper for safe JSON error responses.
+* Controllers must not import repository packages only to classify errors.
+
+Example:
+
+```go
+if err != nil {
+    return Asset{}, fmt.Errorf("%w: %w", ErrNotFound, err)
+}
+```
+
+The returned error must satisfy both `errors.Is(err, ErrNotFound)` and `errors.Is(err, repository.ErrAssetNotFound)` so the API keeps clean boundaries without losing debugging context.
+
 ## 7.4 Avoid hidden goroutines
 
 Do not start goroutines without an owner, cancellation strategy, error handling, and shutdown plan.

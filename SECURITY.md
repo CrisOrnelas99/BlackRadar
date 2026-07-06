@@ -258,6 +258,21 @@ Rules:
 * Preserve tenant scoping on soft-deleted records; deleted data is still tenant data.
 * Audit deletion, restoration, hard deletion, and retention cleanup actions.
 
+## 2.9 Layered error handling
+
+The Go backend uses repository, service, and controller error boundaries so lower-level implementation details do not leak into API responses.
+
+Rules:
+
+* Repository code must translate GORM, PostgreSQL, and constraint errors into repository sentinel errors.
+* Service code must translate repository sentinel errors into service sentinel errors before returning to controllers.
+* Service translation must preserve the underlying repository cause with Go error wrapping so `errors.Is` can still identify both layers.
+* Controllers must map service errors to HTTP status codes and must not depend on GORM, PostgreSQL, or repository error types.
+* `HandleError` is the shared controller response path for request failures.
+* API clients receive safe JSON errors with stable error codes, user-facing messages, and request IDs.
+* Logs may include the wrapped internal error chain, but responses must not expose stack traces, SQL text, passwords, tokens, certificate material, provider secrets, or raw upstream error bodies.
+* Tests that change error translation must prove both the service error and preserved lower-level cause are detectable with `errors.Is`.
+
 ---
 
 # 3. OWASP Top 10:2025 Requirements

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"secureops/backend-go/api/model"
+	baserepository "secureops/backend-go/api/repository"
 )
 
 // TestCVEIDValidation verifies strict CVE ID allowlist behavior.
@@ -47,6 +48,71 @@ func TestAssetValidationAllowsNoNetworkAddressField(t *testing.T) {
 
 	if err := ValidateAsset(asset); err != nil {
 		t.Fatalf("expected asset to be valid, got %v", err)
+	}
+}
+
+func TestTranslateRepositoryErrorPreservesLayeredErrorChain(t *testing.T) {
+	tests := []struct {
+		name          string
+		repositoryErr error
+		serviceErr    error
+	}{
+		{
+			name:          "asset not found",
+			repositoryErr: baserepository.ErrAssetNotFound,
+			serviceErr:    ErrNotFound,
+		},
+		{
+			name:          "vulnerability not found",
+			repositoryErr: baserepository.ErrVulnerabilityNotFound,
+			serviceErr:    ErrNotFound,
+		},
+		{
+			name:          "refresh session not found",
+			repositoryErr: baserepository.ErrRefreshSessionNotFound,
+			serviceErr:    ErrNotFound,
+		},
+		{
+			name:          "duplicate assignment",
+			repositoryErr: baserepository.ErrDuplicateAssignment,
+			serviceErr:    ErrConflict,
+		},
+		{
+			name:          "duplicate data",
+			repositoryErr: baserepository.ErrDuplicateData,
+			serviceErr:    ErrConflict,
+		},
+		{
+			name:          "invalid data",
+			repositoryErr: baserepository.ErrInvalidData,
+			serviceErr:    ErrInvalidRequestData,
+		},
+		{
+			name:          "invalid reference",
+			repositoryErr: baserepository.ErrInvalidReference,
+			serviceErr:    ErrInvalidRequestData,
+		},
+		{
+			name:          "unknown repository failure",
+			repositoryErr: baserepository.ErrReadFailed,
+			serviceErr:    ErrInternal,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := TranslateRepositoryError(tt.repositoryErr)
+			if !errors.Is(err, tt.serviceErr) {
+				t.Fatalf("expected translated error to match service error %v, got %v", tt.serviceErr, err)
+			}
+			if !errors.Is(err, tt.repositoryErr) {
+				t.Fatalf("expected translated error to preserve repository error %v, got %v", tt.repositoryErr, err)
+			}
+		})
+	}
+
+	if err := TranslateRepositoryError(nil); err != nil {
+		t.Fatalf("expected nil repository error to remain nil, got %v", err)
 	}
 }
 

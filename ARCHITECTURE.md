@@ -166,6 +166,34 @@ Design rules:
 - External calls such as NVD and OpenAI should happen before expensive database writes when practical so request transactions stay short.
 - Handlers and services must return safe errors and status codes consistently because non-success responses cause rollback.
 
+## Layered Error Handling
+
+The backend uses a layered error-handling model across repository, service, and controller packages.
+
+Flow:
+
+```text
+Database / external dependency error
+        |
+        v
+Repository sentinel error
+        |
+        v
+Service sentinel error
+        |
+        v
+Controller status mapping
+        |
+        v
+HandleError JSON response
+```
+
+Repository packages own persistence-level errors such as not found, duplicate data, invalid reference, and create/read/update/delete failures. Repositories wrap database or constraint errors with repository sentinels using `%w` so the original cause remains available to `errors.Is` and `errors.As`.
+
+Service packages translate repository errors into service-level business errors with `TranslateRepositoryError`. The translation preserves both layers by wrapping the service sentinel around the original repository error, for example `fmt.Errorf("%w: %w", ErrNotFound, repoErr)`. Controllers should check service errors only; they must not depend on GORM, PostgreSQL, repository implementations, or repository sentinel names.
+
+Controllers map service errors to HTTP status codes with `errors.Is`, then call the shared `HandleError` helper. `HandleError` logs the internal error and returns a safe JSON response containing a stable code, user-facing message, and request ID. The API does not return stack traces, raw SQL errors, JWT internals, bcrypt errors, or upstream provider details to clients.
+
 ## API Surface
 
 Implemented auth routes:

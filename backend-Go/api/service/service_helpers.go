@@ -50,15 +50,19 @@ func TranslateRepositoryError(err error) error {
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, baserepository.ErrAssetNotFound), errors.Is(err, baserepository.ErrVulnerabilityNotFound):
-		return ErrNotFound
+	case errors.Is(err, baserepository.ErrAssetNotFound), errors.Is(err, baserepository.ErrVulnerabilityNotFound), errors.Is(err, baserepository.ErrRefreshSessionNotFound):
+		return wrapRepositoryError(ErrNotFound, err)
 	case errors.Is(err, baserepository.ErrDuplicateData), errors.Is(err, baserepository.ErrDuplicateAssignment):
-		return ErrConflict
+		return wrapRepositoryError(ErrConflict, err)
 	case errors.Is(err, baserepository.ErrInvalidData), errors.Is(err, baserepository.ErrInvalidReference):
-		return ErrInvalidRequestData
+		return wrapRepositoryError(ErrInvalidRequestData, err)
 	default:
-		return err
+		return wrapRepositoryError(ErrInternal, err)
 	}
+}
+
+func wrapRepositoryError(serviceErr error, repositoryErr error) error {
+	return fmt.Errorf("%w: %w", serviceErr, repositoryErr)
 }
 
 // ValidateAsset validates the fields required to create or update an asset.

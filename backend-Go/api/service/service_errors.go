@@ -16,4 +16,5 @@ var (
 	ErrForbidden          = &ServiceError{Message: "forbidden"}
 	ErrRateLimited        = &ServiceError{Message: "rate limited"}
 	ErrExternalService    = &ServiceError{Message: "external service unavailable"}
+	ErrInternal           = &ServiceError{Message: "internal service error"}
 )

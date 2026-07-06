@@ -101,6 +101,8 @@ The repository currently contains these working foundations:
 - admin-only AI diagnostic endpoints
 - organization-aware registration and tenant membership
 - request-scoped GORM transaction middleware with centralized commit/rollback behavior
+- GORM soft-delete support for audit-relevant records and active-row uniqueness
+- layered repository/service/controller error handling with safe JSON responses
 - controller → service → repository layering
 - GORM AutoMigrate provisioning
 - Docker Compose support for PostgreSQL and backend
@@ -118,7 +120,6 @@ Future work documented in `ARCHITECTURE.md` includes:
 - remediation workflows, work orders, checklist items, and exceptions
 - alerting and CVE refresh services
 - dashboard analytics and risk trend reporting
-- soft-delete and retention behavior for audit-relevant records
 - organization-aware API and UI flows for assets, vulnerabilities, and memberships
 - HTTPS/TLS enforcement with certificate handling at the deployment boundary
 - backend-issued internal service certificates for privileged `/internal` service authentication
