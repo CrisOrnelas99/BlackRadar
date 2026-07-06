@@ -31,7 +31,9 @@ Key capabilities include:
 - backend-enforced authorization and security controls
 - backend rate limiting on auth and NVD lookup endpoints
 - short-lived access tokens with server-side refresh-token sessions
+- request-scoped GORM transactions for atomic backend request handling
 - backend OpenAI-assisted asset creation, CPE matching, and NVD vulnerability attachment
+- planned certificate-based authentication for privileged internal service calls
 - planned organization switching, workflow, alerting, frontend AI flows, and chatbot features listed below
 
 The platform supports multiple inventory contexts, including organization portfolios, applications, home networks, and imported raw asset lists.
@@ -73,6 +75,8 @@ Go Gin/GORM backend
 - Backend is the main security and trust boundary.
 - Frontend never calls NVD, AI providers, or internal services directly.
 - Backend enforces validation, authorization, and DTO mapping.
+- Backend write requests run through request-scoped GORM transactions so partial database updates are rolled back on failed requests.
+- Privileged internal service calls should use backend-issued service certificates rather than browser JWTs or shared static secrets.
 - Controller → service → repository captures request flow.
 - Local persistence of imported CVE data is preferred over live UI lookups.
 
@@ -96,6 +100,7 @@ The repository currently contains these working foundations:
 - CPE-based NVD CVE lookup and bounded vulnerability attachment to assets
 - admin-only AI diagnostic endpoints
 - organization-aware registration and tenant membership
+- request-scoped GORM transaction middleware with centralized commit/rollback behavior
 - controller → service → repository layering
 - GORM AutoMigrate provisioning
 - Docker Compose support for PostgreSQL and backend
@@ -115,6 +120,7 @@ Future work documented in `ARCHITECTURE.md` includes:
 - dashboard analytics and risk trend reporting
 - organization-aware API and UI flows for assets, vulnerabilities, and memberships
 - HTTPS/TLS enforcement with certificate handling at the deployment boundary
+- backend-issued internal service certificates for privileged `/internal` service authentication
 - GitHub Actions CI/CD pipeline for tests, builds, and protected releases
 - full Docker integration for frontend, backend, and services
 - later AWS deployment foundation using ECR, ECS/Fargate or EC2, RDS, ALB/ACM, Secrets Manager, CloudWatch, and EventBridge
@@ -376,6 +382,8 @@ Security principles:
 - server-side authorization enforcement
 - admin permissions enforced in middleware
 - DTO-based request and response handling
+- request-scoped GORM transactions for atomic database writes
+- planned backend-issued service certificates for privileged internal service authentication
 - backend-only AI and external service keys
 - local persistence of vulnerability data over live UI lookups
 - safe error handling without secret leakage

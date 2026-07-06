@@ -206,6 +206,43 @@ When the application is deployed to AWS or another cloud provider, keep these ru
 * Keep application-level rate limiting authoritative for auth and NVD lookup paths; use AWS WAF/ALB/CloudFront-style controls as a second layer only.
 * When GitHub Actions is used for deployment, prefer OIDC-based cloud authentication over long-lived cloud access keys.
 
+## 2.6 Internal service certificate authentication
+
+Focused Go services that call privileged backend `/internal` routes must use certificate-based service authentication once those routes exist. Do not use browser JWTs, user passwords, shared static secrets, or long-lived bearer tokens for machine-to-machine privileged work.
+
+Rules:
+
+* Treat the Go backend as the internal certificate authority for this application unless a managed private CA is explicitly adopted later.
+* Keep the backend CA private key in environment-specific secret management, not source code, documentation, Docker images, frontend bundles, logs, or test fixtures.
+* Generate one-time handshake tokens with `crypto/rand`.
+* Store handshake tokens hashed or otherwise protected at rest where practical.
+* Make handshake tokens short-lived, single-use, scoped to the intended service identity, and auditable.
+* Require an elevated configuration/admin permission before a user can create a handshake token.
+* Require the internal service to generate its own key pair and submit a CSR; the backend must not create or return the service private key.
+* Validate CSRs before signing, including expected key type, key size, subject fields, and requested service identity.
+* Issue certificates with constrained validity periods, appropriate key usage values, and explicit service identity such as OU.
+* Authenticate `/internal` requests by parsing the presented certificate, verifying the backend CA signature, checking expiration, and extracting the service identity.
+* Authorize `/internal` routes separately after certificate authentication; a valid certificate must not imply access to every internal endpoint.
+* Fail closed when the certificate is missing, malformed, expired, signed by an unknown CA, has an unexpected service identity, or is not allowed for the route.
+* Log handshake creation, successful issuance, failed validation, and route denials without logging raw tokens, private keys, authorization headers, or full certificate bodies.
+* Plan for revocation or emergency disablement of a service identity if a service key or certificate is suspected to be compromised.
+
+## 2.7 Request-scoped database transactions
+
+The Go backend uses request-scoped GORM transactions for HTTP request handling. This is a security and consistency control: a failed request must not leave partially written tenant, asset, vulnerability, session, workflow, or audit data behind.
+
+Rules:
+
+* Keep request transaction lifecycle ownership in middleware.
+* Store the request transaction in the server-side request context, not in browser-controlled state.
+* Commit only when the request completes successfully and no application errors were recorded.
+* Roll back on failed status codes, recorded handler errors, failed transaction setup, and panics.
+* Keep tenant authorization checks inside the same request flow that performs writes.
+* Keep transactions short; avoid holding the request transaction open across slow external API calls when the work can be safely reordered.
+* Do not start independent database transactions that bypass the request transaction for normal request-owned writes.
+* Nested GORM transactions may be used intentionally for savepoint behavior, such as rolling back a focused inner operation while preserving the outer request transaction.
+* Add or update tests when changing transaction commit/rollback behavior.
+
 ---
 
 # 3. OWASP Top 10:2025 Requirements
@@ -625,8 +662,8 @@ Unexpected conditions cause crashes, information leaks, partial writes, unauthor
 * Handle errors where they occur; do not rely only on a top-level handler.
 * Use Gin recovery middleware, but do not expose panic details to clients.
 * Return stable error codes and safe error messages.
-* Use database transactions for multi-step writes.
-* Roll back transactions on failure.
+* Use request-scoped database transactions for HTTP request writes.
+* Roll back request transactions on failure.
 * Set context deadlines and cancellation for database and external API calls.
 * Limit request-body size, upload size, pagination size, filter complexity, and query duration.
 * Handle missing, null, malformed, duplicate, stale, and out-of-order data safely.
@@ -697,7 +734,8 @@ Detailed error causes belong in protected structured logs, not in browser respon
   * Do not bind untrusted JSON directly into a model containing roles, tenant IDs, ownership fields, approval flags, or workflow states.
   * Map allowed DTO fields into domain models intentionally.
 * Scope all tenant-owned queries by organization, and only fall back to user-owned scope for legacy code that has not yet been migrated.
-* Use transactions for multi-record and workflow updates.
+* Use the request-scoped transaction from context for request-owned repository work.
+* Use nested GORM transactions only when savepoint behavior or focused multi-step persistence is intentional.
 * Use a least-privileged database account for the running application.
 * Use a separate migration account where practical.
 * Do not run automatic schema changes against production without approval.
@@ -800,6 +838,7 @@ The application API must also address OWASP API Security concerns.
 * Use API versioning deliberately.
 * Use opaque or non-sequential identifiers where enumeration risk is high, but never treat obscurity as authorization.
 * Add idempotency for high-value creation or workflow operations.
+* Protect privileged `/internal` routes with certificate authentication and route-level service identity authorization.
 * Secure file uploads:
 
   * allowlist type and extension
@@ -891,6 +930,8 @@ Before deployment:
 * [ ] Production debug features are disabled
 * [ ] Security headers are enabled and tested
 * [ ] TLS is enforced
+* [ ] Internal service certificates are verified and route-scoped before privileged `/internal` work is allowed
+* [ ] Request-scoped transaction commit and rollback behavior is tested
 * [ ] Database credentials are least privilege
 * [ ] Logs are structured, redacted, retained, and monitored
 * [ ] Error responses are safe

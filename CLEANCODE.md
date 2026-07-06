@@ -779,7 +779,7 @@ Services should:
 * Enforce business rules
 * Enforce workflow transitions
 * Coordinate repository calls
-* Coordinate transactions
+* Rely on request-scoped transaction middleware for normal HTTP request atomicity
 * Call external clients
 * Write audit events
 * Return domain errors
@@ -801,7 +801,8 @@ Repositories should:
 * Persist records
 * Apply tenant scope
 * Return persistence/domain data
-* Use transactions passed from higher layers when needed
+* Use the request-scoped `GinContext` database handle when present
+* Use focused nested GORM transactions only when savepoint behavior is intentional
 
 Repositories should not:
 
@@ -1160,9 +1161,22 @@ pgx:
 - Advanced query patterns
 ```
 
+## 9.3 Request transaction rules
+
+HTTP request persistence uses request-scoped GORM transactions. Middleware begins the transaction, stores it in request context, commits successful requests, and rolls back failed requests.
+
+Rules:
+
+* Repositories should use the database handle from request context when present.
+* Do not call `Begin`, `Commit`, or `Rollback` directly in repositories for the outer request transaction.
+* Use nested `db.Transaction(...)` only when the operation needs an explicit multi-step boundary or savepoint behavior.
+* Keep transactions short.
+* Do not hold a request transaction open during slow external API calls when the operation can be reordered safely.
+* Tests that change middleware or repository transaction behavior must cover commit and rollback outcomes.
+
 If GORM and pgx must participate in the same business transaction, document the transaction strategy clearly. Do not assume separately-managed GORM and pgx calls are automatically atomic together.
 
-## 9.3 pgx resource rules
+## 9.4 pgx resource rules
 
 When using `pgx`:
 

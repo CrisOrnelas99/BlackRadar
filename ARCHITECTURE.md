@@ -16,9 +16,11 @@ BlackRadar Security Platform is a cybersecurity asset-risk platform built around
 - backend OpenAI-assisted asset creation, product matching, and vulnerability relevance support
 - focused Go services for limited background tasks
 - HTTPS/TLS termination at the deployment boundary with server-side certificate handling
+- planned backend-issued certificates for privileged internal service authentication
 - GitHub Actions CI/CD for automated validation, build artifacts, and protected releases
 - future AWS deployment can host the backend, database, certificates, logging, scheduled jobs, and dedicated single-tenant instances through managed services
 - organization-scoped tenancy enforced by the backend
+- request-scoped GORM transactions for atomic backend request handling
 - future multi-organization membership can be layered on top of the tenant boundary with server-side active-organization switching
 
 The backend is the trust boundary. Angular never talks directly to NVD, OpenAI, or internal services.
@@ -30,6 +32,8 @@ The backend is the trust boundary. Angular never talks directly to NVD, OpenAI, 
 - Database: PostgreSQL
 - Local orchestration: Docker Compose
 - Secure deployments should terminate TLS in a reverse proxy or in the Go backend, but certificates stay server-side
+- Request-scoped GORM middleware opens one database transaction per HTTP request and stores it on `GinContext`
+- Planned internal service auth: backend-issued certificates for privileged `/internal` service calls
 - AWS is a later deployment layer, not a replacement for the backend trust boundary
 
 ## Backend Responsibilities
@@ -53,6 +57,8 @@ The Go backend owns:
 - endpoint rate limiting for auth, NVD lookup, and AI-assisted paths
 - structured request logging and security logging
 - safe error handling and input validation
+- request transaction lifecycle management through middleware
+- planned internal service certificate authority duties for onboarding, signing, and verifying focused Go service identities
 - cloud deployment compatibility for managed services such as ECR, ECS/Fargate, RDS, ALB/ACM, CloudWatch, Secrets Manager, and EventBridge
 - CI/CD compatibility for GitHub Actions workflows, required checks, and artifact promotion
 
@@ -119,6 +125,30 @@ Planned data expansion includes:
 - chat sessions and retrieved context records
 - CVE sync history and import audit records
 
+## Request-Scoped Database Transactions
+
+The current Go backend uses request-scoped GORM transactions for normal HTTP request handling.
+
+Flow:
+
+1. `RequestContext` creates the request-scoped `GinContext`.
+2. `GormMiddleware` begins a GORM transaction for the request.
+3. The transaction is stored on `GinContext` through `SetDatabase`.
+4. Controllers, services, and repositories receive the same `GinContext`.
+5. Repositories call their context-aware database helper and use the request transaction instead of the base database handle.
+6. At the end of the request, the middleware commits only when the response status is `200` through `203` and no Gin context errors were recorded.
+7. The middleware rolls back when the request returns another status, records context errors, fails to begin cleanly, or panics.
+
+Nested `db.Transaction(...)` calls inside repositories or services run under the request transaction. With GORM and PostgreSQL, those nested transactions become savepoints, which lets focused operations roll back locally without abandoning the entire outer transaction when the code intentionally handles the inner error.
+
+Design rules:
+
+- Middleware owns the request transaction lifecycle.
+- Repositories do not call `Begin`, `Commit`, or `Rollback` for the request itself.
+- Repositories may still use focused nested GORM transactions for multi-step persistence operations and savepoint behavior.
+- External calls such as NVD and OpenAI should happen before expensive database writes when practical so request transactions stay short.
+- Handlers and services must return safe errors and status codes consistently because non-success responses cause rollback.
+
 ## API Surface
 
 Implemented auth routes:
@@ -171,9 +201,37 @@ The backend remains the trust boundary for future feature work. Planned surfaces
 - `POST /api/sync/nvd`
 - `GET /api/alerts`
 - `PATCH /api/alerts/{id}/acknowledge`
+- admin-only handshake-token creation for onboarding internal services
+- internal-service handshake for exchanging a one-time token and CSR for a signed service certificate
+- certificate-protected `/internal` routes for focused Go service calls
 - organization-scoped work order, checklist, exception, remediation, and comment endpoints
 - dashboard summary endpoints
 - future Angular-facing organization and workflow endpoints remain backend-authenticated and organization-scoped
+
+## Planned Internal Service Authentication
+
+Future focused Go services, such as alert evaluation or CVE synchronization workers, should not authenticate to privileged backend routes with browser JWTs, shared passwords, or static bearer tokens. Internal service identity should use backend-issued certificates.
+
+Planned flow:
+
+1. An administrator with the appropriate configuration permission creates a short-lived, one-time handshake token.
+2. The internal service generates its own key pair and CSR.
+3. The service calls a backend handshake endpoint with the one-time token and CSR.
+4. The backend validates that the token exists, is unexpired, and has not been consumed.
+5. The backend signs the CSR with its configured internal CA private key and returns a signed service certificate.
+6. Later privileged internal requests include the signed certificate in a dedicated internal-auth header or equivalent internal transport mechanism.
+7. Certificate authentication middleware parses the certificate, verifies that it was signed by the backend CA, checks expiration, extracts the service identity such as OU, and adds that identity to request context.
+8. Route-level middleware checks whether that service identity is allowed to call the specific internal route.
+
+Design rules:
+
+- This is separate from public HTTPS/TLS certificates used at the deployment boundary.
+- The one-time handshake token is only an onboarding secret; it is not a long-term credential.
+- Service private keys must be generated and stored by the service, never by Angular or browser code.
+- The backend CA private key must come from environment-specific secret management, not source control.
+- Certificates should carry a constrained service identity such as `alert-service` or `cve-sync-service`.
+- A valid certificate proves service identity, but route-level authorization still decides what that service can do.
+- Handshake attempts, certificate issuance, validation failures, and route denials should be logged without raw tokens, private keys, or full certificate bodies.
 
 ## NVD / Vulnerability Handling
 
@@ -259,3 +317,4 @@ Key current rules:
 - keep NVD and AI calls server-side
 - store imported vulnerability data locally
 - keep future organization switching, workflow actions, and background services backend-authenticated and tenant-scoped
+- require certificate-based service identity and route-level service authorization before exposing privileged `/internal` routes
