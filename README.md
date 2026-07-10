@@ -109,7 +109,7 @@ The repository currently contains these working foundations:
 - controller → service → repository layering
 - GORM AutoMigrate provisioning
 - Docker Compose support for PostgreSQL and backend
-- Angular frontend project scaffold under `frontend-angular/`
+- Angular UI project scaffold under `BlackRadar/ui/`
 
 ## Planned Extensions
 
@@ -136,8 +136,13 @@ Future work documented in `ARCHITECTURE.md` includes:
 
 ```text
 AssetManagementRisk/
-|-- backend-Go/
-|-- frontend-angular/
+|-- BlackRadar/
+|   |-- api/
+|   |-- ui/
+|   |-- Dockerfile
+|   |-- go.mod
+|   |-- go.sum
+|   `-- main.go
 |-- docker-compose.yml
 |-- .env
 |-- README.md
@@ -147,10 +152,10 @@ AssetManagementRisk/
 `-- AGENTS.md
 ```
 
-Inside `backend-Go/`:
+Inside `BlackRadar/`:
 
 ```text
-backend-Go/
+BlackRadar/
 |-- api/
 |   |-- config/
 |   |-- controller/
@@ -164,6 +169,7 @@ backend-Go/
 |-- Dockerfile
 |-- go.mod
 |-- go.sum
+|-- ui/
 `-- main.go
 ```
 
@@ -219,10 +225,10 @@ docker compose ps
 Use `15432` when another PostgreSQL process is already using local port `5432`.
 The `docker compose ps` output should show `15432->5432/tcp`.
 
-Then run the backend from `backend-Go/`:
+Then run the backend from `BlackRadar/`:
 
 ```powershell
-cd backend-Go
+cd BlackRadar
 $env:DATABASE_URL = 'postgres://secureops_user:s5e4c3u2r1e@127.0.0.1:15432/secureops'
 $env:JWT_SECRET = 't1h2i3s4I5s6A7R8a9n0d1o2m3S4e5c6r7e8t'
 $env:BOOTSTRAP_DEV_DATA = 'true'
@@ -255,7 +261,7 @@ Stop-Process -Id <PID> -Force
 
 ### Frontend status
 
-The Angular frontend lives in `frontend-angular/` but is not yet wired into Docker Compose in the current repository state.
+The Angular UI lives in `BlackRadar/ui/` but is not yet wired into Docker Compose in the current repository state.
 Treat it as work-in-progress rather than production ready.
 
 ### Environment configuration

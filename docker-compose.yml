@@ -1,7 +1,7 @@
 services:
   postgres:
     image: postgres:16
-    container_name: secureops-postgres
+    container_name: blackradar-postgres
     restart: unless-stopped
     env_file:
       - .env
@@ -21,8 +21,8 @@ services:
 
   backend:
     build:
-      context: ./backend-Go
-    container_name: secureops-backend
+      context: ./BlackRadar
+    container_name: blackradar-backend
     restart: unless-stopped
     env_file:
       - .env
