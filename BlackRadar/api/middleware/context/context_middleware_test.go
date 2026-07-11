@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	appcontext "blackradar/api/requestContext"
+	appcontext "blackradar/api/context"
 )
 
 func TestRequestContextStoresGinContextAndContinues(t *testing.T) {
@@ -15,7 +15,10 @@ func TestRequestContextStoresGinContextAndContinues(t *testing.T) {
 	router := gin.New()
 	router.Use(RequestContext())
 	router.GET("/resource", func(ctx *gin.Context) {
-		ec := appcontext.FromGinContext(ctx)
+		ec, err := appcontext.FromGinContext(ctx)
+		if err != nil {
+			t.Fatalf("expected request context, got %v", err)
+		}
 
 		if ec.Context != ctx {
 			t.Fatal("expected request context to wrap current Gin context")

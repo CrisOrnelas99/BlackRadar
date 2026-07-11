@@ -14,9 +14,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
-	appcontext "blackradar/api/requestContext"
-	aiservice "blackradar/api/service/ai"
+	baseservice "blackradar/api/service"
 )
 
 func TestAIControllerTestProvider(t *testing.T) {
@@ -109,7 +109,7 @@ func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request dt
 	return f.response, nil
 }
 
-var _ aiservice.TextGenerationService = (*fakeTextGenerationService)(nil)
+var _ baseservice.TextGenerationService = (*fakeTextGenerationService)(nil)
 
 func newAIControllerContext(t *testing.T) (*appcontext.GinContext, *httptest.ResponseRecorder) {
 	t.Helper()

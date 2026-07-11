@@ -10,10 +10,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
-	appcontext "blackradar/api/requestContext"
 )
 
 var cveIDPattern = regexp.MustCompile(`^CVE-\d{4}-\d{4,}$`)
@@ -169,8 +169,8 @@ func AuthenticatedUserID(ec *appcontext.GinContext) (string, error) {
 		return "", ErrForbidden
 	}
 
-	userID := ec.UserID()
-	if userID == "" {
+	userID, err := ec.UserID()
+	if err != nil {
 		return "", ErrForbidden
 	}
 
@@ -183,12 +183,26 @@ func AuthenticatedOrganizationID(ec *appcontext.GinContext) (string, error) {
 		return "", ErrForbidden
 	}
 
-	organizationID := ec.OrganizationID()
-	if organizationID == "" {
+	organizationID, err := ec.OrganizationID()
+	if err != nil {
 		return "", ErrForbidden
 	}
 
 	return organizationID, nil
+}
+
+// AuthenticatedRole returns the authenticated role from the request context.
+func AuthenticatedRole(ec *appcontext.GinContext) (string, error) {
+	if ec == nil {
+		return "", ErrForbidden
+	}
+
+	role, err := ec.UserRole()
+	if err != nil {
+		return "", ErrForbidden
+	}
+
+	return role, nil
 }
 
 // NormalizeRegisterRequest trims and normalizes registration input.

@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"blackradar/api/model"
-	appcontext "blackradar/api/requestContext"
+	appcontext "blackradar/api/context"
 )
 
 // TestAssetRepositoryDatabasePrefersContextDB verifies the context database is preferred.

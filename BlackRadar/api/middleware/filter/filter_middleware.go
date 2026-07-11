@@ -7,8 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	appcontext "blackradar/api/context"
 	middlewareerrors "blackradar/api/middleware"
-	appcontext "blackradar/api/requestContext"
 )
 
 // RequestFilter blocks suspicious requests that match common attack patterns.
@@ -29,12 +29,14 @@ func RequestFilter() gin.HandlerFunc {
 		}
 
 		if reason != "" {
-			appcontext.FromGinContext(c).Logger().Warn("blocked suspicious request",
-				"method", c.Request.Method,
-				"path", c.Request.URL.Path,
-				"reason", reason,
-				"source_ip", c.ClientIP(),
-			)
+			if ec, err := appcontext.FromGinContext(c); err == nil {
+				ec.Logger().Warn("blocked suspicious request",
+					"method", c.Request.Method,
+					"path", c.Request.URL.Path,
+					"reason", reason,
+					"source_ip", c.ClientIP(),
+				)
+			}
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": middlewareerrors.ErrSuspiciousRequest.Message})
 			return
 		}

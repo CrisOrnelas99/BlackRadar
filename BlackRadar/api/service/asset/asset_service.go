@@ -6,23 +6,23 @@ import (
 	"fmt"
 	"strings"
 
+	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
-	appcontext "blackradar/api/requestContext"
 	baseservice "blackradar/api/service"
-	aiservice "blackradar/api/service/ai"
+	promptservice "blackradar/api/service/prompt"
 )
 
 type assetServiceImpl struct {
 	assetRepository         baserepository.AssetRepository
 	vulnerabilityRepository baserepository.VulnerabilityRepository
 	nvdLookupService        baseservice.NVDLookupService
-	textAI                  aiservice.TextGenerationService
+	textAI                  baseservice.TextGenerationService
 }
 
 // NewAssetService creates an asset service backed by the supplied repository.
-func NewAssetService(assetRepository baserepository.AssetRepository, vulnerabilityRepository baserepository.VulnerabilityRepository, nvdLookupService baseservice.NVDLookupService, textAI aiservice.TextGenerationService) baseservice.AssetService {
+func NewAssetService(assetRepository baserepository.AssetRepository, vulnerabilityRepository baserepository.VulnerabilityRepository, nvdLookupService baseservice.NVDLookupService, textAI baseservice.TextGenerationService) baseservice.AssetService {
 	return &assetServiceImpl{
 		assetRepository:         assetRepository,
 		vulnerabilityRepository: vulnerabilityRepository,
@@ -93,7 +93,7 @@ func (s *assetServiceImpl) CreateAssetFromAI(ec *appcontext.GinContext, rawText 
 		return model.Asset{}, err
 	}
 
-	response, err := s.textAI.GenerateText(ec.RequestContext(), aiservice.BuildAssetCreationExtractionRequest(sanitizedText))
+	response, err := s.textAI.GenerateText(ec.RequestContext(), promptservice.BuildAssetCreationExtractionRequest(sanitizedText))
 	if err != nil {
 		return model.Asset{}, fmt.Errorf("%w: asset extraction failed", baseservice.ErrExternalService)
 	}
@@ -134,9 +134,9 @@ func (s *assetServiceImpl) DeleteAsset(ec *appcontext.GinContext, id string) (mo
 
 // AssignVulnerability attaches a vulnerability to an asset owned by the authenticated user.
 func (s *assetServiceImpl) AssignVulnerability(ec *appcontext.GinContext, assetID string, vulnerabilityID string) (model.Asset, error) {
-	role := ""
-	if ec != nil {
-		role = ec.UserRole()
+	role, err := baseservice.AuthenticatedRole(ec)
+	if err != nil {
+		return model.Asset{}, baseservice.ErrForbidden
 	}
 	if !baseservice.CanManageVulnerabilities(role) {
 		return model.Asset{}, baseservice.ErrForbidden
@@ -152,9 +152,9 @@ func (s *assetServiceImpl) AssignVulnerability(ec *appcontext.GinContext, assetI
 
 // AssignVulnerabilityByCVE looks up or stores a local vulnerability by CVE ID, then assigns it to the asset.
 func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, assetID string, cveID string) (model.Asset, error) {
-	role := ""
-	if ec != nil {
-		role = ec.UserRole()
+	role, err := baseservice.AuthenticatedRole(ec)
+	if err != nil {
+		return model.Asset{}, baseservice.ErrForbidden
 	}
 	if !baseservice.CanManageVulnerabilities(role) {
 		return model.Asset{}, baseservice.ErrForbidden
@@ -200,9 +200,9 @@ func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, a
 
 // RemoveVulnerability removes a vulnerability from an asset owned by the authenticated user.
 func (s *assetServiceImpl) RemoveVulnerability(ec *appcontext.GinContext, assetID string, vulnerabilityID string) (model.Asset, error) {
-	role := ""
-	if ec != nil {
-		role = ec.UserRole()
+	role, err := baseservice.AuthenticatedRole(ec)
+	if err != nil {
+		return model.Asset{}, baseservice.ErrForbidden
 	}
 	if !baseservice.CanManageVulnerabilities(role) {
 		return model.Asset{}, baseservice.ErrForbidden
@@ -217,9 +217,14 @@ func (s *assetServiceImpl) RemoveVulnerability(ec *appcontext.GinContext, assetI
 }
 
 func (s *assetServiceImpl) saveNVDVulnerability(ec *appcontext.GinContext, organizationID string, response dto.CVELookupResponse, existing model.Vulnerability) (model.Vulnerability, error) {
+	userID, err := baseservice.AuthenticatedUserID(ec)
+	if err != nil {
+		return model.Vulnerability{}, err
+	}
+
 	vulnerability := model.Vulnerability{
 		OrganizationID: organizationID,
-		UserID:         ec.UserID(),
+		UserID:         userID,
 		CVEID:          response.CVEID,
 		Title:          response.Title,
 		Severity:       baseservice.NormalizeSeverity(response.Severity),

@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	appcontext "blackradar/api/requestContext"
+	appcontext "blackradar/api/context"
 )
 
 // RequestContext initializes request metadata, logger, and the request-scoped GinContext wrapper.

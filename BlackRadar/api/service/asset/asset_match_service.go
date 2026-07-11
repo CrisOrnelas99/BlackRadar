@@ -11,13 +11,13 @@ import (
 	"strings"
 	"time"
 
+	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
 	assetrepo "blackradar/api/repository/asset"
-	appcontext "blackradar/api/requestContext"
 	baseservice "blackradar/api/service"
-	aiservice "blackradar/api/service/ai"
+	promptservice "blackradar/api/service/prompt"
 )
 
 // CPECandidateSearcher looks up NVD CPE candidates for a normalized search request.
@@ -56,12 +56,12 @@ type assetMatchServiceImpl struct {
 	vulnRepository  baserepository.VulnerabilityRepository
 	cpeSearcher     CPECandidateSearcher
 	cveSearcher     CVEByCPESearcher
-	textAI          aiservice.TextGenerationService
+	textAI          baseservice.TextGenerationService
 	now             func() time.Time
 }
 
 // NewAssetMatchService creates a backend-only asset matching service.
-func NewAssetMatchService(assetRepository baserepository.AssetRepository, vulnRepository baserepository.VulnerabilityRepository, cpeSearcher CPECandidateSearcher, cveSearcher CVEByCPESearcher, textAI aiservice.TextGenerationService) *assetMatchServiceImpl {
+func NewAssetMatchService(assetRepository baserepository.AssetRepository, vulnRepository baserepository.VulnerabilityRepository, cpeSearcher CPECandidateSearcher, cveSearcher CVEByCPESearcher, textAI baseservice.TextGenerationService) *assetMatchServiceImpl {
 	return &assetMatchServiceImpl{
 		assetRepository: assetRepository,
 		vulnRepository:  vulnRepository,
@@ -198,9 +198,9 @@ func (s *assetMatchServiceImpl) AnalyzeAndPersistAssetMatch(ec *appcontext.GinCo
 
 // AnalyzePersistAndAttachVulnerabilities matches a CPE, fetches NVD CVEs for it, and attaches them to the asset.
 func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appcontext.GinContext, assetID string) (model.Asset, error) {
-	role := ""
-	if ec != nil {
-		role = ec.UserRole()
+	role, err := baseservice.AuthenticatedRole(ec)
+	if err != nil {
+		return model.Asset{}, baseservice.ErrForbidden
 	}
 	if !baseservice.CanManageVulnerabilities(role) {
 		return model.Asset{}, baseservice.ErrForbidden
@@ -462,6 +462,11 @@ func (s *assetMatchServiceImpl) findKeywordFallbackCVEs(ctx context.Context, ana
 }
 
 func (s *assetMatchServiceImpl) findOrSaveNVDVulnerability(ec *appcontext.GinContext, organizationID string, response dto.CVELookupResponse) (model.Vulnerability, error) {
+	userID, err := baseservice.AuthenticatedUserID(ec)
+	if err != nil {
+		return model.Vulnerability{}, err
+	}
+
 	normalizedCVEID := baseservice.NormalizeCVEID(response.CVEID)
 	if err := baseservice.ValidateCVEID(normalizedCVEID); err != nil {
 		return model.Vulnerability{}, err
@@ -471,7 +476,7 @@ func (s *assetMatchServiceImpl) findOrSaveNVDVulnerability(ec *appcontext.GinCon
 	if err == nil {
 		return s.vulnRepository.UpdateForOrganization(ec, existing.ID, organizationID, model.Vulnerability{
 			OrganizationID: organizationID,
-			UserID:         ec.UserID(),
+			UserID:         userID,
 			CVEID:          normalizedCVEID,
 			Title:          firstNonEmptyString(response.Title, normalizedCVEID),
 			Severity:       baseservice.NormalizeSeverity(response.Severity),
@@ -485,7 +490,7 @@ func (s *assetMatchServiceImpl) findOrSaveNVDVulnerability(ec *appcontext.GinCon
 
 	return s.vulnRepository.Save(ec, model.Vulnerability{
 		OrganizationID: organizationID,
-		UserID:         ec.UserID(),
+		UserID:         userID,
 		CVEID:          normalizedCVEID,
 		Title:          firstNonEmptyString(response.Title, normalizedCVEID),
 		Severity:       baseservice.NormalizeSeverity(response.Severity),
@@ -559,7 +564,7 @@ func (s *assetMatchServiceImpl) normalizeFingerprintWithAI(ctx context.Context, 
 		return AssetFingerprint{}, false
 	}
 
-	response, err := s.textAI.GenerateText(ctx, aiservice.BuildAssetFingerprintExtractionRequest(
+	response, err := s.textAI.GenerateText(ctx, promptservice.BuildAssetFingerprintExtractionRequest(
 		rawText,
 		deterministic.Canonical,
 		asset.Name,
@@ -592,7 +597,7 @@ func (s *assetMatchServiceImpl) normalizeFingerprintWithAI(ctx context.Context, 
 }
 
 func (s *assetMatchServiceImpl) rankCandidates(ctx context.Context, fingerprint AssetFingerprint, keywordSearch string, candidates []dto.CPECandidate) (assetMatchRankingResponse, error) {
-	request := aiservice.BuildAssetMatchRankingRequest(fingerprint.Canonical, keywordSearch, candidates)
+	request := promptservice.BuildAssetMatchRankingRequest(fingerprint.Canonical, keywordSearch, candidates)
 	response, err := s.textAI.GenerateText(ctx, request)
 	if err != nil {
 		return assetMatchRankingResponse{}, err
@@ -611,7 +616,7 @@ func (s *assetMatchServiceImpl) rankKeywordCVEs(ctx context.Context, fingerprint
 		return assetCVERankingResponse{}, baseservice.ErrExternalService
 	}
 
-	request := aiservice.BuildAssetCVERankingRequest(fingerprint, keywordSearches, candidates)
+	request := promptservice.BuildAssetCVERankingRequest(fingerprint, keywordSearches, candidates)
 	response, err := s.textAI.GenerateText(ctx, request)
 	if err != nil {
 		return assetCVERankingResponse{}, err
@@ -630,7 +635,7 @@ func (s *assetMatchServiceImpl) expandCVEKeywordSearchesWithAI(ctx context.Conte
 		return deterministicSearches
 	}
 
-	request := aiservice.BuildAssetCVEKeywordSearchRequest(fingerprint, deterministicSearches)
+	request := promptservice.BuildAssetCVEKeywordSearchRequest(fingerprint, deterministicSearches)
 	response, err := s.textAI.GenerateText(ctx, request)
 	if err != nil {
 		logAssetMatchDebug(logger, "asset ai cve keyword search generation unavailable", "error", err.Error())

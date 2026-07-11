@@ -5,21 +5,22 @@ import (
 	"net/http"
 	"strings"
 
+	appcontext "blackradar/api/context"
 	basecontroller "blackradar/api/controller"
 	"blackradar/api/controller/dto"
-	appcontext "blackradar/api/requestContext"
-	aiservice "blackradar/api/service/ai"
+	baseservice "blackradar/api/service"
+	aiservice "blackradar/api/service/prompt"
 )
 
 const maxTemporaryAIMessageLength = 1000
 
 // AIController handles backend-only AI diagnostic HTTP requests.
 type AIController struct {
-	textAI aiservice.TextGenerationService
+	textAI baseservice.TextGenerationService
 }
 
 // NewAIController creates a new AIController.
-func NewAIController(textAI aiservice.TextGenerationService) *AIController {
+func NewAIController(textAI baseservice.TextGenerationService) *AIController {
 	return &AIController{textAI: textAI}
 }
 

@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
@@ -16,8 +15,6 @@ import (
 )
 
 const (
-	bootstrapPasswordEnvironmentVariable = "BOOTSTRAP_DEV_PASSWORD"
-
 	bootstrapOrganizationID = "77000000-0000-4000-8000-000000000000"
 	bootstrapUserID         = "77000000-0000-4000-8000-000000000001"
 	bootstrapAssetID        = "77000000-0000-4000-8000-000000000002"
@@ -48,52 +45,23 @@ func Run(ctx context.Context, database *gorm.DB, cfg config.Config) error {
 		return nil
 	}
 
-	if database == nil {
-		return fmt.Errorf("bootstrap dev data: database is required")
-	}
-
-	if err := validateBootstrapEnvironment(cfg.Environment); err != nil {
-		return err
-	}
-
-	password, err := bootstrapPassword()
-	if err != nil {
-		return err
-	}
-
-	return seedDevData(ctx, database, password)
-}
-
-// validateBootstrapEnvironment allows bootstrap data only in explicitly
-// approved non-production environments.
-func validateBootstrapEnvironment(environment string) error {
-	normalizedEnvironment := normalize(environment)
-
-	switch normalizedEnvironment {
-	case "local", "development", "dev", "test":
-		return nil
-	default:
+	if !cfg.AllowsBootstrapData() {
 		return fmt.Errorf(
-			"bootstrap dev data is not allowed in environment %q",
-			environment,
-		)
-	}
-}
-
-// bootstrapPassword reads the development administrator password from the
-// environment instead of storing a credential in source control.
-func bootstrapPassword() (string, error) {
-	password := strings.TrimSpace(
-		os.Getenv(bootstrapPasswordEnvironmentVariable),
-	)
-	if password == "" {
-		return "", fmt.Errorf(
-			"bootstrap dev data: %s must be set",
-			bootstrapPasswordEnvironmentVariable,
+			"%w: %q",
+			config.ErrBootstrapNotAllowed,
+			cfg.Environment,
 		)
 	}
 
-	return password, nil
+	if strings.TrimSpace(cfg.BootstrapDevPassword) == "" {
+		return fmt.Errorf("%w", config.ErrMissingBootstrapPassword)
+	}
+
+	if database == nil {
+		return fmt.Errorf("%w", ErrDatabaseRequired)
+	}
+
+	return seedDevData(ctx, database, cfg.BootstrapDevPassword)
 }
 
 // seedDevData recreates the known bootstrap records inside one transaction.
@@ -176,7 +144,8 @@ func validateExistingBootstrapOrganization(tx *gorm.DB) error {
 
 	if actualName != expectedName {
 		return fmt.Errorf(
-			"bootstrap organization ID %q belongs to organization %q",
+			"%w: %q belongs to organization %q",
+			ErrBootstrapOrganizationConflict,
 			bootstrapOrganizationID,
 			organization.Name,
 		)

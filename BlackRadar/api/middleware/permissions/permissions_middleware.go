@@ -6,8 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	appcontext "blackradar/api/context"
 	middlewareerrors "blackradar/api/middleware"
-	appcontext "blackradar/api/requestContext"
 	baseservice "blackradar/api/service"
 )
 
@@ -15,8 +15,14 @@ import (
 // It reads the trusted role from GinContext and returns 403 Forbidden when authorization fails.
 func RequireAdmin() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		ec := appcontext.FromGinContext(ctx)
-		if !baseservice.IsAdmin(ec.UserRole()) {
+		ec, err := appcontext.FromGinContext(ctx)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": middlewareerrors.ErrForbidden.Message})
+			return
+		}
+
+		role, err := baseservice.AuthenticatedRole(ec)
+		if err != nil || !baseservice.IsAdmin(role) {
 			ctx.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": middlewareerrors.ErrForbidden.Message})
 			return
 		}

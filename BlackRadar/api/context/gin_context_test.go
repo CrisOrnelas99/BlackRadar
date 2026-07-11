@@ -2,6 +2,7 @@ package requestcontext
 
 import (
 	stdcontext "context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -41,21 +42,21 @@ func TestSetGinContextAndFromGinContextReturnStoredContext(t *testing.T) {
 
 	SetGinContext(ginCtx, expected)
 
-	actual := FromGinContext(ginCtx)
-
+	actual, err := FromGinContext(ginCtx)
+	if err != nil {
+		t.Fatalf("expected stored GinContext, got %v", err)
+	}
 	if actual != expected {
 		t.Fatal("expected stored GinContext to be returned")
 	}
 }
 
-func TestFromGinContextFallsBackWhenMissingOrWrongType(t *testing.T) {
+func TestFromGinContextRejectsMissingOrWrongType(t *testing.T) {
 	tests := []struct {
 		name  string
 		setup func(*gin.Context)
 	}{
-		{
-			name: "missing",
-		},
+		{name: "missing"},
 		{
 			name: "wrong type",
 			setup: func(ctx *gin.Context) {
@@ -71,21 +72,24 @@ func TestFromGinContextFallsBackWhenMissingOrWrongType(t *testing.T) {
 				tt.setup(ginCtx)
 			}
 
-			actual := FromGinContext(ginCtx)
-
-			if actual == nil {
-				t.Fatal("expected fallback GinContext")
-			}
-			if actual.Context != ginCtx {
-				t.Fatal("expected fallback to wrap original Gin context")
-			}
-			if actual.TransactionID() != "" {
-				t.Fatalf("expected empty fallback transaction ID, got %q", actual.TransactionID())
-			}
-			if actual.Logger() == nil {
-				t.Fatal("expected fallback logger")
+			_, err := FromGinContext(ginCtx)
+			if !errors.Is(err, ErrContextNotInitialized) {
+				t.Fatalf("expected ErrContextNotInitialized, got %v", err)
 			}
 		})
+	}
+}
+
+func TestWrapRejectsMissingRequestContext(t *testing.T) {
+	ginCtx := newTestGinContext(t)
+	handlerCalled := false
+
+	Wrap(func(ctx *GinContext) {
+		handlerCalled = true
+	})(ginCtx)
+
+	if handlerCalled {
+		t.Fatal("expected wrapped handler not to run without request context")
 	}
 }
 
@@ -106,57 +110,88 @@ func TestWrapPassesGinContextToHandler(t *testing.T) {
 	}
 }
 
-func TestAuthenticatedUserValuesReturnExpectedTypesOnly(t *testing.T) {
+func TestPrincipalAccessorsRequireExplicitAuthentication(t *testing.T) {
 	ginCtx := newTestGinContext(t)
 	ctx := NewGinContext(ginCtx, "", slog.New(slog.NewTextHandler(io.Discard, nil)))
 
-	if ctx.UserID() != "" {
-		t.Fatalf("expected missing user ID to return empty string, got %q", ctx.UserID())
+	if _, err := ctx.Principal(); !errors.Is(err, ErrPrincipalNotSet) {
+		t.Fatalf("expected ErrPrincipalNotSet, got %v", err)
 	}
-	if ctx.Username() != "" {
-		t.Fatalf("expected missing username to return empty string, got %q", ctx.Username())
+	if _, err := ctx.UserID(); !errors.Is(err, ErrPrincipalNotSet) {
+		t.Fatalf("expected ErrPrincipalNotSet for user ID, got %v", err)
 	}
-	if ctx.UserRole() != "" {
-		t.Fatalf("expected missing user role to return empty string, got %q", ctx.UserRole())
+	if _, err := ctx.Username(); !errors.Is(err, ErrPrincipalNotSet) {
+		t.Fatalf("expected ErrPrincipalNotSet for username, got %v", err)
 	}
-	if ctx.OrganizationID() != "" {
-		t.Fatalf("expected missing organization ID to return empty string, got %q", ctx.OrganizationID())
+	if _, err := ctx.UserRole(); !errors.Is(err, ErrPrincipalNotSet) {
+		t.Fatalf("expected ErrPrincipalNotSet for role, got %v", err)
+	}
+	if _, err := ctx.OrganizationID(); !errors.Is(err, ErrPrincipalNotSet) {
+		t.Fatalf("expected ErrPrincipalNotSet for organization ID, got %v", err)
+	}
+}
+
+func TestSetPrincipalStoresValidatedIdentity(t *testing.T) {
+	ginCtx := newTestGinContext(t)
+	ctx := NewGinContext(ginCtx, "", slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	err := ctx.SetPrincipal(Principal{
+		UserID:         "00000000-0000-4000-8000-000000000042",
+		Username:       "analyst",
+		Role:           "user",
+		OrganizationID: "00000000-0000-4000-8000-000000000077",
+	})
+	if err != nil {
+		t.Fatalf("expected principal to be accepted, got %v", err)
+	}
+
+	userID, err := ctx.UserID()
+	if err != nil || userID != "00000000-0000-4000-8000-000000000042" {
+		t.Fatalf("expected user UUID, got %q error=%v", userID, err)
+	}
+	username, err := ctx.Username()
+	if err != nil || username != "analyst" {
+		t.Fatalf("expected username analyst, got %q error=%v", username, err)
+	}
+	role, err := ctx.UserRole()
+	if err != nil || role != "user" {
+		t.Fatalf("expected user role user, got %q error=%v", role, err)
+	}
+	organizationID, err := ctx.OrganizationID()
+	if err != nil || organizationID != "00000000-0000-4000-8000-000000000077" {
+		t.Fatalf("expected organization UUID, got %q error=%v", organizationID, err)
+	}
+}
+
+func TestSetPrincipalRejectsInvalidIdentity(t *testing.T) {
+	ginCtx := newTestGinContext(t)
+	ctx := NewGinContext(ginCtx, "", slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	err := ctx.SetPrincipal(Principal{
+		Username: "analyst",
+		Role:     "user",
+	})
+	if !errors.Is(err, ErrInvalidPrincipal) {
+		t.Fatalf("expected ErrInvalidPrincipal, got %v", err)
+	}
+}
+
+func TestCompatibilitySettersRequireCompletePrincipalForReads(t *testing.T) {
+	ginCtx := newTestGinContext(t)
+	ctx := NewGinContext(ginCtx, "", slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	ctx.SetUserRole("admin")
+	if _, err := ctx.UserRole(); !errors.Is(err, ErrInvalidPrincipal) {
+		t.Fatalf("expected ErrInvalidPrincipal, got %v", err)
 	}
 
 	ctx.SetUserID("00000000-0000-4000-8000-000000000042")
-	ctx.SetUsername("analyst")
-	ctx.SetUserRole("user")
 	ctx.SetOrganizationID("00000000-0000-4000-8000-000000000077")
+	ctx.SetUsername("analyst")
 
-	if ctx.UserID() != "00000000-0000-4000-8000-000000000042" {
-		t.Fatalf("expected user UUID, got %q", ctx.UserID())
-	}
-	if ctx.Username() != "analyst" {
-		t.Fatalf("expected username analyst, got %q", ctx.Username())
-	}
-	if ctx.UserRole() != "user" {
-		t.Fatalf("expected user role user, got %q", ctx.UserRole())
-	}
-	if ctx.OrganizationID() != "00000000-0000-4000-8000-000000000077" {
-		t.Fatalf("expected organization UUID, got %q", ctx.OrganizationID())
-	}
-
-	ctx.Set(userIDKey, "42")
-	ctx.Set(usernameKey, 42)
-	ctx.Set(userRoleKey, 42)
-	ctx.Set(organizationIDKey, "77")
-
-	if ctx.UserID() != "42" {
-		t.Fatalf("expected string user ID to be returned, got %q", ctx.UserID())
-	}
-	if ctx.Username() != "" {
-		t.Fatalf("expected wrong-type username to return empty string, got %q", ctx.Username())
-	}
-	if ctx.UserRole() != "" {
-		t.Fatalf("expected wrong-type user role to return empty string, got %q", ctx.UserRole())
-	}
-	if ctx.OrganizationID() != "77" {
-		t.Fatalf("expected string organization ID to be returned, got %q", ctx.OrganizationID())
+	role, err := ctx.UserRole()
+	if err != nil || role != "admin" {
+		t.Fatalf("expected role admin, got %q error=%v", role, err)
 	}
 }
 

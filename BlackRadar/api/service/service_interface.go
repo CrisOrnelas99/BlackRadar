@@ -2,9 +2,10 @@
 package service
 
 import (
+	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
 	"blackradar/api/model"
-	appcontext "blackradar/api/requestContext"
+	"context"
 )
 
 // AuthService defines the operations required for authentication flows.
@@ -67,4 +68,10 @@ type VulnerabilityService interface {
 type NVDLookupService interface {
 	// LookupCVE returns official NVD details for a single CVE ID.
 	LookupCVE(ec *appcontext.GinContext, cveID string) (dto.CVELookupResponse, error)
+}
+
+// TextGenerationService defines the minimal contract used for backend AI work.
+type TextGenerationService interface {
+	// GenerateText submits a prompt and returns the model output.
+	GenerateText(ctx context.Context, request dto.TextGenerationRequest) (dto.TextGenerationResponse, error)
 }

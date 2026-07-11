@@ -12,7 +12,7 @@ import (
 
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
-	appcontext "blackradar/api/requestContext"
+	appcontext "blackradar/api/context"
 )
 
 // TestRefreshSessionRepositoryDatabasePrefersContextDB verifies the context database is preferred.

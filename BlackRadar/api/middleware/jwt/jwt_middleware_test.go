@@ -9,10 +9,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	appcontext "blackradar/api/context"
 	contextmiddleware "blackradar/api/middleware/context"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
-	appcontext "blackradar/api/requestContext"
 	sharedjwt "blackradar/api/shared/jwt"
 )
 
@@ -60,6 +60,7 @@ func TestJWTAuthenticationFilterRejectsInvalidRequests(t *testing.T) {
 			}
 
 			router := gin.New()
+			router.Use(contextmiddleware.RequestContext())
 			router.Use(JWTAuthenticationFilter(jwtManager, tt.lookup, sessionLookup))
 			router.GET("/private", func(ctx *gin.Context) {
 				t.Fatal("handler should not run for invalid authentication")
@@ -100,18 +101,25 @@ func TestJWTAuthenticationFilterSetsAuthenticatedUserContext(t *testing.T) {
 	router.Use(contextmiddleware.RequestContext())
 	router.Use(JWTAuthenticationFilter(jwtManager, lookup, sessionLookup))
 	router.GET("/private", func(ctx *gin.Context) {
-		ec := appcontext.FromGinContext(ctx)
-		if ec.Username() != "analyst" {
-			t.Fatalf("expected username analyst, got %v", ec.Username())
+		ec, err := appcontext.FromGinContext(ctx)
+		if err != nil {
+			t.Fatalf("expected request context, got %v", err)
 		}
-		if ec.UserID() != "00000000-0000-4000-8000-000000000042" {
-			t.Fatalf("expected user ID 42, got %v", ec.UserID())
+		username, err := ec.Username()
+		if err != nil || username != "analyst" {
+			t.Fatalf("expected username analyst, got %v error=%v", username, err)
 		}
-		if ec.UserRole() != model.RoleUser {
-			t.Fatalf("expected user role %s, got %v", model.RoleUser, ec.UserRole())
+		userID, err := ec.UserID()
+		if err != nil || userID != "00000000-0000-4000-8000-000000000042" {
+			t.Fatalf("expected user ID 42, got %v error=%v", userID, err)
 		}
-		if ec.OrganizationID() != "00000000-0000-4000-8000-000000000099" {
-			t.Fatalf("expected organization ID 99, got %v", ec.OrganizationID())
+		role, err := ec.UserRole()
+		if err != nil || role != model.RoleUser {
+			t.Fatalf("expected user role %s, got %v error=%v", model.RoleUser, role, err)
+		}
+		organizationID, err := ec.OrganizationID()
+		if err != nil || organizationID != "00000000-0000-4000-8000-000000000099" {
+			t.Fatalf("expected organization ID 99, got %v error=%v", organizationID, err)
 		}
 		if lookup.existsContext == nil || lookup.findContext == nil {
 			t.Fatal("expected user lookup to receive GinContext")

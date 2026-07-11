@@ -12,9 +12,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
 	baseexternal "blackradar/api/external"
-	appcontext "blackradar/api/requestContext"
+	"blackradar/api/model"
 	baseservice "blackradar/api/service"
 )
 
@@ -96,7 +97,14 @@ func newNVDServiceContext(t *testing.T, userID string) *appcontext.GinContext {
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 	ec := appcontext.NewGinContext(ctx, "txn-123", slog.New(slog.NewTextHandler(io.Discard, nil)))
-	ec.SetUserID(userID)
+	if err := ec.SetPrincipal(appcontext.Principal{
+		UserID:         userID,
+		Username:       "analyst",
+		Role:           model.RoleAdmin,
+		OrganizationID: "00000000-0000-4000-8000-000000000099",
+	}); err != nil {
+		t.Fatalf("failed to set test principal: %v", err)
+	}
 	appcontext.SetGinContext(ctx, ec)
 	return ec
 }

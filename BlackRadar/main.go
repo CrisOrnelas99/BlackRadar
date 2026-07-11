@@ -41,9 +41,9 @@ import (
 )
 
 func main() {
-	cfg := config.Load()
-	if err := cfg.Validate(); err != nil {
-		log.Fatalf("configuration validation failed: %v", err)
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("load configuration: %v", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)

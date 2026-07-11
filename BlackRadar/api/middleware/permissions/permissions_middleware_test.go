@@ -7,8 +7,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	appcontext "blackradar/api/context"
+	contextmiddleware "blackradar/api/middleware/context"
 	"blackradar/api/model"
-	appcontext "blackradar/api/requestContext"
 )
 
 func TestRequireAdmin(t *testing.T) {
@@ -28,13 +29,22 @@ func TestRequireAdmin(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := gin.New()
+			router.Use(contextmiddleware.RequestContext())
 			if tt.role != nil {
 				router.Use(func(ctx *gin.Context) {
-					ec := appcontext.FromGinContext(ctx)
+					ec, err := appcontext.FromGinContext(ctx)
+					if err != nil {
+						t.Fatalf("expected request context, got %v", err)
+					}
 					if role, ok := tt.role.(string); ok {
-						ec.SetUserRole(role)
-					} else {
-						ctx.Set("userRole", tt.role)
+						if err := ec.SetPrincipal(appcontext.Principal{
+							UserID:         "00000000-0000-4000-8000-000000000042",
+							Username:       "analyst",
+							Role:           role,
+							OrganizationID: "00000000-0000-4000-8000-000000000099",
+						}); err != nil {
+							t.Fatalf("failed to set principal: %v", err)
+						}
 					}
 					ctx.Next()
 				})

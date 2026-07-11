@@ -16,16 +16,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	appcontext "blackradar/api/context"
 	basecontroller "blackradar/api/controller"
 	controllerai "blackradar/api/controller/ai"
 	controllerasset "blackradar/api/controller/asset"
 	controllerauth "blackradar/api/controller/auth"
 	"blackradar/api/controller/dto"
 	controllervulnerability "blackradar/api/controller/vulnerability"
+	contextmiddleware "blackradar/api/middleware/context"
 	jwtmiddleware "blackradar/api/middleware/jwt"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
-	appcontext "blackradar/api/requestContext"
 	"blackradar/api/service"
 	sharedjwt "blackradar/api/shared/jwt"
 )
@@ -87,8 +88,9 @@ func TestControllerHelper(t *testing.T) {
 // TestRegisterRoutes verifies the route registration wiring.
 func TestRegisterRoutes(t *testing.T) {
 	engine := gin.New()
+	engine.Use(contextmiddleware.RequestContext())
 	jwtManager := sharedjwt.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
-	lookup := &fakeUserLookup{exists: true, user: model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, Username: "analyst", Role: model.RoleAdmin}}
+	lookup := &fakeUserLookup{exists: true, user: model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, OrganizationID: "00000000-0000-4000-8000-000000000099", Username: "analyst", Role: model.RoleAdmin}}
 	sessions := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: "00000000-0000-4000-8000-000000000001"}}
 
 	authController := controllerauth.NewAuthController(&fakeAuthService{})
@@ -196,8 +198,9 @@ func TestRegisterRoutes(t *testing.T) {
 
 func TestRegisterRoutesRejectsVulnerabilityRoutesForNonAdmin(t *testing.T) {
 	engine := gin.New()
+	engine.Use(contextmiddleware.RequestContext())
 	jwtManager := sharedjwt.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
-	lookup := &fakeUserLookup{exists: true, user: model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, Username: "analyst", Role: model.RoleUser}}
+	lookup := &fakeUserLookup{exists: true, user: model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, OrganizationID: "00000000-0000-4000-8000-000000000099", Username: "analyst", Role: model.RoleUser}}
 	sessions := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: "00000000-0000-4000-8000-000000000001"}}
 
 	vulnerabilityController := controllervulnerability.NewVulnerabilityController(&fakeVulnerabilityService{vulnerability: sampleVulnerability(), vulnerabilities: []model.Vulnerability{sampleVulnerability()}})

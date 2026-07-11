@@ -9,7 +9,7 @@ import (
 	jwtmiddleware "blackradar/api/middleware/jwt"
 	"blackradar/api/middleware/permissions"
 	ratelimit "blackradar/api/middleware/rate_limit"
-	appcontext "blackradar/api/requestContext"
+	appcontext "blackradar/api/context"
 	sharedjwt "blackradar/api/shared/jwt"
 )
 

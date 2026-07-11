@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	basecontroller "blackradar/api/controller"
-	appcontext "blackradar/api/requestContext"
+	appcontext "blackradar/api/context"
 	baseservice "blackradar/api/service"
 )
 

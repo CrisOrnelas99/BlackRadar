@@ -235,6 +235,7 @@ cd BlackRadar
 $env:DATABASE_URL = 'postgres://secureops_user:s5e4c3u2r1e@127.0.0.1:15432/secureops'
 $env:JWT_SECRET = 't1h2i3s4I5s6A7R8a9n0d1o2m3S4e5c6r7e8t'
 $env:BOOTSTRAP_DEV_DATA = 'true'
+$env:BOOTSTRAP_DEV_PASSWORD = 'choose-a-local-dev-password'
 go run .
 ```
 
@@ -245,15 +246,16 @@ Docker Compose reads `.env` for containers.
 `BOOTSTRAP_DEV_DATA=true` is optional. When enabled in development, startup creates or updates a local test setup:
 
 - admin username: `system_admin`
-- email: `test@gmail.com`
+- email: `system_admin@example.invalid`
 - organization: `admin_home`
-- password: `Password123!`
+- password: value from `BOOTSTRAP_DEV_PASSWORD`
 - one test device asset
 - one assigned example vulnerability: `CVE-2021-44228`
 
 Registration also requires an organization name so new users are bound to the correct tenant boundary at signup.
 
 The bootstrap flag is rejected in production mode.
+Bootstrap also requires `BOOTSTRAP_DEV_PASSWORD` and does not keep a default password in source control.
 
 If port `8080` is already in use, stop the old local backend process before restarting:
 

@@ -7,9 +7,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	appcontext "blackradar/api/context"
 	middlewareerrors "blackradar/api/middleware"
 	"blackradar/api/model"
-	appcontext "blackradar/api/requestContext"
 	sharedjwt "blackradar/api/shared/jwt"
 )
 
@@ -43,7 +43,11 @@ func JWTAuthenticationFilter(jwtManager *sharedjwt.JWTManager, users UserLookup,
 			return
 		}
 
-		ec := appcontext.FromGinContext(ctx)
+		ec, err := appcontext.FromGinContext(ctx)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": middlewareerrors.ErrUnauthorized.Message})
+			return
+		}
 		exists, err := users.ExistsByUsername(ec, claims.Subject)
 		if err != nil || !exists {
 			JWTAuthenticationEntryPoint(ctx)
@@ -66,10 +70,15 @@ func JWTAuthenticationFilter(jwtManager *sharedjwt.JWTManager, users UserLookup,
 			return
 		}
 
-		ec.SetUsername(claims.Subject)
-		ec.SetUserID(user.ID)
-		ec.SetOrganizationID(user.OrganizationID)
-		ec.SetUserRole(user.Role)
+		if err := ec.SetPrincipal(appcontext.Principal{
+			UserID:         user.ID,
+			Username:       claims.Subject,
+			Role:           user.Role,
+			OrganizationID: user.OrganizationID,
+		}); err != nil {
+			JWTAuthenticationEntryPoint(ctx)
+			return
+		}
 		ctx.Next()
 	}
 }

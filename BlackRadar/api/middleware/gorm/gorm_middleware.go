@@ -7,8 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
+	appcontext "blackradar/api/context"
 	middlewareerrors "blackradar/api/middleware"
-	appcontext "blackradar/api/requestContext"
 )
 
 // GormMiddleware opens one database transaction for the request and stores it on GinContext.
@@ -16,8 +16,12 @@ import (
 // become savepoints under this request transaction.
 func GormMiddleware(database *gorm.DB) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		ec := appcontext.FromGinContext(ctx)
 		if database == nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": middlewareerrors.ErrDatabaseUnavailable.Message})
+			return
+		}
+		ec, err := appcontext.FromGinContext(ctx)
+		if err != nil {
 			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": middlewareerrors.ErrDatabaseUnavailable.Message})
 			return
 		}

@@ -14,8 +14,8 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	appcontext "blackradar/api/context"
 	contextmiddleware "blackradar/api/middleware/context"
-	appcontext "blackradar/api/requestContext"
 )
 
 func init() {
@@ -32,7 +32,10 @@ func TestGormMiddlewareCommitsSuccessfulRequestTransaction(t *testing.T) {
 
 	var requestDatabase *gorm.DB
 	router.GET("/resource", func(ctx *gin.Context) {
-		ec := appcontext.FromGinContext(ctx)
+		ec, err := appcontext.FromGinContext(ctx)
+		if err != nil {
+			t.Fatalf("expected request context, got %v", err)
+		}
 		requestDatabase = ec.Database()
 		if requestDatabase == nil {
 			t.Fatal("expected request transaction to be stored on GinContext")

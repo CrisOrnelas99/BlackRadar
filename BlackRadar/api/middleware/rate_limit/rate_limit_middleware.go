@@ -9,9 +9,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
 	middlewareerrors "blackradar/api/middleware"
-	appcontext "blackradar/api/requestContext"
 )
 
 const defaultRateLimitWindow = time.Minute
@@ -73,14 +73,17 @@ func newRateLimitMiddleware(rule RateLimitRule) gin.HandlerFunc {
 			return
 		}
 
-		ec := appcontext.FromGinContext(ctx)
-		ec.Logger().Warn("rate limit exceeded",
-			"rule", rule.Name,
-			"method", ctx.Request.Method,
-			"path", ctx.Request.URL.Path,
-			"source_ip", key,
-			"retry_after_seconds", int64(retryAfter.Seconds()),
-		)
+		requestID := ""
+		if ec, err := appcontext.FromGinContext(ctx); err == nil {
+			ec.Logger().Warn("rate limit exceeded",
+				"rule", rule.Name,
+				"method", ctx.Request.Method,
+				"path", ctx.Request.URL.Path,
+				"source_ip", key,
+				"retry_after_seconds", int64(retryAfter.Seconds()),
+			)
+			requestID = ec.TransactionID()
+		}
 
 		if retryAfter > 0 {
 			ctx.Header("Retry-After", fmt.Sprintf("%d", int64(retryAfter.Seconds())))
@@ -89,7 +92,7 @@ func newRateLimitMiddleware(rule RateLimitRule) gin.HandlerFunc {
 		ctx.AbortWithStatusJSON(http.StatusTooManyRequests, dto.ErrorResponse{
 			Code:      "RATE_LIMITED",
 			Message:   middlewareerrors.ErrRateLimited.Message,
-			RequestID: ec.TransactionID(),
+			RequestID: requestID,
 		})
 	}
 }

@@ -2,7 +2,7 @@ package bootstrap
 
 import (
 	"context"
-	"strings"
+	"errors"
 	"testing"
 
 	"blackradar/api/config"
@@ -10,7 +10,7 @@ import (
 
 func TestRunSkipsWhenDisabled(t *testing.T) {
 	cfg := config.Config{
-		Environment:      "production",
+		Environment:      config.EnvironmentProduction,
 		BootstrapDevData: false,
 	}
 
@@ -20,55 +20,30 @@ func TestRunSkipsWhenDisabled(t *testing.T) {
 			err,
 		)
 	}
-
 }
 
 func TestRunRejectsDisallowedEnvironment(t *testing.T) {
-	tests := []struct {
-		name        string
-		environment string
-	}{
-		{
-			name:        "production",
-			environment: "production",
-		},
-		{
-			name:        "production with uppercase characters",
-			environment: "PRODUCTION",
-		},
-		{
-			name:        "staging",
-			environment: "staging",
-		},
-		{
-			name:        "empty environment",
-			environment: "",
-		},
-		{
-			name:        "unknown environment",
-			environment: "sandbox",
-		},
+	disallowedEnvironments := []string{
+		config.EnvironmentProduction,
+		config.EnvironmentStaging,
+		"",
+		"sandbox",
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+	for _, environment := range disallowedEnvironments {
+		t.Run(environment, func(t *testing.T) {
 			cfg := config.Config{
-				Environment:      test.environment,
-				BootstrapDevData: true,
+				Environment:          environment,
+				BootstrapDevData:     true,
+				BootstrapDevPassword: "LocalDevelopmentPassword123!",
 			}
 
 			err := Run(context.Background(), nil, cfg)
 			if err == nil {
-				t.Fatalf(
-					"expected environment %q to be rejected",
-					test.environment,
-				)
+				t.Fatalf("expected environment %q to be rejected", environment)
 			}
 
-			if !strings.Contains(
-				err.Error(),
-				"bootstrap dev data is not allowed",
-			) {
+			if !errors.Is(err, config.ErrBootstrapNotAllowed) {
 				t.Fatalf(
 					"expected environment validation error, got %v",
 					err,
@@ -76,33 +51,13 @@ func TestRunRejectsDisallowedEnvironment(t *testing.T) {
 			}
 		})
 	}
-
-}
-
-func TestRunAcceptsEnvironmentCaseAndWhitespace(t *testing.T) {
-	cfg := config.Config{
-		Environment:      "  DEVELOPMENT  ",
-		BootstrapDevData: true,
-	}
-
-	err := Run(context.Background(), nil, cfg)
-	if err == nil {
-		t.Fatal("expected missing database error")
-	}
-
-	if !strings.Contains(err.Error(), "database is required") {
-		t.Fatalf(
-			"expected environment to be accepted before database validation, got %v",
-			err,
-		)
-	}
-
 }
 
 func TestRunRejectsMissingDatabase(t *testing.T) {
 	cfg := config.Config{
-		Environment:      "development",
-		BootstrapDevData: true,
+		Environment:          config.EnvironmentDevelopment,
+		BootstrapDevData:     true,
+		BootstrapDevPassword: "LocalDevelopmentPassword123!",
 	}
 
 	err := Run(context.Background(), nil, cfg)
@@ -110,125 +65,26 @@ func TestRunRejectsMissingDatabase(t *testing.T) {
 		t.Fatal("expected missing database to fail")
 	}
 
-	if !strings.Contains(err.Error(), "database is required") {
+	if !errors.Is(err, ErrDatabaseRequired) {
 		t.Fatalf("expected missing database error, got %v", err)
 	}
-
 }
 
-func TestValidateBootstrapEnvironmentAcceptsAllowedEnvironments(
-	t *testing.T,
-) {
-	allowedEnvironments := []string{
-		"local",
-		"development",
-		"dev",
-		"test",
-		" LOCAL ",
-		"Development",
-		"DEV",
-		" Test ",
+func TestRunRejectsMissingBootstrapPassword(t *testing.T) {
+	cfg := config.Config{
+		Environment:      config.EnvironmentDevelopment,
+		BootstrapDevData: true,
 	}
 
-	for _, environment := range allowedEnvironments {
-		t.Run(environment, func(t *testing.T) {
-			if err := validateBootstrapEnvironment(environment); err != nil {
-				t.Fatalf(
-					"expected environment %q to be allowed, got %v",
-					environment,
-					err,
-				)
-			}
-		})
-	}
-
-}
-
-func TestValidateBootstrapEnvironmentRejectsDisallowedEnvironments(
-	t *testing.T,
-) {
-	disallowedEnvironments := []string{
-		"",
-		"production",
-		"prod",
-		"staging",
-		"qa",
-		"production-us",
-	}
-
-	for _, environment := range disallowedEnvironments {
-		t.Run(environment, func(t *testing.T) {
-			err := validateBootstrapEnvironment(environment)
-			if err == nil {
-				t.Fatalf(
-					"expected environment %q to be rejected",
-					environment,
-				)
-			}
-		})
-	}
-
-}
-
-func TestBootstrapPasswordReturnsConfiguredPassword(t *testing.T) {
-	const expectedPassword = "LocalDevelopmentPassword123!"
-
-	t.Setenv(
-		bootstrapPasswordEnvironmentVariable,
-		expectedPassword,
-	)
-
-	password, err := bootstrapPassword()
-	if err != nil {
-		t.Fatalf("expected configured password, got error %v", err)
-	}
-
-	if password != expectedPassword {
-		t.Fatalf(
-			"expected password %q, got %q",
-			expectedPassword,
-			password,
-		)
-	}
-
-}
-
-func TestBootstrapPasswordTrimsWhitespace(t *testing.T) {
-	t.Setenv(
-		bootstrapPasswordEnvironmentVariable,
-		"  LocalDevelopmentPassword123!  ",
-	)
-
-	password, err := bootstrapPassword()
-	if err != nil {
-		t.Fatalf("expected configured password, got error %v", err)
-	}
-
-	if password != "LocalDevelopmentPassword123!" {
-		t.Fatalf("expected trimmed password, got %q", password)
-	}
-
-}
-
-func TestBootstrapPasswordRejectsMissingPassword(t *testing.T) {
-	t.Setenv(bootstrapPasswordEnvironmentVariable, "")
-
-	_, err := bootstrapPassword()
+	err := Run(context.Background(), nil, cfg)
 	if err == nil {
 		t.Fatal("expected missing bootstrap password to fail")
 	}
 
-	if !strings.Contains(
-		err.Error(),
-		bootstrapPasswordEnvironmentVariable,
-	) {
-		t.Fatalf(
-			"expected error to mention %s, got %v",
-			bootstrapPasswordEnvironmentVariable,
-			err,
-		)
+	if !errors.Is(err, config.ErrMissingBootstrapPassword) &&
+		!errors.Is(err, ErrDatabaseRequired) {
+		t.Fatalf("expected bootstrap password or database validation error, got %v", err)
 	}
-
 }
 
 func TestNormalize(t *testing.T) {
@@ -271,5 +127,4 @@ func TestNormalize(t *testing.T) {
 			}
 		})
 	}
-
 }

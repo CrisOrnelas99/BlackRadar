@@ -8,11 +8,11 @@ import (
 
 	"gorm.io/gorm"
 
+	appcontext "blackradar/api/context"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
 	authrepo "blackradar/api/repository/authorization"
 	riskrepo "blackradar/api/repository/risk"
-	appcontext "blackradar/api/requestContext"
 	shared "blackradar/api/shared"
 	shareddb "blackradar/api/shared/db"
 	sharedid "blackradar/api/shared/id"
@@ -432,10 +432,15 @@ func assignRandomAssetAssessmentID(assessment *model.AssetAssessment) {
 }
 
 func setUpdatedBy(ec *appcontext.GinContext, target *model.Model) {
-	if ec == nil || target == nil || ec.UserID() == "" {
+	if ec == nil || target == nil {
 		return
 	}
-	userID := ec.UserID()
+
+	userID, err := ec.UserID()
+	if err != nil {
+		return
+	}
+
 	target.UpdatedByID = &userID
 }
 
