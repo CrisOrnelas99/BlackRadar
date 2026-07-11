@@ -2,9 +2,9 @@
 package service
 
 import (
-	appcontext "blackradar/api/context"
-	"blackradar/api/dto"
+	"blackradar/api/controller/dto"
 	"blackradar/api/model"
+	appcontext "blackradar/api/requestContext"
 )
 
 // AuthService defines the operations required for authentication flows.

@@ -8,10 +8,14 @@ import (
 
 	"gorm.io/gorm"
 
-	appcontext "blackradar/api/context"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
-	"blackradar/api/utils"
+	authrepo "blackradar/api/repository/authorization"
+	riskrepo "blackradar/api/repository/risk"
+	appcontext "blackradar/api/requestContext"
+	shared "blackradar/api/shared"
+	shareddb "blackradar/api/shared/db"
+	sharedid "blackradar/api/shared/id"
 )
 
 // AssetRepository persists asset records.
@@ -120,7 +124,7 @@ func (r *AssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (mo
 
 	for attempt := 0; attempt < 3; attempt++ {
 		if asset.ID == "" || attempt > 0 {
-			asset.ID = utils.NewRandomID()
+			asset.ID = sharedid.NewRandomID()
 		}
 
 		assessment := model.AssetAssessment{
@@ -144,14 +148,14 @@ func (r *AssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (mo
 			return asset, nil
 		}
 
-		databaseErr := utils.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, utils.ErrUniqueViolation) && utils.IsPrimaryKeyViolation(err) {
+		databaseErr := shareddb.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, shared.ErrUniqueViolation) && sharedid.IsPrimaryKeyViolation(err) {
 			continue
 		}
-		if errors.Is(databaseErr, utils.ErrForeignKeyViolation) {
+		if errors.Is(databaseErr, shared.ErrForeignKeyViolation) {
 			return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidReference, databaseErr)
 		}
-		if errors.Is(databaseErr, utils.ErrCheckConstraintViolation) {
+		if errors.Is(databaseErr, shared.ErrCheckConstraintViolation) {
 			return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidData, databaseErr)
 		}
 		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrCreateFailed, databaseErr)
@@ -184,11 +188,11 @@ func (r *AssetRepository) UpdateForOrganization(ec *appcontext.GinContext, id st
 
 	err = r.dbForContext(ec).WithContext(ec.RequestContext()).Save(&asset).Error
 	if err != nil {
-		databaseErr := utils.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, utils.ErrForeignKeyViolation) {
+		databaseErr := shareddb.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, shared.ErrForeignKeyViolation) {
 			return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidReference, databaseErr)
 		}
-		if errors.Is(databaseErr, utils.ErrCheckConstraintViolation) {
+		if errors.Is(databaseErr, shared.ErrCheckConstraintViolation) {
 			return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidData, databaseErr)
 		}
 		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrUpdateFailed, databaseErr)
@@ -197,8 +201,12 @@ func (r *AssetRepository) UpdateForOrganization(ec *appcontext.GinContext, id st
 }
 
 // UpdateMatchAnalysisForOrganization stores backend-generated CPE match state for an asset.
-func (r *AssetRepository) UpdateMatchAnalysisForOrganization(ec *appcontext.GinContext, id string, organizationID string, analysis baserepository.AssetMatchUpdate) (model.Asset, error) {
-	if analysis.CPEReviewStatus == "" {
+func (r *AssetRepository) UpdateMatchAnalysisForOrganization(ec *appcontext.GinContext, id string, organizationID string, analysis any) (model.Asset, error) {
+	analysisUpdate, ok := analysis.(AssetMatchUpdate)
+	if !ok {
+		return model.Asset{}, baserepository.ErrInvalidData
+	}
+	if analysisUpdate.CPEReviewStatus == "" {
 		return model.Asset{}, baserepository.ErrInvalidData
 	}
 
@@ -213,13 +221,13 @@ func (r *AssetRepository) UpdateMatchAnalysisForOrganization(ec *appcontext.GinC
 			assessment = *asset.Assessment
 		}
 
-		assessment.ProductFingerprint = analysis.ProductFingerprint
-		assessment.SelectedCPE = analysis.SelectedCPE
-		assessment.CPEConfidence = analysis.CPEConfidence
-		assessment.CPEReviewStatus = analysis.CPEReviewStatus
-		assessment.CPEReviewNotes = analysis.CPEReviewNotes
-		assessment.CPECandidateCount = analysis.CPECandidateCount
-		assessment.CPEMatchedAt = analysis.CPEMatchedAt
+		assessment.ProductFingerprint = analysisUpdate.ProductFingerprint
+		assessment.SelectedCPE = analysisUpdate.SelectedCPE
+		assessment.CPEConfidence = analysisUpdate.CPEConfidence
+		assessment.CPEReviewStatus = analysisUpdate.CPEReviewStatus
+		assessment.CPEReviewNotes = analysisUpdate.CPEReviewNotes
+		assessment.CPECandidateCount = analysisUpdate.CPECandidateCount
+		assessment.CPEMatchedAt = analysisUpdate.CPEMatchedAt
 		setUpdatedBy(ec, &assessment.Model)
 
 		if asset.AssetAssessmentID == nil {
@@ -237,11 +245,11 @@ func (r *AssetRepository) UpdateMatchAnalysisForOrganization(ec *appcontext.GinC
 		return tx.Save(&assessment).Error
 	})
 	if err != nil {
-		databaseErr := utils.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, utils.ErrCheckConstraintViolation) {
+		databaseErr := shareddb.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, shared.ErrCheckConstraintViolation) {
 			return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidData, databaseErr)
 		}
-		if errors.Is(databaseErr, utils.ErrForeignKeyViolation) {
+		if errors.Is(databaseErr, shared.ErrForeignKeyViolation) {
 			return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidReference, databaseErr)
 		}
 		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrUpdateFailed, databaseErr)
@@ -286,7 +294,7 @@ func (r *AssetRepository) DeleteForOrganization(ec *appcontext.GinContext, id st
 
 // AssignVulnerabilityForOrganization associates a vulnerability with an asset owned by the specified organization.
 func (r *AssetRepository) AssignVulnerabilityForOrganization(ec *appcontext.GinContext, assetID string, organizationID string, vulnerabilityID string) (model.Asset, error) {
-	if err := baserepository.RequireAdminFromDatabase(ec, r.dbForContext(ec)); err != nil {
+	if err := authrepo.RequireAdminFromDatabase(ec, r.dbForContext(ec)); err != nil {
 		return model.Asset{}, err
 	}
 
@@ -305,14 +313,14 @@ func (r *AssetRepository) AssignVulnerabilityForOrganization(ec *appcontext.GinC
 		if err := tx.Model(&asset).Association("Vulnerabilities").Append(&vulnerability); err != nil {
 			return err
 		}
-		return baserepository.RefreshAssetRiskLevel(tx, assetID, organizationID)
+		return riskrepo.RefreshAssetRisk(tx, assetID, organizationID)
 	})
 	if err != nil {
-		databaseErr := utils.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, utils.ErrUniqueViolation) {
+		databaseErr := shareddb.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, shared.ErrUniqueViolation) {
 			return model.Asset{}, baserepository.ErrDuplicateAssignment
 		}
-		if errors.Is(databaseErr, utils.ErrForeignKeyViolation) {
+		if errors.Is(databaseErr, shared.ErrForeignKeyViolation) {
 			return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidReference, databaseErr)
 		}
 		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrCreateFailed, databaseErr)
@@ -323,7 +331,7 @@ func (r *AssetRepository) AssignVulnerabilityForOrganization(ec *appcontext.GinC
 
 // RemoveVulnerabilityForOrganization removes a vulnerability from an asset owned by the specified organization.
 func (r *AssetRepository) RemoveVulnerabilityForOrganization(ec *appcontext.GinContext, assetID string, organizationID string, vulnerabilityID string) (model.Asset, error) {
-	if err := baserepository.RequireAdminFromDatabase(ec, r.dbForContext(ec)); err != nil {
+	if err := authrepo.RequireAdminFromDatabase(ec, r.dbForContext(ec)); err != nil {
 		return model.Asset{}, err
 	}
 
@@ -341,7 +349,7 @@ func (r *AssetRepository) RemoveVulnerabilityForOrganization(ec *appcontext.GinC
 		if err := deleteOrphanedVulnerability(tx, vulnerability); err != nil {
 			return err
 		}
-		return baserepository.RefreshAssetRiskLevel(tx, assetID, organizationID)
+		return riskrepo.RefreshAssetRisk(tx, assetID, organizationID)
 	})
 	if err != nil {
 		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrDeleteFailed, err)
@@ -408,8 +416,8 @@ func createAssetAssessmentWithRandomID(tx *gorm.DB, assessment *model.AssetAsses
 			return nil
 		}
 
-		databaseErr := utils.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, utils.ErrUniqueViolation) && utils.IsPrimaryKeyViolation(err) {
+		databaseErr := shareddb.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, shared.ErrUniqueViolation) && sharedid.IsPrimaryKeyViolation(err) {
 			continue
 		}
 		return err
@@ -420,7 +428,7 @@ func createAssetAssessmentWithRandomID(tx *gorm.DB, assessment *model.AssetAsses
 
 // assignRandomAssetAssessmentID sets a non-zero arbitrary public identifier on the assessment.
 func assignRandomAssetAssessmentID(assessment *model.AssetAssessment) {
-	assessment.ID = utils.NewRandomID()
+	assessment.ID = sharedid.NewRandomID()
 }
 
 func setUpdatedBy(ec *appcontext.GinContext, target *model.Model) {

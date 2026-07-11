@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
+	"blackradar/api/bootstrap"
 	"blackradar/api/config"
 	"blackradar/api/controller"
 	controllerai "blackradar/api/controller/ai"
@@ -17,21 +18,26 @@ import (
 	controllerauth "blackradar/api/controller/auth"
 	controllernvd "blackradar/api/controller/nvd"
 	controllervulnerability "blackradar/api/controller/vulnerability"
-	nvdexternal "blackradar/api/external/nvd"
+	nvdcpeclient "blackradar/api/external/nvd_cpe"
+	nvdcveclient "blackradar/api/external/nvd_cve"
 	openaiexternal "blackradar/api/external/openai"
-	"blackradar/api/middleware"
+	contextmiddleware "blackradar/api/middleware/context"
+	"blackradar/api/middleware/cors"
+	"blackradar/api/middleware/filter"
+	gormmiddleware "blackradar/api/middleware/gorm"
+	securityheaders "blackradar/api/middleware/security_headers"
 	repositoryasset "blackradar/api/repository/asset"
 	repositoryorganization "blackradar/api/repository/organization"
 	repositoryrefreshsession "blackradar/api/repository/refresh_session"
 	repositoryuser "blackradar/api/repository/user"
 	repositoryvulnerability "blackradar/api/repository/vulnerability"
-	"blackradar/api/security"
 	serviceasset "blackradar/api/service/asset"
 	serviceauth "blackradar/api/service/auth"
 	servicenvd "blackradar/api/service/nvd"
 	servicevulnerability "blackradar/api/service/vulnerability"
-	"blackradar/api/utils"
-	"blackradar/bootstrap"
+	shareddb "blackradar/api/shared/db"
+	sharedjwt "blackradar/api/shared/jwt"
+	sharedriskbackfill "blackradar/api/shared/risk_backfill"
 )
 
 func main() {
@@ -48,22 +54,22 @@ func main() {
 		log.Fatalf("database connection failed: %v", err)
 	}
 	defer func() {
-		if err := utils.Close(gormDB); err != nil {
+		if err := shareddb.Close(gormDB); err != nil {
 			log.Printf("database close failed: %v", err)
 		}
 	}()
 
-	if err := utils.RunMigrations(ctx, gormDB); err != nil {
+	if err := shareddb.RunMigrations(ctx, gormDB); err != nil {
 		log.Fatalf("database migration failed: %v", err)
 	}
-	if err := utils.BackfillAssetRiskLevels(ctx, gormDB); err != nil {
+	if err := sharedriskbackfill.BackfillAssetRiskLevels(ctx, gormDB); err != nil {
 		log.Fatalf("asset risk level backfill failed: %v", err)
 	}
 	if err := bootstrap.Run(ctx, gormDB, cfg); err != nil {
 		log.Fatalf("bootstrap failed: %v", err)
 	}
 
-	jwtManager := security.NewJWTManager(cfg.JWTSecret, cfg.JWTExpiration, cfg.JWTRefreshExpiration, cfg.JWTIssuer, cfg.JWTAudience)
+	jwtManager := sharedjwt.NewJWTManager(cfg.JWTSecret, cfg.JWTExpiration, cfg.JWTRefreshExpiration, cfg.JWTIssuer, cfg.JWTAudience)
 
 	userRepository := repositoryuser.NewUserRepository(gormDB)
 	organizationRepository := repositoryorganization.NewOrganizationRepository(gormDB)
@@ -71,16 +77,16 @@ func main() {
 	refreshSessionRepository := repositoryrefreshsession.NewRefreshSessionRepository(gormDB)
 	vulnerabilityRepository := repositoryvulnerability.NewVulnerabilityRepository(gormDB)
 	authService := serviceauth.NewAuthService(jwtManager, organizationRepository, userRepository, refreshSessionRepository)
-	nvdClient, err := nvdexternal.NewClient(cfg.NVDAPIBaseURL, cfg.NVDAPIKey)
+	nvdClient, err := nvdcveclient.NewClient(cfg.NVDAPIBaseURL, cfg.NVDAPIKey)
 	if err != nil {
 		log.Fatalf("nvd client configuration failed: %v", err)
 	}
 	nvdLookupService := servicenvd.NewNVDLookupService(nvdClient)
-	cpeClient, err := nvdexternal.NewCPEClient(cfg.NVDCPEAPIBaseURL, cfg.NVDAPIKey)
+	cpeClient, err := nvdcpeclient.NewCPEClient(cfg.NVDCPEAPIBaseURL, cfg.NVDAPIKey)
 	if err != nil {
 		log.Fatalf("nvd cpe client configuration failed: %v", err)
 	}
-	openAIClient, err := openaiexternal.NewClientWithHTTPClient(cfg.OpenAIAPIEndpoint, cfg.OpenAIAPIKey, cfg.OpenAIModel, &http.Client{Timeout: cfg.OpenAITimeout})
+	openAIClient, err := openaiexternal.NewClientWithHTTPClient(cfg.OpenAIAPIEndpoint, cfg.OpenAIAPIKey, cfg.OpenAIModel, &http.Client{Timeout: cfg.OpenAITimeout}, nil)
 	if err != nil {
 		log.Fatalf("openai client configuration failed: %v", err)
 	}
@@ -96,13 +102,13 @@ func main() {
 
 	engine := gin.New()
 	engine.Use(gin.Recovery())
-	engine.Use(middleware.RequestContext())
-	engine.Use(middleware.SecurityHeaders())
-	engine.Use(middleware.GormMiddleware(gormDB))
-	engine.Use(middleware.Cors(cfg.CorsAllowedOrigins))
-	engine.Use(middleware.RequestFilter())
+	engine.Use(contextmiddleware.RequestContext())
+	engine.Use(securityheaders.SecurityHeaders())
+	engine.Use(gormmiddleware.GormMiddleware(gormDB))
+	engine.Use(cors.Cors(cfg.CorsAllowedOrigins))
+	engine.Use(filter.RequestFilter())
 	// Register all routes centrally in the controller package
-	controller.RegisterRoutes(engine, jwtManager, userRepository, refreshSessionRepository, controller.RouteHandlers{
+	controller.RegisterRoutes(engine, gormDB, jwtManager, userRepository, refreshSessionRepository, controller.RouteHandlers{
 		RegisterAuth:           authController.Register,
 		LoginAuth:              authController.Login,
 		RefreshAuth:            authController.Refresh,
@@ -140,7 +146,7 @@ func connectDatabaseWithRetry(ctx context.Context, cfg config.Config) (*gorm.DB,
 	var lastErr error
 
 	for attempt := 1; attempt <= databaseConnectAttempts; attempt++ {
-		database, err := utils.Connect(ctx, cfg)
+		database, err := shareddb.Connect(ctx, cfg)
 		if err == nil {
 			return database, nil
 		}

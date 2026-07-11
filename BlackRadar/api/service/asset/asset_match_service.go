@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	appcontext "blackradar/api/context"
-	"blackradar/api/dto"
+	"blackradar/api/controller/dto"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
-	"blackradar/api/security"
+	assetrepo "blackradar/api/repository/asset"
+	appcontext "blackradar/api/requestContext"
 	baseservice "blackradar/api/service"
 	aiservice "blackradar/api/service/ai"
 )
@@ -80,14 +80,14 @@ func (s *assetMatchServiceImpl) AnalyzeAssetMatch(ctx context.Context, asset mod
 		sanitizedText, err = baseservice.SanitizeAIIngestionText(rawText)
 		if err != nil {
 			return AssetMatchAnalysis{
-				ProductFingerprint: baseservice.BuildAssetFingerprint(asset, "").Canonical,
+				ProductFingerprint: BuildAssetFingerprint(asset, "").Canonical,
 				ReviewStatus:       model.AssetCPEReviewStatusNeedsReview,
 				ReviewNotes:        "unsafe or oversized pasted content rejected",
 			}, nil
 		}
 	}
 
-	fingerprint := baseservice.BuildAssetFingerprint(asset, sanitizedText)
+	fingerprint := BuildAssetFingerprint(asset, sanitizedText)
 	if sanitizedText != "" {
 		if aiFingerprint, ok := s.normalizeFingerprintWithAI(ctx, asset, sanitizedText, fingerprint); ok {
 			fingerprint = aiFingerprint
@@ -180,7 +180,7 @@ func (s *assetMatchServiceImpl) AnalyzeAndPersistAssetMatch(ec *appcontext.GinCo
 		reviewStatus = model.AssetCPEReviewStatusNeedsReview
 	}
 
-	updated, err := s.assetRepository.UpdateMatchAnalysisForOrganization(ec, assetID, organizationID, baserepository.AssetMatchUpdate{
+	updated, err := s.assetRepository.UpdateMatchAnalysisForOrganization(ec, assetID, organizationID, assetrepo.AssetMatchUpdate{
 		ProductFingerprint: stringPtrOrNil(analysis.ProductFingerprint),
 		SelectedCPE:        stringPtrOrNil(analysis.SelectedCPE),
 		CPEConfidence:      floatPtrOrNil(analysis.Confidence),
@@ -202,7 +202,7 @@ func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appco
 	if ec != nil {
 		role = ec.UserRole()
 	}
-	if !security.CanManageVulnerabilities(role) {
+	if !baseservice.CanManageVulnerabilities(role) {
 		return model.Asset{}, baseservice.ErrForbidden
 	}
 	if s.vulnRepository == nil || s.cveSearcher == nil {
@@ -501,7 +501,7 @@ func (s *assetMatchServiceImpl) persistMatchAnalysis(ec *appcontext.GinContext, 
 		reviewStatus = model.AssetCPEReviewStatusNeedsReview
 	}
 
-	updated, err := s.assetRepository.UpdateMatchAnalysisForOrganization(ec, assetID, organizationID, baserepository.AssetMatchUpdate{
+	updated, err := s.assetRepository.UpdateMatchAnalysisForOrganization(ec, assetID, organizationID, assetrepo.AssetMatchUpdate{
 		ProductFingerprint: stringPtrOrNil(analysis.ProductFingerprint),
 		SelectedCPE:        stringPtrOrNil(analysis.SelectedCPE),
 		CPEConfidence:      floatPtrOrNil(analysis.Confidence),
@@ -554,9 +554,9 @@ type assetFingerprintExtractionResponse struct {
 	ReviewNotes     any `json:"reviewNotes"`
 }
 
-func (s *assetMatchServiceImpl) normalizeFingerprintWithAI(ctx context.Context, asset model.Asset, rawText string, deterministic baseservice.AssetFingerprint) (baseservice.AssetFingerprint, bool) {
+func (s *assetMatchServiceImpl) normalizeFingerprintWithAI(ctx context.Context, asset model.Asset, rawText string, deterministic AssetFingerprint) (AssetFingerprint, bool) {
 	if s.textAI == nil {
-		return baseservice.AssetFingerprint{}, false
+		return AssetFingerprint{}, false
 	}
 
 	response, err := s.textAI.GenerateText(ctx, aiservice.BuildAssetFingerprintExtractionRequest(
@@ -567,31 +567,31 @@ func (s *assetMatchServiceImpl) normalizeFingerprintWithAI(ctx context.Context, 
 		optionalStringValue(asset.OperatingSystem),
 	))
 	if err != nil {
-		return baseservice.AssetFingerprint{}, false
+		return AssetFingerprint{}, false
 	}
 
 	var extraction assetFingerprintExtractionResponse
 	if err := decodeRankingResponse(response.Text, &extraction); err != nil {
-		fingerprint := baseservice.BuildAssetFingerprint(asset, response.Text)
+		fingerprint := BuildAssetFingerprint(asset, response.Text)
 		if strings.TrimSpace(fingerprint.Vendor) == "" || strings.TrimSpace(fingerprint.Product) == "" {
-			return baseservice.AssetFingerprint{}, false
+			return AssetFingerprint{}, false
 		}
 		return fingerprint, true
 	}
 	if extractionConfidence(extraction.Confidence) < 0.45 {
-		return baseservice.AssetFingerprint{}, false
+		return AssetFingerprint{}, false
 	}
 
 	rawFingerprint := fingerprintExtractionRawText(extraction, deterministic)
-	fingerprint := baseservice.BuildAssetFingerprint(asset, rawFingerprint)
+	fingerprint := BuildAssetFingerprint(asset, rawFingerprint)
 	if strings.TrimSpace(fingerprint.Vendor) == "" || strings.TrimSpace(fingerprint.Product) == "" {
-		return baseservice.AssetFingerprint{}, false
+		return AssetFingerprint{}, false
 	}
 
 	return fingerprint, true
 }
 
-func (s *assetMatchServiceImpl) rankCandidates(ctx context.Context, fingerprint baseservice.AssetFingerprint, keywordSearch string, candidates []dto.CPECandidate) (assetMatchRankingResponse, error) {
+func (s *assetMatchServiceImpl) rankCandidates(ctx context.Context, fingerprint AssetFingerprint, keywordSearch string, candidates []dto.CPECandidate) (assetMatchRankingResponse, error) {
 	request := aiservice.BuildAssetMatchRankingRequest(fingerprint.Canonical, keywordSearch, candidates)
 	response, err := s.textAI.GenerateText(ctx, request)
 	if err != nil {
@@ -653,7 +653,7 @@ func (s *assetMatchServiceImpl) expandCVEKeywordSearchesWithAI(ctx context.Conte
 	return keywordSearches
 }
 
-func fingerprintExtractionRawText(extraction assetFingerprintExtractionResponse, fallback baseservice.AssetFingerprint) string {
+func fingerprintExtractionRawText(extraction assetFingerprintExtractionResponse, fallback AssetFingerprint) string {
 	values := []string{
 		"Vendor: " + firstNonEmptyString(jsonStringValue(extraction.Vendor), fallback.Vendor),
 		"Product: " + firstNonEmptyString(jsonStringValue(extraction.Product), fallback.Product),
@@ -807,7 +807,7 @@ func (s *assetMatchServiceImpl) searchCPECandidates(ctx context.Context, keyword
 	return keywordSearches[0], []dto.CPECandidate{}, nil
 }
 
-func buildCPEKeywordSearches(fingerprint baseservice.AssetFingerprint) []string {
+func buildCPEKeywordSearches(fingerprint AssetFingerprint) []string {
 	searches := make([]string, 0, 5)
 	appendSearch := func(parts ...string) {
 		values := make([]string, 0, len(parts))
@@ -1206,7 +1206,7 @@ func shouldTryFirmwareAlias(product string, operatingSystem string) bool {
 	return product != "" && strings.Contains(operatingSystem, "firmware") && !strings.Contains(product, "firmware")
 }
 
-func isStrongFingerprint(fingerprint baseservice.AssetFingerprint) bool {
+func isStrongFingerprint(fingerprint AssetFingerprint) bool {
 	return strings.TrimSpace(fingerprint.Vendor) != "" && strings.TrimSpace(fingerprint.Product) != ""
 }
 

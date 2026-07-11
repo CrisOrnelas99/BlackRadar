@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	appcontext "blackradar/api/context"
-	"blackradar/api/dto"
+	"blackradar/api/controller/dto"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
-	"blackradar/api/security"
+	appcontext "blackradar/api/requestContext"
 	baseservice "blackradar/api/service"
 	aiservice "blackradar/api/service/ai"
 )
@@ -139,7 +138,7 @@ func (s *assetServiceImpl) AssignVulnerability(ec *appcontext.GinContext, assetI
 	if ec != nil {
 		role = ec.UserRole()
 	}
-	if !security.CanManageVulnerabilities(role) {
+	if !baseservice.CanManageVulnerabilities(role) {
 		return model.Asset{}, baseservice.ErrForbidden
 	}
 
@@ -157,7 +156,7 @@ func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, a
 	if ec != nil {
 		role = ec.UserRole()
 	}
-	if !security.CanManageVulnerabilities(role) {
+	if !baseservice.CanManageVulnerabilities(role) {
 		return model.Asset{}, baseservice.ErrForbidden
 	}
 
@@ -205,7 +204,7 @@ func (s *assetServiceImpl) RemoveVulnerability(ec *appcontext.GinContext, assetI
 	if ec != nil {
 		role = ec.UserRole()
 	}
-	if !security.CanManageVulnerabilities(role) {
+	if !baseservice.CanManageVulnerabilities(role) {
 		return model.Asset{}, baseservice.ErrForbidden
 	}
 

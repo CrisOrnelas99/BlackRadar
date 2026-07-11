@@ -4,7 +4,7 @@ package service
 import (
 	"context"
 
-	"blackradar/api/dto"
+	"blackradar/api/controller/dto"
 )
 
 // TextGenerationService defines the minimal contract used for backend AI work.

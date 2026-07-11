@@ -5,9 +5,9 @@ import (
 	"errors"
 	"net/http"
 
-	appcontext "blackradar/api/context"
 	basecontroller "blackradar/api/controller"
-	"blackradar/api/dto"
+	"blackradar/api/controller/dto"
+	appcontext "blackradar/api/requestContext"
 	baseservice "blackradar/api/service"
 )
 

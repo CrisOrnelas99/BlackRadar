@@ -4,7 +4,7 @@ package service
 import (
 	"encoding/json"
 
-	"blackradar/api/dto"
+	"blackradar/api/controller/dto"
 )
 
 const assetMatchSystemPrompt = `<role>

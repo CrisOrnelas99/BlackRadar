@@ -9,6 +9,10 @@ func (e MiddlewareError) Error() string {
 }
 
 var (
-	ErrSuspiciousRequest = &MiddlewareError{Message: "Request blocked"}
-	ErrForbidden         = &MiddlewareError{Message: "forbidden"}
+	ErrSuspiciousRequest         = &MiddlewareError{Message: "Request blocked"}
+	ErrForbidden                 = &MiddlewareError{Message: "forbidden"}
+	ErrUnauthorized              = &MiddlewareError{Message: "Unauthorized"}
+	ErrDatabaseUnavailable       = &MiddlewareError{Message: "database unavailable"}
+	ErrDatabaseTransactionFailed = &MiddlewareError{Message: "database transaction failed"}
+	ErrRateLimited               = &MiddlewareError{Message: "Rate limit exceeded."}
 )

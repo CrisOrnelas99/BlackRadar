@@ -128,6 +128,45 @@ func TestNormalizeDisplayText(t *testing.T) {
 	}
 }
 
+func TestPermissionChecks(t *testing.T) {
+	tests := []struct {
+		name          string
+		role          string
+		wantIsAdmin   bool
+		wantCanManage bool
+	}{
+		{
+			name:          "admin",
+			role:          model.RoleAdmin,
+			wantIsAdmin:   true,
+			wantCanManage: true,
+		},
+		{
+			name:          "user",
+			role:          model.RoleUser,
+			wantIsAdmin:   false,
+			wantCanManage: false,
+		},
+		{
+			name:          "empty role",
+			role:          "",
+			wantIsAdmin:   false,
+			wantCanManage: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsAdmin(tt.role); got != tt.wantIsAdmin {
+				t.Fatalf("expected IsAdmin(%q)=%v, got %v", tt.role, tt.wantIsAdmin, got)
+			}
+			if got := CanManageVulnerabilities(tt.role); got != tt.wantCanManage {
+				t.Fatalf("expected CanManageVulnerabilities(%q)=%v, got %v", tt.role, tt.wantCanManage, got)
+			}
+		})
+	}
+}
+
 // TestAIIngestionSanitization verifies asset text is bounded and prompt-injection attempts are rejected.
 func TestAIIngestionSanitization(t *testing.T) {
 	sanitized, err := SanitizeAIIngestionText("Vendor: Dell\r\nProduct: Latitude 7420\nVersion: 1.2")

@@ -10,10 +10,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	appcontext "blackradar/api/context"
-	"blackradar/api/dto"
+	"blackradar/api/controller/dto"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
+	appcontext "blackradar/api/requestContext"
 )
 
 var cveIDPattern = regexp.MustCompile(`^CVE-\d{4}-\d{4,}$`)
@@ -151,6 +151,16 @@ func hasMixedCase(value string) bool {
 		}
 	}
 	return hasUpper && hasLower
+}
+
+// IsAdmin reports whether the supplied role has full administrative access.
+func IsAdmin(role string) bool {
+	return role == model.RoleAdmin
+}
+
+// CanManageVulnerabilities reports whether the supplied role can manage vulnerabilities.
+func CanManageVulnerabilities(role string) bool {
+	return role == model.RoleAdmin
 }
 
 // AuthenticatedUserID returns the authenticated user ID from the request context.

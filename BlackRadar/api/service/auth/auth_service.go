@@ -12,24 +12,24 @@ import (
 	"gorm.io/gorm"
 
 	"blackradar/api/config"
-	appcontext "blackradar/api/context"
-	"blackradar/api/dto"
+	"blackradar/api/controller/dto"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
-	"blackradar/api/security"
+	appcontext "blackradar/api/requestContext"
 	baseservice "blackradar/api/service"
-	"blackradar/api/utils"
+	sharedjwt "blackradar/api/shared/jwt"
+	sharedtoken "blackradar/api/shared/token"
 )
 
 type authServiceImpl struct {
-	jwtManager               *security.JWTManager
+	jwtManager               *sharedjwt.JWTManager
 	organizationRepository   baserepository.OrganizationRepository
 	userRepository           baserepository.UserRepository
 	refreshSessionRepository baserepository.RefreshSessionRepository
 }
 
 // NewAuthService creates an authentication service backed by the supplied dependencies.
-func NewAuthService(jwtManager *security.JWTManager, organizationRepository baserepository.OrganizationRepository, userRepository baserepository.UserRepository, refreshSessionRepository baserepository.RefreshSessionRepository) baseservice.AuthService {
+func NewAuthService(jwtManager *sharedjwt.JWTManager, organizationRepository baserepository.OrganizationRepository, userRepository baserepository.UserRepository, refreshSessionRepository baserepository.RefreshSessionRepository) baseservice.AuthService {
 	return &authServiceImpl{jwtManager: jwtManager, organizationRepository: organizationRepository, userRepository: userRepository, refreshSessionRepository: refreshSessionRepository}
 }
 
@@ -142,7 +142,7 @@ func (s *authServiceImpl) Login(ec *appcontext.GinContext, request dto.LoginRequ
 		return dto.LoginResponse{}, fmt.Errorf("missing jwt manager")
 	}
 
-	refreshTokenID := utils.NewTokenID()
+	refreshTokenID := sharedtoken.NewTokenID()
 	now := time.Now().UTC()
 	accessExpiresAt := now.Add(s.jwtManager.AccessExpiration())
 	refreshExpiresAt := now.Add(s.jwtManager.RefreshExpiration())
@@ -208,7 +208,7 @@ func (s *authServiceImpl) Refresh(ec *appcontext.GinContext, request dto.Refresh
 		return dto.LoginResponse{}, baseservice.TranslateRepositoryError(err)
 	}
 
-	newRefreshTokenID := utils.NewTokenID()
+	newRefreshTokenID := sharedtoken.NewTokenID()
 	now := time.Now().UTC()
 	accessExpiresAt := now.Add(s.jwtManager.AccessExpiration())
 	refreshExpiresAt := now.Add(s.jwtManager.RefreshExpiration())

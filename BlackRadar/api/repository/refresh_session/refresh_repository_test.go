@@ -10,9 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	appcontext "blackradar/api/context"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
+	appcontext "blackradar/api/requestContext"
 )
 
 // TestRefreshSessionRepositoryDatabasePrefersContextDB verifies the context database is preferred.

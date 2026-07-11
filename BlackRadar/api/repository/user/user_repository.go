@@ -8,10 +8,12 @@ import (
 
 	"gorm.io/gorm"
 
-	appcontext "blackradar/api/context"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
-	"blackradar/api/utils"
+	appcontext "blackradar/api/requestContext"
+	shared "blackradar/api/shared"
+	shareddb "blackradar/api/shared/db"
+	sharedid "blackradar/api/shared/id"
 )
 
 // UserRepository persists user records.
@@ -60,7 +62,7 @@ func (r *UserRepository) Save(ec *appcontext.GinContext, user model.User) (model
 
 	for attempt := 0; attempt < 3; attempt++ {
 		if user.ID == "" || attempt > 0 {
-			user.ID = utils.NewRandomID()
+			user.ID = sharedid.NewRandomID()
 		}
 
 		err := r.dbForContext(ec).WithContext(ec.RequestContext()).Create(&user).Error
@@ -68,17 +70,17 @@ func (r *UserRepository) Save(ec *appcontext.GinContext, user model.User) (model
 			return user, nil
 		}
 
-		databaseErr := utils.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, utils.ErrUniqueViolation) && utils.IsPrimaryKeyViolation(err) {
+		databaseErr := shareddb.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, shared.ErrUniqueViolation) && sharedid.IsPrimaryKeyViolation(err) {
 			continue
 		}
-		if errors.Is(databaseErr, utils.ErrUniqueViolation) {
+		if errors.Is(databaseErr, shared.ErrUniqueViolation) {
 			return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrDuplicateData, databaseErr)
 		}
-		if errors.Is(databaseErr, utils.ErrForeignKeyViolation) {
+		if errors.Is(databaseErr, shared.ErrForeignKeyViolation) {
 			return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidReference, databaseErr)
 		}
-		if errors.Is(databaseErr, utils.ErrCheckConstraintViolation) {
+		if errors.Is(databaseErr, shared.ErrCheckConstraintViolation) {
 			return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidData, databaseErr)
 		}
 		return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrCreateFailed, databaseErr)

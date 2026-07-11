@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"blackradar/api/dto"
+	"blackradar/api/controller/dto"
 )
 
 func TestBuildAssetMatchRankingRequestLocksSystemPrompt(t *testing.T) {

@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"strings"
 
-	appcontext "blackradar/api/context"
-	"blackradar/api/dto"
+	"blackradar/api/controller/dto"
+	appcontext "blackradar/api/requestContext"
 )
 
 const maxJSONBodyBytes int64 = 1 << 20

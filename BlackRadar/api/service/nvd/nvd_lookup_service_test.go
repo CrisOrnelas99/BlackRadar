@@ -12,9 +12,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	appcontext "blackradar/api/context"
-	"blackradar/api/dto"
-	nvdexternal "blackradar/api/external/nvd"
+	"blackradar/api/controller/dto"
+	baseexternal "blackradar/api/external"
+	appcontext "blackradar/api/requestContext"
 	baseservice "blackradar/api/service"
 )
 
@@ -58,9 +58,9 @@ func TestNVDLookupServiceErrorMapping(t *testing.T) {
 		err  error
 		want error
 	}{
-		{name: "not found", err: nvdexternal.ErrCVEIDNotFound, want: baseservice.ErrNotFound},
-		{name: "rate limited", err: nvdexternal.ErrNVDRateLimited, want: baseservice.ErrRateLimited},
-		{name: "invalid response", err: nvdexternal.ErrInvalidNVDResponse, want: baseservice.ErrExternalService},
+		{name: "not found", err: baseexternal.ErrCVEIDNotFound, want: baseservice.ErrNotFound},
+		{name: "rate limited", err: baseexternal.ErrNVDRateLimited, want: baseservice.ErrRateLimited},
+		{name: "invalid response", err: baseexternal.ErrInvalidNVDResponse, want: baseservice.ErrExternalService},
 	}
 
 	for _, tc := range cases {

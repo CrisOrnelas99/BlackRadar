@@ -2,8 +2,8 @@
 package repository
 
 import (
-	appcontext "blackradar/api/context"
 	"blackradar/api/model"
+	appcontext "blackradar/api/requestContext"
 )
 
 // UserRepository defines persistence operations for user accounts.
@@ -55,7 +55,7 @@ type AssetRepository interface {
 	// UpdateForOrganization updates an existing asset for an organization.
 	UpdateForOrganization(ec *appcontext.GinContext, id string, organizationID string, asset model.Asset) (model.Asset, error)
 	// UpdateMatchAnalysisForOrganization stores backend-generated CPE match state for an asset.
-	UpdateMatchAnalysisForOrganization(ec *appcontext.GinContext, id string, organizationID string, analysis AssetMatchUpdate) (model.Asset, error)
+	UpdateMatchAnalysisForOrganization(ec *appcontext.GinContext, id string, organizationID string, analysis any) (model.Asset, error)
 	// DeleteForOrganization deletes an organization's asset.
 	DeleteForOrganization(ec *appcontext.GinContext, id string, organizationID string) (model.Asset, error)
 	// AssignVulnerabilityForOrganization associates a vulnerability with an organization's asset.

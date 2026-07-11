@@ -3,10 +3,14 @@ package controller
 
 import (
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
-	appcontext "blackradar/api/context"
-	"blackradar/api/middleware"
-	"blackradar/api/security"
+	"blackradar/api/controller/health"
+	jwtmiddleware "blackradar/api/middleware/jwt"
+	"blackradar/api/middleware/permissions"
+	ratelimit "blackradar/api/middleware/rate_limit"
+	appcontext "blackradar/api/requestContext"
+	sharedjwt "blackradar/api/shared/jwt"
 )
 
 // RouteHandlers groups the controller functions used when wiring HTTP routes.
@@ -34,11 +38,12 @@ type RouteHandlers struct {
 }
 
 // RegisterRoutes centralizes all route registrations for the application.
-func RegisterRoutes(router *gin.Engine, jwtManager *security.JWTManager, userLookup middleware.UserLookup, sessions middleware.RefreshSessionLookup, handlers RouteHandlers) {
-	router.GET("/api/health", Health)
+func RegisterRoutes(router *gin.Engine, database *gorm.DB, jwtManager *sharedjwt.JWTManager, userLookup jwtmiddleware.UserLookup, sessions jwtmiddleware.RefreshSessionLookup, handlers RouteHandlers) {
+	router.GET("/api/health", health.Health)
+	router.GET("/api/ready", health.Ready(database))
 
 	auth := router.Group("/api/auth")
-	auth.Use(middleware.AuthRateLimit())
+	auth.Use(ratelimit.AuthRateLimit())
 	{
 		auth.POST("/register", appcontext.Wrap(handlers.RegisterAuth))
 		auth.POST("/login", appcontext.Wrap(handlers.LoginAuth))
@@ -47,7 +52,7 @@ func RegisterRoutes(router *gin.Engine, jwtManager *security.JWTManager, userLoo
 	}
 
 	protected := router.Group("/api")
-	protected.Use(middleware.JWTAuthenticationFilter(jwtManager, userLookup, sessions))
+	protected.Use(jwtmiddleware.JWTAuthenticationFilter(jwtManager, userLookup, sessions))
 	{
 		protected.GET("/assets", appcontext.Wrap(handlers.GetAssets))
 		protected.GET("/assets/:id", appcontext.Wrap(handlers.GetAsset))
@@ -56,10 +61,10 @@ func RegisterRoutes(router *gin.Engine, jwtManager *security.JWTManager, userLoo
 		protected.DELETE("/assets/:id", appcontext.Wrap(handlers.DeleteAsset))
 
 		adminOnly := protected.Group("/")
-		adminOnly.Use(middleware.RequireAdmin())
+		adminOnly.Use(permissions.RequireAdmin())
 		{
 			adminOnly.POST("/assets/:id/vulnerabilities/:vulnerabilityId", appcontext.Wrap(handlers.AssignVulnerability))
-			adminOnly.POST("/assets/:id/match-cpe/vulnerabilities", middleware.AIRateLimit(), appcontext.Wrap(handlers.MatchAssetCPEAndAttach))
+			adminOnly.POST("/assets/:id/match-cpe/vulnerabilities", ratelimit.AIRateLimit(), appcontext.Wrap(handlers.MatchAssetCPEAndAttach))
 			adminOnly.DELETE("/assets/:id/vulnerabilities/:vulnerabilityId", appcontext.Wrap(handlers.RemoveVulnerability))
 
 			adminOnly.GET("/vulnerabilities", appcontext.Wrap(handlers.GetVulnerabilities))
@@ -68,12 +73,12 @@ func RegisterRoutes(router *gin.Engine, jwtManager *security.JWTManager, userLoo
 			adminOnly.PUT("/vulnerabilities/:id", appcontext.Wrap(handlers.UpdateVulnerability))
 			adminOnly.DELETE("/vulnerabilities/:id", appcontext.Wrap(handlers.DeleteVulnerability))
 
-			nvd := adminOnly.Group("/nvd", middleware.NVDLookupRateLimit())
+			nvd := adminOnly.Group("/nvd", ratelimit.NVDLookupRateLimit())
 			{
 				nvd.GET("/cves/:cveId", appcontext.Wrap(handlers.LookupCVE))
 			}
 
-			ai := adminOnly.Group("/ai", middleware.AIRateLimit())
+			ai := adminOnly.Group("/ai", ratelimit.AIRateLimit())
 			{
 				ai.GET("/test", appcontext.Wrap(handlers.TestAIProvider))
 				ai.POST("/message", appcontext.Wrap(handlers.SendAIMessage))

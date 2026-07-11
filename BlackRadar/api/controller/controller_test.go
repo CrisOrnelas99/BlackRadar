@@ -1,4 +1,4 @@
-// Package controller_test verifies controller helpers, health checks, and route registration.
+// Package controller_test verifies controller helpers and route registration.
 package controller_test
 
 import (
@@ -16,18 +16,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	appcontext "blackradar/api/context"
 	basecontroller "blackradar/api/controller"
 	controllerai "blackradar/api/controller/ai"
 	controllerasset "blackradar/api/controller/asset"
 	controllerauth "blackradar/api/controller/auth"
+	"blackradar/api/controller/dto"
 	controllervulnerability "blackradar/api/controller/vulnerability"
-	"blackradar/api/dto"
-	"blackradar/api/middleware"
+	jwtmiddleware "blackradar/api/middleware/jwt"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
-	"blackradar/api/security"
+	appcontext "blackradar/api/requestContext"
 	"blackradar/api/service"
+	sharedjwt "blackradar/api/shared/jwt"
 )
 
 // TestMain sets Gin into test mode for controller tests.
@@ -84,24 +84,10 @@ func TestControllerHelper(t *testing.T) {
 	})
 }
 
-// TestHealth verifies the health endpoint returns success.
-func TestHealth(t *testing.T) {
-	router := gin.New()
-	router.GET("/api/health", basecontroller.Health)
-
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/api/health", nil)
-	router.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
-	}
-}
-
 // TestRegisterRoutes verifies the route registration wiring.
 func TestRegisterRoutes(t *testing.T) {
 	engine := gin.New()
-	jwtManager := security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
+	jwtManager := sharedjwt.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
 	lookup := &fakeUserLookup{exists: true, user: model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, Username: "analyst", Role: model.RoleAdmin}}
 	sessions := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: "00000000-0000-4000-8000-000000000001"}}
 
@@ -111,7 +97,7 @@ func TestRegisterRoutes(t *testing.T) {
 	vulnerabilityController := controllervulnerability.NewVulnerabilityController(&fakeVulnerabilityService{vulnerability: sampleVulnerability(), vulnerabilities: []model.Vulnerability{sampleVulnerability()}})
 	nvdLookupCalled := false
 
-	basecontroller.RegisterRoutes(engine, jwtManager, lookup, sessions, basecontroller.RouteHandlers{
+	basecontroller.RegisterRoutes(engine, nil, jwtManager, lookup, sessions, basecontroller.RouteHandlers{
 		RegisterAuth:           authController.Register,
 		LoginAuth:              authController.Login,
 		RefreshAuth:            authController.Refresh,
@@ -142,6 +128,13 @@ func TestRegisterRoutes(t *testing.T) {
 	engine.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected health endpoint to be registered, got %d", recorder.Code)
+	}
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodGet, "/api/ready", nil)
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected ready endpoint to be registered, got %d", recorder.Code)
 	}
 
 	token, err := jwtManager.GenerateToken("analyst", "session-1")
@@ -203,13 +196,13 @@ func TestRegisterRoutes(t *testing.T) {
 
 func TestRegisterRoutesRejectsVulnerabilityRoutesForNonAdmin(t *testing.T) {
 	engine := gin.New()
-	jwtManager := security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
+	jwtManager := sharedjwt.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
 	lookup := &fakeUserLookup{exists: true, user: model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, Username: "analyst", Role: model.RoleUser}}
 	sessions := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: "00000000-0000-4000-8000-000000000001"}}
 
 	vulnerabilityController := controllervulnerability.NewVulnerabilityController(&fakeVulnerabilityService{vulnerability: sampleVulnerability(), vulnerabilities: []model.Vulnerability{sampleVulnerability()}})
 
-	basecontroller.RegisterRoutes(engine, jwtManager, lookup, sessions, basecontroller.RouteHandlers{
+	basecontroller.RegisterRoutes(engine, nil, jwtManager, lookup, sessions, basecontroller.RouteHandlers{
 		GetVulnerabilities:  vulnerabilityController.GetVulnerabilities,
 		GetVulnerability:    vulnerabilityController.GetVulnerability,
 		CreateVulnerability: vulnerabilityController.CreateVulnerability,
@@ -417,7 +410,7 @@ func (f *fakeVulnerabilityService) DeleteVulnerability(ec *appcontext.GinContext
 	return f.vulnerability, nil
 }
 
-var _ middleware.UserLookup = (*fakeUserLookup)(nil)
+var _ jwtmiddleware.UserLookup = (*fakeUserLookup)(nil)
 var _ service.AuthService = (*fakeAuthService)(nil)
 var _ service.AssetService = (*fakeAssetService)(nil)
 var _ service.AssetMatchService = (*fakeAssetMatchService)(nil)

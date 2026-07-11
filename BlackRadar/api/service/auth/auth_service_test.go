@@ -14,12 +14,12 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
-	appcontext "blackradar/api/context"
-	"blackradar/api/dto"
+	"blackradar/api/controller/dto"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
-	"blackradar/api/security"
+	appcontext "blackradar/api/requestContext"
 	baseservice "blackradar/api/service"
+	sharedjwt "blackradar/api/shared/jwt"
 )
 
 const (
@@ -35,7 +35,7 @@ func TestAuthService(t *testing.T) {
 	repo := &fakeUserRepository{
 		user: model.User{Model: model.Model{ID: testUserID}, OrganizationID: testOrgID, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
-	svc := NewAuthService(security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, &fakeRefreshSessionRepository{})
+	svc := NewAuthService(sharedjwt.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, &fakeRefreshSessionRepository{})
 	ctx := newAuthServiceContext(t)
 
 	registerResponse, err := svc.Register(ctx, dto.RegisterRequest{Username: "analyst", Email: "analyst@example.com", Organization: "home", Password: "Password1!"})
@@ -94,7 +94,7 @@ func TestAuthServiceHelpers(t *testing.T) {
 // TestAuthServiceValidationAndTranslation verifies validation and error mapping.
 func TestAuthServiceValidationAndTranslation(t *testing.T) {
 	ctx := newAuthServiceContext(t)
-	svc := NewAuthService(security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{findErr: gorm.ErrRecordNotFound}, &fakeUserRepository{findErr: gorm.ErrRecordNotFound}, &fakeRefreshSessionRepository{})
+	svc := NewAuthService(sharedjwt.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{findErr: gorm.ErrRecordNotFound}, &fakeUserRepository{findErr: gorm.ErrRecordNotFound}, &fakeRefreshSessionRepository{})
 
 	if _, err := svc.Register(ctx, dto.RegisterRequest{Username: "ab", Email: "bad", Organization: "home", Password: "short"}); !errors.Is(err, baseservice.ErrInvalidRequestData) {
 		t.Fatalf("expected invalid request data, got %v", err)
@@ -110,7 +110,7 @@ func TestAuthServiceLogoutRejectsSecondLogout(t *testing.T) {
 		user: model.User{Model: model.Model{ID: testUserIDSeven}, OrganizationID: testOrgID, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
 	sessions := &fakeRefreshSessionRepository{}
-	svc := NewAuthService(security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, sessions)
+	svc := NewAuthService(sharedjwt.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, sessions)
 	ctx := newAuthServiceContext(t)
 
 	login, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "analyst", Password: "Password1!"})
@@ -132,7 +132,7 @@ func TestAuthServiceLoginResolvesUsernameAndEmailDeterministically(t *testing.T)
 	repo := &fakeUserRepository{
 		user: model.User{Model: model.Model{ID: testUserIDFortyTwo}, OrganizationID: testOrgID, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
-	svc := NewAuthService(security.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, &fakeRefreshSessionRepository{})
+	svc := NewAuthService(sharedjwt.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, &fakeRefreshSessionRepository{})
 	ctx := newAuthServiceContext(t)
 
 	if _, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "analyst", Password: "Password1!"}); err != nil {

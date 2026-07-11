@@ -11,10 +11,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	appcontext "blackradar/api/context"
-	"blackradar/api/dto"
+	"blackradar/api/controller/dto"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
+	assetrepo "blackradar/api/repository/asset"
+	appcontext "blackradar/api/requestContext"
 	baseservice "blackradar/api/service"
 )
 
@@ -245,7 +246,7 @@ type fakeAssetRepository struct {
 	assigned               bool
 	signatureExists        bool
 	expectedOrganizationID string
-	matchUpdate            baserepository.AssetMatchUpdate
+	matchUpdate            assetrepo.AssetMatchUpdate
 	updateMatchCalls       int
 }
 
@@ -288,9 +289,11 @@ func (f *fakeAssetRepository) UpdateForOrganization(ec *appcontext.GinContext, i
 }
 
 // UpdateMatchAnalysisForOrganization returns the configured fake asset after recording the match update.
-func (f *fakeAssetRepository) UpdateMatchAnalysisForOrganization(ec *appcontext.GinContext, id string, organizationID string, analysis baserepository.AssetMatchUpdate) (model.Asset, error) {
+func (f *fakeAssetRepository) UpdateMatchAnalysisForOrganization(ec *appcontext.GinContext, id string, organizationID string, analysis any) (model.Asset, error) {
 	f.updateMatchCalls++
-	f.matchUpdate = analysis
+	if typed, ok := analysis.(assetrepo.AssetMatchUpdate); ok {
+		f.matchUpdate = typed
+	}
 	return f.asset, nil
 }
 

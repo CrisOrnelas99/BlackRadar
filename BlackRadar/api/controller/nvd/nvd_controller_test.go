@@ -11,8 +11,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	appcontext "blackradar/api/context"
-	"blackradar/api/dto"
+	"blackradar/api/controller/dto"
+	appcontext "blackradar/api/requestContext"
 	baseservice "blackradar/api/service"
 )
 
