@@ -24,6 +24,7 @@ BlackRadar/bin/
 # Local project guidance docs
 ARCHITECTURE.md
 CLEANCODE.md
+SECURITY.md
 API_Tests/*
 git-workflow.txt
 AGENTS.md
