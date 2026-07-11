@@ -1,0 +1,6 @@
+info:
+  name: Admin Setup
+  type: folder
+  seq: 1
+
+request: {}

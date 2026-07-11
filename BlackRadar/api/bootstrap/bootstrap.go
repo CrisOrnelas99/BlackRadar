@@ -1,9 +1,11 @@
+// Package bootstrap seeds local development data at application startup when enabled.
 package bootstrap
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"golang.org/x/crypto/bcrypt"
@@ -14,15 +16,18 @@ import (
 )
 
 const (
-	bootstrapUsername     = "system_admin"
-	bootstrapEmail        = "Test@gmail.com"
-	bootstrapPassword     = "Password123!"
-	bootstrapOrganization = "admin_home"
+	bootstrapPasswordEnvironmentVariable = "BOOTSTRAP_DEV_PASSWORD"
 
-	bootstrapUserID          = "77000000-0000-4000-8000-000000000001"
-	bootstrapAssetID         = "77000000-0000-4000-8000-000000000002"
+	bootstrapOrganizationID = "77000000-0000-4000-8000-000000000000"
+	bootstrapUserID         = "77000000-0000-4000-8000-000000000001"
+	bootstrapAssetID        = "77000000-0000-4000-8000-000000000002"
+
 	bootstrapVulnerabilityID = "77000000-0000-4000-8000-000000000003"
 	bootstrapAssessmentID    = "77000000-0000-4000-8000-000000000004"
+
+	bootstrapUsername     = "system_admin"
+	bootstrapEmail        = "system_admin@example.invalid"
+	bootstrapOrganization = "admin_home"
 
 	bootstrapAssetName        = "Test Device"
 	bootstrapAssetType        = "Device"
@@ -37,156 +42,297 @@ const (
 	bootstrapDescription        = "Example NVD-backed CVE used for local testing."
 )
 
-// Run seeds developer bootstrap data when enabled.
+// Run seeds developer bootstrap data when explicitly enabled.
 func Run(ctx context.Context, database *gorm.DB, cfg config.Config) error {
 	if !cfg.BootstrapDevData {
 		return nil
 	}
 
-	if cfg.Environment == "production" {
-		return fmt.Errorf("bootstrap dev data cannot run in production")
-	}
-
 	if database == nil {
-		return fmt.Errorf("missing database for bootstrap")
+		return fmt.Errorf("bootstrap dev data: database is required")
 	}
 
-	return seedDevData(ctx, database)
+	if err := validateBootstrapEnvironment(cfg.Environment); err != nil {
+		return err
+	}
+
+	password, err := bootstrapPassword()
+	if err != nil {
+		return err
+	}
+
+	return seedDevData(ctx, database, password)
 }
 
-func seedDevData(ctx context.Context, database *gorm.DB) error {
+// validateBootstrapEnvironment allows bootstrap data only in explicitly
+// approved non-production environments.
+func validateBootstrapEnvironment(environment string) error {
+	normalizedEnvironment := normalize(environment)
+
+	switch normalizedEnvironment {
+	case "local", "development", "dev", "test":
+		return nil
+	default:
+		return fmt.Errorf(
+			"bootstrap dev data is not allowed in environment %q",
+			environment,
+		)
+	}
+}
+
+// bootstrapPassword reads the development administrator password from the
+// environment instead of storing a credential in source control.
+func bootstrapPassword() (string, error) {
+	password := strings.TrimSpace(
+		os.Getenv(bootstrapPasswordEnvironmentVariable),
+	)
+	if password == "" {
+		return "", fmt.Errorf(
+			"bootstrap dev data: %s must be set",
+			bootstrapPasswordEnvironmentVariable,
+		)
+	}
+
+	return password, nil
+}
+
+// seedDevData recreates the known bootstrap records inside one transaction.
+func seedDevData(
+	ctx context.Context,
+	database *gorm.DB,
+	password string,
+) error {
 	return database.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := clearBootstrapData(ctx, tx); err != nil {
+		if err := validateExistingBootstrapOrganization(tx); err != nil {
 			return err
 		}
 
-		organization, err := seedBootstrapOrganization(ctx, tx)
+		if err := clearBootstrapData(tx); err != nil {
+			return err
+		}
+
+		organization, err := seedBootstrapOrganization(tx)
 		if err != nil {
 			return err
 		}
 
-		user, err := seedBootstrapUser(ctx, tx, organization.ID)
+		user, err := seedBootstrapUser(
+			tx,
+			organization.ID,
+			password,
+		)
 		if err != nil {
 			return err
 		}
 
-		asset, err := seedBootstrapAsset(ctx, tx, organization.ID, user.ID)
+		asset, err := seedBootstrapAsset(
+			tx,
+			organization.ID,
+			user.ID,
+		)
 		if err != nil {
 			return err
 		}
 
-		vulnerability, err := seedBootstrapVulnerability(ctx, tx, organization.ID, user.ID)
+		vulnerability, err := seedBootstrapVulnerability(
+			tx,
+			organization.ID,
+			user.ID,
+		)
 		if err != nil {
 			return err
 		}
 
-		return assignBootstrapVulnerability(ctx, tx, asset, vulnerability)
+		return assignBootstrapVulnerability(
+			tx,
+			asset,
+			vulnerability,
+		)
 	})
 }
 
-func clearBootstrapData(ctx context.Context, database *gorm.DB) error {
+// validateExistingBootstrapOrganization prevents the bootstrap process from
+// deleting an organization whose fixed bootstrap ID belongs to another record.
+func validateExistingBootstrapOrganization(tx *gorm.DB) error {
 	var organization model.Organization
-	err := database.WithContext(ctx).
-		Where("name = ?", strings.ToLower(strings.TrimSpace(bootstrapOrganization))).
-		First(&organization).Error
+
+	err := tx.Unscoped().
+		Where("id = ?", bootstrapOrganizationID).
+		First(&organization).
+		Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
 		}
-		return fmt.Errorf("find bootstrap organization for cleanup: %w", err)
+
+		return fmt.Errorf(
+			"find existing bootstrap organization: %w",
+			err,
+		)
 	}
 
-	if err := database.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec(
-			`DELETE FROM asset_vulnerabilities
-			 WHERE asset_id IN (SELECT id FROM assets WHERE organization_id = ?)
-			    OR vulnerability_id IN (SELECT id FROM vulnerabilities WHERE organization_id = ?)`,
-			organization.ID, organization.ID,
-		).Error; err != nil {
-			return fmt.Errorf("delete bootstrap asset vulnerabilities: %w", err)
-		}
-		if err := tx.Exec(
-			`WITH deleted_assets AS (
-				DELETE FROM assets
-				WHERE organization_id = ?
-				RETURNING asset_assessment_id
-			)
-			DELETE FROM asset_assessments
-			WHERE id IN (
-				SELECT asset_assessment_id
-				FROM deleted_assets
-				WHERE asset_assessment_id IS NOT NULL
-			)`,
-			organization.ID,
-		).Error; err != nil {
-			return fmt.Errorf("delete bootstrap assets: %w", err)
-		}
-		if err := tx.Exec(`DELETE FROM vulnerabilities WHERE organization_id = ?`, organization.ID).Error; err != nil {
-			return fmt.Errorf("delete bootstrap vulnerabilities: %w", err)
-		}
-		if err := tx.Exec(`DELETE FROM users WHERE organization_id = ?`, organization.ID).Error; err != nil {
-			return fmt.Errorf("delete bootstrap users: %w", err)
-		}
-		if err := tx.Delete(&organization).Error; err != nil {
-			return fmt.Errorf("delete bootstrap organization: %w", err)
-		}
-		return nil
-	}); err != nil {
-		return err
+	expectedName := normalize(bootstrapOrganization)
+	actualName := normalize(organization.Name)
+
+	if actualName != expectedName {
+		return fmt.Errorf(
+			"bootstrap organization ID %q belongs to organization %q",
+			bootstrapOrganizationID,
+			organization.Name,
+		)
 	}
 
 	return nil
 }
 
-func seedBootstrapOrganization(ctx context.Context, database *gorm.DB) (model.Organization, error) {
-	normalized := strings.ToLower(strings.TrimSpace(bootstrapOrganization))
+// clearBootstrapData removes only records identified by the fixed bootstrap
+// IDs. It does not delete every record belonging to an organization.
+func clearBootstrapData(tx *gorm.DB) error {
+	if err := tx.Exec(
+		`DELETE FROM asset_vulnerabilities
+		 WHERE asset_id = ?
+		    OR vulnerability_id = ?`,
+		bootstrapAssetID,
+		bootstrapVulnerabilityID,
+	).Error; err != nil {
+		return fmt.Errorf(
+			"delete bootstrap asset-vulnerability assignment: %w",
+			err,
+		)
+	}
 
-	var organization model.Organization
-	err := database.WithContext(ctx).Where("name = ?", normalized).First(&organization).Error
-	if err == nil {
-		return organization, nil
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.Organization{}, fmt.Errorf("find bootstrap organization: %w", err)
+	if err := tx.Unscoped().
+		Where("id = ?", bootstrapAssetID).
+		Delete(&model.Asset{}).
+		Error; err != nil {
+		return fmt.Errorf("delete bootstrap asset: %w", err)
 	}
 
-	organization = model.Organization{Name: normalized}
-	if err := database.WithContext(ctx).Create(&organization).Error; err != nil {
-		return model.Organization{}, fmt.Errorf("create bootstrap organization: %w", err)
+	if err := tx.Unscoped().
+		Where("id = ?", bootstrapVulnerabilityID).
+		Delete(&model.Vulnerability{}).
+		Error; err != nil {
+		return fmt.Errorf(
+			"delete bootstrap vulnerability: %w",
+			err,
+		)
 	}
+
+	if err := tx.Unscoped().
+		Where("id = ?", bootstrapAssessmentID).
+		Delete(&model.AssetAssessment{}).
+		Error; err != nil {
+		return fmt.Errorf(
+			"delete bootstrap asset assessment: %w",
+			err,
+		)
+	}
+
+	if err := tx.Unscoped().
+		Where("id = ?", bootstrapUserID).
+		Delete(&model.User{}).
+		Error; err != nil {
+		return fmt.Errorf("delete bootstrap user: %w", err)
+	}
+
+	if err := tx.Unscoped().
+		Where("id = ?", bootstrapOrganizationID).
+		Delete(&model.Organization{}).
+		Error; err != nil {
+		return fmt.Errorf(
+			"delete bootstrap organization: %w",
+			err,
+		)
+	}
+
+	return nil
+}
+
+// seedBootstrapOrganization creates the bootstrap organization.
+func seedBootstrapOrganization(
+	tx *gorm.DB,
+) (model.Organization, error) {
+	organization := model.Organization{
+		Model: model.Model{
+			ID: bootstrapOrganizationID,
+		},
+		Name: normalize(bootstrapOrganization),
+	}
+
+	if err := tx.Create(&organization).Error; err != nil {
+		return model.Organization{}, fmt.Errorf(
+			"create bootstrap organization: %w",
+			err,
+		)
+	}
+
 	return organization, nil
 }
 
-func seedBootstrapUser(ctx context.Context, database *gorm.DB, organizationID string) (model.User, error) {
-	email := strings.ToLower(strings.TrimSpace(bootstrapEmail))
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte(bootstrapPassword), config.PasswordCost())
+// seedBootstrapUser creates the bootstrap administrator.
+func seedBootstrapUser(
+	tx *gorm.DB,
+	organizationID string,
+	password string,
+) (model.User, error) {
+	passwordHash, err := bcrypt.GenerateFromPassword(
+		[]byte(password),
+		config.PasswordCost(),
+	)
 	if err != nil {
-		return model.User{}, fmt.Errorf("hash bootstrap password: %w", err)
+		return model.User{}, fmt.Errorf(
+			"hash bootstrap password: %w",
+			err,
+		)
 	}
 
 	user := model.User{
-		Model:          model.Model{ID: bootstrapUserID},
+		Model: model.Model{
+			ID: bootstrapUserID,
+		},
 		OrganizationID: organizationID,
 		Username:       bootstrapUsername,
-		Email:          email,
+		Email:          normalize(bootstrapEmail),
 		Role:           model.RoleAdmin,
 		PasswordHash:   string(passwordHash),
 	}
-	if err := database.WithContext(ctx).Create(&user).Error; err != nil {
-		return model.User{}, fmt.Errorf("create bootstrap user: %w", err)
+
+	if err := tx.Create(&user).Error; err != nil {
+		return model.User{}, fmt.Errorf(
+			"create bootstrap user: %w",
+			err,
+		)
 	}
 
 	return user, nil
 }
 
-func seedBootstrapAsset(ctx context.Context, database *gorm.DB, organizationID string, userID string) (model.Asset, error) {
-	operatingSystem := bootstrapAssetOS
+// seedBootstrapAsset creates the sample asset and its assessment.
+func seedBootstrapAsset(
+	tx *gorm.DB,
+	organizationID string,
+	userID string,
+) (model.Asset, error) {
 	assessment := model.AssetAssessment{
-		Model:           model.Model{ID: bootstrapAssessmentID},
+		Model: model.Model{
+			ID: bootstrapAssessmentID,
+		},
 		CPEReviewStatus: model.AssetCPEReviewStatusNeedsReview,
 	}
+
+	if err := tx.Create(&assessment).Error; err != nil {
+		return model.Asset{}, fmt.Errorf(
+			"create bootstrap asset assessment: %w",
+			err,
+		)
+	}
+
+	operatingSystem := bootstrapAssetOS
+
 	asset := model.Asset{
-		Model:             model.Model{ID: bootstrapAssetID},
+		Model: model.Model{
+			ID: bootstrapAssetID,
+		},
 		OrganizationID:    organizationID,
 		UserID:            userID,
 		AssetAssessmentID: &assessment.ID,
@@ -197,25 +343,29 @@ func seedBootstrapAsset(ctx context.Context, database *gorm.DB, organizationID s
 		Criticality:       bootstrapAssetCriticality,
 		RiskLevel:         nil,
 	}
-	if err := database.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&assessment).Error; err != nil {
-			return fmt.Errorf("create bootstrap asset assessment: %w", err)
-		}
-		if err := tx.Create(&asset).Error; err != nil {
-			return fmt.Errorf("create bootstrap asset: %w", err)
-		}
-		return nil
-	}); err != nil {
-		return model.Asset{}, err
+
+	if err := tx.Create(&asset).Error; err != nil {
+		return model.Asset{}, fmt.Errorf(
+			"create bootstrap asset: %w",
+			err,
+		)
 	}
 
 	asset.Assessment = &assessment
+
 	return asset, nil
 }
 
-func seedBootstrapVulnerability(ctx context.Context, database *gorm.DB, organizationID string, userID string) (model.Vulnerability, error) {
+// seedBootstrapVulnerability creates the sample vulnerability.
+func seedBootstrapVulnerability(
+	tx *gorm.DB,
+	organizationID string,
+	userID string,
+) (model.Vulnerability, error) {
 	vulnerability := model.Vulnerability{
-		Model:          model.Model{ID: bootstrapVulnerabilityID},
+		Model: model.Model{
+			ID: bootstrapVulnerabilityID,
+		},
 		OrganizationID: organizationID,
 		UserID:         userID,
 		CVEID:          bootstrapCVEID,
@@ -224,30 +374,38 @@ func seedBootstrapVulnerability(ctx context.Context, database *gorm.DB, organiza
 		Description:    bootstrapDescription,
 		Status:         bootstrapStatus,
 	}
-	if err := database.WithContext(ctx).Create(&vulnerability).Error; err != nil {
-		return model.Vulnerability{}, fmt.Errorf("create bootstrap vulnerability: %w", err)
+
+	if err := tx.Create(&vulnerability).Error; err != nil {
+		return model.Vulnerability{}, fmt.Errorf(
+			"create bootstrap vulnerability: %w",
+			err,
+		)
 	}
 
 	return vulnerability, nil
 }
 
-func assignBootstrapVulnerability(ctx context.Context, database *gorm.DB, asset model.Asset, vulnerability model.Vulnerability) error {
-	var assignmentCount int64
-	err := database.WithContext(ctx).
-		Table("asset_vulnerabilities").
-		Where("asset_id = ? AND vulnerability_id = ? AND deleted_at IS NULL", asset.ID, vulnerability.ID).
-		Count(&assignmentCount).Error
-	if err != nil {
-		return fmt.Errorf("check bootstrap assignment: %w", err)
-	}
-
-	if assignmentCount > 0 {
-		return nil
-	}
-
-	if err := database.WithContext(ctx).Model(&asset).Association("Vulnerabilities").Append(&vulnerability); err != nil {
-		return fmt.Errorf("assign bootstrap vulnerability: %w", err)
+// assignBootstrapVulnerability links the sample vulnerability to the asset.
+func assignBootstrapVulnerability(
+	tx *gorm.DB,
+	asset model.Asset,
+	vulnerability model.Vulnerability,
+) error {
+	if err := tx.
+		Model(&asset).
+		Association("Vulnerabilities").
+		Append(&vulnerability); err != nil {
+		return fmt.Errorf(
+			"assign bootstrap vulnerability: %w",
+			err,
+		)
 	}
 
 	return nil
+}
+
+// normalize returns a trimmed lowercase value for identifiers that are stored
+// case-insensitively.
+func normalize(value string) string {
+	return strings.ToLower(strings.TrimSpace(value))
 }

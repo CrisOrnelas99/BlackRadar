@@ -1,0 +1,25 @@
+info:
+  name: Update Asset
+  type: http
+  seq: 5
+
+http:
+  method: PUT
+  url: http://localhost:8080/api/assets/{{assetId}}
+  auth: inherit
+  body:
+    type: json
+    data: |
+      {
+        "name": "Laptop-02",
+        "type": "Device",
+        "operatingSystem": "Windows 11",
+        "owner": "system_admin",
+        "criticality": "Medium"
+      }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -108,7 +108,7 @@ The repository currently contains these working foundations:
 - layered repository/service/controller error handling with safe JSON responses
 - controller → service → repository layering
 - GORM AutoMigrate provisioning
-- Docker Compose support for PostgreSQL and backend
+- Docker Compose support for PostgreSQL, backend, and frontend
 - Angular UI project scaffold under `BlackRadar/ui/`
 
 ## Planned Extensions
@@ -157,15 +157,16 @@ Inside `BlackRadar/`:
 ```text
 BlackRadar/
 |-- api/
+|   |-- bootstrap/
 |   |-- config/
 |   |-- controller/
-|   |-- dto/
+|   |-- external/
 |   |-- middleware/
 |   |-- model/
 |   |-- repository/
-|   |-- security/
+|   |-- requestContext/
 |   |-- service/
-|   `-- utils/
+|   `-- shared/
 |-- Dockerfile
 |-- go.mod
 |-- go.sum
@@ -196,6 +197,7 @@ The current `docker-compose.yml` includes:
 
 - `postgres`
 - `backend`
+- `frontend`
 
 Start the full Compose stack with:
 
@@ -209,6 +211,7 @@ That bootstrap account belongs to the `admin_home` organization.
 Default endpoints:
 
 - backend: `http://localhost:8080`
+- frontend: `http://localhost:4200`
 - PostgreSQL: mapped from `${POSTGRES_PORT}` to container `5432`
 
 For backend development, it is often simpler to run PostgreSQL in Docker and the Go backend directly from the local shell.
@@ -261,8 +264,8 @@ Stop-Process -Id <PID> -Force
 
 ### Frontend status
 
-The Angular UI lives in `BlackRadar/ui/` but is not yet wired into Docker Compose in the current repository state.
-Treat it as work-in-progress rather than production ready.
+The Angular UI lives in `BlackRadar/ui/` and is wired into Docker Compose as the `frontend` service.
+It should be treated as active local-development UI, not as a production deployment example.
 
 ### Environment configuration
 
