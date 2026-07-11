@@ -4,7 +4,6 @@ dist/
 target/
 .idea/
 *.iml
-Roadmap.md
 .gocache/
 .angular/
 npm-debug.log*
@@ -28,3 +27,4 @@ SECURITY.md
 API_Tests/*
 git-workflow.txt
 AGENTS.md
+ROADMAP.md
