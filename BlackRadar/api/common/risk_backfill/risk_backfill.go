@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	riskrepo "blackradar/api/repository/risk"
+	assetrepo "blackradar/api/repository/asset"
 )
 
 type assetRow struct {
@@ -27,7 +27,7 @@ var runBackfillTransaction = func(ctx context.Context, database *gorm.DB, fn fun
 	return database.WithContext(ctx).Transaction(fn)
 }
 
-var refreshAssetRisk = riskrepo.RefreshAssetRisk
+var refreshAssetRisk = assetrepo.RefreshAssetRisk
 
 // BackfillAssetRiskLevels recalculates stored risk levels for existing assets.
 //

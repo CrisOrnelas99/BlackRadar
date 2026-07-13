@@ -4,10 +4,12 @@ package repository
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
 	appcontext "blackradar/api/context"
@@ -50,5 +52,28 @@ func TestRefreshSessionRepositorySaveRejectsInvalidInput(t *testing.T) {
 		ExpiresAt:  time.Time{},
 	}); err != baserepository.ErrInvalidData {
 		t.Fatalf("expected invalid data error for missing expiry, got %v", err)
+	}
+}
+
+// TestActiveRefreshSessionQueryRequiresUnexpiredSession verifies expired sessions are not treated as active.
+func TestActiveRefreshSessionQueryRequiresUnexpiredSession(t *testing.T) {
+	database, err := gorm.Open(
+		postgres.New(postgres.Config{DSN: "", PreferSimpleProtocol: true}),
+		&gorm.Config{DryRun: true, DisableAutomaticPing: true},
+	)
+	if err != nil {
+		t.Fatalf("failed to create dry-run database: %v", err)
+	}
+
+	query := activeRefreshSessionQuery(
+		database,
+		"token-1",
+		"00000000-0000-4000-8000-000000000001",
+		time.Unix(100, 0).UTC(),
+	).First(&model.RefreshSession{})
+
+	sql := query.Statement.SQL.String()
+	if !strings.Contains(sql, "expires_at >") {
+		t.Fatalf("expected active session query to require unexpired sessions, got SQL %q", sql)
 	}
 }

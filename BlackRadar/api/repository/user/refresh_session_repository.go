@@ -1,4 +1,4 @@
-// Package repository provides refresh session persistence operations.
+// Package repository provides user and refresh-session persistence operations.
 package repository
 
 import (
@@ -56,8 +56,12 @@ func (r *RefreshSessionRepository) Save(ec *appcontext.GinContext, session model
 // FindActiveByTokenIDForUser returns an unrevoked refresh session for a user.
 func (r *RefreshSessionRepository) FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID string) (model.RefreshSession, error) {
 	var session model.RefreshSession
-	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
-		Where("token_id = ? AND user_id = ? AND revoked_at IS NULL", tokenID, userID).
+	err := activeRefreshSessionQuery(
+		r.dbForContext(ec).WithContext(ec.RequestContext()),
+		tokenID,
+		userID,
+		time.Now().UTC(),
+	).
 		First(&session).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.RefreshSession{}, baserepository.ErrRefreshSessionNotFound
@@ -66,6 +70,15 @@ func (r *RefreshSessionRepository) FindActiveByTokenIDForUser(ec *appcontext.Gin
 		return model.RefreshSession{}, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
 	}
 	return session, nil
+}
+
+func activeRefreshSessionQuery(db *gorm.DB, tokenID string, userID string, now time.Time) *gorm.DB {
+	return db.Where(
+		"token_id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?",
+		tokenID,
+		userID,
+		now,
+	)
 }
 
 // RevokeByTokenIDForUser marks the specified refresh session revoked.

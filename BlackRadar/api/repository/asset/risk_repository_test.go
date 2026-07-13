@@ -1,5 +1,5 @@
-// Package risk verifies shared risk helpers.
-package risk
+// Package repository verifies shared asset risk helpers.
+package repository
 
 import (
 	"testing"

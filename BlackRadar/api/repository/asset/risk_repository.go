@@ -1,5 +1,5 @@
-// Package risk provides shared asset risk helpers.
-package risk
+// Package repository provides asset persistence operations.
+package repository
 
 import (
 	"strings"

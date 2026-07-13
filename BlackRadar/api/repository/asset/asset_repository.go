@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	commondb "blackradar/api/common/db"
 	commonid "blackradar/api/common/id"
@@ -12,13 +13,23 @@ import (
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
 	authrepo "blackradar/api/repository/authorization"
-	riskrepo "blackradar/api/repository/risk"
 	"gorm.io/gorm"
 )
 
 // AssetRepository persists asset records.
 type AssetRepository struct {
 	db *gorm.DB
+}
+
+// AssetMatchUpdate carries the backend-generated CPE match state for an asset.
+type AssetMatchUpdate struct {
+	ProductFingerprint *string
+	SelectedCPE        *string
+	CPEConfidence      *float64
+	CPEReviewStatus    string
+	CPEReviewNotes     *string
+	CPECandidateCount  int
+	CPEMatchedAt       *time.Time
 }
 
 // NewAssetRepository creates an asset repository backed by the supplied database.
@@ -315,7 +326,7 @@ func (r *AssetRepository) AssignVulnerabilityForOrganization(ec *appcontext.GinC
 		if err := tx.Model(&asset).Association("Vulnerabilities").Append(&vulnerability); err != nil {
 			return err
 		}
-		return riskrepo.RefreshAssetRisk(tx, assetID, organizationID)
+		return RefreshAssetRisk(tx, assetID, organizationID)
 	})
 	if err != nil {
 		databaseErr := commondb.TranslateDatabaseError(err)
@@ -351,7 +362,7 @@ func (r *AssetRepository) RemoveVulnerabilityForOrganization(ec *appcontext.GinC
 		if err := deleteOrphanedVulnerability(tx, vulnerability); err != nil {
 			return err
 		}
-		return riskrepo.RefreshAssetRisk(tx, assetID, organizationID)
+		return RefreshAssetRisk(tx, assetID, organizationID)
 	})
 	if err != nil {
 		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrDeleteFailed, err)
