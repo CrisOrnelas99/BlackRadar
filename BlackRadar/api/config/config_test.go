@@ -7,8 +7,9 @@ import (
 	"time"
 )
 
-func TestLoadUsesDefaults(t *testing.T) {
+func TestLoadUsesDefaultsWithRequiredSecret(t *testing.T) {
 	clearConfigEnv(t)
+	t.Setenv("JWT_SECRET", strings.Repeat("a", minimumJWTSecretLength))
 
 	cfg, err := Load()
 	if err != nil {
@@ -79,7 +80,7 @@ func TestLoadUsesConfiguredValues(t *testing.T) {
 	t.Setenv("POSTGRES_DB", "app")
 	t.Setenv("POSTGRES_USER", "user")
 	t.Setenv("POSTGRES_PASSWORD", "p@ss word")
-	t.Setenv("JWT_SECRET", "test-secret")
+	t.Setenv("JWT_SECRET", strings.Repeat("b", minimumJWTSecretLength))
 	t.Setenv("JWT_ISSUER", "issuer")
 	t.Setenv("JWT_AUDIENCE", "audience")
 	t.Setenv("JWT_EXPIRATION_MS", "60000")
@@ -135,6 +136,7 @@ func TestLoadUsesConfiguredValues(t *testing.T) {
 
 func TestLoadUsesDatabaseURLOverride(t *testing.T) {
 	clearConfigEnv(t)
+	t.Setenv("JWT_SECRET", strings.Repeat("a", minimumJWTSecretLength))
 	t.Setenv(
 		"DATABASE_URL",
 		"postgres://override:pass@db.example.com:5432/overridedb",
@@ -169,6 +171,7 @@ func TestLoadRejectsUnknownEnvironment(t *testing.T) {
 
 func TestLoadRejectsInvalidBoolean(t *testing.T) {
 	clearConfigEnv(t)
+	t.Setenv("JWT_SECRET", strings.Repeat("a", minimumJWTSecretLength))
 	t.Setenv("BOOTSTRAP_DEV_DATA", "sometimes")
 
 	_, err := Load()
@@ -183,6 +186,7 @@ func TestLoadRejectsInvalidBoolean(t *testing.T) {
 
 func TestLoadRejectsInvalidDuration(t *testing.T) {
 	clearConfigEnv(t)
+	t.Setenv("JWT_SECRET", strings.Repeat("a", minimumJWTSecretLength))
 	t.Setenv("JWT_EXPIRATION_MS", "not-a-number")
 
 	_, err := Load()
@@ -200,7 +204,7 @@ func TestLoadRejectsBootstrapOutsideAllowedEnvironments(t *testing.T) {
 	t.Setenv("GO_ENV", "production")
 	t.Setenv("BOOTSTRAP_DEV_DATA", "true")
 	t.Setenv("BOOTSTRAP_DEV_PASSWORD", "LocalDevelopmentPassword123!")
-	t.Setenv("JWT_SECRET", strings.Repeat("a", minimumProductionJWTSecretLength))
+	t.Setenv("JWT_SECRET", strings.Repeat("a", minimumJWTSecretLength))
 	t.Setenv("DATABASE_URL", "postgres://user:pass@db:5432/app")
 	t.Setenv("CORS_ALLOWED_ORIGINS", "https://example.com")
 
@@ -216,6 +220,7 @@ func TestLoadRejectsBootstrapOutsideAllowedEnvironments(t *testing.T) {
 
 func TestLoadRequiresBootstrapPasswordWhenEnabled(t *testing.T) {
 	clearConfigEnv(t)
+	t.Setenv("JWT_SECRET", strings.Repeat("a", minimumJWTSecretLength))
 	t.Setenv("BOOTSTRAP_DEV_DATA", "true")
 
 	_, err := Load()
@@ -228,9 +233,9 @@ func TestLoadRequiresBootstrapPasswordWhenEnabled(t *testing.T) {
 	}
 }
 
-func TestValidateRequiresJWTSecretInProduction(t *testing.T) {
+func TestValidateRequiresJWTSecret(t *testing.T) {
 	cfg := Config{
-		Environment:          EnvironmentProduction,
+		Environment:          EnvironmentDevelopment,
 		Port:                 defaultPort,
 		DatabaseURL:          "postgres://user:pass@db:5432/app",
 		JWTExpiration:        defaultJWTExpiration,
@@ -246,9 +251,9 @@ func TestValidateRequiresJWTSecretInProduction(t *testing.T) {
 	}
 }
 
-func TestValidateRequiresMinimumProductionJWTSecretLength(t *testing.T) {
+func TestValidateRequiresMinimumJWTSecretLength(t *testing.T) {
 	cfg := Config{
-		Environment:          EnvironmentProduction,
+		Environment:          EnvironmentDevelopment,
 		Port:                 defaultPort,
 		DatabaseURL:          "postgres://user:pass@db:5432/app",
 		JWTSecret:            "short-secret",
@@ -262,7 +267,7 @@ func TestValidateRequiresMinimumProductionJWTSecretLength(t *testing.T) {
 
 	err := cfg.Validate()
 	if err == nil {
-		t.Fatal("expected short production JWT secret to fail")
+		t.Fatal("expected short JWT secret to fail")
 	}
 
 	if !strings.Contains(err.Error(), "at least") {
@@ -270,11 +275,12 @@ func TestValidateRequiresMinimumProductionJWTSecretLength(t *testing.T) {
 	}
 }
 
-func TestValidateAllowsEmptyJWTSecretInDevelopment(t *testing.T) {
+func TestValidateAcceptsStrongJWTSecretInDevelopment(t *testing.T) {
 	cfg := Config{
 		Environment:          EnvironmentDevelopment,
 		Port:                 defaultPort,
 		DatabaseURL:          "postgres://user:pass@db:5432/app",
+		JWTSecret:            strings.Repeat("a", minimumJWTSecretLength),
 		JWTExpiration:        defaultJWTExpiration,
 		JWTRefreshExpiration: defaultJWTRefreshExpiration,
 		JWTIssuer:            defaultJWTIssuer,
@@ -291,7 +297,7 @@ func TestValidateAllowsEmptyJWTSecretInDevelopment(t *testing.T) {
 func TestLoadUsesNoDefaultCORSOriginsInProduction(t *testing.T) {
 	clearConfigEnv(t)
 	t.Setenv("GO_ENV", "production")
-	t.Setenv("JWT_SECRET", strings.Repeat("a", minimumProductionJWTSecretLength))
+	t.Setenv("JWT_SECRET", strings.Repeat("a", minimumJWTSecretLength))
 	t.Setenv("DATABASE_URL", "postgres://user:pass@db:5432/app")
 
 	_, err := Load()
@@ -302,6 +308,7 @@ func TestLoadUsesNoDefaultCORSOriginsInProduction(t *testing.T) {
 
 func TestLoadRejectsInvalidCORSOrigin(t *testing.T) {
 	clearConfigEnv(t)
+	t.Setenv("JWT_SECRET", strings.Repeat("a", minimumJWTSecretLength))
 	t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:4200/path")
 
 	_, err := Load()

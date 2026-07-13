@@ -34,7 +34,7 @@ const (
 	defaultOpenAIModel           = "gpt-4.1-mini"
 	defaultDevCorsAllowedOrigins = "http://localhost:4200,http://localhost:4000"
 
-	minimumProductionJWTSecretLength = 32
+	minimumJWTSecretLength = 32
 )
 
 // Config holds application settings loaded from environment variables.
@@ -204,18 +204,18 @@ func (cfg Config) Validate() error {
 		}
 	}
 
+	if strings.TrimSpace(cfg.JWTSecret) == "" {
+		return ErrMissingJWTSecret
+	}
+
+	if len([]byte(cfg.JWTSecret)) < minimumJWTSecretLength {
+		return fmt.Errorf(
+			"JWT_SECRET must contain at least %d bytes",
+			minimumJWTSecretLength,
+		)
+	}
+
 	if cfg.IsProduction() {
-		if strings.TrimSpace(cfg.JWTSecret) == "" {
-			return ErrMissingJWTSecret
-		}
-
-		if len(cfg.JWTSecret) < minimumProductionJWTSecretLength {
-			return fmt.Errorf(
-				"JWT_SECRET must contain at least %d characters in production",
-				minimumProductionJWTSecretLength,
-			)
-		}
-
 		if strings.TrimSpace(cfg.DatabaseURL) == "" {
 			return ErrMissingDatabaseURL
 		}

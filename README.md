@@ -31,7 +31,7 @@ Key capabilities include:
 - backend-enforced authorization and security controls
 - backend rate limiting on auth and NVD lookup endpoints
 - short-lived access tokens with server-side refresh-token sessions
-- request-scoped GORM transactions for atomic backend request handling
+- request-scoped GORM database sessions with explicit transactions for atomic writes
 - backend OpenAI-assisted asset creation, CPE matching, and NVD vulnerability attachment
 - planned certificate-based authentication for privileged internal service calls
 - planned organization switching, workflow, alerting, frontend AI flows, and chatbot features listed below
@@ -75,7 +75,7 @@ Go Gin/GORM backend
 - Backend is the main security and trust boundary.
 - Frontend never calls NVD, AI providers, or internal services directly.
 - Backend enforces validation, authorization, and DTO mapping.
-- Backend write requests run through request-scoped GORM transactions so partial database updates are rolled back on failed requests.
+- Backend write workflows use explicit service-level GORM transactions so partial database updates are rolled back when the operation fails.
 - Privileged internal service calls should use backend-issued service certificates rather than browser JWTs or shared static secrets.
 - Controller → service → repository captures request flow.
 - Local persistence of imported CVE data is preferred over live UI lookups.
@@ -164,9 +164,9 @@ BlackRadar/
 |   |-- middleware/
 |   |-- model/
 |   |-- repository/
-|   |-- requestContext/
+|   |-- context/
 |   |-- service/
-|   `-- shared/
+|   `-- common/
 |-- Dockerfile
 |-- go.mod
 |-- go.sum
@@ -201,12 +201,14 @@ The current `docker-compose.yml` includes:
 
 Start the full Compose stack with:
 
+Before starting Compose, set `BOOTSTRAP_DEV_PASSWORD` in the root `.env` file because the backend container enables local bootstrap data.
+
 ```bash
 docker compose up --build
 ```
 
-The backend container starts with `BOOTSTRAP_DEV_DATA=true`, so the seeded `system_admin` test account is available after a fresh compose start.
-That bootstrap account belongs to the `admin_home` organization.
+The backend container sets `BOOTSTRAP_DEV_DATA=true`, so Compose startup also requires `BOOTSTRAP_DEV_PASSWORD` in the root `.env` file.
+When that password is supplied, the seeded `system_admin` test account is available after a fresh compose start and belongs to the `admin_home` organization.
 
 Default endpoints:
 
@@ -243,7 +245,7 @@ When using local `go run .`, Go reads environment variables from the PowerShell 
 It does not automatically load the root `.env` file.
 Docker Compose reads `.env` for containers.
 
-`BOOTSTRAP_DEV_DATA=true` is optional. When enabled in development, startup creates or updates a local test setup:
+`BOOTSTRAP_DEV_DATA=true` is optional. When enabled in local development or tests, startup refreshes a fixed local test setup:
 
 - admin username: `system_admin`
 - email: `system_admin@example.invalid`
@@ -254,7 +256,7 @@ Docker Compose reads `.env` for containers.
 
 Registration also requires an organization name so new users are bound to the correct tenant boundary at signup.
 
-The bootstrap flag is rejected in production mode.
+The bootstrap flag is rejected outside `local`, `development`, and `test` environments.
 Bootstrap also requires `BOOTSTRAP_DEV_PASSWORD` and does not keep a default password in source control.
 
 If port `8080` is already in use, stop the old local backend process before restarting:
@@ -275,7 +277,7 @@ This project uses a local `.env` file for development configuration.
 Typical values include:
 
 - PostgreSQL database host, port, name, user, password
-- JWT secret and expiration
+- JWT secret of at least 32 bytes and token expiration settings
 - allowed frontend origins for backend CORS, such as `http://localhost:4200,http://localhost:4000`
 - frontend SSR API origin for CSP, such as `http://localhost:8080`
 - NVD API key
@@ -285,6 +287,7 @@ Typical values include:
 Important:
 
 - do not commit secrets
+- set `JWT_SECRET`; the backend refuses to start with a missing or weak JWT secret
 - do not expose API keys to the frontend
 - keep `.env` local to development
 
@@ -398,7 +401,7 @@ Security principles:
 - server-side authorization enforcement
 - admin permissions enforced in middleware
 - DTO-based request and response handling
-- request-scoped GORM transactions for atomic database writes
+- explicit service-level GORM transactions for atomic database writes
 - planned backend-issued service certificates for privileged internal service authentication
 - backend-only AI and external service keys
 - local persistence of vulnerability data over live UI lookups
