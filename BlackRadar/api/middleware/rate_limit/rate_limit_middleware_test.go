@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -164,7 +163,7 @@ func TestAIRateLimitMiddlewareReturns429(t *testing.T) {
 func TestPrincipalOrganizationKeyUsesAuthenticatedOrganization(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.Use(contextmiddleware.RequestContext(nil, nil))
+	router.Use(contextmiddleware.RequestContext(nil))
 	router.GET("/resource", func(ctx *gin.Context) {
 		ec, err := requestcontext.FromGinContext(ctx)
 		if err != nil {
@@ -184,23 +183,6 @@ func TestPrincipalOrganizationKeyUsesAuthenticatedOrganization(t *testing.T) {
 	})
 
 	recorder := performRequest(router, http.MethodGet, "/resource")
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
-	}
-}
-
-func TestAuthAccountKeyCombinesClientAndLogin(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	router.GET("/login", func(ctx *gin.Context) {
-		ctx.Set(normalizedLoginContextKey, " User@Example.COM ")
-		if key := AuthAccountKey(ctx); !strings.HasSuffix(key, ":user@example.com") {
-			t.Fatalf("expected normalized login suffix, got %q", key)
-		}
-		ctx.Status(http.StatusOK)
-	})
-
-	recorder := performRequest(router, http.MethodGet, "/login")
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}

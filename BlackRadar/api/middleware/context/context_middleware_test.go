@@ -13,7 +13,7 @@ import (
 func TestRequestContextStoresGinContextAndContinues(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.Use(RequestContext(nil, nil))
+	router.Use(RequestContext(nil))
 	router.GET("/resource", func(ctx *gin.Context) {
 		ec, err := appcontext.FromGinContext(ctx)
 		if err != nil {

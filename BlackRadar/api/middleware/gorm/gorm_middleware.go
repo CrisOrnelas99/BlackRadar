@@ -41,11 +41,6 @@ func RequestDatabase(database *gorm.DB) gin.HandlerFunc {
 	}
 }
 
-// GormMiddleware preserves the previous middleware name for existing callers.
-func GormMiddleware(database *gorm.DB) gin.HandlerFunc {
-	return RequestDatabase(database)
-}
-
 // abortDatabaseUnavailable returns a generic database availability error.
 func abortDatabaseUnavailable(ctx *gin.Context) {
 	ctx.AbortWithStatusJSON(

@@ -108,7 +108,7 @@ func main() {
 
 	engine := gin.New()
 	engine.Use(gin.Recovery())
-	engine.Use(contextmiddleware.RequestContext(logger, gormDB))
+	engine.Use(contextmiddleware.RequestContext(logger))
 	engine.Use(securityheaders.SecurityHeaders(securityheaders.Config{
 		EnableHSTS:          cfg.IsProduction(),
 		HSTSMaxAge:          31536000,

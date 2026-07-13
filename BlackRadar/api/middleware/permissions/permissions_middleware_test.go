@@ -33,7 +33,7 @@ func TestRequireAdminRejectsMissingRequestContext(t *testing.T) {
 func TestRequireAdminRejectsMissingPrincipal(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.Use(contextmiddleware.RequestContext(nil, nil))
+	router.Use(contextmiddleware.RequestContext(nil))
 	router.Use(RequireAdmin())
 	router.GET("/admin", func(ctx *gin.Context) {
 		t.Fatal("handler should not run")
@@ -55,7 +55,7 @@ func TestRequireAdminRejectsMissingPrincipal(t *testing.T) {
 func TestRequireAdminRejectsNonAdminPrincipal(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.Use(contextmiddleware.RequestContext(nil, nil))
+	router.Use(contextmiddleware.RequestContext(nil))
 	router.Use(setPrincipal(model.RoleUser))
 	router.Use(RequireAdmin())
 	router.GET("/admin", func(ctx *gin.Context) {
@@ -75,7 +75,7 @@ func TestRequireAdminRejectsNonAdminPrincipal(t *testing.T) {
 func TestRequireAdminAllowsAdminPrincipal(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.Use(contextmiddleware.RequestContext(nil, nil))
+	router.Use(contextmiddleware.RequestContext(nil))
 	router.Use(setPrincipal(model.RoleAdmin))
 	router.Use(RequireAdmin())
 

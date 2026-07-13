@@ -17,11 +17,10 @@ import (
 )
 
 const (
-	defaultRateLimitWindow    = time.Minute
-	defaultEntryRetention     = 10 * time.Minute
-	defaultCleanupInterval    = time.Minute
-	defaultUnknownClientKey   = "unknown"
-	normalizedLoginContextKey = "normalized_login"
+	defaultRateLimitWindow  = time.Minute
+	defaultEntryRetention   = 10 * time.Minute
+	defaultCleanupInterval  = time.Minute
+	defaultUnknownClientKey = "unknown"
 )
 
 // RateLimitRule describes a fixed-window rate limit.
@@ -178,27 +177,6 @@ func PrincipalOrganizationKey(ctx *gin.Context) string {
 	}
 
 	return "organization:" + principal.OrganizationID
-}
-
-// AuthAccountKey combines source IP with a normalized login identifier.
-//
-// The endpoint must store the normalized login identifier in Gin context only
-// after parsing a size-limited request body. Do not include passwords or other
-// secrets in this key.
-func AuthAccountKey(ctx *gin.Context) string {
-	clientIP := ClientIPKey(ctx)
-
-	loginValue, exists := ctx.Get(normalizedLoginContextKey)
-	if !exists {
-		return clientIP
-	}
-
-	login, ok := loginValue.(string)
-	if !ok || strings.TrimSpace(login) == "" {
-		return clientIP
-	}
-
-	return clientIP + ":" + strings.ToLower(strings.TrimSpace(login))
 }
 
 // validateConfig rejects invalid rate-limit configuration.

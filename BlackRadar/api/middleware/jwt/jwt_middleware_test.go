@@ -244,7 +244,7 @@ func TestAuthenticationSetsAuthenticatedUserContext(t *testing.T) {
 	token := mustGenerateToken(t, jwtManager, userID, "analyst", sessionID)
 
 	router := gin.New()
-	router.Use(contextmiddleware.RequestContext(nil, nil))
+	router.Use(contextmiddleware.RequestContext(nil))
 	router.Use(mustAuthentication(t, jwtManager, lookup, sessionLookup))
 	router.GET("/private", func(ctx *gin.Context) {
 		ec, err := requestcontext.FromGinContext(ctx)
@@ -282,24 +282,6 @@ func TestAuthenticationSetsAuthenticatedUserContext(t *testing.T) {
 	}
 }
 
-func TestJWTAuthenticationEntryPoint(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	router.GET("/private", JWTAuthenticationEntryPoint)
-
-	recorder := performRequest(router, http.MethodGet, "/private", nil)
-
-	if recorder.Code != http.StatusUnauthorized {
-		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, recorder.Code)
-	}
-	if recorder.Body.String() != `{"error":"Unauthorized"}` {
-		t.Fatalf("unexpected response body: %q", recorder.Body.String())
-	}
-	if recorder.Header().Get("WWW-Authenticate") != "Bearer" {
-		t.Fatalf("expected WWW-Authenticate Bearer header")
-	}
-}
-
 func performAuthenticatedRequest(
 	t *testing.T,
 	jwtManager *commonjwt.Manager,
@@ -310,7 +292,7 @@ func performAuthenticatedRequest(
 	t.Helper()
 
 	router := gin.New()
-	router.Use(contextmiddleware.RequestContext(nil, nil))
+	router.Use(contextmiddleware.RequestContext(nil))
 	router.Use(mustAuthentication(t, jwtManager, users, sessions))
 	router.GET("/private", func(ctx *gin.Context) {
 		t.Fatal("handler should not run")

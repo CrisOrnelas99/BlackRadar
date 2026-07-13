@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 
 	commonid "blackradar/api/common/id"
 	requestcontext "blackradar/api/context"
@@ -22,7 +21,7 @@ const requestIDHeader = "X-Request-ID"
 //
 // This middleware must run early so downstream middleware and handlers can
 // access authenticated identity, request IDs, and request-scoped database state.
-func RequestContext(logger *slog.Logger, database *gorm.DB) gin.HandlerFunc {
+func RequestContext(logger *slog.Logger) gin.HandlerFunc {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -43,11 +42,10 @@ func RequestContext(logger *slog.Logger, database *gorm.DB) gin.HandlerFunc {
 			slog.String("path", ctx.Request.URL.Path),
 		)
 
-		appContext := requestcontext.NewGinContext(ctx, requestID, requestLogger)
-		if database != nil {
-			appContext.SetDatabase(database.WithContext(ctx.Request.Context()))
-		}
-		requestcontext.SetGinContext(ctx, appContext)
+		requestcontext.SetGinContext(
+			ctx,
+			requestcontext.NewGinContext(ctx, requestID, requestLogger),
+		)
 		ctx.Header(requestIDHeader, requestID)
 
 		requestLogger.Info("request started")

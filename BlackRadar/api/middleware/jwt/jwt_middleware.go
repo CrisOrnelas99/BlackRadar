@@ -151,32 +151,6 @@ func Authentication(
 	}, nil
 }
 
-// JWTAuthenticationFilter preserves the previous middleware name for callers
-// that have not migrated to Authentication.
-func JWTAuthenticationFilter(
-	jwtManager *commonjwt.Manager,
-	users UserLookup,
-	sessions RefreshSessionLookup,
-) gin.HandlerFunc {
-	middleware, err := Authentication(jwtManager, users, sessions)
-	if err != nil {
-		return func(ctx *gin.Context) {
-			slog.Default().Error(
-				"JWT authentication middleware is not configured",
-				slog.String("error", err.Error()),
-			)
-			abortInternalError(ctx)
-		}
-	}
-
-	return middleware
-}
-
-// JWTAuthenticationEntryPoint aborts the request with a standard 401 response.
-func JWTAuthenticationEntryPoint(ctx *gin.Context) {
-	abortUnauthorized(ctx)
-}
-
 // bearerToken parses an Authorization header containing exactly one bearer token.
 func bearerToken(header string) (string, bool) {
 	fields := strings.Fields(header)

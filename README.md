@@ -101,7 +101,7 @@ The repository currently contains these working foundations:
 - admin-only AI diagnostic endpoints
 - organization-aware registration and tenant membership
 - PostgreSQL UUID primary keys through embedded model metadata
-- request-scoped GORM transaction middleware with centralized commit/rollback behavior
+- request-scoped GORM database sessions with explicit service-owned transactions for atomic writes
 - GORM soft-delete support for audit-relevant records and active-row uniqueness
 - `updated_by_id` audit metadata on mutable model records
 - repository-level database revalidation for privileged mutations

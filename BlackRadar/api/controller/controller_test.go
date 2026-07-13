@@ -90,7 +90,7 @@ func TestControllerHelper(t *testing.T) {
 // TestRegisterRoutes verifies the route registration wiring.
 func TestRegisterRoutes(t *testing.T) {
 	engine := gin.New()
-	engine.Use(contextmiddleware.RequestContext(nil, nil))
+	engine.Use(contextmiddleware.RequestContext(nil))
 	jwtManager := newTestJWTManager(t)
 	lookup := &fakeUserLookup{exists: true, user: model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, OrganizationID: "00000000-0000-4000-8000-000000000099", Username: "analyst", Role: model.RoleAdmin}}
 	sessions := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: "00000000-0000-4000-8000-000000000001"}}
@@ -202,7 +202,7 @@ func TestRegisterRoutes(t *testing.T) {
 
 func TestRegisterRoutesRejectsVulnerabilityRoutesForNonAdmin(t *testing.T) {
 	engine := gin.New()
-	engine.Use(contextmiddleware.RequestContext(nil, nil))
+	engine.Use(contextmiddleware.RequestContext(nil))
 	jwtManager := newTestJWTManager(t)
 	lookup := &fakeUserLookup{exists: true, user: model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, OrganizationID: "00000000-0000-4000-8000-000000000099", Username: "analyst", Role: model.RoleUser}}
 	sessions := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: "00000000-0000-4000-8000-000000000001"}}

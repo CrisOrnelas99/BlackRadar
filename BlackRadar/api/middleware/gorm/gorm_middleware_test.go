@@ -27,7 +27,7 @@ func TestRequestDatabaseStoresContextualDatabaseWithoutTransaction(t *testing.T)
 	defer closeDatabase()
 
 	router := gin.New()
-	router.Use(contextmiddleware.RequestContext(nil, nil))
+	router.Use(contextmiddleware.RequestContext(nil))
 	router.Use(RequestDatabase(database))
 
 	var appContext *requestcontext.GinContext
@@ -59,34 +59,9 @@ func TestRequestDatabaseStoresContextualDatabaseWithoutTransaction(t *testing.T)
 	assertTransactionStats(t, 0, 0, 0)
 }
 
-func TestGormMiddlewareCompatibilityWrapperUsesRequestDatabase(t *testing.T) {
-	database, closeDatabase := newRequestDatabaseTestDatabase(t)
-	defer closeDatabase()
-
-	router := gin.New()
-	router.Use(contextmiddleware.RequestContext(nil, nil))
-	router.Use(GormMiddleware(database))
-	router.GET("/resource", func(ctx *gin.Context) {
-		appContext, err := requestcontext.FromGinContext(ctx)
-		if err != nil {
-			t.Fatalf("expected request context, got %v", err)
-		}
-		if appContext.Database() == nil {
-			t.Fatal("expected request database")
-		}
-		ctx.Status(http.StatusNoContent)
-	})
-
-	recorder := performRequest(router, http.MethodGet, "/resource")
-	if recorder.Code != http.StatusNoContent {
-		t.Fatalf("expected status %d, got %d", http.StatusNoContent, recorder.Code)
-	}
-	assertTransactionStats(t, 0, 0, 0)
-}
-
 func TestRequestDatabaseRejectsMissingDatabase(t *testing.T) {
 	router := gin.New()
-	router.Use(contextmiddleware.RequestContext(nil, nil))
+	router.Use(contextmiddleware.RequestContext(nil))
 	router.Use(RequestDatabase(nil))
 	router.GET("/resource", func(ctx *gin.Context) {
 		t.Fatal("handler should not run when database is missing")
