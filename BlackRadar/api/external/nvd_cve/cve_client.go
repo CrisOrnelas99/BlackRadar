@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"blackradar/api/controller/dto"
-	baseexternal "blackradar/api/external"
 	externalratelimiter "blackradar/api/external/rate_limiter"
 	baseservice "blackradar/api/service"
 )
@@ -68,10 +67,10 @@ func NewClientWithHTTPClient(baseURL string, apiKey string, httpClient *http.Cli
 func (c *Client) LookupCVE(ctx context.Context, cveID string) (dto.CVELookupResponse, error) {
 	normalizedCVEID := baseservice.NormalizeCVEID(cveID)
 	if err := baseservice.ValidateCVEID(normalizedCVEID); err != nil {
-		return dto.CVELookupResponse{}, baseexternal.ErrInvalidCVEID
+		return dto.CVELookupResponse{}, ErrInvalidCVEID
 	}
 	if !c.limiter.Allow(time.Now()) {
-		return dto.CVELookupResponse{}, baseexternal.ErrNVDRateLimited
+		return dto.CVELookupResponse{}, ErrNVDRateLimited
 	}
 
 	requestURL, err := c.lookupURL(normalizedCVEID)
@@ -81,36 +80,36 @@ func (c *Client) LookupCVE(ctx context.Context, cveID string) (dto.CVELookupResp
 
 	response, err := c.doRequestWithRetry(ctx, requestURL)
 	if err != nil {
-		return dto.CVELookupResponse{}, fmt.Errorf("%w: request failed", baseexternal.ErrNVDUnavailable)
+		return dto.CVELookupResponse{}, fmt.Errorf("%w: request failed", ErrNVDUnavailable)
 	}
 	defer response.Body.Close()
 
 	switch response.StatusCode {
 	case http.StatusOK:
 	case http.StatusTooManyRequests:
-		return dto.CVELookupResponse{}, baseexternal.ErrNVDRateLimited
+		return dto.CVELookupResponse{}, ErrNVDRateLimited
 	case http.StatusNotFound:
-		return dto.CVELookupResponse{}, baseexternal.ErrCVEIDNotFound
+		return dto.CVELookupResponse{}, ErrCVEIDNotFound
 	default:
-		return dto.CVELookupResponse{}, fmt.Errorf("%w: status %d", baseexternal.ErrNVDUnavailable, response.StatusCode)
+		return dto.CVELookupResponse{}, fmt.Errorf("%w: status %d", ErrNVDUnavailable, response.StatusCode)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(response.Body, 2<<20))
 	if err != nil {
-		return dto.CVELookupResponse{}, fmt.Errorf("%w: read response", baseexternal.ErrNVDUnavailable)
+		return dto.CVELookupResponse{}, fmt.Errorf("%w: read response", ErrNVDUnavailable)
 	}
 
 	var payload cveAPIResponse
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return dto.CVELookupResponse{}, fmt.Errorf("%w: decode response", baseexternal.ErrInvalidNVDResponse)
+		return dto.CVELookupResponse{}, fmt.Errorf("%w: decode response", ErrInvalidNVDResponse)
 	}
 	if payload.TotalResults == 0 || len(payload.Vulnerabilities) == 0 {
-		return dto.CVELookupResponse{}, baseexternal.ErrCVEIDNotFound
+		return dto.CVELookupResponse{}, ErrCVEIDNotFound
 	}
 
 	cve := payload.Vulnerabilities[0].CVE
 	if baseservice.NormalizeCVEID(cve.ID) != normalizedCVEID {
-		return dto.CVELookupResponse{}, baseexternal.ErrInvalidNVDResponse
+		return dto.CVELookupResponse{}, ErrInvalidNVDResponse
 	}
 
 	return mapCVE(cve), nil
@@ -120,13 +119,13 @@ func (c *Client) LookupCVE(ctx context.Context, cveID string) (dto.CVELookupResp
 func (c *Client) SearchCVEsByCPE(ctx context.Context, cpeName string, limit int) ([]dto.CVELookupResponse, error) {
 	cpeName = strings.TrimSpace(cpeName)
 	if !strings.HasPrefix(cpeName, "cpe:2.3:") {
-		return nil, baseexternal.ErrInvalidCPESearch
+		return nil, ErrInvalidCPESearch
 	}
 	if limit <= 0 || limit > 20 {
 		limit = 10
 	}
 	if !c.limiter.Allow(time.Now()) {
-		return nil, baseexternal.ErrNVDRateLimited
+		return nil, ErrNVDRateLimited
 	}
 
 	requestURL, err := c.cpeSearchURL(cpeName, limit)
@@ -136,26 +135,26 @@ func (c *Client) SearchCVEsByCPE(ctx context.Context, cpeName string, limit int)
 
 	response, err := c.doRequestWithRetry(ctx, requestURL)
 	if err != nil {
-		return nil, fmt.Errorf("%w: request failed", baseexternal.ErrNVDUnavailable)
+		return nil, fmt.Errorf("%w: request failed", ErrNVDUnavailable)
 	}
 	defer response.Body.Close()
 
 	switch response.StatusCode {
 	case http.StatusOK:
 	case http.StatusTooManyRequests:
-		return nil, baseexternal.ErrNVDRateLimited
+		return nil, ErrNVDRateLimited
 	default:
-		return nil, fmt.Errorf("%w: status %d", baseexternal.ErrNVDUnavailable, response.StatusCode)
+		return nil, fmt.Errorf("%w: status %d", ErrNVDUnavailable, response.StatusCode)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(response.Body, 2<<20))
 	if err != nil {
-		return nil, fmt.Errorf("%w: read response", baseexternal.ErrNVDUnavailable)
+		return nil, fmt.Errorf("%w: read response", ErrNVDUnavailable)
 	}
 
 	var payload cveAPIResponse
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil, fmt.Errorf("%w: decode response", baseexternal.ErrInvalidNVDResponse)
+		return nil, fmt.Errorf("%w: decode response", ErrInvalidNVDResponse)
 	}
 	if payload.TotalResults == 0 || len(payload.Vulnerabilities) == 0 {
 		return []dto.CVELookupResponse{}, nil
@@ -179,7 +178,7 @@ func (c *Client) SearchCVEsByCPE(ctx context.Context, cpeName string, limit int)
 func (c *Client) SearchCVEsByKeyword(ctx context.Context, keywordSearch string, limit int) ([]dto.CVELookupResponse, error) {
 	keywordSearch = normalizeCVEKeywordSearch(keywordSearch)
 	if keywordSearch == "" {
-		return nil, baseexternal.ErrInvalidCVESearch
+		return nil, ErrInvalidCVESearch
 	}
 	if limit <= 0 {
 		limit = 20
@@ -188,7 +187,7 @@ func (c *Client) SearchCVEsByKeyword(ctx context.Context, keywordSearch string, 
 		limit = 100
 	}
 	if !c.limiter.Allow(time.Now()) {
-		return nil, baseexternal.ErrNVDRateLimited
+		return nil, ErrNVDRateLimited
 	}
 
 	requestURL, err := c.keywordSearchURL(keywordSearch, limit)
@@ -198,26 +197,26 @@ func (c *Client) SearchCVEsByKeyword(ctx context.Context, keywordSearch string, 
 
 	response, err := c.doRequestWithRetry(ctx, requestURL)
 	if err != nil {
-		return nil, fmt.Errorf("%w: request failed", baseexternal.ErrNVDUnavailable)
+		return nil, fmt.Errorf("%w: request failed", ErrNVDUnavailable)
 	}
 	defer response.Body.Close()
 
 	switch response.StatusCode {
 	case http.StatusOK:
 	case http.StatusTooManyRequests:
-		return nil, baseexternal.ErrNVDRateLimited
+		return nil, ErrNVDRateLimited
 	default:
-		return nil, fmt.Errorf("%w: status %d", baseexternal.ErrNVDUnavailable, response.StatusCode)
+		return nil, fmt.Errorf("%w: status %d", ErrNVDUnavailable, response.StatusCode)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(response.Body, 2<<20))
 	if err != nil {
-		return nil, fmt.Errorf("%w: read response", baseexternal.ErrNVDUnavailable)
+		return nil, fmt.Errorf("%w: read response", ErrNVDUnavailable)
 	}
 
 	var payload cveAPIResponse
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil, fmt.Errorf("%w: decode response", baseexternal.ErrInvalidNVDResponse)
+		return nil, fmt.Errorf("%w: decode response", ErrInvalidNVDResponse)
 	}
 	if payload.TotalResults == 0 || len(payload.Vulnerabilities) == 0 {
 		return []dto.CVELookupResponse{}, nil
@@ -237,6 +236,7 @@ func (c *Client) SearchCVEsByKeyword(ctx context.Context, keywordSearch string, 
 	return results, nil
 }
 
+// newHTTPClient creates the production HTTP client used for NVD API calls.
 func newHTTPClient() *http.Client {
 	return &http.Client{
 		Timeout: 10 * time.Second,
@@ -246,6 +246,7 @@ func newHTTPClient() *http.Client {
 	}
 }
 
+// doRequestWithRetry retries one transient NVD request failure before returning.
 func (c *Client) doRequestWithRetry(ctx context.Context, requestURL string) (*http.Response, error) {
 	response, err := c.doRequest(ctx, requestURL)
 	if !shouldRetryNVDRequest(response, err) {
@@ -264,10 +265,11 @@ func (c *Client) doRequestWithRetry(ctx context.Context, requestURL string) (*ht
 	return c.doRequest(ctx, requestURL)
 }
 
+// doRequest builds and executes a single authenticated NVD GET request.
 func (c *Client) doRequest(ctx context.Context, requestURL string) (*http.Response, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("%w: build request", baseexternal.ErrNVDUnavailable)
+		return nil, fmt.Errorf("%w: build request", ErrNVDUnavailable)
 	}
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("User-Agent", "BlackRadar API NVD client")
@@ -278,6 +280,7 @@ func (c *Client) doRequest(ctx context.Context, requestURL string) (*http.Respon
 	return c.httpClient.Do(request)
 }
 
+// shouldRetryNVDRequest reports whether an NVD response or error is transient.
 func shouldRetryNVDRequest(response *http.Response, err error) bool {
 	if isRequestTimeout(err) {
 		return true
@@ -289,6 +292,7 @@ func shouldRetryNVDRequest(response *http.Response, err error) bool {
 	return response.StatusCode == http.StatusTooManyRequests || response.StatusCode == http.StatusServiceUnavailable
 }
 
+// isRequestTimeout reports whether an error represents a request timeout.
 func isRequestTimeout(err error) bool {
 	if err == nil {
 		return false
@@ -303,6 +307,7 @@ func isRequestTimeout(err error) bool {
 	return errors.As(err, &timeoutErr) && timeoutErr.Timeout()
 }
 
+// sleepWithContext waits for a retry delay while respecting context cancellation.
 func sleepWithContext(ctx context.Context, delay time.Duration) error {
 	if delay <= 0 {
 		return nil
@@ -319,16 +324,18 @@ func sleepWithContext(ctx context.Context, delay time.Duration) error {
 	}
 }
 
+// closeResponseBody closes a retry response body when one was returned.
 func closeResponseBody(response *http.Response) {
 	if response != nil && response.Body != nil {
 		_ = response.Body.Close()
 	}
 }
 
+// lookupURL builds an NVD CVE lookup URL for a normalized CVE identifier.
 func (c *Client) lookupURL(cveID string) (string, error) {
 	parsed, err := url.Parse(c.baseURL)
 	if err != nil {
-		return "", baseexternal.ErrInvalidNVDBaseURL
+		return "", ErrInvalidNVDBaseURL
 	}
 	values := parsed.Query()
 	values.Set("cveIds", cveID)
@@ -336,10 +343,11 @@ func (c *Client) lookupURL(cveID string) (string, error) {
 	return parsed.String(), nil
 }
 
+// cpeSearchURL builds an NVD CVE search URL for an exact vulnerable CPE name.
 func (c *Client) cpeSearchURL(cpeName string, limit int) (string, error) {
 	parsed, err := url.Parse(c.baseURL)
 	if err != nil {
-		return "", baseexternal.ErrInvalidNVDBaseURL
+		return "", ErrInvalidNVDBaseURL
 	}
 	values := parsed.Query()
 	values.Set("cpeName", cpeName)
@@ -349,10 +357,11 @@ func (c *Client) cpeSearchURL(cpeName string, limit int) (string, error) {
 	return parsed.String(), nil
 }
 
+// keywordSearchURL builds an NVD CVE search URL for a bounded keyword search.
 func (c *Client) keywordSearchURL(keywordSearch string, limit int) (string, error) {
 	parsed, err := url.Parse(c.baseURL)
 	if err != nil {
-		return "", baseexternal.ErrInvalidNVDBaseURL
+		return "", ErrInvalidNVDBaseURL
 	}
 	values := parsed.Query()
 	values.Set("keywordSearch", keywordSearch)
@@ -361,6 +370,7 @@ func (c *Client) keywordSearchURL(keywordSearch string, limit int) (string, erro
 	return parsed.String(), nil
 }
 
+// normalizeCVEKeywordSearch trims and bounds backend-generated NVD keyword searches.
 func normalizeCVEKeywordSearch(keywordSearch string) string {
 	keywordSearch = strings.TrimSpace(keywordSearch)
 	if len(keywordSearch) > 120 {
@@ -380,13 +390,14 @@ func normalizeCVEKeywordSearch(keywordSearch string) string {
 	return strings.Join(fields, " ")
 }
 
+// validateBaseURL validates and normalizes the official NVD CVE API endpoint.
 func validateBaseURL(baseURL string) (string, error) {
 	parsed, err := url.Parse(strings.TrimSpace(baseURL))
 	if err != nil {
-		return "", baseexternal.ErrInvalidNVDBaseURL
+		return "", ErrInvalidNVDBaseURL
 	}
 	if parsed.Scheme != "https" || parsed.Host != officialNVDHost || parsed.Path != "/rest/json/cves/2.0" {
-		return "", baseexternal.ErrInvalidNVDBaseURL
+		return "", ErrInvalidNVDBaseURL
 	}
 	parsed.RawQuery = ""
 	parsed.Fragment = ""
@@ -439,6 +450,7 @@ type cvssData struct {
 	BaseSeverity string `json:"baseSeverity"`
 }
 
+// mapCVE converts an NVD CVE item into the application's lookup response DTO.
 func mapCVE(cve cveItem) dto.CVELookupResponse {
 	title := strings.TrimSpace(cve.CISAVulnerabilityName)
 	if title == "" {
@@ -456,6 +468,7 @@ func mapCVE(cve cveItem) dto.CVELookupResponse {
 	}
 }
 
+// englishDescription returns the English CVE description when available.
 func englishDescription(descriptions []description) string {
 	for _, description := range descriptions {
 		if strings.EqualFold(description.Lang, "en") {
@@ -468,6 +481,7 @@ func englishDescription(descriptions []description) string {
 	return strings.TrimSpace(descriptions[0].Value)
 }
 
+// severity returns the best available CVSS severity across supported metric versions.
 func severity(metrics metrics) string {
 	if len(metrics.CVSSMetricV40) > 0 && strings.TrimSpace(metrics.CVSSMetricV40[0].CVSSData.BaseSeverity) != "" {
 		return strings.TrimSpace(metrics.CVSSMetricV40[0].CVSSData.BaseSeverity)

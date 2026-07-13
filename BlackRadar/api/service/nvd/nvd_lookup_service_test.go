@@ -14,7 +14,7 @@ import (
 
 	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
-	baseexternal "blackradar/api/external"
+	nvdcveclient "blackradar/api/external/nvd_cve"
 	"blackradar/api/model"
 	baseservice "blackradar/api/service"
 )
@@ -59,9 +59,9 @@ func TestNVDLookupServiceErrorMapping(t *testing.T) {
 		err  error
 		want error
 	}{
-		{name: "not found", err: baseexternal.ErrCVEIDNotFound, want: baseservice.ErrNotFound},
-		{name: "rate limited", err: baseexternal.ErrNVDRateLimited, want: baseservice.ErrRateLimited},
-		{name: "invalid response", err: baseexternal.ErrInvalidNVDResponse, want: baseservice.ErrExternalService},
+		{name: "not found", err: nvdcveclient.ErrCVEIDNotFound, want: baseservice.ErrNotFound},
+		{name: "rate limited", err: nvdcveclient.ErrNVDRateLimited, want: baseservice.ErrRateLimited},
+		{name: "invalid response", err: nvdcveclient.ErrInvalidNVDResponse, want: baseservice.ErrExternalService},
 	}
 
 	for _, tc := range cases {

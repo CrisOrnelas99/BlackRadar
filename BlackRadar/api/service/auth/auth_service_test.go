@@ -14,12 +14,12 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
+	commonjwt "blackradar/api/common/jwt"
+	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
-	appcontext "blackradar/api/context"
 	baseservice "blackradar/api/service"
-	sharedjwt "blackradar/api/shared/jwt"
 )
 
 const (
@@ -27,6 +27,7 @@ const (
 	testUserIDSeven    = "00000000-0000-4000-8000-000000000007"
 	testUserIDFortyTwo = "00000000-0000-4000-8000-000000000042"
 	testOrgID          = "00000000-0000-4000-8000-000000000011"
+	testJWTSecret      = "0123456789abcdef0123456789abcdef"
 )
 
 // TestAuthService verifies the happy-path authentication service flow.
@@ -35,7 +36,7 @@ func TestAuthService(t *testing.T) {
 	repo := &fakeUserRepository{
 		user: model.User{Model: model.Model{ID: testUserID}, OrganizationID: testOrgID, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
-	svc := NewAuthService(sharedjwt.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, &fakeRefreshSessionRepository{})
+	svc := NewAuthService(newTestJWTManager(t), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, &fakeRefreshSessionRepository{})
 	ctx := newAuthServiceContext(t)
 
 	registerResponse, err := svc.Register(ctx, dto.RegisterRequest{Username: "analyst", Email: "analyst@example.com", Organization: "home", Password: "Password1!"})
@@ -94,7 +95,7 @@ func TestAuthServiceHelpers(t *testing.T) {
 // TestAuthServiceValidationAndTranslation verifies validation and error mapping.
 func TestAuthServiceValidationAndTranslation(t *testing.T) {
 	ctx := newAuthServiceContext(t)
-	svc := NewAuthService(sharedjwt.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{findErr: gorm.ErrRecordNotFound}, &fakeUserRepository{findErr: gorm.ErrRecordNotFound}, &fakeRefreshSessionRepository{})
+	svc := NewAuthService(newTestJWTManager(t), &fakeOrganizationRepository{findErr: gorm.ErrRecordNotFound}, &fakeUserRepository{findErr: gorm.ErrRecordNotFound}, &fakeRefreshSessionRepository{})
 
 	if _, err := svc.Register(ctx, dto.RegisterRequest{Username: "ab", Email: "bad", Organization: "home", Password: "short"}); !errors.Is(err, baseservice.ErrInvalidRequestData) {
 		t.Fatalf("expected invalid request data, got %v", err)
@@ -110,7 +111,7 @@ func TestAuthServiceLogoutRejectsSecondLogout(t *testing.T) {
 		user: model.User{Model: model.Model{ID: testUserIDSeven}, OrganizationID: testOrgID, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
 	sessions := &fakeRefreshSessionRepository{}
-	svc := NewAuthService(sharedjwt.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, sessions)
+	svc := NewAuthService(newTestJWTManager(t), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, sessions)
 	ctx := newAuthServiceContext(t)
 
 	login, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "analyst", Password: "Password1!"})
@@ -132,7 +133,7 @@ func TestAuthServiceLoginResolvesUsernameAndEmailDeterministically(t *testing.T)
 	repo := &fakeUserRepository{
 		user: model.User{Model: model.Model{ID: testUserIDFortyTwo}, OrganizationID: testOrgID, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
-	svc := NewAuthService(sharedjwt.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience"), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, &fakeRefreshSessionRepository{})
+	svc := NewAuthService(newTestJWTManager(t), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, &fakeRefreshSessionRepository{})
 	ctx := newAuthServiceContext(t)
 
 	if _, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "analyst", Password: "Password1!"}); err != nil {
@@ -227,6 +228,17 @@ func (f *fakeUserRepository) FindByUsername(ec *appcontext.GinContext, username 
 	return f.user, f.findErr
 }
 
+// FindByID returns the configured fake user by immutable identifier.
+func (f *fakeUserRepository) FindByID(ec *appcontext.GinContext, id string) (model.User, error) {
+	if f.findErr != nil {
+		return model.User{}, f.findErr
+	}
+	if f.user.ID == "" || f.user.ID != id {
+		return model.User{}, gorm.ErrRecordNotFound
+	}
+	return f.user, nil
+}
+
 // FindByEmail returns the configured fake user.
 func (f *fakeUserRepository) FindByEmail(ec *appcontext.GinContext, email string) (model.User, error) {
 	f.emailLookupCalled = true
@@ -261,6 +273,17 @@ func (f *fakeRefreshSessionRepository) RevokeByTokenIDForUser(ec *appcontext.Gin
 }
 
 var _ baserepository.RefreshSessionRepository = (*fakeRefreshSessionRepository)(nil)
+
+func newTestJWTManager(t *testing.T) *commonjwt.Manager {
+	t.Helper()
+
+	jwtManager, err := commonjwt.NewManager(testJWTSecret, time.Hour, time.Hour*24, "issuer", "audience")
+	if err != nil {
+		t.Fatalf("failed to create jwt manager: %v", err)
+	}
+
+	return jwtManager
+}
 
 // newAuthServiceContext creates a request context for auth service tests.
 func newAuthServiceContext(t *testing.T) *appcontext.GinContext {

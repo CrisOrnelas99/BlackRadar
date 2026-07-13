@@ -1,14 +1,33 @@
 package db
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgconn"
 
-	shared "blackradar/api/shared"
+	"blackradar/api/config"
 )
+
+func TestConnectRejectsMissingDatabaseURL(t *testing.T) {
+	_, err := Connect(context.Background(), config.Config{})
+	if err == nil {
+		t.Fatal("expected missing database URL to fail")
+	}
+
+	if !strings.Contains(err.Error(), "database URL is required") {
+		t.Fatalf("expected database URL validation error, got %v", err)
+	}
+}
+
+func TestCloseAcceptsNilDatabase(t *testing.T) {
+	if err := Close(nil); err != nil {
+		t.Fatalf("expected nil database close to succeed, got %v", err)
+	}
+}
 
 func TestTranslateDatabaseError(t *testing.T) {
 	foreignKeyErr := &pgconn.PgError{Code: "23503", Message: "foreign key violation"}
@@ -24,10 +43,10 @@ func TestTranslateDatabaseError(t *testing.T) {
 		expectIs   error
 	}{
 		{name: "nil", input: nil, expectSame: nil},
-		{name: "foreign key violation", input: foreignKeyErr, expectIs: shared.ErrForeignKeyViolation},
-		{name: "wrapped foreign key violation", input: fmt.Errorf("insert asset vulnerability: %w", foreignKeyErr), expectIs: shared.ErrForeignKeyViolation},
-		{name: "check constraint violation", input: checkConstraintErr, expectIs: shared.ErrCheckConstraintViolation},
-		{name: "unique violation", input: uniqueErr, expectIs: shared.ErrUniqueViolation},
+		{name: "foreign key violation", input: foreignKeyErr, expectIs: ErrForeignKeyViolation},
+		{name: "wrapped foreign key violation", input: fmt.Errorf("insert asset vulnerability: %w", foreignKeyErr), expectIs: ErrForeignKeyViolation},
+		{name: "check constraint violation", input: checkConstraintErr, expectIs: ErrCheckConstraintViolation},
+		{name: "unique violation", input: uniqueErr, expectIs: ErrUniqueViolation},
 		{name: "unknown postgres error", input: unknownPgErr, expectSame: unknownPgErr},
 		{name: "plain error", input: plainErr, expectSame: plainErr},
 	}
@@ -69,5 +88,20 @@ func TestIsPostgresError(t *testing.T) {
 	}
 	if isPostgresError(nil, "23505") {
 		t.Fatal("expected nil error to return false")
+	}
+}
+
+func TestIsPrimaryKeyViolation(t *testing.T) {
+	pkErr := &pgconn.PgError{Code: "23505", ConstraintName: "assets_pkey"}
+	uniqueButNotPkErr := &pgconn.PgError{Code: "23505", ConstraintName: "idx_assets_user_id"}
+
+	if !IsPrimaryKeyViolation(pkErr) {
+		t.Fatal("expected primary key violation to return true")
+	}
+	if IsPrimaryKeyViolation(uniqueButNotPkErr) {
+		t.Fatal("expected non-primary-key unique violation to return false")
+	}
+	if IsPrimaryKeyViolation(errors.New("plain error")) {
+		t.Fatal("expected plain error to return false")
 	}
 }

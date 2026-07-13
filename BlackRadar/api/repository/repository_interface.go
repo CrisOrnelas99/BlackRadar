@@ -18,6 +18,8 @@ type UserRepository interface {
 	FindByUsernameOrEmail(ec *appcontext.GinContext, userOrEmail string) (model.User, error)
 	// FindByUsername returns a user by username.
 	FindByUsername(ec *appcontext.GinContext, username string) (model.User, error)
+	// FindByID returns a user by immutable identifier.
+	FindByID(ec *appcontext.GinContext, id string) (model.User, error)
 	// FindByEmail returns a user by email.
 	FindByEmail(ec *appcontext.GinContext, email string) (model.User, error)
 }

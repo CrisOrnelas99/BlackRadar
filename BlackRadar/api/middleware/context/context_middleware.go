@@ -1,45 +1,97 @@
-// Package contextmiddleware provides request context setup middleware.
+// Package contextmiddleware provides middleware that initializes request-scoped
+// application context.
 package contextmiddleware
 
 import (
-	"crypto/rand"
-	"fmt"
 	"log/slog"
-	"os"
+	"net/http"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
-	appcontext "blackradar/api/context"
+	commonid "blackradar/api/common/id"
+	requestcontext "blackradar/api/context"
 )
 
-// RequestContext initializes request metadata, logger, and the request-scoped GinContext wrapper.
-// This middleware must run early so downstream middleware and handlers can access authenticated
-// identity, transaction IDs, and request-scoped database state.
-func RequestContext() gin.HandlerFunc {
+const requestIDHeader = "X-Request-ID"
+
+// RequestContext initializes request metadata, logging, and the request-scoped
+// GinContext wrapper.
+//
+// This middleware must run early so downstream middleware and handlers can
+// access authenticated identity, request IDs, and request-scoped database state.
+func RequestContext(logger *slog.Logger, database *gorm.DB) gin.HandlerFunc {
+	if logger == nil {
+		logger = slog.Default()
+	}
+
 	return func(ctx *gin.Context) {
-		transactionID := newTransactionID()
-		logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})).With(
-			"request_id", transactionID,
+		startedAt := time.Now()
+
+		requestID, err := commonid.New()
+		if err != nil {
+			logger.Error("failed to generate request ID", slog.String("error", err.Error()))
+			ctx.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+
+		requestLogger := logger.With(
+			slog.String("request_id", requestID),
+			slog.String("method", ctx.Request.Method),
+			slog.String("path", ctx.Request.URL.Path),
 		)
 
-		appcontext.SetGinContext(ctx, appcontext.NewGinContext(ctx, transactionID, logger))
-		logger.Info("request started", "method", ctx.Request.Method, "path", ctx.Request.URL.Path)
+		appContext := requestcontext.NewGinContext(ctx, requestID, requestLogger)
+		if database != nil {
+			appContext.SetDatabase(database.WithContext(ctx.Request.Context()))
+		}
+		requestcontext.SetGinContext(ctx, appContext)
+		ctx.Header(requestIDHeader, requestID)
+
+		requestLogger.Info("request started")
+		defer logRequestCompletion(ctx, requestLogger, startedAt)
 
 		ctx.Next()
-
-		logger.Info("request completed", "status", ctx.Writer.Status())
 	}
 }
 
-// newTransactionID returns a cryptographically random request identifier for traceability.
-func newTransactionID() string {
-	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return "00000000-0000-0000-0000-000000000000"
+// ClientRequestID returns a validated client-provided request ID.
+//
+// Internally generated IDs remain the primary correlation identifiers.
+func ClientRequestID(ctx *gin.Context) string {
+	value := strings.TrimSpace(ctx.GetHeader(requestIDHeader))
+	if len(value) == 0 || len(value) > 128 {
+		return ""
 	}
 
-	b[6] = (b[6] & 0x0f) | 0x40
-	b[8] = (b[8] & 0x3f) | 0x80
+	for _, character := range value {
+		switch {
+		case character >= 'a' && character <= 'z':
+		case character >= 'A' && character <= 'Z':
+		case character >= '0' && character <= '9':
+		case character == '-':
+		case character == '_':
+		case character == '.':
+		default:
+			return ""
+		}
+	}
 
-	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16])
+	return value
+}
+
+// logRequestCompletion records bounded request metadata after downstream
+// handlers finish or unwind because of a panic.
+func logRequestCompletion(ctx *gin.Context, logger *slog.Logger, startedAt time.Time) {
+	duration := time.Since(startedAt)
+	logger.Info(
+		"request completed",
+		slog.Int("status", ctx.Writer.Status()),
+		slog.Int("response_size", ctx.Writer.Size()),
+		slog.Int64("duration_ms", duration.Milliseconds()),
+		slog.Bool("aborted", ctx.IsAborted()),
+		slog.Int("error_count", len(ctx.Errors)),
+	)
 }

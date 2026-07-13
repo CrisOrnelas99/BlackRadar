@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"blackradar/api/controller/dto"
-	baseexternal "blackradar/api/external"
 	appcontext "blackradar/api/context"
+	"blackradar/api/controller/dto"
+	nvdcveclient "blackradar/api/external/nvd_cve"
 	baseservice "blackradar/api/service"
 )
 
@@ -51,13 +51,13 @@ func translateNVDError(err error) error {
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, baseexternal.ErrInvalidCVEID):
+	case errors.Is(err, nvdcveclient.ErrInvalidCVEID):
 		return fmt.Errorf("%w: %w", baseservice.ErrInvalidRequestData, err)
-	case errors.Is(err, baseexternal.ErrCVEIDNotFound):
+	case errors.Is(err, nvdcveclient.ErrCVEIDNotFound):
 		return fmt.Errorf("%w: %w", baseservice.ErrNotFound, err)
-	case errors.Is(err, baseexternal.ErrNVDRateLimited):
+	case errors.Is(err, nvdcveclient.ErrNVDRateLimited):
 		return fmt.Errorf("%w: %w", baseservice.ErrRateLimited, err)
-	case errors.Is(err, baseexternal.ErrNVDUnavailable), errors.Is(err, baseexternal.ErrInvalidNVDResponse):
+	case errors.Is(err, nvdcveclient.ErrNVDUnavailable), errors.Is(err, nvdcveclient.ErrInvalidNVDResponse):
 		return fmt.Errorf("%w: %w", baseservice.ErrExternalService, err)
 	default:
 		return fmt.Errorf("%w: %v", baseservice.ErrExternalService, err)

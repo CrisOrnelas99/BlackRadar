@@ -2,6 +2,7 @@
 package cveclient
 
 import (
+	externalratelimiter "blackradar/api/external/rate_limiter"
 	"context"
 	"errors"
 	"io"
@@ -9,9 +10,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	baseexternal "blackradar/api/external"
-	externalratelimiter "blackradar/api/external/rate_limiter"
 )
 
 // TestClientLookupCVE verifies request construction and safe DTO mapping.
@@ -307,7 +305,7 @@ func TestClientSearchCVEsByKeywordRetriesTimeout(t *testing.T) {
 // TestClientRejectsUnsafeBaseURL verifies outbound host allowlisting.
 func TestClientRejectsUnsafeBaseURL(t *testing.T) {
 	_, err := NewClientWithHTTPClient("https://example.com/rest/json/cves/2.0", "", nil, nil)
-	if !errors.Is(err, baseexternal.ErrInvalidNVDBaseURL) {
+	if !errors.Is(err, ErrInvalidNVDBaseURL) {
 		t.Fatalf("expected invalid base URL error, got %v", err)
 	}
 }
@@ -357,7 +355,7 @@ func TestClientHandlesNVDNotFound(t *testing.T) {
 	}
 
 	_, err = client.LookupCVE(context.Background(), "CVE-2021-44228")
-	if !errors.Is(err, baseexternal.ErrCVEIDNotFound) {
+	if !errors.Is(err, ErrCVEIDNotFound) {
 		t.Fatalf("expected not found, got %v", err)
 	}
 }
@@ -390,7 +388,7 @@ func TestClientRejectsMismatchedCVEID(t *testing.T) {
 	}
 
 	_, err = client.LookupCVE(context.Background(), "CVE-2021-44228")
-	if !errors.Is(err, baseexternal.ErrInvalidNVDResponse) {
+	if !errors.Is(err, ErrInvalidNVDResponse) {
 		t.Fatalf("expected invalid NVD response, got %v", err)
 	}
 }

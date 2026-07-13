@@ -13,12 +13,12 @@ import (
 	"time"
 
 	"blackradar/api/controller/dto"
-	baseexternal "blackradar/api/external"
 	externalratelimiter "blackradar/api/external/rate_limiter"
 )
 
 const openAIResponsesPath = "/v1/responses"
 const defaultOpenAIRateLimitWindow = time.Minute
+const officialOpenAIHost = "api.openai.com"
 
 // Client submits text-generation requests to the OpenAI API.
 type Client struct {
@@ -42,7 +42,7 @@ func NewClientWithHTTPClient(baseURL string, apiKey string, model string, httpCl
 	}
 	normalizedModel := strings.TrimSpace(model)
 	if normalizedModel == "" {
-		return nil, baseexternal.ErrInvalidOpenAIModel
+		return nil, ErrInvalidOpenAIModel
 	}
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 20 * time.Second}
@@ -62,27 +62,27 @@ func NewClientWithHTTPClient(baseURL string, apiKey string, model string, httpCl
 // GenerateText sends a prompt to OpenAI and returns the assistant text output.
 func (c *Client) GenerateText(ctx context.Context, request dto.TextGenerationRequest) (dto.TextGenerationResponse, error) {
 	if strings.TrimSpace(c.apiKey) == "" {
-		return dto.TextGenerationResponse{}, baseexternal.ErrMissingOpenAIAPIKey
+		return dto.TextGenerationResponse{}, ErrMissingOpenAIAPIKey
 	}
 	if strings.TrimSpace(request.Model) == "" {
 		request.Model = c.model
 	}
 	request.Model = strings.TrimSpace(request.Model)
 	if request.Model == "" {
-		return dto.TextGenerationResponse{}, baseexternal.ErrInvalidOpenAIModel
+		return dto.TextGenerationResponse{}, ErrInvalidOpenAIModel
 	}
 	if c.limiter != nil && !c.limiter.Allow(time.Now()) {
-		return dto.TextGenerationResponse{}, baseexternal.ErrOpenAIRateLimited
+		return dto.TextGenerationResponse{}, ErrOpenAIRateLimited
 	}
 
 	payload, err := json.Marshal(toResponsesRequest(request))
 	if err != nil {
-		return dto.TextGenerationResponse{}, fmt.Errorf("%w: encode request", baseexternal.ErrOpenAIUnavailable)
+		return dto.TextGenerationResponse{}, fmt.Errorf("%w: encode request", ErrOpenAIUnavailable)
 	}
 
 	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL, bytes.NewReader(payload))
 	if err != nil {
-		return dto.TextGenerationResponse{}, fmt.Errorf("%w: build request", baseexternal.ErrOpenAIUnavailable)
+		return dto.TextGenerationResponse{}, fmt.Errorf("%w: build request", ErrOpenAIUnavailable)
 	}
 	httpRequest.Header.Set("Accept", "application/json")
 	httpRequest.Header.Set("Content-Type", "application/json")
@@ -90,22 +90,22 @@ func (c *Client) GenerateText(ctx context.Context, request dto.TextGenerationReq
 
 	response, err := c.httpClient.Do(httpRequest)
 	if err != nil {
-		return dto.TextGenerationResponse{}, fmt.Errorf("%w: request failed", baseexternal.ErrOpenAIUnavailable)
+		return dto.TextGenerationResponse{}, fmt.Errorf("%w: request failed", ErrOpenAIUnavailable)
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return dto.TextGenerationResponse{}, fmt.Errorf("%w: status %d", baseexternal.ErrOpenAIUnavailable, response.StatusCode)
+		return dto.TextGenerationResponse{}, fmt.Errorf("%w: status %d", ErrOpenAIUnavailable, response.StatusCode)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(response.Body, 2<<20))
 	if err != nil {
-		return dto.TextGenerationResponse{}, fmt.Errorf("%w: read response", baseexternal.ErrOpenAIUnavailable)
+		return dto.TextGenerationResponse{}, fmt.Errorf("%w: read response", ErrOpenAIUnavailable)
 	}
 
 	var payloadResponse openAIResponsesResponse
 	if err := json.Unmarshal(body, &payloadResponse); err != nil {
-		return dto.TextGenerationResponse{}, baseexternal.ErrInvalidOpenAIResponse
+		return dto.TextGenerationResponse{}, ErrInvalidOpenAIResponse
 	}
 
 	text := strings.TrimSpace(payloadResponse.OutputText)
@@ -113,7 +113,7 @@ func (c *Client) GenerateText(ctx context.Context, request dto.TextGenerationReq
 		text = strings.TrimSpace(firstOutputText(payloadResponse.Output))
 	}
 	if text == "" {
-		return dto.TextGenerationResponse{}, baseexternal.ErrInvalidOpenAIResponse
+		return dto.TextGenerationResponse{}, ErrInvalidOpenAIResponse
 	}
 
 	return dto.TextGenerationResponse{
@@ -122,15 +122,16 @@ func (c *Client) GenerateText(ctx context.Context, request dto.TextGenerationReq
 	}, nil
 }
 
+// validateBaseURL validates and normalizes the allowed OpenAI responses endpoint.
 func validateBaseURL(baseURL string) (string, error) {
 	parsed, err := url.Parse(strings.TrimSpace(baseURL))
 	if err != nil {
-		return "", baseexternal.ErrInvalidOpenAIBaseURL
+		return "", ErrInvalidOpenAIBaseURL
 	}
 	if parsed.Path != openAIResponsesPath {
-		return "", baseexternal.ErrInvalidOpenAIBaseURL
+		return "", ErrInvalidOpenAIBaseURL
 	}
-	if parsed.Scheme == "https" {
+	if parsed.Scheme == "https" && parsed.Host == officialOpenAIHost {
 		parsed.RawQuery = ""
 		parsed.Fragment = ""
 		return parsed.String(), nil
@@ -140,9 +141,10 @@ func validateBaseURL(baseURL string) (string, error) {
 		parsed.Fragment = ""
 		return parsed.String(), nil
 	}
-	return "", baseexternal.ErrInvalidOpenAIBaseURL
+	return "", ErrInvalidOpenAIBaseURL
 }
 
+// isLocalHost reports whether a host is allowed for local test wiring.
 func isLocalHost(host string) bool {
 	switch strings.ToLower(strings.TrimSpace(host)) {
 	case "localhost", "127.0.0.1", "::1":
@@ -152,6 +154,7 @@ func isLocalHost(host string) bool {
 	}
 }
 
+// toResponsesRequest converts the application text request into OpenAI's responses payload.
 func toResponsesRequest(request dto.TextGenerationRequest) openAIResponsesRequest {
 	input := make([]openAIInputMessage, 0, len(request.Messages))
 	instructions := make([]string, 0, 1)
@@ -185,6 +188,7 @@ func toResponsesRequest(request dto.TextGenerationRequest) openAIResponsesReques
 	}
 }
 
+// firstOutputText extracts the first text output from a structured responses payload.
 func firstOutputText(output []openAIOutputItem) string {
 	for _, item := range output {
 		for _, content := range item.Content {

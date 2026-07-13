@@ -11,25 +11,25 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
+	commonjwt "blackradar/api/common/jwt"
+	commontoken "blackradar/api/common/token"
 	"blackradar/api/config"
+	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
-	appcontext "blackradar/api/context"
 	baseservice "blackradar/api/service"
-	sharedjwt "blackradar/api/shared/jwt"
-	sharedtoken "blackradar/api/shared/token"
 )
 
 type authServiceImpl struct {
-	jwtManager               *sharedjwt.JWTManager
+	jwtManager               *commonjwt.Manager
 	organizationRepository   baserepository.OrganizationRepository
 	userRepository           baserepository.UserRepository
 	refreshSessionRepository baserepository.RefreshSessionRepository
 }
 
 // NewAuthService creates an authentication service backed by the supplied dependencies.
-func NewAuthService(jwtManager *sharedjwt.JWTManager, organizationRepository baserepository.OrganizationRepository, userRepository baserepository.UserRepository, refreshSessionRepository baserepository.RefreshSessionRepository) baseservice.AuthService {
+func NewAuthService(jwtManager *commonjwt.Manager, organizationRepository baserepository.OrganizationRepository, userRepository baserepository.UserRepository, refreshSessionRepository baserepository.RefreshSessionRepository) baseservice.AuthService {
 	return &authServiceImpl{jwtManager: jwtManager, organizationRepository: organizationRepository, userRepository: userRepository, refreshSessionRepository: refreshSessionRepository}
 }
 
@@ -142,15 +142,18 @@ func (s *authServiceImpl) Login(ec *appcontext.GinContext, request dto.LoginRequ
 		return dto.LoginResponse{}, fmt.Errorf("missing jwt manager")
 	}
 
-	refreshTokenID := sharedtoken.NewTokenID()
+	refreshTokenID, err := commontoken.NewID()
+	if err != nil {
+		return dto.LoginResponse{}, fmt.Errorf("create refresh session token ID: %w", err)
+	}
 	now := time.Now().UTC()
 	accessExpiresAt := now.Add(s.jwtManager.AccessExpiration())
 	refreshExpiresAt := now.Add(s.jwtManager.RefreshExpiration())
-	token, err := s.jwtManager.GenerateToken(user.Username, refreshTokenID)
+	token, err := s.jwtManager.GenerateAccessToken(user.ID, user.Username, refreshTokenID)
 	if err != nil {
 		return dto.LoginResponse{}, err
 	}
-	refreshToken, err := s.jwtManager.GenerateRefreshToken(user.Username, refreshTokenID)
+	refreshToken, err := s.jwtManager.GenerateRefreshToken(user.ID, user.Username, refreshTokenID)
 	if err != nil {
 		return dto.LoginResponse{}, err
 	}
@@ -183,7 +186,7 @@ func (s *authServiceImpl) Refresh(ec *appcontext.GinContext, request dto.Refresh
 		return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
 	}
 
-	user, err := s.userRepository.FindByUsername(ec, claims.Subject)
+	user, err := s.userRepository.FindByID(ec, claims.Subject)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
@@ -208,15 +211,18 @@ func (s *authServiceImpl) Refresh(ec *appcontext.GinContext, request dto.Refresh
 		return dto.LoginResponse{}, baseservice.TranslateRepositoryError(err)
 	}
 
-	newRefreshTokenID := sharedtoken.NewTokenID()
+	newRefreshTokenID, err := commontoken.NewID()
+	if err != nil {
+		return dto.LoginResponse{}, fmt.Errorf("create refresh session token ID: %w", err)
+	}
 	now := time.Now().UTC()
 	accessExpiresAt := now.Add(s.jwtManager.AccessExpiration())
 	refreshExpiresAt := now.Add(s.jwtManager.RefreshExpiration())
-	accessToken, err := s.jwtManager.GenerateToken(user.Username, newRefreshTokenID)
+	accessToken, err := s.jwtManager.GenerateAccessToken(user.ID, user.Username, newRefreshTokenID)
 	if err != nil {
 		return dto.LoginResponse{}, err
 	}
-	newRefreshToken, err := s.jwtManager.GenerateRefreshToken(user.Username, newRefreshTokenID)
+	newRefreshToken, err := s.jwtManager.GenerateRefreshToken(user.ID, user.Username, newRefreshTokenID)
 	if err != nil {
 		return dto.LoginResponse{}, err
 	}
@@ -249,7 +255,7 @@ func (s *authServiceImpl) Logout(ec *appcontext.GinContext, request dto.RefreshR
 		return baseservice.ErrInvalidCredentials
 	}
 
-	user, err := s.userRepository.FindByUsername(ec, claims.Subject)
+	user, err := s.userRepository.FindByID(ec, claims.Subject)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return baseservice.ErrInvalidCredentials

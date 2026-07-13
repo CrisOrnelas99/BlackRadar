@@ -8,69 +8,121 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
-	appcontext "blackradar/api/context"
+	commonjwt "blackradar/api/common/jwt"
+	requestcontext "blackradar/api/context"
 	contextmiddleware "blackradar/api/middleware/context"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
-	sharedjwt "blackradar/api/shared/jwt"
 )
 
-func TestJWTAuthenticationFilterRejectsInvalidRequests(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	jwtManager := sharedjwt.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
-	sessionLookup := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: "00000000-0000-4000-8000-000000000042"}}
+const testJWTSecret = "0123456789abcdef0123456789abcdef"
+
+func TestAuthenticationRejectsMissingDependencies(t *testing.T) {
+	jwtManager := newTestJWTManager(t)
+	users := &fakeUserLookup{}
+	sessions := &fakeRefreshSessionLookup{}
 
 	tests := []struct {
 		name       string
-		header     string
-		headerFunc func(*testing.T) string
-		lookup     *fakeUserLookup
+		manager    *commonjwt.Manager
+		users      UserLookup
+		sessions   RefreshSessionLookup
+		expectedIs error
 	}{
-		{name: "missing bearer token", lookup: &fakeUserLookup{}},
-		{name: "invalid token", header: "Bearer invalid-token", lookup: &fakeUserLookup{}},
+		{name: "missing manager", users: users, sessions: sessions, expectedIs: ErrJWTManagerRequired},
+		{name: "missing users", manager: jwtManager, sessions: sessions, expectedIs: ErrJWTUserLookupRequired},
+		{name: "missing sessions", manager: jwtManager, users: users, expectedIs: ErrJWTSessionLookupRequired},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			middleware, err := Authentication(tt.manager, tt.users, tt.sessions)
+
+			if middleware != nil {
+				t.Fatal("expected middleware to be nil")
+			}
+			if !errors.Is(err, tt.expectedIs) {
+				t.Fatalf("expected %v, got %v", tt.expectedIs, err)
+			}
+		})
+	}
+}
+
+func TestBearerTokenParsesStrictAuthorizationHeader(t *testing.T) {
+	tests := []struct {
+		name       string
+		header     string
+		expected   string
+		shouldPass bool
+	}{
+		{name: "standard bearer", header: "Bearer token-1", expected: "token-1", shouldPass: true},
+		{name: "case insensitive bearer", header: "bearer token-1", expected: "token-1", shouldPass: true},
+		{name: "extra whitespace", header: "Bearer   token-1", expected: "token-1", shouldPass: true},
+		{name: "missing token", header: "Bearer ", shouldPass: false},
+		{name: "wrong scheme", header: "Basic token-1", shouldPass: false},
+		{name: "extra fields", header: "Bearer token-1 extra", shouldPass: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token, ok := bearerToken(tt.header)
+
+			if ok != tt.shouldPass {
+				t.Fatalf("expected ok=%v, got %v", tt.shouldPass, ok)
+			}
+			if token != tt.expected {
+				t.Fatalf("expected token %q, got %q", tt.expected, token)
+			}
+		})
+	}
+}
+
+func TestAuthenticationRejectsInvalidCredentials(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	jwtManager := newTestJWTManager(t)
+	userID := "00000000-0000-4000-8000-000000000042"
+	sessionID := "session-1"
+	user := model.User{
+		Model:          model.Model{ID: userID},
+		OrganizationID: "00000000-0000-4000-8000-000000000099",
+		Username:       "analyst",
+		Role:           model.RoleUser,
+	}
+	activeSession := model.RefreshSession{TokenID: sessionID, UserID: userID}
+
+	tests := []struct {
+		name     string
+		header   string
+		users    *fakeUserLookup
+		sessions *fakeRefreshSessionLookup
+	}{
+		{name: "missing bearer token", users: &fakeUserLookup{user: user}, sessions: &fakeRefreshSessionLookup{session: activeSession}},
+		{name: "invalid token", header: "Bearer invalid-token", users: &fakeUserLookup{user: user}, sessions: &fakeRefreshSessionLookup{session: activeSession}},
 		{
-			name: "unknown user",
-			headerFunc: func(t *testing.T) string {
-				return "Bearer " + mustGenerateToken(t, jwtManager, "analyst", "session-1")
-			},
-			lookup: &fakeUserLookup{exists: false},
+			name:     "unknown user",
+			header:   "Bearer " + mustGenerateToken(t, jwtManager, userID, "analyst", sessionID),
+			users:    &fakeUserLookup{findErr: gorm.ErrRecordNotFound},
+			sessions: &fakeRefreshSessionLookup{session: activeSession},
 		},
 		{
-			name: "lookup error",
-			headerFunc: func(t *testing.T) string {
-				return "Bearer " + mustGenerateToken(t, jwtManager, "analyst", "session-1")
-			},
-			lookup: &fakeUserLookup{exists: true, existsErr: errors.New("lookup failed")},
+			name:     "user identity mismatch",
+			header:   "Bearer " + mustGenerateToken(t, jwtManager, userID, "analyst", sessionID),
+			users:    &fakeUserLookup{user: model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000043"}, OrganizationID: user.OrganizationID}},
+			sessions: &fakeRefreshSessionLookup{session: activeSession},
 		},
 		{
-			name: "find user error",
-			headerFunc: func(t *testing.T) string {
-				return "Bearer " + mustGenerateToken(t, jwtManager, "analyst", "session-1")
-			},
-			lookup: &fakeUserLookup{exists: true, findErr: errors.New("find failed")},
+			name:     "inactive session",
+			header:   "Bearer " + mustGenerateToken(t, jwtManager, userID, "analyst", sessionID),
+			users:    &fakeUserLookup{user: user},
+			sessions: &fakeRefreshSessionLookup{findErr: baserepository.ErrRefreshSessionNotFound},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			header := tt.header
-			if tt.headerFunc != nil {
-				header = tt.headerFunc(t)
-			}
-
-			router := gin.New()
-			router.Use(contextmiddleware.RequestContext())
-			router.Use(JWTAuthenticationFilter(jwtManager, tt.lookup, sessionLookup))
-			router.GET("/private", func(ctx *gin.Context) {
-				t.Fatal("handler should not run for invalid authentication")
-			})
-
-			recorder := performRequest(router, http.MethodGet, "/private", func(request *http.Request) {
-				if header != "" {
-					request.Header.Set("Authorization", header)
-				}
-			})
+			recorder := performAuthenticatedRequest(t, jwtManager, tt.users, tt.sessions, tt.header)
 
 			if recorder.Code != http.StatusUnauthorized {
 				t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, recorder.Code)
@@ -78,30 +130,124 @@ func TestJWTAuthenticationFilterRejectsInvalidRequests(t *testing.T) {
 			if recorder.Body.String() != `{"error":"Unauthorized"}` {
 				t.Fatalf("unexpected response body: %q", recorder.Body.String())
 			}
+			if recorder.Header().Get("WWW-Authenticate") != "Bearer" {
+				t.Fatalf("expected WWW-Authenticate Bearer header")
+			}
 		})
 	}
 }
 
-func TestJWTAuthenticationFilterSetsAuthenticatedUserContext(t *testing.T) {
+func TestAuthenticationReturnsServiceUnavailableForLookupFailures(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	jwtManager := sharedjwt.NewJWTManager("test-secret", time.Hour, time.Hour*24, "issuer", "audience")
+	jwtManager := newTestJWTManager(t)
+	userID := "00000000-0000-4000-8000-000000000042"
+	sessionID := "session-1"
+	user := model.User{
+		Model:          model.Model{ID: userID},
+		OrganizationID: "00000000-0000-4000-8000-000000000099",
+		Username:       "analyst",
+		Role:           model.RoleUser,
+	}
+	token := "Bearer " + mustGenerateToken(t, jwtManager, userID, "analyst", sessionID)
+
+	tests := []struct {
+		name     string
+		users    *fakeUserLookup
+		sessions *fakeRefreshSessionLookup
+	}{
+		{
+			name:     "user lookup failure",
+			users:    &fakeUserLookup{findErr: errors.New("database unavailable")},
+			sessions: &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: sessionID, UserID: userID}},
+		},
+		{
+			name:     "session lookup failure",
+			users:    &fakeUserLookup{user: user},
+			sessions: &fakeRefreshSessionLookup{findErr: errors.New("database unavailable")},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := performAuthenticatedRequest(t, jwtManager, tt.users, tt.sessions, token)
+
+			if recorder.Code != http.StatusServiceUnavailable {
+				t.Fatalf("expected status %d, got %d", http.StatusServiceUnavailable, recorder.Code)
+			}
+			if recorder.Body.String() != `{"error":"database unavailable"}` {
+				t.Fatalf("unexpected response body: %q", recorder.Body.String())
+			}
+		})
+	}
+}
+
+func TestAuthenticationReturnsInternalErrorForContextAndPrincipalFailures(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	jwtManager := newTestJWTManager(t)
+	userID := "00000000-0000-4000-8000-000000000042"
+	sessionID := "session-1"
+	token := "Bearer " + mustGenerateToken(t, jwtManager, userID, "analyst", sessionID)
+
+	t.Run("missing request context", func(t *testing.T) {
+		router := gin.New()
+		router.Use(mustAuthentication(t, jwtManager, &fakeUserLookup{}, &fakeRefreshSessionLookup{}))
+		router.GET("/private", func(ctx *gin.Context) {
+			t.Fatal("handler should not run")
+		})
+
+		recorder := performRequest(router, http.MethodGet, "/private", func(request *http.Request) {
+			request.Header.Set("Authorization", token)
+		})
+
+		if recorder.Code != http.StatusInternalServerError {
+			t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, recorder.Code)
+		}
+	})
+
+	t.Run("invalid principal", func(t *testing.T) {
+		user := model.User{
+			Model:    model.Model{ID: userID},
+			Username: "analyst",
+			Role:     model.RoleUser,
+		}
+		recorder := performAuthenticatedRequest(
+			t,
+			jwtManager,
+			&fakeUserLookup{user: user},
+			&fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: sessionID, UserID: userID}},
+			token,
+		)
+
+		if recorder.Code != http.StatusInternalServerError {
+			t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, recorder.Code)
+		}
+		if recorder.Body.String() != `{"error":"internal server error"}` {
+			t.Fatalf("unexpected response body: %q", recorder.Body.String())
+		}
+	})
+}
+
+func TestAuthenticationSetsAuthenticatedUserContext(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	jwtManager := newTestJWTManager(t)
+	userID := "00000000-0000-4000-8000-000000000042"
+	sessionID := "session-1"
 	lookup := &fakeUserLookup{
-		exists: true,
 		user: model.User{
-			Model:          model.Model{ID: "00000000-0000-4000-8000-000000000042"},
+			Model:          model.Model{ID: userID},
 			OrganizationID: "00000000-0000-4000-8000-000000000099",
 			Username:       "analyst",
 			Role:           model.RoleUser,
 		},
 	}
-	token := mustGenerateToken(t, jwtManager, "analyst", "session-1")
-	sessionLookup := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: "00000000-0000-4000-8000-000000000042"}}
+	sessionLookup := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: sessionID, UserID: userID}}
+	token := mustGenerateToken(t, jwtManager, userID, "analyst", sessionID)
 
 	router := gin.New()
-	router.Use(contextmiddleware.RequestContext())
-	router.Use(JWTAuthenticationFilter(jwtManager, lookup, sessionLookup))
+	router.Use(contextmiddleware.RequestContext(nil, nil))
+	router.Use(mustAuthentication(t, jwtManager, lookup, sessionLookup))
 	router.GET("/private", func(ctx *gin.Context) {
-		ec, err := appcontext.FromGinContext(ctx)
+		ec, err := requestcontext.FromGinContext(ctx)
 		if err != nil {
 			t.Fatalf("expected request context, got %v", err)
 		}
@@ -121,14 +267,14 @@ func TestJWTAuthenticationFilterSetsAuthenticatedUserContext(t *testing.T) {
 		if err != nil || organizationID != "00000000-0000-4000-8000-000000000099" {
 			t.Fatalf("expected organization ID 99, got %v error=%v", organizationID, err)
 		}
-		if lookup.existsContext == nil || lookup.findContext == nil {
+		if lookup.findContext == nil {
 			t.Fatal("expected user lookup to receive GinContext")
 		}
 		ctx.Status(http.StatusOK)
 	})
 
 	recorder := performRequest(router, http.MethodGet, "/private", func(request *http.Request) {
-		request.Header.Set("Authorization", "Bearer "+token)
+		request.Header.Set("Authorization", "bearer   "+token)
 	})
 
 	if recorder.Code != http.StatusOK {
@@ -149,41 +295,90 @@ func TestJWTAuthenticationEntryPoint(t *testing.T) {
 	if recorder.Body.String() != `{"error":"Unauthorized"}` {
 		t.Fatalf("unexpected response body: %q", recorder.Body.String())
 	}
+	if recorder.Header().Get("WWW-Authenticate") != "Bearer" {
+		t.Fatalf("expected WWW-Authenticate Bearer header")
+	}
+}
+
+func performAuthenticatedRequest(
+	t *testing.T,
+	jwtManager *commonjwt.Manager,
+	users UserLookup,
+	sessions RefreshSessionLookup,
+	header string,
+) *httptest.ResponseRecorder {
+	t.Helper()
+
+	router := gin.New()
+	router.Use(contextmiddleware.RequestContext(nil, nil))
+	router.Use(mustAuthentication(t, jwtManager, users, sessions))
+	router.GET("/private", func(ctx *gin.Context) {
+		t.Fatal("handler should not run")
+	})
+
+	return performRequest(router, http.MethodGet, "/private", func(request *http.Request) {
+		if header != "" {
+			request.Header.Set("Authorization", header)
+		}
+	})
+}
+
+func mustAuthentication(
+	t *testing.T,
+	jwtManager *commonjwt.Manager,
+	users UserLookup,
+	sessions RefreshSessionLookup,
+) gin.HandlerFunc {
+	t.Helper()
+
+	middleware, err := Authentication(jwtManager, users, sessions)
+	if err != nil {
+		t.Fatalf("failed to create authentication middleware: %v", err)
+	}
+
+	return middleware
 }
 
 type fakeUserLookup struct {
-	exists        bool
-	existsErr     error
-	findErr       error
-	user          model.User
-	existsContext *appcontext.GinContext
-	findContext   *appcontext.GinContext
+	findErr     error
+	user        model.User
+	findContext *requestcontext.GinContext
 }
 
-func (f *fakeUserLookup) ExistsByUsername(ec *appcontext.GinContext, username string) (bool, error) {
-	f.existsContext = ec
-	return f.exists, f.existsErr
-}
-
-func (f *fakeUserLookup) FindByUsername(ec *appcontext.GinContext, username string) (model.User, error) {
+func (f *fakeUserLookup) FindByID(ec *requestcontext.GinContext, id string) (model.User, error) {
 	f.findContext = ec
 	return f.user, f.findErr
 }
 
 type fakeRefreshSessionLookup struct {
+	findErr error
 	session model.RefreshSession
 }
 
-func (f *fakeRefreshSessionLookup) FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID string) (model.RefreshSession, error) {
+func (f *fakeRefreshSessionLookup) FindActiveByTokenIDForUser(ec *requestcontext.GinContext, tokenID string, userID string) (model.RefreshSession, error) {
+	if f.findErr != nil {
+		return model.RefreshSession{}, f.findErr
+	}
 	if f.session.TokenID == tokenID && f.session.UserID == userID {
 		return f.session, nil
 	}
 	return model.RefreshSession{}, baserepository.ErrRefreshSessionNotFound
 }
 
-func mustGenerateToken(t *testing.T, jwtManager *sharedjwt.JWTManager, username string, tokenID string) string {
+func newTestJWTManager(t *testing.T) *commonjwt.Manager {
 	t.Helper()
-	token, err := jwtManager.GenerateToken(username, tokenID)
+
+	jwtManager, err := commonjwt.NewManager(testJWTSecret, time.Hour, time.Hour*24, "issuer", "audience")
+	if err != nil {
+		t.Fatalf("failed to create jwt manager: %v", err)
+	}
+
+	return jwtManager
+}
+
+func mustGenerateToken(t *testing.T, jwtManager *commonjwt.Manager, userID string, username string, tokenID string) string {
+	t.Helper()
+	token, err := jwtManager.GenerateAccessToken(userID, username, tokenID)
 	if err != nil {
 		t.Fatalf("failed to generate token: %v", err)
 	}

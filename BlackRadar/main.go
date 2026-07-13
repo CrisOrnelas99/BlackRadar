@@ -4,13 +4,18 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
 	"blackradar/api/bootstrap"
+	commondb "blackradar/api/common/db"
+	commonjwt "blackradar/api/common/jwt"
+	commonriskbackfill "blackradar/api/common/risk_backfill"
 	"blackradar/api/config"
 	"blackradar/api/controller"
 	controllerai "blackradar/api/controller/ai"
@@ -35,9 +40,6 @@ import (
 	serviceauth "blackradar/api/service/auth"
 	servicenvd "blackradar/api/service/nvd"
 	servicevulnerability "blackradar/api/service/vulnerability"
-	shareddb "blackradar/api/shared/db"
-	sharedjwt "blackradar/api/shared/jwt"
-	sharedriskbackfill "blackradar/api/shared/risk_backfill"
 )
 
 func main() {
@@ -45,6 +47,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("load configuration: %v", err)
 	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
@@ -54,22 +57,25 @@ func main() {
 		log.Fatalf("database connection failed: %v", err)
 	}
 	defer func() {
-		if err := shareddb.Close(gormDB); err != nil {
+		if err := commondb.Close(gormDB); err != nil {
 			log.Printf("database close failed: %v", err)
 		}
 	}()
 
-	if err := shareddb.RunMigrations(ctx, gormDB); err != nil {
+	if err := commondb.RunMigrations(ctx, gormDB); err != nil {
 		log.Fatalf("database migration failed: %v", err)
 	}
-	if err := sharedriskbackfill.BackfillAssetRiskLevels(ctx, gormDB); err != nil {
+	if err := commonriskbackfill.BackfillAssetRiskLevels(ctx, gormDB); err != nil {
 		log.Fatalf("asset risk level backfill failed: %v", err)
 	}
 	if err := bootstrap.Run(ctx, gormDB, cfg); err != nil {
 		log.Fatalf("bootstrap failed: %v", err)
 	}
 
-	jwtManager := sharedjwt.NewJWTManager(cfg.JWTSecret, cfg.JWTExpiration, cfg.JWTRefreshExpiration, cfg.JWTIssuer, cfg.JWTAudience)
+	jwtManager, err := commonjwt.NewManager(cfg.JWTSecret, cfg.JWTExpiration, cfg.JWTRefreshExpiration, cfg.JWTIssuer, cfg.JWTAudience)
+	if err != nil {
+		log.Fatalf("jwt configuration failed: %v", err)
+	}
 
 	userRepository := repositoryuser.NewUserRepository(gormDB)
 	organizationRepository := repositoryorganization.NewOrganizationRepository(gormDB)
@@ -102,13 +108,29 @@ func main() {
 
 	engine := gin.New()
 	engine.Use(gin.Recovery())
-	engine.Use(contextmiddleware.RequestContext())
-	engine.Use(securityheaders.SecurityHeaders())
-	engine.Use(gormmiddleware.GormMiddleware(gormDB))
-	engine.Use(cors.Cors(cfg.CorsAllowedOrigins))
+	engine.Use(contextmiddleware.RequestContext(logger, gormDB))
+	engine.Use(securityheaders.SecurityHeaders(securityheaders.Config{
+		EnableHSTS:          cfg.IsProduction(),
+		HSTSMaxAge:          31536000,
+		HSTSIncludeDomains:  true,
+		TrustForwardedProto: cfg.IsProduction(),
+	}))
+	engine.Use(gormmiddleware.RequestDatabase(gormDB))
+	corsMiddleware, err := cors.New(cors.Config{
+		AllowedOrigins:   cfg.CorsAllowedOrigins,
+		AllowedMethods:   []string{http.MethodDelete, http.MethodGet, http.MethodOptions, http.MethodPatch, http.MethodPost, http.MethodPut},
+		AllowedHeaders:   []string{"Authorization", "Content-Type"},
+		ExposedHeaders:   []string{"X-Request-ID"},
+		AllowCredentials: false,
+		MaxAge:           10 * time.Minute,
+	})
+	if err != nil {
+		log.Fatalf("cors configuration failed: %v", err)
+	}
+	engine.Use(corsMiddleware)
 	engine.Use(filter.RequestFilter())
 	// Register all routes centrally in the controller package
-	controller.RegisterRoutes(engine, gormDB, jwtManager, userRepository, refreshSessionRepository, controller.RouteHandlers{
+	if err := controller.RegisterRoutes(engine, gormDB, jwtManager, userRepository, refreshSessionRepository, controller.RouteHandlers{
 		RegisterAuth:           authController.Register,
 		LoginAuth:              authController.Login,
 		RefreshAuth:            authController.Refresh,
@@ -129,7 +151,9 @@ func main() {
 		UpdateVulnerability:    vulnerabilityController.UpdateVulnerability,
 		DeleteVulnerability:    vulnerabilityController.DeleteVulnerability,
 		LookupCVE:              nvdController.LookupCVE,
-	})
+	}); err != nil {
+		log.Fatalf("route registration failed: %v", err)
+	}
 
 	log.Printf("Go backend running on :%s", cfg.Port)
 	if err := engine.Run(":" + cfg.Port); err != nil {
@@ -146,7 +170,7 @@ func connectDatabaseWithRetry(ctx context.Context, cfg config.Config) (*gorm.DB,
 	var lastErr error
 
 	for attempt := 1; attempt <= databaseConnectAttempts; attempt++ {
-		database, err := shareddb.Connect(ctx, cfg)
+		database, err := commondb.Connect(ctx, cfg)
 		if err == nil {
 			return database, nil
 		}

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"blackradar/api/controller/dto"
-	baseexternal "blackradar/api/external"
 	externalratelimiter "blackradar/api/external/rate_limiter"
 )
 
@@ -117,7 +116,14 @@ func TestClientGenerateTextReturnsRateLimitedWhenLimiterBlocks(t *testing.T) {
 	_, err = client.GenerateText(context.Background(), dto.TextGenerationRequest{
 		Messages: []dto.TextGenerationMessage{{Role: "user", Content: "second"}},
 	})
-	if !errors.Is(err, baseexternal.ErrOpenAIRateLimited) {
+	if !errors.Is(err, ErrOpenAIRateLimited) {
 		t.Fatalf("expected openai rate limited error, got %v", err)
+	}
+}
+
+func TestClientRejectsUnsafeOpenAIBaseURL(t *testing.T) {
+	_, err := NewClientWithHTTPClient("https://example.com/v1/responses", "test-key", "gpt-4.1-mini", nil, nil)
+	if !errors.Is(err, ErrInvalidOpenAIBaseURL) {
+		t.Fatalf("expected invalid OpenAI base URL error, got %v", err)
 	}
 }

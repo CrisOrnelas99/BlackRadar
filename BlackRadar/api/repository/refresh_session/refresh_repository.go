@@ -6,13 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"gorm.io/gorm"
-
+	commondb "blackradar/api/common/db"
+	appcontext "blackradar/api/context"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
-	appcontext "blackradar/api/context"
-	shared "blackradar/api/shared"
-	shareddb "blackradar/api/shared/db"
+	"gorm.io/gorm"
 )
 
 // RefreshSessionRepository persists refresh token sessions.
@@ -40,14 +38,14 @@ func (r *RefreshSessionRepository) Save(ec *appcontext.GinContext, session model
 
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Create(&session).Error
 	if err != nil {
-		databaseErr := shareddb.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, shared.ErrUniqueViolation) {
+		databaseErr := commondb.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, commondb.ErrUniqueViolation) {
 			return fmt.Errorf("%w: %w", baserepository.ErrDuplicateData, databaseErr)
 		}
-		if errors.Is(databaseErr, shared.ErrForeignKeyViolation) {
+		if errors.Is(databaseErr, commondb.ErrForeignKeyViolation) {
 			return fmt.Errorf("%w: %w", baserepository.ErrInvalidReference, databaseErr)
 		}
-		if errors.Is(databaseErr, shared.ErrCheckConstraintViolation) {
+		if errors.Is(databaseErr, commondb.ErrCheckConstraintViolation) {
 			return fmt.Errorf("%w: %w", baserepository.ErrInvalidData, databaseErr)
 		}
 		return fmt.Errorf("%w: %w", baserepository.ErrCreateFailed, databaseErr)

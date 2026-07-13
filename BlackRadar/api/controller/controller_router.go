@@ -2,15 +2,17 @@
 package controller
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
+	commonjwt "blackradar/api/common/jwt"
+	appcontext "blackradar/api/context"
 	"blackradar/api/controller/health"
 	jwtmiddleware "blackradar/api/middleware/jwt"
 	"blackradar/api/middleware/permissions"
 	ratelimit "blackradar/api/middleware/rate_limit"
-	appcontext "blackradar/api/context"
-	sharedjwt "blackradar/api/shared/jwt"
 )
 
 // RouteHandlers groups the controller functions used when wiring HTTP routes.
@@ -38,7 +40,7 @@ type RouteHandlers struct {
 }
 
 // RegisterRoutes centralizes all route registrations for the application.
-func RegisterRoutes(router *gin.Engine, database *gorm.DB, jwtManager *sharedjwt.JWTManager, userLookup jwtmiddleware.UserLookup, sessions jwtmiddleware.RefreshSessionLookup, handlers RouteHandlers) {
+func RegisterRoutes(router *gin.Engine, database *gorm.DB, jwtManager *commonjwt.Manager, userLookup jwtmiddleware.UserLookup, sessions jwtmiddleware.RefreshSessionLookup, handlers RouteHandlers) error {
 	router.GET("/api/health", health.Health)
 	router.GET("/api/ready", health.Ready(database))
 
@@ -51,8 +53,13 @@ func RegisterRoutes(router *gin.Engine, database *gorm.DB, jwtManager *sharedjwt
 		auth.POST("/logout", appcontext.Wrap(handlers.LogoutAuth))
 	}
 
+	authenticationMiddleware, err := jwtmiddleware.Authentication(jwtManager, userLookup, sessions)
+	if err != nil {
+		return fmt.Errorf("configure JWT authentication: %w", err)
+	}
+
 	protected := router.Group("/api")
-	protected.Use(jwtmiddleware.JWTAuthenticationFilter(jwtManager, userLookup, sessions))
+	protected.Use(authenticationMiddleware)
 	{
 		protected.GET("/assets", appcontext.Wrap(handlers.GetAssets))
 		protected.GET("/assets/:id", appcontext.Wrap(handlers.GetAsset))
@@ -85,4 +92,6 @@ func RegisterRoutes(router *gin.Engine, database *gorm.DB, jwtManager *sharedjwt
 			}
 		}
 	}
+
+	return nil
 }

@@ -1,76 +1,55 @@
-// Package gormmiddleware provides request-scoped GORM transaction middleware.
+// Package gormmiddleware provides request-scoped GORM database middleware.
 package gormmiddleware
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	appcontext "blackradar/api/context"
-	middlewareerrors "blackradar/api/middleware"
+	requestcontext "blackradar/api/context"
 )
 
-// GormMiddleware opens one database transaction for the request and stores it on GinContext.
-// Downstream repositories use the context database transparently; nested GORM Transaction calls
-// become savepoints under this request transaction.
-func GormMiddleware(database *gorm.DB) gin.HandlerFunc {
+// RequestDatabase adds a request-context-aware database session to GinContext.
+//
+// It does not open a transaction. Services and repositories should define
+// explicit transaction boundaries around business operations that require
+// atomicity.
+func RequestDatabase(database *gorm.DB) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		if database == nil {
-			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": middlewareerrors.ErrDatabaseUnavailable.Message})
+			abortDatabaseUnavailable(ctx)
 			return
 		}
-		ec, err := appcontext.FromGinContext(ctx)
+
+		appContext, err := requestcontext.FromGinContext(ctx)
 		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": middlewareerrors.ErrDatabaseUnavailable.Message})
+			slog.Default().Error(
+				"request context unavailable for database middleware",
+				slog.String("error", err.Error()),
+			)
+			abortDatabaseUnavailable(ctx)
 			return
 		}
 
-		tx := database.WithContext(ctx.Request.Context()).Begin()
-		if tx.Error != nil {
-			ec.Logger().Error("database transaction begin failed", "error", tx.Error)
-			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": middlewareerrors.ErrDatabaseTransactionFailed.Message})
-			return
-		}
-
-		ec.SetDatabase(tx)
-		defer finishRequestTransaction(ctx, ec, tx, database)
+		requestDatabase := database.WithContext(ctx.Request.Context())
+		appContext.SetDatabase(requestDatabase)
+		defer appContext.SetDatabase(nil)
 
 		ctx.Next()
 	}
 }
 
-func finishRequestTransaction(ctx *gin.Context, ec *appcontext.GinContext, tx *gorm.DB, database *gorm.DB) {
-	if recovered := recover(); recovered != nil {
-		if err := tx.Rollback().Error; err != nil {
-			ec.Logger().Error("database transaction rollback after panic failed", "error", err)
-		}
-		ec.SetDatabase(database)
-		panic(recovered)
-	}
-
-	if shouldCommitRequestTransaction(ctx, tx) {
-		if err := tx.Commit().Error; err != nil {
-			ec.Logger().Error("database transaction commit failed", "error", err)
-			if !ctx.Writer.Written() {
-				ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": middlewareerrors.ErrDatabaseTransactionFailed.Message})
-			}
-		}
-		ec.SetDatabase(database)
-		return
-	}
-
-	if err := tx.Rollback().Error; err != nil {
-		ec.Logger().Error("database transaction rollback failed", "error", err)
-	}
-	ec.SetDatabase(database)
+// GormMiddleware preserves the previous middleware name for existing callers.
+func GormMiddleware(database *gorm.DB) gin.HandlerFunc {
+	return RequestDatabase(database)
 }
 
-func shouldCommitRequestTransaction(ctx *gin.Context, tx *gorm.DB) bool {
-	if tx.Error != nil || len(ctx.Errors) > 0 {
-		return false
-	}
-
-	status := ctx.Writer.Status()
-	return status >= http.StatusOK && status <= http.StatusNonAuthoritativeInfo
+// abortDatabaseUnavailable returns a generic database availability error.
+func abortDatabaseUnavailable(ctx *gin.Context) {
+	ctx.AbortWithStatusJSON(
+		http.StatusInternalServerError,
+		gin.H{"error": ErrDatabaseUnavailable.Error()},
+	)
 }

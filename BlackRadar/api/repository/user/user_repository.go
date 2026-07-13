@@ -6,14 +6,12 @@ import (
 	"fmt"
 	"strings"
 
-	"gorm.io/gorm"
-
+	commondb "blackradar/api/common/db"
+	commonid "blackradar/api/common/id"
+	appcontext "blackradar/api/context"
 	"blackradar/api/model"
 	baserepository "blackradar/api/repository"
-	appcontext "blackradar/api/context"
-	shared "blackradar/api/shared"
-	shareddb "blackradar/api/shared/db"
-	sharedid "blackradar/api/shared/id"
+	"gorm.io/gorm"
 )
 
 // UserRepository persists user records.
@@ -62,7 +60,11 @@ func (r *UserRepository) Save(ec *appcontext.GinContext, user model.User) (model
 
 	for attempt := 0; attempt < 3; attempt++ {
 		if user.ID == "" || attempt > 0 {
-			user.ID = sharedid.NewRandomID()
+			identifier, err := commonid.New()
+			if err != nil {
+				return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrCreateFailed, err)
+			}
+			user.ID = identifier
 		}
 
 		err := r.dbForContext(ec).WithContext(ec.RequestContext()).Create(&user).Error
@@ -70,17 +72,17 @@ func (r *UserRepository) Save(ec *appcontext.GinContext, user model.User) (model
 			return user, nil
 		}
 
-		databaseErr := shareddb.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, shared.ErrUniqueViolation) && sharedid.IsPrimaryKeyViolation(err) {
+		databaseErr := commondb.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, commondb.ErrUniqueViolation) && commondb.IsPrimaryKeyViolation(err) {
 			continue
 		}
-		if errors.Is(databaseErr, shared.ErrUniqueViolation) {
+		if errors.Is(databaseErr, commondb.ErrUniqueViolation) {
 			return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrDuplicateData, databaseErr)
 		}
-		if errors.Is(databaseErr, shared.ErrForeignKeyViolation) {
+		if errors.Is(databaseErr, commondb.ErrForeignKeyViolation) {
 			return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidReference, databaseErr)
 		}
-		if errors.Is(databaseErr, shared.ErrCheckConstraintViolation) {
+		if errors.Is(databaseErr, commondb.ErrCheckConstraintViolation) {
 			return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidData, databaseErr)
 		}
 		return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrCreateFailed, databaseErr)
@@ -108,6 +110,19 @@ func (r *UserRepository) FindByUsernameOrEmail(ec *appcontext.GinContext, userOr
 func (r *UserRepository) FindByUsername(ec *appcontext.GinContext, username string) (model.User, error) {
 	var user model.User
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("username = ?", strings.TrimSpace(username)).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return model.User{}, gorm.ErrRecordNotFound
+	}
+	if err != nil {
+		return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+	}
+	return user, nil
+}
+
+// FindByID returns a user that matches the supplied immutable identifier.
+func (r *UserRepository) FindByID(ec *appcontext.GinContext, id string) (model.User, error) {
+	var user model.User
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("id = ?", strings.TrimSpace(id)).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.User{}, gorm.ErrRecordNotFound
 	}

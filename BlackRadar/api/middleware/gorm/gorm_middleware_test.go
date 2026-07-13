@@ -14,35 +14,38 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	appcontext "blackradar/api/context"
+	requestcontext "blackradar/api/context"
 	contextmiddleware "blackradar/api/middleware/context"
 )
 
 func init() {
-	sql.Register("blackradar_tx_test", transactionTrackingDriver{})
+	sql.Register("blackradar_request_database_test", transactionTrackingDriver{})
 }
 
-func TestGormMiddlewareCommitsSuccessfulRequestTransaction(t *testing.T) {
-	database, closeDatabase := newTransactionTestDatabase(t)
+func TestRequestDatabaseStoresContextualDatabaseWithoutTransaction(t *testing.T) {
+	database, closeDatabase := newRequestDatabaseTestDatabase(t)
 	defer closeDatabase()
 
 	router := gin.New()
-	router.Use(contextmiddleware.RequestContext())
-	router.Use(GormMiddleware(database))
+	router.Use(contextmiddleware.RequestContext(nil, nil))
+	router.Use(RequestDatabase(database))
 
-	var requestDatabase *gorm.DB
+	var appContext *requestcontext.GinContext
 	router.GET("/resource", func(ctx *gin.Context) {
-		ec, err := appcontext.FromGinContext(ctx)
+		var err error
+		appContext, err = requestcontext.FromGinContext(ctx)
 		if err != nil {
 			t.Fatalf("expected request context, got %v", err)
 		}
-		requestDatabase = ec.Database()
+
+		requestDatabase := appContext.Database()
 		if requestDatabase == nil {
-			t.Fatal("expected request transaction to be stored on GinContext")
+			t.Fatal("expected request database to be stored on GinContext")
 		}
 		if requestDatabase == database {
-			t.Fatal("expected context database to be a request transaction, not the base database")
+			t.Fatal("expected context database to be request-scoped, not the base database")
 		}
+
 		ctx.Status(http.StatusOK)
 	})
 
@@ -50,71 +53,59 @@ func TestGormMiddlewareCommitsSuccessfulRequestTransaction(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
-	assertTransactionStats(t, 1, 1, 0)
-}
-
-func TestGormMiddlewareRollsBackUnsuccessfulStatus(t *testing.T) {
-	database, closeDatabase := newTransactionTestDatabase(t)
-	defer closeDatabase()
-
-	router := gin.New()
-	router.Use(contextmiddleware.RequestContext())
-	router.Use(GormMiddleware(database))
-	router.POST("/resource", func(ctx *gin.Context) {
-		ctx.Status(http.StatusBadRequest)
-	})
-
-	recorder := performRequest(router, http.MethodPost, "/resource")
-	if recorder.Code != http.StatusBadRequest {
-		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, recorder.Code)
+	if appContext.Database() != nil {
+		t.Fatal("expected request database to be cleared after request")
 	}
-	assertTransactionStats(t, 1, 0, 1)
+	assertTransactionStats(t, 0, 0, 0)
 }
 
-func TestGormMiddlewareRollsBackContextErrors(t *testing.T) {
-	database, closeDatabase := newTransactionTestDatabase(t)
+func TestGormMiddlewareCompatibilityWrapperUsesRequestDatabase(t *testing.T) {
+	database, closeDatabase := newRequestDatabaseTestDatabase(t)
 	defer closeDatabase()
 
 	router := gin.New()
-	router.Use(contextmiddleware.RequestContext())
+	router.Use(contextmiddleware.RequestContext(nil, nil))
 	router.Use(GormMiddleware(database))
-	router.POST("/resource", func(ctx *gin.Context) {
-		_ = ctx.Error(errors.New("handler failed"))
-		ctx.Status(http.StatusOK)
+	router.GET("/resource", func(ctx *gin.Context) {
+		appContext, err := requestcontext.FromGinContext(ctx)
+		if err != nil {
+			t.Fatalf("expected request context, got %v", err)
+		}
+		if appContext.Database() == nil {
+			t.Fatal("expected request database")
+		}
+		ctx.Status(http.StatusNoContent)
 	})
 
-	recorder := performRequest(router, http.MethodPost, "/resource")
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	recorder := performRequest(router, http.MethodGet, "/resource")
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("expected status %d, got %d", http.StatusNoContent, recorder.Code)
 	}
-	assertTransactionStats(t, 1, 0, 1)
+	assertTransactionStats(t, 0, 0, 0)
 }
 
-func TestGormMiddlewareRollsBackPanics(t *testing.T) {
-	database, closeDatabase := newTransactionTestDatabase(t)
-	defer closeDatabase()
-
+func TestRequestDatabaseRejectsMissingDatabase(t *testing.T) {
 	router := gin.New()
-	router.Use(gin.Recovery())
-	router.Use(contextmiddleware.RequestContext())
-	router.Use(GormMiddleware(database))
-	router.POST("/resource", func(ctx *gin.Context) {
-		panic("boom")
+	router.Use(contextmiddleware.RequestContext(nil, nil))
+	router.Use(RequestDatabase(nil))
+	router.GET("/resource", func(ctx *gin.Context) {
+		t.Fatal("handler should not run when database is missing")
 	})
 
-	recorder := performRequest(router, http.MethodPost, "/resource")
+	recorder := performRequest(router, http.MethodGet, "/resource")
 	if recorder.Code != http.StatusInternalServerError {
 		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, recorder.Code)
 	}
-	assertTransactionStats(t, 1, 0, 1)
 }
 
-func TestGormMiddlewareRejectsMissingDatabase(t *testing.T) {
+func TestRequestDatabaseRejectsMissingRequestContext(t *testing.T) {
+	database, closeDatabase := newRequestDatabaseTestDatabase(t)
+	defer closeDatabase()
+
 	router := gin.New()
-	router.Use(contextmiddleware.RequestContext())
-	router.Use(GormMiddleware(nil))
+	router.Use(RequestDatabase(database))
 	router.GET("/resource", func(ctx *gin.Context) {
-		t.Fatal("handler should not run when database is missing")
+		t.Fatal("handler should not run when request context is missing")
 	})
 
 	recorder := performRequest(router, http.MethodGet, "/resource")
@@ -151,24 +142,34 @@ func assertTransactionStats(t *testing.T, begins int, commits int, rollbacks int
 	t.Helper()
 	testTransactionCounters.mu.Lock()
 	defer testTransactionCounters.mu.Unlock()
-	if testTransactionCounters.begins != begins || testTransactionCounters.commits != commits || testTransactionCounters.rollbacks != rollbacks {
-		t.Fatalf("expected transaction stats begins=%d commits=%d rollbacks=%d, got begins=%d commits=%d rollbacks=%d", begins, commits, rollbacks, testTransactionCounters.begins, testTransactionCounters.commits, testTransactionCounters.rollbacks)
+	if testTransactionCounters.begins != begins ||
+		testTransactionCounters.commits != commits ||
+		testTransactionCounters.rollbacks != rollbacks {
+		t.Fatalf(
+			"expected transaction stats begins=%d commits=%d rollbacks=%d, got begins=%d commits=%d rollbacks=%d",
+			begins,
+			commits,
+			rollbacks,
+			testTransactionCounters.begins,
+			testTransactionCounters.commits,
+			testTransactionCounters.rollbacks,
+		)
 	}
 }
 
-func newTransactionTestDatabase(t *testing.T) (*gorm.DB, func()) {
+func newRequestDatabaseTestDatabase(t *testing.T) (*gorm.DB, func()) {
 	t.Helper()
 	resetTransactionStats()
 
-	sqlDatabase, err := sql.Open("blackradar_tx_test", "")
+	sqlDatabase, err := sql.Open("blackradar_request_database_test", "")
 	if err != nil {
-		t.Fatalf("failed to open transaction test database: %v", err)
+		t.Fatalf("failed to open request database test database: %v", err)
 	}
 
 	database, err := gorm.Open(postgres.New(postgres.Config{Conn: sqlDatabase}), &gorm.Config{DisableAutomaticPing: true})
 	if err != nil {
 		_ = sqlDatabase.Close()
-		t.Fatalf("failed to open gorm transaction test database: %v", err)
+		t.Fatalf("failed to open gorm request database test database: %v", err)
 	}
 
 	return database, func() {
@@ -185,7 +186,7 @@ func (transactionTrackingDriver) Open(name string) (driver.Conn, error) {
 type transactionTrackingConn struct{}
 
 func (transactionTrackingConn) Prepare(query string) (driver.Stmt, error) {
-	return nil, errors.New("prepare is not implemented for transaction middleware tests")
+	return nil, errors.New("prepare is not implemented for request database middleware tests")
 }
 
 func (transactionTrackingConn) Close() error {

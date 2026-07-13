@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"blackradar/api/controller/dto"
-	baseexternal "blackradar/api/external"
 	externalratelimiter "blackradar/api/external/rate_limiter"
 )
 
@@ -59,10 +58,10 @@ func NewCPEClientWithHTTPClient(baseURL string, apiKey string, httpClient *http.
 func (c *CPEClient) SearchCandidates(ctx context.Context, request dto.CPEMatchRequest) ([]dto.CPECandidate, error) {
 	keywordSearch := strings.TrimSpace(request.KeywordSearch)
 	if keywordSearch == "" {
-		return nil, baseexternal.ErrInvalidCPESearch
+		return nil, ErrInvalidCPESearch
 	}
 	if !c.limiter.Allow(time.Now()) {
-		return nil, baseexternal.ErrNVDRateLimited
+		return nil, ErrNVDRateLimited
 	}
 
 	requestURL, err := c.searchURL(keywordSearch)
@@ -72,7 +71,7 @@ func (c *CPEClient) SearchCandidates(ctx context.Context, request dto.CPEMatchRe
 
 	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("%w: build request", baseexternal.ErrNVDUnavailable)
+		return nil, fmt.Errorf("%w: build request", ErrNVDUnavailable)
 	}
 	httpRequest.Header.Set("Accept", "application/json")
 	httpRequest.Header.Set("User-Agent", "BlackRadar API NVD client")
@@ -82,26 +81,26 @@ func (c *CPEClient) SearchCandidates(ctx context.Context, request dto.CPEMatchRe
 
 	response, err := c.httpClient.Do(httpRequest)
 	if err != nil {
-		return nil, fmt.Errorf("%w: request failed", baseexternal.ErrNVDUnavailable)
+		return nil, fmt.Errorf("%w: request failed", ErrNVDUnavailable)
 	}
 	defer response.Body.Close()
 
 	switch response.StatusCode {
 	case http.StatusOK:
 	case http.StatusTooManyRequests:
-		return nil, baseexternal.ErrNVDRateLimited
+		return nil, ErrNVDRateLimited
 	default:
-		return nil, fmt.Errorf("%w: status %d", baseexternal.ErrNVDUnavailable, response.StatusCode)
+		return nil, fmt.Errorf("%w: status %d", ErrNVDUnavailable, response.StatusCode)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(response.Body, 2<<20))
 	if err != nil {
-		return nil, fmt.Errorf("%w: read response", baseexternal.ErrNVDUnavailable)
+		return nil, fmt.Errorf("%w: read response", ErrNVDUnavailable)
 	}
 
 	var payload cpeAPIResponse
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil, fmt.Errorf("%w: decode response", baseexternal.ErrInvalidNVDResponse)
+		return nil, fmt.Errorf("%w: decode response", ErrInvalidNVDResponse)
 	}
 	if len(payload.Products) == 0 {
 		return []dto.CPECandidate{}, nil
@@ -122,6 +121,7 @@ func (c *CPEClient) SearchCandidates(ctx context.Context, request dto.CPEMatchRe
 	return candidates, nil
 }
 
+// newHTTPClient creates the production HTTP client used for CPE API calls.
 func newHTTPClient() *http.Client {
 	return &http.Client{
 		Timeout: 10 * time.Second,
@@ -131,10 +131,11 @@ func newHTTPClient() *http.Client {
 	}
 }
 
+// searchURL builds a CPE API request URL for the supplied keyword search.
 func (c *CPEClient) searchURL(keywordSearch string) (string, error) {
 	parsed, err := url.Parse(c.baseURL)
 	if err != nil {
-		return "", baseexternal.ErrInvalidNVDBaseURL
+		return "", ErrInvalidNVDBaseURL
 	}
 	values := parsed.Query()
 	values.Set("keywordSearch", keywordSearch)
@@ -142,13 +143,14 @@ func (c *CPEClient) searchURL(keywordSearch string) (string, error) {
 	return parsed.String(), nil
 }
 
+// validateCPEBaseURL validates and normalizes the allowed CPE API endpoint.
 func validateCPEBaseURL(baseURL string) (string, error) {
 	parsed, err := url.Parse(strings.TrimSpace(baseURL))
 	if err != nil {
-		return "", baseexternal.ErrInvalidNVDBaseURL
+		return "", ErrInvalidNVDBaseURL
 	}
 	if parsed.Path != "/rest/json/cpes/2.0" {
-		return "", baseexternal.ErrInvalidNVDBaseURL
+		return "", ErrInvalidNVDBaseURL
 	}
 	if parsed.Scheme == "https" && parsed.Host == officialCPEHost {
 		parsed.RawQuery = ""
@@ -160,9 +162,10 @@ func validateCPEBaseURL(baseURL string) (string, error) {
 		parsed.Fragment = ""
 		return parsed.String(), nil
 	}
-	return "", baseexternal.ErrInvalidNVDBaseURL
+	return "", ErrInvalidNVDBaseURL
 }
 
+// isLocalHost reports whether a host is allowed for local test wiring.
 func isLocalHost(host string) bool {
 	switch strings.ToLower(strings.TrimSpace(host)) {
 	case "localhost", "127.0.0.1", "::1":
@@ -191,6 +194,7 @@ type title struct {
 	Title string `json:"title"`
 }
 
+// mapCPECandidate converts an NVD CPE item into the application's candidate DTO.
 func mapCPECandidate(cpe cpeItem) dto.CPECandidate {
 	title := cpe.CPEName
 	for _, entry := range cpe.Titles {

@@ -7,66 +7,115 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	appcontext "blackradar/api/context"
+	requestcontext "blackradar/api/context"
 	contextmiddleware "blackradar/api/middleware/context"
 	"blackradar/api/model"
 )
 
-func TestRequireAdmin(t *testing.T) {
+func TestRequireAdminRejectsMissingRequestContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	tests := []struct {
-		name           string
-		role           any
-		expectStatus   int
-		expectContinue bool
-	}{
-		{name: "missing role", expectStatus: http.StatusForbidden},
-		{name: "wrong type", role: 42, expectStatus: http.StatusForbidden},
-		{name: "normal user", role: model.RoleUser, expectStatus: http.StatusForbidden},
-		{name: "admin", role: model.RoleAdmin, expectStatus: http.StatusOK, expectContinue: true},
+	router := gin.New()
+	router.Use(RequireAdmin())
+	router.GET("/admin", func(ctx *gin.Context) {
+		t.Fatal("handler should not run")
+	})
+
+	recorder := performRequest(router, http.MethodGet, "/admin")
+
+	if recorder.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, recorder.Code)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			router := gin.New()
-			router.Use(contextmiddleware.RequestContext())
-			if tt.role != nil {
-				router.Use(func(ctx *gin.Context) {
-					ec, err := appcontext.FromGinContext(ctx)
-					if err != nil {
-						t.Fatalf("expected request context, got %v", err)
-					}
-					if role, ok := tt.role.(string); ok {
-						if err := ec.SetPrincipal(appcontext.Principal{
-							UserID:         "00000000-0000-4000-8000-000000000042",
-							Username:       "analyst",
-							Role:           role,
-							OrganizationID: "00000000-0000-4000-8000-000000000099",
-						}); err != nil {
-							t.Fatalf("failed to set principal: %v", err)
-						}
-					}
-					ctx.Next()
-				})
-			}
-			router.Use(RequireAdmin())
-
-			handlerCalled := false
-			router.GET("/admin", func(ctx *gin.Context) {
-				handlerCalled = true
-				ctx.Status(http.StatusOK)
-			})
-
-			recorder := httptest.NewRecorder()
-			request := httptest.NewRequest(http.MethodGet, "/admin", nil)
-			router.ServeHTTP(recorder, request)
-
-			if recorder.Code != tt.expectStatus {
-				t.Fatalf("expected status %d, got %d", tt.expectStatus, recorder.Code)
-			}
-			if handlerCalled != tt.expectContinue {
-				t.Fatalf("expected handler called=%v, got %v", tt.expectContinue, handlerCalled)
-			}
-		})
+	if recorder.Body.String() != `{"error":"internal server error"}` {
+		t.Fatalf("unexpected response body: %q", recorder.Body.String())
 	}
+}
+
+func TestRequireAdminRejectsMissingPrincipal(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(contextmiddleware.RequestContext(nil, nil))
+	router.Use(RequireAdmin())
+	router.GET("/admin", func(ctx *gin.Context) {
+		t.Fatal("handler should not run")
+	})
+
+	recorder := performRequest(router, http.MethodGet, "/admin")
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, recorder.Code)
+	}
+	if recorder.Body.String() != `{"error":"Unauthorized"}` {
+		t.Fatalf("unexpected response body: %q", recorder.Body.String())
+	}
+	if recorder.Header().Get("WWW-Authenticate") != "Bearer" {
+		t.Fatalf("expected WWW-Authenticate Bearer header")
+	}
+}
+
+func TestRequireAdminRejectsNonAdminPrincipal(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(contextmiddleware.RequestContext(nil, nil))
+	router.Use(setPrincipal(model.RoleUser))
+	router.Use(RequireAdmin())
+	router.GET("/admin", func(ctx *gin.Context) {
+		t.Fatal("handler should not run")
+	})
+
+	recorder := performRequest(router, http.MethodGet, "/admin")
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d", http.StatusForbidden, recorder.Code)
+	}
+	if recorder.Body.String() != `{"error":"forbidden"}` {
+		t.Fatalf("unexpected response body: %q", recorder.Body.String())
+	}
+}
+
+func TestRequireAdminAllowsAdminPrincipal(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(contextmiddleware.RequestContext(nil, nil))
+	router.Use(setPrincipal(model.RoleAdmin))
+	router.Use(RequireAdmin())
+
+	handlerCalled := false
+	router.GET("/admin", func(ctx *gin.Context) {
+		handlerCalled = true
+		ctx.Status(http.StatusOK)
+	})
+
+	recorder := performRequest(router, http.MethodGet, "/admin")
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	if !handlerCalled {
+		t.Fatal("expected handler to be called")
+	}
+}
+
+func setPrincipal(role string) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		ec, err := requestcontext.FromGinContext(ctx)
+		if err != nil {
+			panic(err)
+		}
+		if err := ec.SetPrincipal(requestcontext.Principal{
+			UserID:         "00000000-0000-4000-8000-000000000042",
+			Username:       "analyst",
+			Role:           role,
+			OrganizationID: "00000000-0000-4000-8000-000000000099",
+		}); err != nil {
+			panic(err)
+		}
+		ctx.Next()
+	}
+}
+
+func performRequest(router http.Handler, method string, target string) *httptest.ResponseRecorder {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(method, target, nil)
+	router.ServeHTTP(recorder, request)
+	return recorder
 }
