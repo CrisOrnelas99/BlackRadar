@@ -56,7 +56,7 @@ func NewCPEClientWithHTTPClient(baseURL string, apiKey string, httpClient *http.
 
 // SearchCandidates returns CPE candidates for a normalized search request.
 func (c *CPEClient) SearchCandidates(ctx context.Context, request dto.CPEMatchRequest) ([]dto.CPECandidate, error) {
-	keywordSearch := strings.TrimSpace(request.KeywordSearch)
+	keywordSearch := normalizeCPEKeywordSearch(request.KeywordSearch)
 	if keywordSearch == "" {
 		return nil, ErrInvalidCPESearch
 	}
@@ -163,6 +163,26 @@ func validateCPEBaseURL(baseURL string) (string, error) {
 		return parsed.String(), nil
 	}
 	return "", ErrInvalidNVDBaseURL
+}
+
+// normalizeCPEKeywordSearch trims and bounds backend-generated NVD CPE searches.
+func normalizeCPEKeywordSearch(keywordSearch string) string {
+	keywordSearch = strings.TrimSpace(keywordSearch)
+	if len(keywordSearch) > 120 {
+		return ""
+	}
+
+	fields := strings.Fields(keywordSearch)
+	if len(fields) == 0 || len(fields) > 8 {
+		return ""
+	}
+	for _, field := range fields {
+		if len(field) > 40 {
+			return ""
+		}
+	}
+
+	return strings.Join(fields, " ")
 }
 
 // isLocalHost reports whether a host is allowed for local test wiring.

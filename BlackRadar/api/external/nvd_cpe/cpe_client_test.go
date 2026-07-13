@@ -3,6 +3,7 @@ package cpeclient
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -50,5 +51,56 @@ func TestCPEClientSearchCandidates(t *testing.T) {
 	}
 	if candidates[0].CPEName != "cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*" {
 		t.Fatalf("unexpected candidate cpe name %q", candidates[0].CPEName)
+	}
+}
+
+func TestCPEClientNormalizesKeywordSearch(t *testing.T) {
+	var receivedQuery string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedQuery = r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"products":[]}`))
+	}))
+	defer server.Close()
+
+	client, err := NewCPEClientWithHTTPClient(
+		server.URL+"/rest/json/cpes/2.0",
+		"",
+		server.Client(),
+		externalratelimiter.NewRateLimiter(10, 30*time.Second),
+	)
+	if err != nil {
+		t.Fatalf("expected client creation to succeed, got %v", err)
+	}
+
+	_, err = client.SearchCandidates(
+		context.Background(),
+		dto.CPEMatchRequest{KeywordSearch: "  dell   latitude   7420  "},
+	)
+	if err != nil {
+		t.Fatalf("expected normalized search to succeed, got %v", err)
+	}
+	if !strings.Contains(receivedQuery, "keywordSearch=dell+latitude+7420") {
+		t.Fatalf("expected normalized keyword search query, got %q", receivedQuery)
+	}
+}
+
+func TestCPEClientRejectsOversizedKeywordSearch(t *testing.T) {
+	client, err := NewCPEClientWithHTTPClient(
+		"http://localhost/rest/json/cpes/2.0",
+		"",
+		&http.Client{},
+		externalratelimiter.NewRateLimiter(10, 30*time.Second),
+	)
+	if err != nil {
+		t.Fatalf("expected client creation to succeed, got %v", err)
+	}
+
+	_, err = client.SearchCandidates(
+		context.Background(),
+		dto.CPEMatchRequest{KeywordSearch: strings.Repeat("a", 121)},
+	)
+	if !errors.Is(err, ErrInvalidCPESearch) {
+		t.Fatalf("expected invalid CPE search error, got %v", err)
 	}
 }
