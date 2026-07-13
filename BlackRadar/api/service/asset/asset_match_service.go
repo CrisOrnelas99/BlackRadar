@@ -74,6 +74,10 @@ func NewAssetMatchService(assetRepository baserepository.AssetRepository, vulnRe
 
 // AnalyzeAssetMatch builds a fingerprint, fetches NVD candidates, and asks the AI layer to rank them.
 func (s *assetMatchServiceImpl) AnalyzeAssetMatch(ctx context.Context, asset model.Asset, rawText string) (AssetMatchAnalysis, error) {
+	if s.cpeSearcher == nil {
+		return AssetMatchAnalysis{}, baseservice.ErrExternalService
+	}
+
 	sanitizedText := ""
 	if strings.TrimSpace(rawText) != "" {
 		var err error

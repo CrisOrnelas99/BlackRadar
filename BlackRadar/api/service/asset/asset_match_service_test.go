@@ -57,6 +57,15 @@ func TestAnalyzeAssetMatchAcceptsStrongCandidate(t *testing.T) {
 	}
 }
 
+func TestAnalyzeAssetMatchRejectsMissingCPESearcher(t *testing.T) {
+	svc := &assetMatchServiceImpl{}
+
+	_, err := svc.AnalyzeAssetMatch(contextForTest(t), sampleMatchedAsset(), "")
+	if !errors.Is(err, baseservice.ErrExternalService) {
+		t.Fatalf("expected external service error, got %v", err)
+	}
+}
+
 func TestAnalyzeAssetMatchUsesBroadSearchBeforeSpecificSearch(t *testing.T) {
 	searcher := &fakeCPECandidateSearcher{
 		candidatesBySearch: map[string][]dto.CPECandidate{

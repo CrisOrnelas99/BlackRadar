@@ -36,6 +36,9 @@ func (s *nvdLookupServiceImpl) LookupCVE(ec *appcontext.GinContext, cveID string
 	if err := baseservice.ValidateCVEID(normalizedCVEID); err != nil {
 		return dto.CVELookupResponse{}, err
 	}
+	if s.client == nil {
+		return dto.CVELookupResponse{}, baseservice.ErrExternalService
+	}
 
 	ctx, cancel := context.WithTimeout(ec.Request.Context(), 10*time.Second)
 	defer cancel()

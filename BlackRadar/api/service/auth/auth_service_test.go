@@ -105,6 +105,26 @@ func TestAuthServiceValidationAndTranslation(t *testing.T) {
 	}
 }
 
+func TestAuthServiceRegisterChecksEmailBeforeCreatingOrganization(t *testing.T) {
+	organizations := &fakeOrganizationRepository{findErr: gorm.ErrRecordNotFound}
+	users := &fakeUserRepository{emailExists: true}
+	svc := NewAuthService(newTestJWTManager(t), organizations, users, &fakeRefreshSessionRepository{})
+	ctx := newAuthServiceContext(t)
+
+	_, err := svc.Register(ctx, dto.RegisterRequest{
+		Username:     "analyst",
+		Email:        "analyst@example.com",
+		Organization: "home",
+		Password:     "Password1!",
+	})
+	if !errors.Is(err, baseservice.ErrConflict) {
+		t.Fatalf("expected duplicate email conflict, got %v", err)
+	}
+	if organizations.saveCalled {
+		t.Fatal("expected duplicate email to be rejected before creating organization")
+	}
+}
+
 func TestAuthServiceLogoutRejectsSecondLogout(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
 	repo := &fakeUserRepository{
@@ -125,6 +145,41 @@ func TestAuthServiceLogoutRejectsSecondLogout(t *testing.T) {
 
 	if err := svc.Logout(ctx, dto.RefreshRequest{RefreshToken: login.RefreshToken}); !errors.Is(err, baseservice.ErrInvalidCredentials) {
 		t.Fatalf("expected second Logout to be rejected, got %v", err)
+	}
+}
+
+func TestAuthServiceRefreshTranslatesSessionLookupFailure(t *testing.T) {
+	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
+	repo := &fakeUserRepository{
+		user: model.User{Model: model.Model{ID: testUserID}, OrganizationID: testOrgID, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
+	}
+	sessions := &fakeRefreshSessionRepository{}
+	svc := NewAuthService(newTestJWTManager(t), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, sessions)
+	ctx := newAuthServiceContext(t)
+
+	login, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "analyst", Password: "Password1!"})
+	if err != nil {
+		t.Fatalf("expected Login to succeed, got %v", err)
+	}
+
+	sessions.findErr = baserepository.ErrReadFailed
+
+	if _, err := svc.Refresh(ctx, dto.RefreshRequest{RefreshToken: login.RefreshToken}); !errors.Is(err, baseservice.ErrInternal) {
+		t.Fatalf("expected internal service error for session lookup failure, got %v", err)
+	}
+}
+
+func TestAuthServiceLoginTranslatesSessionSaveFailure(t *testing.T) {
+	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
+	repo := &fakeUserRepository{
+		user: model.User{Model: model.Model{ID: testUserID}, OrganizationID: testOrgID, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
+	}
+	sessions := &fakeRefreshSessionRepository{saveErr: baserepository.ErrCreateFailed}
+	svc := NewAuthService(newTestJWTManager(t), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, sessions)
+	ctx := newAuthServiceContext(t)
+
+	if _, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "analyst", Password: "Password1!"}); !errors.Is(err, baseservice.ErrInternal) {
+		t.Fatalf("expected internal service error for session save failure, got %v", err)
 	}
 }
 
@@ -158,6 +213,8 @@ type fakeUserRepository struct {
 	user                 model.User
 	findErr              error
 	exists               bool
+	usernameExists       bool
+	emailExists          bool
 	usernameLookupCalled bool
 	emailLookupCalled    bool
 }
@@ -165,6 +222,7 @@ type fakeUserRepository struct {
 type fakeOrganizationRepository struct {
 	organization model.Organization
 	findErr      error
+	saveCalled   bool
 }
 
 // FindByID returns the configured fake organization.
@@ -189,6 +247,7 @@ func (f *fakeOrganizationRepository) FindByName(ec *appcontext.GinContext, name 
 }
 
 func (f *fakeOrganizationRepository) Save(ec *appcontext.GinContext, organization model.Organization) (model.Organization, error) {
+	f.saveCalled = true
 	if organization.ID == "" {
 		organization.ID = f.organization.ID
 	}
@@ -200,11 +259,17 @@ var _ baserepository.OrganizationRepository = (*fakeOrganizationRepository)(nil)
 
 // ExistsByUsername reports whether the fake user exists.
 func (f *fakeUserRepository) ExistsByUsername(ec *appcontext.GinContext, username string) (bool, error) {
+	if f.usernameExists {
+		return true, nil
+	}
 	return f.exists, nil
 }
 
 // ExistsByEmail reports whether the fake user exists.
 func (f *fakeUserRepository) ExistsByEmail(ec *appcontext.GinContext, email string) (bool, error) {
+	if f.emailExists {
+		return true, nil
+	}
 	return f.exists, nil
 }
 
@@ -248,16 +313,25 @@ func (f *fakeUserRepository) FindByEmail(ec *appcontext.GinContext, email string
 var _ baserepository.UserRepository = (*fakeUserRepository)(nil)
 
 type fakeRefreshSessionRepository struct {
-	session model.RefreshSession
-	revoked bool
+	session   model.RefreshSession
+	revoked   bool
+	saveErr   error
+	findErr   error
+	revokeErr error
 }
 
 func (f *fakeRefreshSessionRepository) Save(ec *appcontext.GinContext, session model.RefreshSession) error {
+	if f.saveErr != nil {
+		return f.saveErr
+	}
 	f.session = session
 	return nil
 }
 
 func (f *fakeRefreshSessionRepository) FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID string) (model.RefreshSession, error) {
+	if f.findErr != nil {
+		return model.RefreshSession{}, f.findErr
+	}
 	if f.session.TokenID == "" || f.revoked || f.session.TokenID != tokenID || f.session.UserID != userID {
 		return model.RefreshSession{}, baserepository.ErrRefreshSessionNotFound
 	}
@@ -265,6 +339,9 @@ func (f *fakeRefreshSessionRepository) FindActiveByTokenIDForUser(ec *appcontext
 }
 
 func (f *fakeRefreshSessionRepository) RevokeByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID string) error {
+	if f.revokeErr != nil {
+		return f.revokeErr
+	}
 	if f.session.TokenID == "" || f.revoked || f.session.TokenID != tokenID || f.session.UserID != userID {
 		return baserepository.ErrRefreshSessionNotFound
 	}

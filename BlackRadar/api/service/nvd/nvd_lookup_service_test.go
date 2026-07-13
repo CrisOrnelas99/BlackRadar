@@ -52,6 +52,16 @@ func TestNVDLookupServiceValidation(t *testing.T) {
 	}
 }
 
+func TestNVDLookupServiceRejectsMissingClient(t *testing.T) {
+	svc := NewNVDLookupService(nil)
+	ec := newNVDServiceContext(t, "00000000-0000-4000-8000-000000000042")
+
+	_, err := svc.LookupCVE(ec, "CVE-2021-44228")
+	if !errors.Is(err, baseservice.ErrExternalService) {
+		t.Fatalf("expected external service error, got %v", err)
+	}
+}
+
 // TestNVDLookupServiceErrorMapping verifies NVD client errors become service errors.
 func TestNVDLookupServiceErrorMapping(t *testing.T) {
 	cases := []struct {

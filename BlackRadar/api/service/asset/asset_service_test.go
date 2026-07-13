@@ -163,6 +163,24 @@ func TestAssetServiceAssignVulnerabilityByCVE(t *testing.T) {
 	}
 }
 
+func TestAssetServiceAssignVulnerabilityByCVEValidatesCVEBeforeLookup(t *testing.T) {
+	assetRepo := &fakeAssetRepository{asset: sampleAsset()}
+	nvdSvc := &fakeNVDLookupService{}
+	svc := NewAssetService(assetRepo, &fakeVulnerabilityRepository{}, nvdSvc, nil)
+	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042", "00000000-0000-4000-8000-000000000099")
+	ctx.SetUserRole(model.RoleAdmin)
+
+	if _, err := svc.AssignVulnerabilityByCVE(ctx, "00000000-0000-4000-8000-000000000001", "not-a-cve"); !errors.Is(err, baseservice.ErrInvalidRequestData) {
+		t.Fatalf("expected invalid cve to be rejected, got %v", err)
+	}
+	if assetRepo.findByIDCalls != 0 {
+		t.Fatalf("expected invalid cve to be rejected before asset lookup, got %d lookups", assetRepo.findByIDCalls)
+	}
+	if nvdSvc.called {
+		t.Fatal("expected invalid cve to be rejected before NVD lookup")
+	}
+}
+
 func TestAssetServiceCreateAssetFromAI(t *testing.T) {
 	createdAsset := sampleAsset()
 	createdAsset.ID = "00000000-0000-4000-8000-000000000088"
@@ -248,6 +266,7 @@ type fakeAssetRepository struct {
 	expectedOrganizationID string
 	matchUpdate            assetrepo.AssetMatchUpdate
 	updateMatchCalls       int
+	findByIDCalls          int
 }
 
 // FindAllByUser returns the configured fake asset list.
@@ -260,6 +279,7 @@ func (f *fakeAssetRepository) FindAllByOrganization(ec *appcontext.GinContext, o
 
 // FindByIDForOrganization returns the configured fake asset.
 func (f *fakeAssetRepository) FindByIDForOrganization(ec *appcontext.GinContext, id string, organizationID string) (model.Asset, error) {
+	f.findByIDCalls++
 	if f.expectedOrganizationID != "" && organizationID != f.expectedOrganizationID {
 		return model.Asset{}, baserepository.ErrAssetNotFound
 	}

@@ -48,17 +48,17 @@ func (s *authServiceImpl) Register(ec *appcontext.GinContext, request dto.Regist
 		return dto.UserResponse{}, baseservice.ErrConflict
 	}
 
-	organization, err := s.findOrCreateOrganization(ec, request.Organization)
-	if err != nil {
-		return dto.UserResponse{}, err
-	}
-
 	exists, err = s.userRepository.ExistsByEmail(ec, request.Email)
 	if err != nil {
 		return dto.UserResponse{}, baseservice.TranslateRepositoryError(err)
 	}
 	if exists {
 		return dto.UserResponse{}, baseservice.ErrConflict
+	}
+
+	organization, err := s.findOrCreateOrganization(ec, request.Organization)
+	if err != nil {
+		return dto.UserResponse{}, err
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(request.Password), config.PasswordCost())
@@ -120,7 +120,7 @@ func (s *authServiceImpl) Login(ec *appcontext.GinContext, request dto.LoginRequ
 		user, err = s.userRepository.FindByUsername(ec, request.UserOrEmail)
 	}
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
 		}
 		return dto.LoginResponse{}, baseservice.TranslateRepositoryError(err)
@@ -188,7 +188,7 @@ func (s *authServiceImpl) Refresh(ec *appcontext.GinContext, request dto.Refresh
 
 	user, err := s.userRepository.FindByID(ec, claims.Subject)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
 		}
 		return dto.LoginResponse{}, baseservice.TranslateRepositoryError(err)
@@ -196,7 +196,10 @@ func (s *authServiceImpl) Refresh(ec *appcontext.GinContext, request dto.Refresh
 
 	session, err := s.refreshSessionRepository.FindActiveByTokenIDForUser(ec, claims.ID, user.ID)
 	if err != nil {
-		return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+		if errors.Is(err, baserepository.ErrRefreshSessionNotFound) {
+			return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+		}
+		return dto.LoginResponse{}, baseservice.TranslateRepositoryError(err)
 	}
 
 	if session.UserID != user.ID {
@@ -257,7 +260,7 @@ func (s *authServiceImpl) Logout(ec *appcontext.GinContext, request dto.RefreshR
 
 	user, err := s.userRepository.FindByID(ec, claims.Subject)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return baseservice.ErrInvalidCredentials
 		}
 		return baseservice.TranslateRepositoryError(err)
@@ -274,12 +277,12 @@ func (s *authServiceImpl) Logout(ec *appcontext.GinContext, request dto.RefreshR
 }
 
 func (s *authServiceImpl) saveRefreshSession(ec *appcontext.GinContext, userID string, tokenID string, expiresAt time.Time) error {
-	return s.refreshSessionRepository.Save(ec, model.RefreshSession{
+	return baseservice.TranslateRepositoryError(s.refreshSessionRepository.Save(ec, model.RefreshSession{
 		TokenID:    tokenID,
 		UserID:     userID,
 		DeviceName: requestDeviceName(ec),
 		ExpiresAt:  expiresAt,
-	})
+	}))
 }
 
 func (s *authServiceImpl) rotateRefreshSession(ec *appcontext.GinContext, session model.RefreshSession, newTokenID string, expiresAt time.Time) error {
@@ -294,7 +297,7 @@ func (s *authServiceImpl) rotateRefreshSession(ec *appcontext.GinContext, sessio
 		if err := s.refreshSessionRepository.RevokeByTokenIDForUser(ec, session.TokenID, session.UserID); err != nil {
 			return baseservice.TranslateRepositoryError(err)
 		}
-		return s.refreshSessionRepository.Save(ec, newSession)
+		return baseservice.TranslateRepositoryError(s.refreshSessionRepository.Save(ec, newSession))
 	}
 
 	transactionDatabase := ec.Database()

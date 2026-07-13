@@ -165,14 +165,14 @@ func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, a
 		return model.Asset{}, err
 	}
 
-	asset, err := s.assetRepository.FindByIDForOrganization(ec, assetID, organizationID)
-	if err != nil {
-		return model.Asset{}, baseservice.TranslateRepositoryError(err)
-	}
-
 	normalizedCVEID := baseservice.NormalizeCVEID(cveID)
 	if err := baseservice.ValidateCVEID(normalizedCVEID); err != nil {
 		return model.Asset{}, err
+	}
+
+	asset, err := s.assetRepository.FindByIDForOrganization(ec, assetID, organizationID)
+	if err != nil {
+		return model.Asset{}, baseservice.TranslateRepositoryError(err)
 	}
 
 	lookup, err := s.nvdLookupService.LookupCVE(ec, normalizedCVEID)
