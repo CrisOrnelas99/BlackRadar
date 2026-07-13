@@ -40,18 +40,18 @@ func (principal Principal) Validate() error {
 
 type GinContext struct {
 	*gin.Context
-	transactionID   string
+	requestID       string
 	logger          *slog.Logger
 	databaseSession *gorm.DB
 	principal       *Principal
 }
 
 // NewGinContext creates a new request-scoped GinContext wrapper.
-func NewGinContext(ctx *gin.Context, transactionID string, logger *slog.Logger) *GinContext {
+func NewGinContext(ctx *gin.Context, requestID string, logger *slog.Logger) *GinContext {
 	return &GinContext{
-		Context:       ctx,
-		transactionID: transactionID,
-		logger:        logger,
+		Context:   ctx,
+		requestID: requestID,
+		logger:    logger,
 	}
 }
 
@@ -196,9 +196,13 @@ func (ec *GinContext) OrganizationID() (string, error) {
 	return principal.OrganizationID, nil
 }
 
-// TransactionID returns the request trace identifier.
-func (ec *GinContext) TransactionID() string {
-	return ec.transactionID
+// RequestID returns the request trace identifier.
+func (ec *GinContext) RequestID() string {
+	if ec == nil {
+		return ""
+	}
+
+	return ec.requestID
 }
 
 // Logger returns the request-scoped logger.

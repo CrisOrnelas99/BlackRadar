@@ -55,7 +55,7 @@ func HandleError(ec *appcontext.GinContext, status int, err error, message strin
 	ec.JSON(status, dto.ErrorResponse{
 		Code:      errorCode(status),
 		Message:   message,
-		RequestID: ec.TransactionID(),
+		RequestID: ec.RequestID(),
 	})
 	return true
 }

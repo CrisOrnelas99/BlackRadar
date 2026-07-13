@@ -28,8 +28,8 @@ func TestNewGinContextStoresRequestScopedValues(t *testing.T) {
 	if ctx.Context != ginCtx {
 		t.Fatal("expected Gin context to be stored")
 	}
-	if ctx.TransactionID() != "txn-123" {
-		t.Fatalf("expected transaction ID txn-123, got %q", ctx.TransactionID())
+	if ctx.RequestID() != "txn-123" {
+		t.Fatalf("expected request ID txn-123, got %q", ctx.RequestID())
 	}
 	if ctx.Logger() != logger {
 		t.Fatal("expected logger to be stored")

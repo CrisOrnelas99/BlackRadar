@@ -23,8 +23,8 @@ func TestRequestContextStoresGinContextAndContinues(t *testing.T) {
 		if ec.Context != ctx {
 			t.Fatal("expected request context to wrap current Gin context")
 		}
-		if ec.TransactionID() == "" {
-			t.Fatal("expected transaction ID to be set")
+		if ec.RequestID() == "" {
+			t.Fatal("expected request ID to be set")
 		}
 		if ec.Logger() == nil {
 			t.Fatal("expected logger to be set")

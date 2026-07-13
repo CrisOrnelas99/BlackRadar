@@ -102,7 +102,7 @@ func New(cfg Config) (gin.HandlerFunc, error) {
 		logger := slog.Default()
 		if ec, err := requestcontext.FromGinContext(ctx); err == nil {
 			logger = ec.Logger()
-			requestID = ec.TransactionID()
+			requestID = ec.RequestID()
 		}
 
 		logger.Warn(
