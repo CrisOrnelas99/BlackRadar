@@ -2,7 +2,6 @@
 package controller
 
 import (
-	"errors"
 	"net/http"
 
 	appcontext "blackradar/api/context"
@@ -30,7 +29,7 @@ func (c *AuthController) Register(ec *appcontext.GinContext) {
 
 	user, err := c.authService.Register(ec, request)
 	if err != nil {
-		if handleAuthServiceError(ec, err, "Error registering user") {
+		if handleAuthServiceError(ec, err) {
 			return
 		}
 		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error registering user")
@@ -49,7 +48,7 @@ func (c *AuthController) Login(ec *appcontext.GinContext) {
 
 	loginResponse, err := c.authService.Login(ec, request)
 	if err != nil {
-		if handleAuthServiceError(ec, err, "Error logging in") {
+		if handleAuthServiceError(ec, err) {
 			return
 		}
 		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error logging in")
@@ -68,7 +67,7 @@ func (c *AuthController) Refresh(ec *appcontext.GinContext) {
 
 	refreshResponse, err := c.authService.Refresh(ec, request)
 	if err != nil {
-		if handleAuthServiceError(ec, err, "Error refreshing token") {
+		if handleAuthServiceError(ec, err) {
 			return
 		}
 		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error refreshing token")
@@ -86,7 +85,7 @@ func (c *AuthController) Logout(ec *appcontext.GinContext) {
 	}
 
 	if err := c.authService.Logout(ec, request); err != nil {
-		if handleAuthServiceError(ec, err, "Error logging out") {
+		if handleAuthServiceError(ec, err) {
 			return
 		}
 		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error logging out")
@@ -97,26 +96,8 @@ func (c *AuthController) Logout(ec *appcontext.GinContext) {
 }
 
 // handleAuthServiceError maps auth service sentinels to HTTP responses.
-func handleAuthServiceError(ec *appcontext.GinContext, err error, fallbackMessage string) bool {
-	var serviceErr *baseservice.ServiceError
-	if errors.As(err, &serviceErr) {
-		if errors.Is(err, baseservice.ErrInvalidRequestData) {
-			basecontroller.HandleError(ec, http.StatusBadRequest, err, baseservice.ErrInvalidRequestData.Error())
-			return true
-		}
-		if errors.Is(err, baseservice.ErrConflict) {
-			basecontroller.HandleError(ec, http.StatusConflict, err, baseservice.ErrConflict.Error())
-			return true
-		}
-		if errors.Is(err, baseservice.ErrInvalidCredentials) {
-			basecontroller.HandleError(ec, http.StatusUnauthorized, err, "Invalid credentials.")
-			return true
-		}
-		if errors.Is(err, baseservice.ErrForbidden) {
-			basecontroller.HandleError(ec, http.StatusForbidden, err, baseservice.ErrForbidden.Error())
-			return true
-		}
-	}
-
-	return false
+func handleAuthServiceError(ec *appcontext.GinContext, err error) bool {
+	return basecontroller.HandleServiceError(ec, err, basecontroller.ServiceErrorMessages{
+		InvalidCredentials: "Invalid credentials.",
+	})
 }

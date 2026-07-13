@@ -63,6 +63,17 @@ func TestAIControllerTestProviderMapsProviderError(t *testing.T) {
 	}
 }
 
+func TestAIControllerTestProviderRejectsMissingProvider(t *testing.T) {
+	controller := NewAIController(nil)
+	ec, recorder := newAIControllerContext(t)
+
+	controller.TestProvider(ec)
+
+	if recorder.Code != http.StatusBadGateway {
+		t.Fatalf("expected status %d, got %d", http.StatusBadGateway, recorder.Code)
+	}
+}
+
 func TestAIControllerSendMessage(t *testing.T) {
 	controller := NewAIController(&fakeTextGenerationService{
 		response: dto.TextGenerationResponse{Text: "Hello from OpenAI.", FinishReason: "completed"},

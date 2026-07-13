@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mime"
 	"net/http"
 	"regexp"
 	"strings"
 
 	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
+	baseservice "blackradar/api/service"
 )
 
 const maxJSONBodyBytes int64 = 1 << 20
@@ -19,8 +21,7 @@ var uuidPattern = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]
 
 // BindJSON parses an application/json request body into the provided destination.
 func BindJSON(ec *appcontext.GinContext, destination any) bool {
-	contentType := ec.GetHeader("Content-Type")
-	if contentType == "" || !strings.HasPrefix(strings.ToLower(contentType), "application/json") {
+	if !isJSONContentType(ec.GetHeader("Content-Type")) {
 		HandleError(ec, http.StatusUnsupportedMediaType, ErrInvalidContentType, "Content-Type must be application/json")
 		return true
 	}
@@ -43,6 +44,63 @@ func BindJSON(ec *appcontext.GinContext, destination any) bool {
 	}
 
 	return false
+}
+
+func isJSONContentType(contentType string) bool {
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(mediaType, "application/json")
+}
+
+// ServiceErrorMessages customizes safe client messages for service errors.
+type ServiceErrorMessages struct {
+	InvalidRequest     string
+	Conflict           string
+	NotFound           string
+	InvalidCredentials string
+	Forbidden          string
+	RateLimited        string
+	ExternalService    string
+}
+
+// HandleServiceError maps service-layer sentinels to safe HTTP responses.
+func HandleServiceError(ec *appcontext.GinContext, err error, messages ServiceErrorMessages) bool {
+	var serviceErr *baseservice.ServiceError
+	if !errors.As(err, &serviceErr) {
+		return false
+	}
+
+	switch {
+	case errors.Is(err, baseservice.ErrInvalidRequestData):
+		HandleError(ec, http.StatusBadRequest, err, firstNonEmpty(messages.InvalidRequest, baseservice.ErrInvalidRequestData.Error()))
+	case errors.Is(err, baseservice.ErrConflict):
+		HandleError(ec, http.StatusConflict, err, firstNonEmpty(messages.Conflict, baseservice.ErrConflict.Error()))
+	case errors.Is(err, baseservice.ErrNotFound):
+		HandleError(ec, http.StatusNotFound, err, firstNonEmpty(messages.NotFound, baseservice.ErrNotFound.Error()))
+	case errors.Is(err, baseservice.ErrInvalidCredentials):
+		HandleError(ec, http.StatusUnauthorized, err, firstNonEmpty(messages.InvalidCredentials, baseservice.ErrInvalidCredentials.Error()))
+	case errors.Is(err, baseservice.ErrForbidden):
+		HandleError(ec, http.StatusForbidden, err, firstNonEmpty(messages.Forbidden, baseservice.ErrForbidden.Error()))
+	case errors.Is(err, baseservice.ErrRateLimited):
+		HandleError(ec, http.StatusTooManyRequests, err, firstNonEmpty(messages.RateLimited, baseservice.ErrRateLimited.Error()))
+	case errors.Is(err, baseservice.ErrExternalService):
+		HandleError(ec, http.StatusBadGateway, err, firstNonEmpty(messages.ExternalService, "External service unavailable"))
+	default:
+		HandleError(ec, http.StatusInternalServerError, err, baseservice.ErrInternal.Error())
+	}
+
+	return true
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 // HandleError logs the request failure and writes a safe API error response.
@@ -84,7 +142,7 @@ func errorCode(status int) string {
 	}
 }
 
-// ParseID validates a path or query identifier as a positive integer.
+// ParseID validates a path or query identifier as a UUID.
 func ParseID(value string) (string, error) {
 	return parseID(value)
 }

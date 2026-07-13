@@ -2,7 +2,6 @@
 package controller
 
 import (
-	"errors"
 	"net/http"
 
 	appcontext "blackradar/api/context"
@@ -27,7 +26,7 @@ func NewAssetController(assetService baseservice.AssetService, assetMatchService
 func (c *AssetController) GetAssets(ec *appcontext.GinContext) {
 	assets, err := c.assetService.GetAllAssets(ec)
 	if err != nil {
-		if handleAssetServiceError(ec, err, "Error retrieving assets") {
+		if handleAssetServiceError(ec, err) {
 			return
 		}
 		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error retrieving assets")
@@ -40,13 +39,13 @@ func (c *AssetController) GetAssets(ec *appcontext.GinContext) {
 // GetAsset returns a single asset by ID.
 func (c *AssetController) GetAsset(ec *appcontext.GinContext) {
 	id, err := basecontroller.ParseID(ec.Param("id"))
-	if basecontroller.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid positive integer") {
+	if basecontroller.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid UUID") {
 		return
 	}
 
 	asset, err := c.assetService.GetAsset(ec, id)
 	if err != nil {
-		if handleAssetServiceError(ec, err, "Error retrieving asset") {
+		if handleAssetServiceError(ec, err) {
 			return
 		}
 		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error retrieving asset")
@@ -72,7 +71,7 @@ func (c *AssetController) CreateAsset(ec *appcontext.GinContext) {
 		created, err = c.assetService.CreateAsset(ec, asset)
 	}
 	if err != nil {
-		if handleAssetServiceError(ec, err, "Error creating asset") {
+		if handleAssetServiceError(ec, err) {
 			return
 		}
 		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error creating asset")
@@ -85,7 +84,7 @@ func (c *AssetController) CreateAsset(ec *appcontext.GinContext) {
 // UpdateAsset updates an existing asset by ID.
 func (c *AssetController) UpdateAsset(ec *appcontext.GinContext) {
 	id, err := basecontroller.ParseID(ec.Param("id"))
-	if basecontroller.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid positive integer") {
+	if basecontroller.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid UUID") {
 		return
 	}
 
@@ -98,7 +97,7 @@ func (c *AssetController) UpdateAsset(ec *appcontext.GinContext) {
 
 	updated, err := c.assetService.UpdateAsset(ec, id, asset)
 	if err != nil {
-		if handleAssetServiceError(ec, err, "Error updating asset") {
+		if handleAssetServiceError(ec, err) {
 			return
 		}
 		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error updating asset")
@@ -111,13 +110,13 @@ func (c *AssetController) UpdateAsset(ec *appcontext.GinContext) {
 // DeleteAsset removes an asset by ID.
 func (c *AssetController) DeleteAsset(ec *appcontext.GinContext) {
 	id, err := basecontroller.ParseID(ec.Param("id"))
-	if basecontroller.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid positive integer") {
+	if basecontroller.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid UUID") {
 		return
 	}
 
 	_, err = c.assetService.DeleteAsset(ec, id)
 	if err != nil {
-		if handleAssetServiceError(ec, err, "Error deleting asset") {
+		if handleAssetServiceError(ec, err) {
 			return
 		}
 		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error deleting asset")
@@ -137,7 +136,7 @@ func (c *AssetController) AssignVulnerability(ec *appcontext.GinContext) {
 
 	asset, err := c.assetService.AssignVulnerability(ec, assetID, vulnerabilityID)
 	if err != nil {
-		if handleAssetServiceError(ec, err, "Error assigning vulnerability") {
+		if handleAssetServiceError(ec, err) {
 			return
 		}
 		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error assigning vulnerability")
@@ -150,13 +149,13 @@ func (c *AssetController) AssignVulnerability(ec *appcontext.GinContext) {
 // AssignVulnerabilityByCVE looks up a CVE, stores it locally if needed, and assigns it to an asset.
 func (c *AssetController) AssignVulnerabilityByCVE(ec *appcontext.GinContext) {
 	assetID, err := basecontroller.ParseID(ec.Param("id"))
-	if basecontroller.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid positive integer") {
+	if basecontroller.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid UUID") {
 		return
 	}
 
 	asset, err := c.assetService.AssignVulnerabilityByCVE(ec, assetID, ec.Param("cveId"))
 	if err != nil {
-		if handleAssetServiceError(ec, err, "Error assigning vulnerability from CVE") {
+		if handleAssetServiceError(ec, err) {
 			return
 		}
 		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error assigning vulnerability from CVE")
@@ -176,7 +175,7 @@ func (c *AssetController) RemoveVulnerability(ec *appcontext.GinContext) {
 
 	asset, err := c.assetService.RemoveVulnerability(ec, assetID, vulnerabilityID)
 	if err != nil {
-		if handleAssetServiceError(ec, err, "Error removing vulnerability") {
+		if handleAssetServiceError(ec, err) {
 			return
 		}
 		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error removing vulnerability")
@@ -189,13 +188,13 @@ func (c *AssetController) RemoveVulnerability(ec *appcontext.GinContext) {
 // MatchAssetCPE normalizes saved asset fields, ranks NVD candidates, and stores the selected match metadata.
 func (c *AssetController) MatchAssetCPE(ec *appcontext.GinContext) {
 	id, err := basecontroller.ParseID(ec.Param("id"))
-	if basecontroller.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid positive integer") {
+	if basecontroller.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid UUID") {
 		return
 	}
 
 	asset, err := c.assetMatchService.AnalyzeAndPersistAssetMatch(ec, id)
 	if err != nil {
-		if handleAssetServiceError(ec, err, "Error matching asset CPE") {
+		if handleAssetServiceError(ec, err) {
 			return
 		}
 		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error matching asset CPE")
@@ -208,13 +207,13 @@ func (c *AssetController) MatchAssetCPE(ec *appcontext.GinContext) {
 // MatchAssetCPEAndAttachVulnerabilities matches a CPE, fetches NVD CVEs, and attaches them to the asset.
 func (c *AssetController) MatchAssetCPEAndAttachVulnerabilities(ec *appcontext.GinContext) {
 	id, err := basecontroller.ParseID(ec.Param("id"))
-	if basecontroller.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid positive integer") {
+	if basecontroller.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid UUID") {
 		return
 	}
 
 	asset, err := c.assetMatchService.AnalyzePersistAndAttachVulnerabilities(ec, id)
 	if err != nil {
-		if handleAssetServiceError(ec, err, "Error matching asset and assigning vulnerabilities") {
+		if handleAssetServiceError(ec, err) {
 			return
 		}
 		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error matching asset and assigning vulnerabilities")
@@ -225,34 +224,9 @@ func (c *AssetController) MatchAssetCPEAndAttachVulnerabilities(ec *appcontext.G
 }
 
 // handleAssetServiceError maps asset service sentinels to HTTP responses.
-func handleAssetServiceError(ec *appcontext.GinContext, err error, fallbackMessage string) bool {
-	var serviceErr *baseservice.ServiceError
-	if errors.As(err, &serviceErr) {
-		if errors.Is(err, baseservice.ErrInvalidRequestData) {
-			basecontroller.HandleError(ec, http.StatusBadRequest, err, baseservice.ErrInvalidRequestData.Error())
-			return true
-		}
-		if errors.Is(err, baseservice.ErrConflict) {
-			basecontroller.HandleError(ec, http.StatusConflict, err, baseservice.ErrConflict.Error())
-			return true
-		}
-		if errors.Is(err, baseservice.ErrNotFound) {
-			basecontroller.HandleError(ec, http.StatusNotFound, err, "Asset not found")
-			return true
-		}
-		if errors.Is(err, baseservice.ErrInvalidCredentials) {
-			basecontroller.HandleError(ec, http.StatusUnauthorized, err, baseservice.ErrInvalidCredentials.Error())
-			return true
-		}
-		if errors.Is(err, baseservice.ErrForbidden) {
-			basecontroller.HandleError(ec, http.StatusForbidden, err, baseservice.ErrForbidden.Error())
-			return true
-		}
-		if errors.Is(err, baseservice.ErrExternalService) {
-			basecontroller.HandleError(ec, http.StatusBadGateway, err, "External service unavailable")
-			return true
-		}
-	}
-
-	return false
+func handleAssetServiceError(ec *appcontext.GinContext, err error) bool {
+	return basecontroller.HandleServiceError(ec, err, basecontroller.ServiceErrorMessages{
+		NotFound:        "Asset not found",
+		ExternalService: "External service unavailable",
+	})
 }

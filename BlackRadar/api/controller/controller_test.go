@@ -67,6 +67,29 @@ func TestControllerHelper(t *testing.T) {
 		}
 	})
 
+	t.Run("bind json rejects malformed content type", func(t *testing.T) {
+		ec, recorder := newControllerContext(t, http.MethodPost, "/assets", `{"name":"Asset 1"}`)
+		ec.Request.Header.Set("Content-Type", "application/jsonfoo")
+
+		var request dto.AssetRequest
+		if handled := basecontroller.BindJSON(ec, &request); !handled {
+			t.Fatal("expected malformed content type to be rejected")
+		}
+		if recorder.Code != http.StatusUnsupportedMediaType {
+			t.Fatalf("expected status %d, got %d", http.StatusUnsupportedMediaType, recorder.Code)
+		}
+	})
+
+	t.Run("handle service error", func(t *testing.T) {
+		ec, recorder := newControllerContext(t, http.MethodGet, "/resource", "")
+		if !basecontroller.HandleServiceError(ec, service.ErrNotFound, basecontroller.ServiceErrorMessages{NotFound: "Resource not found"}) {
+			t.Fatal("expected service error to be handled")
+		}
+		if recorder.Code != http.StatusNotFound {
+			t.Fatalf("expected status %d, got %d", http.StatusNotFound, recorder.Code)
+		}
+	})
+
 	t.Run("handle error", func(t *testing.T) {
 		ec, recorder := newControllerContext(t, http.MethodGet, "/resource", "")
 		if !basecontroller.HandleError(ec, http.StatusBadRequest, errors.New("boom"), "Invalid request body") {

@@ -2,7 +2,6 @@
 package controller
 
 import (
-	"errors"
 	"net/http"
 
 	appcontext "blackradar/api/context"
@@ -35,28 +34,10 @@ func (c *NVDController) LookupCVE(ec *appcontext.GinContext) {
 }
 
 func handleNVDLookupServiceError(ec *appcontext.GinContext, err error) bool {
-	var serviceErr *baseservice.ServiceError
-	if errors.As(err, &serviceErr) {
-		if errors.Is(err, baseservice.ErrInvalidRequestData) {
-			basecontroller.HandleError(ec, http.StatusBadRequest, err, "CVE ID must use format CVE-YYYY-NNNN")
-			return true
-		}
-		if errors.Is(err, baseservice.ErrNotFound) {
-			basecontroller.HandleError(ec, http.StatusNotFound, err, "CVE not found")
-			return true
-		}
-		if errors.Is(err, baseservice.ErrRateLimited) {
-			basecontroller.HandleError(ec, http.StatusTooManyRequests, err, "CVE lookup rate limit exceeded")
-			return true
-		}
-		if errors.Is(err, baseservice.ErrForbidden) {
-			basecontroller.HandleError(ec, http.StatusForbidden, err, baseservice.ErrForbidden.Error())
-			return true
-		}
-		if errors.Is(err, baseservice.ErrExternalService) {
-			basecontroller.HandleError(ec, http.StatusBadGateway, err, "CVE lookup failed")
-			return true
-		}
-	}
-	return false
+	return basecontroller.HandleServiceError(ec, err, basecontroller.ServiceErrorMessages{
+		InvalidRequest:  "CVE ID must use format CVE-YYYY-NNNN",
+		NotFound:        "CVE not found",
+		RateLimited:     "CVE lookup rate limit exceeded",
+		ExternalService: "CVE lookup failed",
+	})
 }
