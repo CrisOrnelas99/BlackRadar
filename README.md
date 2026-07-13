@@ -180,6 +180,7 @@ BlackRadar/
 - Services handle business validation, authorization, and use-case orchestration.
 - Repositories handle GORM/database access only.
 - DTOs are separated from domain models.
+- Model files are grouped by domain: `asset.go` owns asset, assessment, and asset-vulnerability persistence models; `user.go` owns user and refresh-session persistence models.
 - `errors.go` files contain sentinel errors and error type declarations.
 - Admin permissions must not be exposed through client-controlled registration.
 
