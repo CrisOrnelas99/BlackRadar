@@ -3,6 +3,7 @@ package risk_backfill
 
 import (
 	"context"
+	"fmt"
 
 	"gorm.io/gorm"
 
@@ -33,15 +34,24 @@ var refreshAssetRisk = riskrepo.RefreshAssetRisk
 // This is a startup data fix for rows created before risk became nullable
 // and derived from attached vulnerabilities.
 func BackfillAssetRiskLevels(ctx context.Context, database *gorm.DB) error {
+	if database == nil {
+		return ErrDatabaseRequired
+	}
+
 	assets, err := loadAssetRows(ctx, database)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %w", ErrLoadAssetsFailed, err)
 	}
 
 	return runBackfillTransaction(ctx, database, func(tx *gorm.DB) error {
 		for _, asset := range assets {
 			if err := refreshAssetRisk(tx, asset.ID, asset.OrganizationID); err != nil {
-				return err
+				return fmt.Errorf(
+					"%w: asset %s: %w",
+					ErrRefreshFailed,
+					asset.ID,
+					err,
+				)
 			}
 		}
 		return nil

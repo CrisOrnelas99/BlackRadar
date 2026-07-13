@@ -36,7 +36,7 @@ func TestBackfillAssetRiskLevels(t *testing.T) {
 		return nil
 	}
 
-	if err := BackfillAssetRiskLevels(context.Background(), nil); err != nil {
+	if err := BackfillAssetRiskLevels(context.Background(), &gorm.DB{}); err != nil {
 		t.Fatalf("expected backfill to succeed, got %v", err)
 	}
 
@@ -73,7 +73,48 @@ func TestBackfillAssetRiskLevelsReturnsLoadError(t *testing.T) {
 		return nil
 	}
 
-	if err := BackfillAssetRiskLevels(context.Background(), nil); !errors.Is(err, expectedErr) {
-		t.Fatalf("expected load error %v, got %v", expectedErr, err)
+	err := BackfillAssetRiskLevels(context.Background(), &gorm.DB{})
+	if !errors.Is(err, ErrLoadAssetsFailed) {
+		t.Fatalf("expected load sentinel error, got %v", err)
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected load cause %v, got %v", expectedErr, err)
+	}
+}
+
+func TestBackfillAssetRiskLevelsReturnsRefreshError(t *testing.T) {
+	originalLoadAssetRows := loadAssetRows
+	originalRunBackfillTransaction := runBackfillTransaction
+	originalRefreshAssetRisk := refreshAssetRisk
+	t.Cleanup(func() {
+		loadAssetRows = originalLoadAssetRows
+		runBackfillTransaction = originalRunBackfillTransaction
+		refreshAssetRisk = originalRefreshAssetRisk
+	})
+
+	expectedErr := errors.New("refresh failed")
+	loadAssetRows = func(ctx context.Context, database *gorm.DB) ([]assetRow, error) {
+		return []assetRow{{ID: "asset-1", OrganizationID: "org-1"}}, nil
+	}
+	runBackfillTransaction = func(ctx context.Context, database *gorm.DB, fn func(tx *gorm.DB) error) error {
+		return fn(nil)
+	}
+	refreshAssetRisk = func(tx *gorm.DB, assetID string, organizationID string) error {
+		return expectedErr
+	}
+
+	err := BackfillAssetRiskLevels(context.Background(), &gorm.DB{})
+	if !errors.Is(err, ErrRefreshFailed) {
+		t.Fatalf("expected refresh sentinel error, got %v", err)
+	}
+	if !errors.Is(err, expectedErr) {
+		t.Fatalf("expected refresh cause %v, got %v", expectedErr, err)
+	}
+}
+
+func TestBackfillAssetRiskLevelsRejectsMissingDatabase(t *testing.T) {
+	err := BackfillAssetRiskLevels(context.Background(), nil)
+	if !errors.Is(err, ErrDatabaseRequired) {
+		t.Fatalf("expected database required error, got %v", err)
 	}
 }
