@@ -40,8 +40,8 @@ var runBackfillTransaction = func(ctx context.Context, database *gorm.DB, fn fun
 // refreshAssetRisk recalculates and persists one asset's risk level.
 var refreshAssetRisk = func(tx *gorm.DB, assetID string, userID string) error {
 	var asset model.Asset
-	if err := tx.Where("user_id = ?", userID).
-		First(&asset, assetID).Error; err != nil {
+	if err := tx.Where("user_id = ? AND id = ?", userID, assetID).
+		First(&asset).Error; err != nil {
 		return err
 	}
 

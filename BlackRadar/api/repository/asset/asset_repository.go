@@ -65,8 +65,8 @@ func (r *AssetRepository) FindByIDForUser(ec *appcontext.GinContext, id string, 
 	var asset model.Asset
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Preload("Assessment").
-		Where("user_id = ?", userID).
-		First(&asset, id).Error
+		Where("user_id = ? AND id = ?", userID, id).
+		First(&asset).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.Asset{}, ErrAssetNotFound
 	}
@@ -380,8 +380,8 @@ func (r *AssetRepository) findAssetAndVulnerabilityForUser(ec *appcontext.GinCon
 
 	var vulnerability model.Vulnerability
 	err = r.dbForContext(ec).WithContext(ec.RequestContext()).
-		Where("user_id = ?", userID).
-		First(&vulnerability, vulnerabilityID).Error
+		Where("user_id = ? AND id = ?", userID, vulnerabilityID).
+		First(&vulnerability).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.Asset{}, model.Vulnerability{}, ErrVulnerabilityNotFound
 	}
@@ -480,8 +480,8 @@ func optionalAssetString(value *string) string {
 // RefreshAssetRisk recalculates and persists the risk level for a single asset.
 func RefreshAssetRisk(tx *gorm.DB, assetID string, userID string) error {
 	var asset model.Asset
-	if err := tx.Where("user_id = ?", userID).
-		First(&asset, assetID).Error; err != nil {
+	if err := tx.Where("user_id = ? AND id = ?", userID, assetID).
+		First(&asset).Error; err != nil {
 		return err
 	}
 
