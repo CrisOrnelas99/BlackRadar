@@ -28,19 +28,14 @@ var (
 // Values in Principal must come from trusted authentication data or verified
 // database records, never directly from request parameters.
 type Principal struct {
-	UserID         string
-	Username       string
-	Role           string
-	OrganizationID string
+	UserID   string
+	Username string
+	Role     string
 }
 
-// Validate ensures the fields required for authorization and tenant isolation
-// are present.
+// Validate ensures the fields required for authorization are present.
 func (principal Principal) Validate() error {
 	if strings.TrimSpace(principal.UserID) == "" {
-		return ErrInvalidPrincipal
-	}
-	if strings.TrimSpace(principal.OrganizationID) == "" {
 		return ErrInvalidPrincipal
 	}
 
@@ -103,7 +98,6 @@ func (ec *GinContext) SetPrincipal(principal Principal) error {
 	principal.UserID = strings.TrimSpace(principal.UserID)
 	principal.Username = strings.TrimSpace(principal.Username)
 	principal.Role = strings.TrimSpace(principal.Role)
-	principal.OrganizationID = strings.TrimSpace(principal.OrganizationID)
 
 	if err := principal.Validate(); err != nil {
 		return err
@@ -133,14 +127,6 @@ func (ec *GinContext) SetUsername(username string) {
 func (ec *GinContext) SetUserRole(role string) {
 	principal := ec.partialPrincipal()
 	principal.Role = strings.TrimSpace(role)
-	ec.principal = &principal
-}
-
-// SetOrganizationID updates the principal organization ID on the request
-// context.
-func (ec *GinContext) SetOrganizationID(organizationID string) {
-	principal := ec.partialPrincipal()
-	principal.OrganizationID = strings.TrimSpace(organizationID)
 	ec.principal = &principal
 }
 
@@ -193,16 +179,6 @@ func (ec *GinContext) UserRole() (string, error) {
 	}
 
 	return principal.Role, nil
-}
-
-// OrganizationID returns the authenticated organization ID.
-func (ec *GinContext) OrganizationID() (string, error) {
-	principal, err := ec.Principal()
-	if err != nil {
-		return "", err
-	}
-
-	return principal.OrganizationID, nil
 }
 
 // RequestID returns the request trace identifier.

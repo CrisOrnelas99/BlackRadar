@@ -111,7 +111,6 @@ func IsPrimaryKeyViolation(err error) bool {
 	switch pgErr.ConstraintName {
 	case "assets_pkey",
 		"users_pkey",
-		"organizations_pkey",
 		"vulnerabilities_pkey",
 		"asset_assessments_pkey":
 		return true

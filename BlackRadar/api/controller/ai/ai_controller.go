@@ -27,7 +27,7 @@ func NewAIController(textAI baseservice.TextGenerationService) *AIController {
 // TestProvider sends a fixed prompt to the configured AI provider.
 func (c *AIController) TestProvider(ec *appcontext.GinContext) {
 	if c.textAI == nil {
-		basecontroller.HandleError(ec, http.StatusBadGateway, baseservice.ErrExternalService, "AI provider test failed")
+		basecontroller.HandleError(ec, http.StatusBadGateway, basecontroller.ErrUpstreamUnavailable, "AI provider test failed")
 		return
 	}
 
@@ -48,7 +48,7 @@ func (c *AIController) TestProvider(ec *appcontext.GinContext) {
 // SendMessage sends a temporary admin-only diagnostic message to the configured AI provider.
 func (c *AIController) SendMessage(ec *appcontext.GinContext) {
 	if c.textAI == nil {
-		basecontroller.HandleError(ec, http.StatusBadGateway, baseservice.ErrExternalService, "AI message request failed")
+		basecontroller.HandleError(ec, http.StatusBadGateway, basecontroller.ErrUpstreamUnavailable, "AI message request failed")
 		return
 	}
 

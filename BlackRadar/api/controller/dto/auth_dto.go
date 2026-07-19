@@ -9,10 +9,9 @@ import (
 
 // RegisterRequest contains the fields required to create a user account.
 type RegisterRequest struct {
-	Username     string `json:"username"`
-	Email        string `json:"email"`
-	Organization string `json:"organization"`
-	Password     string `json:"password"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 // LoginRequest contains the credentials used to authenticate a user.
@@ -28,10 +27,9 @@ type RefreshRequest struct {
 
 // UserResponse exposes the user fields safe for API responses.
 type UserResponse struct {
-	ID           string `json:"id"`
-	Username     string `json:"username"`
-	Email        string `json:"email"`
-	Organization string `json:"organization"`
+	ID       string `json:"id"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
 }
 
 // LoginResponse returns the issued token and the authenticated user summary.
@@ -44,11 +42,10 @@ type LoginResponse struct {
 }
 
 // ToUserResponse converts the persistence user model into a response DTO.
-func ToUserResponse(user model.User, organizationName string) UserResponse {
+func ToUserResponse(user model.User) UserResponse {
 	return UserResponse{
-		ID:           user.ID,
-		Username:     user.Username,
-		Email:        user.Email,
-		Organization: organizationName,
+		ID:       user.ID,
+		Username: user.Username,
+		Email:    user.Email,
 	}
 }

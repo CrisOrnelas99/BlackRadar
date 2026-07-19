@@ -85,10 +85,9 @@ func TestAuthenticationRejectsInvalidCredentials(t *testing.T) {
 	userID := "00000000-0000-4000-8000-000000000042"
 	sessionID := "session-1"
 	user := model.User{
-		Model:          model.Model{ID: userID},
-		OrganizationID: "00000000-0000-4000-8000-000000000099",
-		Username:       "analyst",
-		Role:           model.RoleUser,
+		Model:    model.Model{ID: userID},
+		Username: "analyst",
+		Role:     model.RoleUser,
 	}
 	activeSession := model.RefreshSession{TokenID: sessionID, UserID: userID}
 
@@ -109,7 +108,7 @@ func TestAuthenticationRejectsInvalidCredentials(t *testing.T) {
 		{
 			name:     "user identity mismatch",
 			header:   "Bearer " + mustGenerateToken(t, jwtManager, userID, "analyst", sessionID),
-			users:    &fakeUserLookup{user: model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000043"}, OrganizationID: user.OrganizationID}},
+			users:    &fakeUserLookup{user: model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000043"}}},
 			sessions: &fakeRefreshSessionLookup{session: activeSession},
 		},
 		{
@@ -143,10 +142,9 @@ func TestAuthenticationReturnsServiceUnavailableForLookupFailures(t *testing.T) 
 	userID := "00000000-0000-4000-8000-000000000042"
 	sessionID := "session-1"
 	user := model.User{
-		Model:          model.Model{ID: userID},
-		OrganizationID: "00000000-0000-4000-8000-000000000099",
-		Username:       "analyst",
-		Role:           model.RoleUser,
+		Model:    model.Model{ID: userID},
+		Username: "analyst",
+		Role:     model.RoleUser,
 	}
 	token := "Bearer " + mustGenerateToken(t, jwtManager, userID, "analyst", sessionID)
 
@@ -204,27 +202,6 @@ func TestAuthenticationReturnsInternalErrorForContextAndPrincipalFailures(t *tes
 		}
 	})
 
-	t.Run("invalid principal", func(t *testing.T) {
-		user := model.User{
-			Model:    model.Model{ID: userID},
-			Username: "analyst",
-			Role:     model.RoleUser,
-		}
-		recorder := performAuthenticatedRequest(
-			t,
-			jwtManager,
-			&fakeUserLookup{user: user},
-			&fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: sessionID, UserID: userID}},
-			token,
-		)
-
-		if recorder.Code != http.StatusInternalServerError {
-			t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, recorder.Code)
-		}
-		if recorder.Body.String() != `{"error":"internal server error"}` {
-			t.Fatalf("unexpected response body: %q", recorder.Body.String())
-		}
-	})
 }
 
 func TestAuthenticationSetsAuthenticatedUserContext(t *testing.T) {
@@ -234,10 +211,9 @@ func TestAuthenticationSetsAuthenticatedUserContext(t *testing.T) {
 	sessionID := "session-1"
 	lookup := &fakeUserLookup{
 		user: model.User{
-			Model:          model.Model{ID: userID},
-			OrganizationID: "00000000-0000-4000-8000-000000000099",
-			Username:       "analyst",
-			Role:           model.RoleUser,
+			Model:    model.Model{ID: userID},
+			Username: "analyst",
+			Role:     model.RoleUser,
 		},
 	}
 	sessionLookup := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: sessionID, UserID: userID}}
@@ -262,10 +238,6 @@ func TestAuthenticationSetsAuthenticatedUserContext(t *testing.T) {
 		role, err := ec.UserRole()
 		if err != nil || role != model.RoleUser {
 			t.Fatalf("expected user role %s, got %v error=%v", model.RoleUser, role, err)
-		}
-		organizationID, err := ec.OrganizationID()
-		if err != nil || organizationID != "00000000-0000-4000-8000-000000000099" {
-			t.Fatalf("expected organization ID 99, got %v error=%v", organizationID, err)
 		}
 		if lookup.findContext == nil {
 			t.Fatal("expected user lookup to receive GinContext")

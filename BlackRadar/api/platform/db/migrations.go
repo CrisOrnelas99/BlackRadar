@@ -34,10 +34,6 @@ func RunMigrations(ctx context.Context, database *gorm.DB) error {
 		return err
 	}
 
-	if err := ensureTenantOwnershipKnown(ctx, database); err != nil {
-		return err
-	}
-
 	if err := executeStatements(
 		ctx,
 		database,
@@ -71,7 +67,6 @@ func RunMigrations(ctx context.Context, database *gorm.DB) error {
 // autoMigrateSchema runs the GORM-managed schema updates for the current models.
 func autoMigrateSchema(ctx context.Context, database *gorm.DB) error {
 	if err := database.WithContext(ctx).AutoMigrate(
-		&model.Organization{},
 		&model.User{},
 		&model.Vulnerability{},
 		&model.AssetAssessment{},
@@ -80,39 +75,6 @@ func autoMigrateSchema(ctx context.Context, database *gorm.DB) error {
 		&model.RefreshSession{},
 	); err != nil {
 		return fmt.Errorf("auto migrate schema: %w", err)
-	}
-
-	return nil
-}
-
-// ensureTenantOwnershipKnown stops migration when existing rows do not have an
-// explicit organization assignment.
-func ensureTenantOwnershipKnown(ctx context.Context, database *gorm.DB) error {
-	tables := []string{"users", "assets", "vulnerabilities"}
-	for _, table := range tables {
-		var hasRowsMissingOrganization bool
-		query := fmt.Sprintf(
-			`SELECT EXISTS (SELECT 1 FROM %s WHERE organization_id IS NULL)`,
-			table,
-		)
-
-		if err := database.WithContext(ctx).
-			Raw(query).
-			Scan(&hasRowsMissingOrganization).
-			Error; err != nil {
-			return fmt.Errorf(
-				"migration safety check for %s organization ownership: %w",
-				table,
-				err,
-			)
-		}
-
-		if hasRowsMissingOrganization {
-			return fmt.Errorf(
-				"migration safety check: %s rows with missing organization_id require explicit migration",
-				table,
-			)
-		}
 	}
 
 	return nil
@@ -148,24 +110,25 @@ func schemaStatements() []string {
 		`DROP INDEX IF EXISTS idx_users_email`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_active ON users (username) WHERE deleted_at IS NULL`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_active ON users (email) WHERE deleted_at IS NULL`,
-		`CREATE INDEX IF NOT EXISTS idx_users_organization_id ON users (organization_id)`,
+		`DROP INDEX IF EXISTS idx_users_organization_id`,
 		`ALTER TABLE users DROP CONSTRAINT IF EXISTS ukr43af9ap4edm43mmtq01oddj6`,
 		`ALTER TABLE users DROP CONSTRAINT IF EXISTS uk6dotkott2kjsp8vw4d0m25fb7`,
 		`CREATE INDEX IF NOT EXISTS idx_assets_user_id ON assets (user_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_assets_organization_id ON assets (organization_id)`,
+		`DROP INDEX IF EXISTS idx_assets_organization_id`,
 		`CREATE INDEX IF NOT EXISTS idx_vulnerabilities_user_id ON vulnerabilities (user_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_vulnerabilities_organization_id ON vulnerabilities (organization_id)`,
+		`DROP INDEX IF EXISTS idx_vulnerabilities_organization_id`,
 		`CREATE INDEX IF NOT EXISTS idx_refresh_sessions_user_id ON refresh_sessions (user_id)`,
 		`DROP INDEX IF EXISTS idx_vulnerabilities_cve_id`,
 		`DROP INDEX IF EXISTS idx_vulnerabilities_org_cve_id`,
+		`DROP INDEX IF EXISTS idx_vulnerabilities_user_cve_id`,
 		`DO $$
 		BEGIN
 			IF NOT EXISTS (
-				SELECT 1 FROM vulnerabilities WHERE organization_id IS NULL
+				SELECT 1 FROM vulnerabilities WHERE user_id IS NULL
 			) AND NOT EXISTS (
-				SELECT 1 FROM vulnerabilities WHERE deleted_at IS NULL GROUP BY organization_id, cve_id HAVING count(*) > 1
+				SELECT 1 FROM vulnerabilities WHERE deleted_at IS NULL GROUP BY user_id, cve_id HAVING count(*) > 1
 			) THEN
-				CREATE UNIQUE INDEX IF NOT EXISTS idx_vulnerabilities_org_cve_id ON vulnerabilities (organization_id, cve_id) WHERE deleted_at IS NULL;
+				CREATE UNIQUE INDEX IF NOT EXISTS idx_vulnerabilities_user_cve_id ON vulnerabilities (user_id, cve_id) WHERE deleted_at IS NULL;
 			END IF;
 		END $$`,
 		constraintStatement(
@@ -173,12 +136,8 @@ func schemaStatements() []string {
 			"users",
 			`ALTER TABLE users ADD CONSTRAINT chk_users_role CHECK (role IN ('admin', 'user'))`,
 		),
-		constraintStatement(
-			"fk_users_organization",
-			"users",
-			`ALTER TABLE users ADD CONSTRAINT fk_users_organization FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE`,
-		),
-		`ALTER TABLE users ALTER COLUMN organization_id SET NOT NULL`,
+		`ALTER TABLE users DROP CONSTRAINT IF EXISTS fk_users_organization`,
+		`ALTER TABLE users DROP COLUMN IF EXISTS organization_id`,
 		constraintStatement(
 			"chk_vulnerabilities_severity",
 			"vulnerabilities",
@@ -194,11 +153,7 @@ func schemaStatements() []string {
 			"assets",
 			`ALTER TABLE assets ADD CONSTRAINT fk_assets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
 		),
-		constraintStatement(
-			"fk_assets_organization",
-			"assets",
-			`ALTER TABLE assets ADD CONSTRAINT fk_assets_organization FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE`,
-		),
+		`ALTER TABLE assets DROP CONSTRAINT IF EXISTS fk_assets_organization`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS vendor TEXT`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS product TEXT`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS version TEXT`,
@@ -219,18 +174,14 @@ func schemaStatements() []string {
 		`DROP INDEX IF EXISTS idx_asset_vulnerabilities_active`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_asset_vulnerabilities_active ON asset_vulnerabilities (asset_id, vulnerability_id) WHERE deleted_at IS NULL`,
 		`ALTER TABLE assets DROP CONSTRAINT IF EXISTS fk_assets_asset_assessment`,
-		`ALTER TABLE assets ALTER COLUMN organization_id SET NOT NULL`,
+		`ALTER TABLE assets DROP COLUMN IF EXISTS organization_id`,
 		constraintStatement(
 			"fk_vulnerabilities_user",
 			"vulnerabilities",
 			`ALTER TABLE vulnerabilities ADD CONSTRAINT fk_vulnerabilities_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
 		),
-		constraintStatement(
-			"fk_vulnerabilities_organization",
-			"vulnerabilities",
-			`ALTER TABLE vulnerabilities ADD CONSTRAINT fk_vulnerabilities_organization FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE`,
-		),
-		`ALTER TABLE vulnerabilities ALTER COLUMN organization_id SET NOT NULL`,
+		`ALTER TABLE vulnerabilities DROP CONSTRAINT IF EXISTS fk_vulnerabilities_organization`,
+		`ALTER TABLE vulnerabilities DROP COLUMN IF EXISTS organization_id`,
 		constraintStatement(
 			"fk_refresh_sessions_user",
 			"refresh_sessions",
@@ -238,6 +189,8 @@ func schemaStatements() []string {
 		),
 		`ALTER TABLE asset_vulnerabilities DROP CONSTRAINT IF EXISTS fkavovmmqdpqv6hacqhae27ngt1`,
 		`ALTER TABLE asset_vulnerabilities DROP CONSTRAINT IF EXISTS fkpldrve7axqj2xnyb09ojqmd02`,
+		`DROP INDEX IF EXISTS idx_organizations_name_active`,
+		`DROP TABLE IF EXISTS organizations`,
 	}
 }
 

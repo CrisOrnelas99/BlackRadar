@@ -12,7 +12,6 @@ import (
 
 	"blackradar/api/controller/dto"
 	appcontext "blackradar/api/platform/requestcontext"
-	baseservice "blackradar/api/service"
 )
 
 const maxJSONBodyBytes int64 = 1 << 20
@@ -52,55 +51,6 @@ func isJSONContentType(contentType string) bool {
 		return false
 	}
 	return strings.EqualFold(mediaType, "application/json")
-}
-
-// ServiceErrorMessages customizes safe client messages for service errors.
-type ServiceErrorMessages struct {
-	InvalidRequest     string
-	Conflict           string
-	NotFound           string
-	InvalidCredentials string
-	Forbidden          string
-	RateLimited        string
-	ExternalService    string
-}
-
-// HandleServiceError maps service-layer sentinels to safe HTTP responses.
-func HandleServiceError(ec *appcontext.GinContext, err error, messages ServiceErrorMessages) bool {
-	var serviceErr *baseservice.ServiceError
-	if !errors.As(err, &serviceErr) {
-		return false
-	}
-
-	switch {
-	case errors.Is(err, baseservice.ErrInvalidRequestData):
-		HandleError(ec, http.StatusBadRequest, err, firstNonEmpty(messages.InvalidRequest, baseservice.ErrInvalidRequestData.Error()))
-	case errors.Is(err, baseservice.ErrConflict):
-		HandleError(ec, http.StatusConflict, err, firstNonEmpty(messages.Conflict, baseservice.ErrConflict.Error()))
-	case errors.Is(err, baseservice.ErrNotFound):
-		HandleError(ec, http.StatusNotFound, err, firstNonEmpty(messages.NotFound, baseservice.ErrNotFound.Error()))
-	case errors.Is(err, baseservice.ErrInvalidCredentials):
-		HandleError(ec, http.StatusUnauthorized, err, firstNonEmpty(messages.InvalidCredentials, baseservice.ErrInvalidCredentials.Error()))
-	case errors.Is(err, baseservice.ErrForbidden):
-		HandleError(ec, http.StatusForbidden, err, firstNonEmpty(messages.Forbidden, baseservice.ErrForbidden.Error()))
-	case errors.Is(err, baseservice.ErrRateLimited):
-		HandleError(ec, http.StatusTooManyRequests, err, firstNonEmpty(messages.RateLimited, baseservice.ErrRateLimited.Error()))
-	case errors.Is(err, baseservice.ErrExternalService):
-		HandleError(ec, http.StatusBadGateway, err, firstNonEmpty(messages.ExternalService, "External service unavailable"))
-	default:
-		HandleError(ec, http.StatusInternalServerError, err, baseservice.ErrInternal.Error())
-	}
-
-	return true
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 // HandleError logs the request failure and writes a safe API error response.

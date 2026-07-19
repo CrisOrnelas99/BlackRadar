@@ -4,6 +4,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"net/mail"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -24,26 +25,25 @@ import (
 
 type authServiceImpl struct {
 	jwtManager               *commonjwt.Manager
-	organizationRepository   baserepository.OrganizationRepository
 	userRepository           baserepository.UserRepository
 	refreshSessionRepository baserepository.RefreshSessionRepository
 }
 
 // NewAuthService creates an authentication service backed by the supplied dependencies.
-func NewAuthService(jwtManager *commonjwt.Manager, organizationRepository baserepository.OrganizationRepository, userRepository baserepository.UserRepository, refreshSessionRepository baserepository.RefreshSessionRepository) baseservice.AuthService {
-	return &authServiceImpl{jwtManager: jwtManager, organizationRepository: organizationRepository, userRepository: userRepository, refreshSessionRepository: refreshSessionRepository}
+func NewAuthService(jwtManager *commonjwt.Manager, userRepository baserepository.UserRepository, refreshSessionRepository baserepository.RefreshSessionRepository) baseservice.AuthService {
+	return &authServiceImpl{jwtManager: jwtManager, userRepository: userRepository, refreshSessionRepository: refreshSessionRepository}
 }
 
 // Register validates and creates a new user account.
 func (s *authServiceImpl) Register(ec *appcontext.GinContext, request dto.RegisterRequest) (dto.UserResponse, error) {
-	request = baseservice.NormalizeRegisterRequest(request)
-	if err := baseservice.ValidateRegisterRequest(request); err != nil {
+	request = normalizeRegisterRequest(request)
+	if err := validateRegisterRequest(request); err != nil {
 		return dto.UserResponse{}, ErrInvalidRegisterRequest
 	}
 
 	exists, err := s.userRepository.ExistsByUsername(ec, request.Username)
 	if err != nil {
-		return dto.UserResponse{}, baseservice.TranslateRepositoryError(err)
+		return dto.UserResponse{}, translateAuthRepositoryError(err)
 	}
 	if exists {
 		return dto.UserResponse{}, ErrUsernameAlreadyExists
@@ -51,15 +51,10 @@ func (s *authServiceImpl) Register(ec *appcontext.GinContext, request dto.Regist
 
 	exists, err = s.userRepository.ExistsByEmail(ec, request.Email)
 	if err != nil {
-		return dto.UserResponse{}, baseservice.TranslateRepositoryError(err)
+		return dto.UserResponse{}, translateAuthRepositoryError(err)
 	}
 	if exists {
 		return dto.UserResponse{}, ErrEmailAlreadyExists
-	}
-
-	organization, err := s.findOrCreateOrganization(ec, request.Organization)
-	if err != nil {
-		return dto.UserResponse{}, err
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(request.Password), config.PasswordCost())
@@ -68,44 +63,22 @@ func (s *authServiceImpl) Register(ec *appcontext.GinContext, request dto.Regist
 	}
 
 	user, err := s.userRepository.Save(ec, model.User{
-		OrganizationID: organization.ID,
-		Username:       request.Username,
-		Email:          request.Email,
-		Role:           model.RoleUser,
-		PasswordHash:   string(hash),
+		Username:     request.Username,
+		Email:        request.Email,
+		Role:         model.RoleUser,
+		PasswordHash: string(hash),
 	})
 	if err != nil {
-		return dto.UserResponse{}, baseservice.TranslateRepositoryError(err)
+		return dto.UserResponse{}, translateAuthRepositoryError(err)
 	}
 
-	return dto.ToUserResponse(user, organization.Name), nil
-}
-
-func (s *authServiceImpl) findOrCreateOrganization(ec *appcontext.GinContext, organizationName string) (model.Organization, error) {
-	if s.organizationRepository == nil {
-		return model.Organization{}, fmt.Errorf("missing organization repository")
-	}
-
-	normalizedName := strings.ToLower(strings.TrimSpace(organizationName))
-	organization, err := s.organizationRepository.FindByName(ec, normalizedName)
-	if err == nil {
-		return organization, nil
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.Organization{}, baseservice.TranslateRepositoryError(err)
-	}
-
-	created, err := s.organizationRepository.Save(ec, model.Organization{Name: normalizedName})
-	if err != nil {
-		return model.Organization{}, baseservice.TranslateRepositoryError(err)
-	}
-	return created, nil
+	return dto.ToUserResponse(user), nil
 }
 
 // Login validates credentials and returns a signed access token.
 func (s *authServiceImpl) Login(ec *appcontext.GinContext, request dto.LoginRequest) (dto.LoginResponse, error) {
 	request.UserOrEmail = strings.TrimSpace(request.UserOrEmail)
-	isEmailLogin := baseservice.IsEmailLikeLoginIdentifier(request.UserOrEmail)
+	isEmailLogin := isEmailLikeLoginIdentifier(request.UserOrEmail)
 	if isEmailLogin {
 		request.UserOrEmail = strings.ToLower(request.UserOrEmail)
 	}
@@ -124,19 +97,11 @@ func (s *authServiceImpl) Login(ec *appcontext.GinContext, request dto.LoginRequ
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return dto.LoginResponse{}, ErrInvalidLoginCredentials
 		}
-		return dto.LoginResponse{}, baseservice.TranslateRepositoryError(err)
+		return dto.LoginResponse{}, translateAuthRepositoryError(err)
 	}
 
 	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(request.Password)) != nil {
 		return dto.LoginResponse{}, ErrInvalidLoginCredentials
-	}
-
-	organization, err := s.organizationRepository.FindByID(ec, user.OrganizationID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return dto.LoginResponse{}, ErrInvalidLoginCredentials
-		}
-		return dto.LoginResponse{}, baseservice.TranslateRepositoryError(err)
 	}
 
 	if s.jwtManager == nil {
@@ -163,12 +128,59 @@ func (s *authServiceImpl) Login(ec *appcontext.GinContext, request dto.LoginRequ
 	}
 
 	return dto.LoginResponse{
-		User:                  dto.ToUserResponse(user, organization.Name),
+		User:                  dto.ToUserResponse(user),
 		Token:                 token,
 		TokenExpiresAt:        accessExpiresAt,
 		RefreshToken:          refreshToken,
 		RefreshTokenExpiresAt: refreshExpiresAt,
 	}, nil
+}
+
+// normalizeRegisterRequest trims and normalizes registration input.
+func normalizeRegisterRequest(request dto.RegisterRequest) dto.RegisterRequest {
+	request.Username = strings.TrimSpace(request.Username)
+	request.Email = strings.ToLower(strings.TrimSpace(request.Email))
+	request.Password = strings.TrimSpace(request.Password)
+	return request
+}
+
+// validateRegisterRequest validates the fields required to create an account.
+func validateRegisterRequest(request dto.RegisterRequest) error {
+	if strings.TrimSpace(request.Username) == "" || utf8.RuneCountInString(request.Username) < 3 || utf8.RuneCountInString(request.Username) > 50 || strings.Contains(request.Username, "@") {
+		return ErrInvalidRegisterRequest
+	}
+	if strings.TrimSpace(request.Password) == "" || utf8.RuneCountInString(request.Password) < 8 || utf8.RuneCountInString(request.Password) > 100 {
+		return ErrInvalidRegisterRequest
+	}
+	if strings.TrimSpace(request.Email) == "" {
+		return ErrInvalidRegisterRequest
+	}
+	if _, err := mail.ParseAddress(request.Email); err != nil {
+		return fmt.Errorf("%w: invalid email", ErrInvalidRegisterRequest)
+	}
+	return nil
+}
+
+// isEmailLikeLoginIdentifier reports whether the login identifier should be treated as an email address.
+func isEmailLikeLoginIdentifier(value string) bool {
+	return strings.Contains(strings.TrimSpace(value), "@")
+}
+
+// translateAuthRepositoryError maps repository errors to auth service sentinels.
+func translateAuthRepositoryError(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, userrepository.ErrRefreshSessionNotFound):
+		return fmt.Errorf("%w: %w", ErrInvalidRefreshToken, err)
+	case errors.Is(err, userrepository.ErrDuplicateData):
+		return fmt.Errorf("%w: %w", ErrUsernameAlreadyExists, err)
+	case errors.Is(err, userrepository.ErrInvalidData),
+		errors.Is(err, userrepository.ErrInvalidReference):
+		return fmt.Errorf("%w: %w", ErrInvalidRegisterRequest, err)
+	default:
+		return fmt.Errorf("%w: %w", ErrAuthInternal, err)
+	}
 }
 
 // Refresh validates a refresh token and returns rotated credentials.
@@ -192,7 +204,7 @@ func (s *authServiceImpl) Refresh(ec *appcontext.GinContext, request dto.Refresh
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return dto.LoginResponse{}, ErrInvalidRefreshToken
 		}
-		return dto.LoginResponse{}, baseservice.TranslateRepositoryError(err)
+		return dto.LoginResponse{}, translateAuthRepositoryError(err)
 	}
 
 	session, err := s.refreshSessionRepository.FindActiveByTokenIDForUser(ec, claims.ID, user.ID)
@@ -200,19 +212,11 @@ func (s *authServiceImpl) Refresh(ec *appcontext.GinContext, request dto.Refresh
 		if errors.Is(err, userrepository.ErrRefreshSessionNotFound) {
 			return dto.LoginResponse{}, ErrInvalidRefreshToken
 		}
-		return dto.LoginResponse{}, baseservice.TranslateRepositoryError(err)
+		return dto.LoginResponse{}, translateAuthRepositoryError(err)
 	}
 
 	if session.UserID != user.ID {
 		return dto.LoginResponse{}, ErrInvalidRefreshToken
-	}
-
-	organization, err := s.organizationRepository.FindByID(ec, user.OrganizationID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return dto.LoginResponse{}, ErrInvalidRefreshToken
-		}
-		return dto.LoginResponse{}, baseservice.TranslateRepositoryError(err)
 	}
 
 	newRefreshTokenID, err := commontoken.NewID()
@@ -235,7 +239,7 @@ func (s *authServiceImpl) Refresh(ec *appcontext.GinContext, request dto.Refresh
 	}
 
 	return dto.LoginResponse{
-		User:                  dto.ToUserResponse(user, organization.Name),
+		User:                  dto.ToUserResponse(user),
 		Token:                 accessToken,
 		TokenExpiresAt:        accessExpiresAt,
 		RefreshToken:          newRefreshToken,
@@ -264,21 +268,21 @@ func (s *authServiceImpl) Logout(ec *appcontext.GinContext, request dto.RefreshR
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrInvalidRefreshToken
 		}
-		return baseservice.TranslateRepositoryError(err)
+		return translateAuthRepositoryError(err)
 	}
 
 	if err := s.refreshSessionRepository.RevokeByTokenIDForUser(ec, claims.ID, user.ID); err != nil {
 		if errors.Is(err, userrepository.ErrRefreshSessionNotFound) {
 			return ErrInvalidRefreshToken
 		}
-		return baseservice.TranslateRepositoryError(err)
+		return translateAuthRepositoryError(err)
 	}
 
 	return nil
 }
 
 func (s *authServiceImpl) saveRefreshSession(ec *appcontext.GinContext, userID string, tokenID string, expiresAt time.Time) error {
-	return baseservice.TranslateRepositoryError(s.refreshSessionRepository.Save(ec, model.RefreshSession{
+	return translateAuthRepositoryError(s.refreshSessionRepository.Save(ec, model.RefreshSession{
 		TokenID:    tokenID,
 		UserID:     userID,
 		DeviceName: requestDeviceName(ec),
@@ -296,9 +300,9 @@ func (s *authServiceImpl) rotateRefreshSession(ec *appcontext.GinContext, sessio
 
 	if ec == nil || ec.Database() == nil {
 		if err := s.refreshSessionRepository.RevokeByTokenIDForUser(ec, session.TokenID, session.UserID); err != nil {
-			return baseservice.TranslateRepositoryError(err)
+			return translateAuthRepositoryError(err)
 		}
-		return baseservice.TranslateRepositoryError(s.refreshSessionRepository.Save(ec, newSession))
+		return translateAuthRepositoryError(s.refreshSessionRepository.Save(ec, newSession))
 	}
 
 	transactionDatabase := ec.Database()
@@ -307,10 +311,10 @@ func (s *authServiceImpl) rotateRefreshSession(ec *appcontext.GinContext, sessio
 		txContext.SetDatabase(tx)
 
 		if err := s.refreshSessionRepository.RevokeByTokenIDForUser(&txContext, session.TokenID, session.UserID); err != nil {
-			return baseservice.TranslateRepositoryError(err)
+			return translateAuthRepositoryError(err)
 		}
 		if err := s.refreshSessionRepository.Save(&txContext, newSession); err != nil {
-			return baseservice.TranslateRepositoryError(err)
+			return translateAuthRepositoryError(err)
 		}
 		return nil
 	})

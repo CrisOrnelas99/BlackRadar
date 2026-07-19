@@ -150,7 +150,7 @@ func NVDLookupRateLimit() gin.HandlerFunc {
 			Limit:  10,
 			Window: defaultRateLimitWindow,
 		},
-		Key: PrincipalOrganizationKey,
+		Key: PrincipalUserKey,
 	})
 }
 
@@ -162,7 +162,7 @@ func AIRateLimit() gin.HandlerFunc {
 			Limit:  5,
 			Window: defaultRateLimitWindow,
 		},
-		Key: PrincipalOrganizationKey,
+		Key: PrincipalUserKey,
 	})
 }
 
@@ -174,19 +174,19 @@ func ClientIPKey(ctx *gin.Context) string {
 	return ctx.ClientIP()
 }
 
-// PrincipalOrganizationKey limits authenticated requests by organization ID.
-func PrincipalOrganizationKey(ctx *gin.Context) string {
+// PrincipalUserKey limits authenticated requests by authenticated user ID.
+func PrincipalUserKey(ctx *gin.Context) string {
 	ec, err := requestcontext.FromGinContext(ctx)
 	if err != nil {
 		return ClientIPKey(ctx)
 	}
 
 	principal, err := ec.Principal()
-	if err != nil || strings.TrimSpace(principal.OrganizationID) == "" {
+	if err != nil || strings.TrimSpace(principal.UserID) == "" {
 		return ClientIPKey(ctx)
 	}
 
-	return "organization:" + principal.OrganizationID
+	return "user:" + principal.UserID
 }
 
 // validateConfig rejects invalid rate-limit configuration.

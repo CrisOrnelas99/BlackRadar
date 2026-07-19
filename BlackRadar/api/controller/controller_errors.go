@@ -11,7 +11,8 @@ func (e ControllerError) Error() string {
 }
 
 var (
-	ErrInvalidContentType = &ControllerError{Message: "invalid content type"}
-	ErrInvalidRequestBody = &ControllerError{Message: "invalid request body"}
-	ErrInvalidIdentifier  = &ControllerError{Message: "invalid identifier"}
+	ErrInvalidContentType  = &ControllerError{Message: "invalid content type"}
+	ErrInvalidRequestBody  = &ControllerError{Message: "invalid request body"}
+	ErrInvalidIdentifier   = &ControllerError{Message: "invalid identifier"}
+	ErrUpstreamUnavailable = &ControllerError{Message: "upstream dependency unavailable"}
 )

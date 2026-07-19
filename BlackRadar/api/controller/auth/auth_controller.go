@@ -108,9 +108,9 @@ func handleAuthServiceError(ec *appcontext.GinContext, err error) bool {
 	case errors.Is(err, authservice.ErrInvalidLoginCredentials),
 		errors.Is(err, authservice.ErrInvalidRefreshToken):
 		return basecontroller.HandleError(ec, http.StatusUnauthorized, err, "Invalid credentials.")
+	case errors.Is(err, authservice.ErrAuthInternal):
+		return basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Authentication service failed")
 	}
 
-	return basecontroller.HandleServiceError(ec, err, basecontroller.ServiceErrorMessages{
-		InvalidCredentials: "Invalid credentials.",
-	})
+	return false
 }

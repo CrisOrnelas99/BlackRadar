@@ -66,8 +66,8 @@ func TestBackfillAssetRiskLevels(t *testing.T) {
 	})
 
 	assets := []assetRow{
-		{ID: "asset-1", OrganizationID: "org-1"},
-		{ID: "asset-2", OrganizationID: "org-2"},
+		{ID: "asset-1", UserID: "user-1"},
+		{ID: "asset-2", UserID: "user-2"},
 	}
 
 	var called []assetRow
@@ -77,8 +77,8 @@ func TestBackfillAssetRiskLevels(t *testing.T) {
 	runBackfillTransaction = func(ctx context.Context, database *gorm.DB, fn func(tx *gorm.DB) error) error {
 		return fn(nil)
 	}
-	refreshAssetRisk = func(tx *gorm.DB, assetID string, organizationID string) error {
-		called = append(called, assetRow{ID: assetID, OrganizationID: organizationID})
+	refreshAssetRisk = func(tx *gorm.DB, assetID string, userID string) error {
+		called = append(called, assetRow{ID: assetID, UserID: userID})
 		return nil
 	}
 
@@ -114,7 +114,7 @@ func TestBackfillAssetRiskLevelsReturnsLoadError(t *testing.T) {
 		t.Fatal("transaction should not run when loading assets fails")
 		return nil
 	}
-	refreshAssetRisk = func(tx *gorm.DB, assetID string, organizationID string) error {
+	refreshAssetRisk = func(tx *gorm.DB, assetID string, userID string) error {
 		t.Fatal("refresh should not run when loading assets fails")
 		return nil
 	}
@@ -140,12 +140,12 @@ func TestBackfillAssetRiskLevelsReturnsRefreshError(t *testing.T) {
 
 	expectedErr := errors.New("refresh failed")
 	loadAssetRows = func(ctx context.Context, database *gorm.DB) ([]assetRow, error) {
-		return []assetRow{{ID: "asset-1", OrganizationID: "org-1"}}, nil
+		return []assetRow{{ID: "asset-1", UserID: "user-1"}}, nil
 	}
 	runBackfillTransaction = func(ctx context.Context, database *gorm.DB, fn func(tx *gorm.DB) error) error {
 		return fn(nil)
 	}
-	refreshAssetRisk = func(tx *gorm.DB, assetID string, organizationID string) error {
+	refreshAssetRisk = func(tx *gorm.DB, assetID string, userID string) error {
 		return expectedErr
 	}
 

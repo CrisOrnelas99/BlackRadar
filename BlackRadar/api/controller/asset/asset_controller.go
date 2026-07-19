@@ -11,6 +11,7 @@ import (
 	appcontext "blackradar/api/platform/requestcontext"
 	baseservice "blackradar/api/service"
 	assetservice "blackradar/api/service/asset"
+	matchservice "blackradar/api/service/match"
 )
 
 // AssetController handles asset-related HTTP requests.
@@ -241,10 +242,10 @@ func handleAssetServiceError(ec *appcontext.GinContext, err error) bool {
 	case errors.Is(err, assetservice.ErrAssetNotFound),
 		errors.Is(err, assetservice.ErrAssetVulnerabilityNotFound):
 		return basecontroller.HandleError(ec, http.StatusNotFound, err, err.Error())
+	case errors.Is(err, assetservice.ErrAssetExternalService),
+		errors.Is(err, matchservice.ErrMatchExternalService):
+		return basecontroller.HandleError(ec, http.StatusBadGateway, err, "External service unavailable")
 	}
 
-	return basecontroller.HandleServiceError(ec, err, basecontroller.ServiceErrorMessages{
-		NotFound:        "Asset not found",
-		ExternalService: "External service unavailable",
-	})
+	return false
 }

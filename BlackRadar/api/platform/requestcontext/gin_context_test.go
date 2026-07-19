@@ -126,9 +126,6 @@ func TestPrincipalAccessorsRequireExplicitAuthentication(t *testing.T) {
 	if _, err := ctx.UserRole(); !errors.Is(err, ErrPrincipalNotSet) {
 		t.Fatalf("expected ErrPrincipalNotSet for role, got %v", err)
 	}
-	if _, err := ctx.OrganizationID(); !errors.Is(err, ErrPrincipalNotSet) {
-		t.Fatalf("expected ErrPrincipalNotSet for organization ID, got %v", err)
-	}
 }
 
 func TestSetPrincipalStoresValidatedIdentity(t *testing.T) {
@@ -136,10 +133,9 @@ func TestSetPrincipalStoresValidatedIdentity(t *testing.T) {
 	ctx := NewGinContext(ginCtx, "", slog.New(slog.NewTextHandler(io.Discard, nil)))
 
 	err := ctx.SetPrincipal(Principal{
-		UserID:         "00000000-0000-4000-8000-000000000042",
-		Username:       "analyst",
-		Role:           "user",
-		OrganizationID: "00000000-0000-4000-8000-000000000077",
+		UserID:   "00000000-0000-4000-8000-000000000042",
+		Username: "analyst",
+		Role:     "user",
 	})
 	if err != nil {
 		t.Fatalf("expected principal to be accepted, got %v", err)
@@ -156,10 +152,6 @@ func TestSetPrincipalStoresValidatedIdentity(t *testing.T) {
 	role, err := ctx.UserRole()
 	if err != nil || role != "user" {
 		t.Fatalf("expected user role user, got %q error=%v", role, err)
-	}
-	organizationID, err := ctx.OrganizationID()
-	if err != nil || organizationID != "00000000-0000-4000-8000-000000000077" {
-		t.Fatalf("expected organization UUID, got %q error=%v", organizationID, err)
 	}
 }
 
@@ -186,7 +178,6 @@ func TestCompatibilitySettersRequireCompletePrincipalForReads(t *testing.T) {
 	}
 
 	ctx.SetUserID("00000000-0000-4000-8000-000000000042")
-	ctx.SetOrganizationID("00000000-0000-4000-8000-000000000077")
 	ctx.SetUsername("analyst")
 
 	role, err := ctx.UserRole()

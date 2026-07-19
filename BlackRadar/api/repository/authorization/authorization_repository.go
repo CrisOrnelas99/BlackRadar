@@ -19,14 +19,9 @@ func RequireAdminFromDatabase(ec *appcontext.GinContext, db *gorm.DB) error {
 		return ErrForbidden
 	}
 
-	organizationID, err := ec.OrganizationID()
-	if err != nil {
-		return ErrForbidden
-	}
-
 	var user model.User
 	err = db.WithContext(ec.RequestContext()).
-		Where("id = ? AND organization_id = ?", userID, organizationID).
+		Where("id = ?", userID).
 		First(&user).Error
 	if err != nil {
 		return ErrForbidden

@@ -20,14 +20,12 @@ import (
 	appcontext "blackradar/api/platform/requestcontext"
 	baserepository "blackradar/api/repository"
 	userrepo "blackradar/api/repository/user"
-	baseservice "blackradar/api/service"
 )
 
 const (
 	testUserID         = "00000000-0000-4000-8000-000000000001"
 	testUserIDSeven    = "00000000-0000-4000-8000-000000000007"
 	testUserIDFortyTwo = "00000000-0000-4000-8000-000000000042"
-	testOrgID          = "00000000-0000-4000-8000-000000000011"
 	testJWTSecret      = "0123456789abcdef0123456789abcdef"
 )
 
@@ -35,60 +33,48 @@ const (
 func TestAuthService(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
 	repo := &fakeUserRepository{
-		user: model.User{Model: model.Model{ID: testUserID}, OrganizationID: testOrgID, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
+		user: model.User{Model: model.Model{ID: testUserID}, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
-	svc := NewAuthService(newTestJWTManager(t), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, &fakeRefreshSessionRepository{})
+	svc := NewAuthService(newTestJWTManager(t), repo, &fakeRefreshSessionRepository{})
 	ctx := newAuthServiceContext(t)
 
-	registerResponse, err := svc.Register(ctx, dto.RegisterRequest{Username: "analyst", Email: "analyst@example.com", Organization: "home", Password: "Password1!"})
+	registerResponse, err := svc.Register(ctx, dto.RegisterRequest{Username: "analyst", Email: "analyst@example.com", Password: "Password1!"})
 	if err != nil {
 		t.Fatalf("expected Register to succeed, got %v", err)
 	}
 	if registerResponse.ID != testUserID || registerResponse.Username != "analyst" || registerResponse.Email != "analyst@example.com" {
 		t.Fatalf("unexpected register response: %#v", registerResponse)
 	}
-	if registerResponse.Organization != "home" {
-		t.Fatalf("expected register response organization home, got %#v", registerResponse)
-	}
+
 	loginResponse, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "analyst", Password: "Password1!"})
 	if err != nil {
 		t.Fatalf("expected Login to succeed, got %v", err)
 	}
-	if loginResponse.Token == "" {
-		t.Fatal("expected token to be populated")
+	if loginResponse.Token == "" || loginResponse.RefreshToken == "" {
+		t.Fatal("expected access and refresh tokens to be populated")
 	}
-	if loginResponse.RefreshToken == "" {
-		t.Fatal("expected refresh token to be populated")
-	}
-	if loginResponse.TokenExpiresAt.IsZero() {
-		t.Fatal("expected token expiration to be populated")
-	}
-	if loginResponse.RefreshTokenExpiresAt.IsZero() {
-		t.Fatal("expected refresh token expiration to be populated")
+	if loginResponse.TokenExpiresAt.IsZero() || loginResponse.RefreshTokenExpiresAt.IsZero() {
+		t.Fatal("expected token expirations to be populated")
 	}
 	if !loginResponse.RefreshTokenExpiresAt.After(loginResponse.TokenExpiresAt) {
-		t.Fatalf("expected refresh token expiry to outlast access token expiry, got access=%v refresh=%v", loginResponse.TokenExpiresAt, loginResponse.RefreshTokenExpiresAt)
-	}
-	if loginResponse.User.Organization != "home" {
-		t.Fatalf("expected login response organization home, got %#v", loginResponse.User)
+		t.Fatalf("expected refresh token expiry to outlast access token expiry")
 	}
 }
 
 // TestAuthServiceHelpers verifies authentication helper behavior.
 func TestAuthServiceHelpers(t *testing.T) {
-	normalized := baseservice.NormalizeRegisterRequest(dto.RegisterRequest{
-		Username:     " analyst ",
-		Email:        " ANALYST@EXAMPLE.COM ",
-		Organization: " home ",
-		Password:     " Password1! ",
+	normalized := normalizeRegisterRequest(dto.RegisterRequest{
+		Username: " analyst ",
+		Email:    " ANALYST@EXAMPLE.COM ",
+		Password: " Password1! ",
 	})
-	if normalized.Username != "analyst" || normalized.Email != "analyst@example.com" || normalized.Organization != "home" || normalized.Password != "Password1!" {
+	if normalized.Username != "analyst" || normalized.Email != "analyst@example.com" || normalized.Password != "Password1!" {
 		t.Fatalf("unexpected normalized request: %#v", normalized)
 	}
-	if err := baseservice.ValidateRegisterRequest(normalized); err != nil {
+	if err := validateRegisterRequest(normalized); err != nil {
 		t.Fatalf("expected valid register request, got %v", err)
 	}
-	if err := baseservice.ValidateRegisterRequest(dto.RegisterRequest{Username: "ab", Email: "bad", Organization: "home", Password: "short"}); !errors.Is(err, baseservice.ErrInvalidRequestData) {
+	if err := validateRegisterRequest(dto.RegisterRequest{Username: "ab", Email: "bad", Password: "short"}); !errors.Is(err, ErrInvalidRegisterRequest) {
 		t.Fatalf("expected invalid request data, got %v", err)
 	}
 }
@@ -96,9 +82,9 @@ func TestAuthServiceHelpers(t *testing.T) {
 // TestAuthServiceValidationAndTranslation verifies validation and error mapping.
 func TestAuthServiceValidationAndTranslation(t *testing.T) {
 	ctx := newAuthServiceContext(t)
-	svc := NewAuthService(newTestJWTManager(t), &fakeOrganizationRepository{findErr: gorm.ErrRecordNotFound}, &fakeUserRepository{findErr: gorm.ErrRecordNotFound}, &fakeRefreshSessionRepository{})
+	svc := NewAuthService(newTestJWTManager(t), &fakeUserRepository{findErr: gorm.ErrRecordNotFound}, &fakeRefreshSessionRepository{})
 
-	if _, err := svc.Register(ctx, dto.RegisterRequest{Username: "ab", Email: "bad", Organization: "home", Password: "short"}); !errors.Is(err, ErrInvalidRegisterRequest) {
+	if _, err := svc.Register(ctx, dto.RegisterRequest{Username: "ab", Email: "bad", Password: "short"}); !errors.Is(err, ErrInvalidRegisterRequest) {
 		t.Fatalf("expected invalid request data, got %v", err)
 	}
 	if _, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "missing", Password: "Password1!"}); !errors.Is(err, ErrInvalidLoginCredentials) {
@@ -106,33 +92,33 @@ func TestAuthServiceValidationAndTranslation(t *testing.T) {
 	}
 }
 
-func TestAuthServiceRegisterChecksEmailBeforeCreatingOrganization(t *testing.T) {
-	organizations := &fakeOrganizationRepository{findErr: gorm.ErrRecordNotFound}
+// TestAuthServiceRegisterChecksEmailBeforeSave verifies duplicate email validation runs before persistence.
+func TestAuthServiceRegisterChecksEmailBeforeSave(t *testing.T) {
 	users := &fakeUserRepository{emailExists: true}
-	svc := NewAuthService(newTestJWTManager(t), organizations, users, &fakeRefreshSessionRepository{})
+	svc := NewAuthService(newTestJWTManager(t), users, &fakeRefreshSessionRepository{})
 	ctx := newAuthServiceContext(t)
 
 	_, err := svc.Register(ctx, dto.RegisterRequest{
-		Username:     "analyst",
-		Email:        "analyst@example.com",
-		Organization: "home",
-		Password:     "Password1!",
+		Username: "analyst",
+		Email:    "analyst@example.com",
+		Password: "Password1!",
 	})
 	if !errors.Is(err, ErrEmailAlreadyExists) {
 		t.Fatalf("expected duplicate email conflict, got %v", err)
 	}
-	if organizations.saveCalled {
-		t.Fatal("expected duplicate email to be rejected before creating organization")
+	if users.saveCalled {
+		t.Fatal("expected duplicate email to be rejected before saving user")
 	}
 }
 
+// TestAuthServiceLogoutRejectsSecondLogout verifies refresh sessions cannot be reused after logout.
 func TestAuthServiceLogoutRejectsSecondLogout(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
 	repo := &fakeUserRepository{
-		user: model.User{Model: model.Model{ID: testUserIDSeven}, OrganizationID: testOrgID, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
+		user: model.User{Model: model.Model{ID: testUserIDSeven}, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
 	sessions := &fakeRefreshSessionRepository{}
-	svc := NewAuthService(newTestJWTManager(t), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, sessions)
+	svc := NewAuthService(newTestJWTManager(t), repo, sessions)
 	ctx := newAuthServiceContext(t)
 
 	login, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "analyst", Password: "Password1!"})
@@ -149,13 +135,14 @@ func TestAuthServiceLogoutRejectsSecondLogout(t *testing.T) {
 	}
 }
 
+// TestAuthServiceRefreshTranslatesSessionLookupFailure verifies refresh lookup failures stay internal.
 func TestAuthServiceRefreshTranslatesSessionLookupFailure(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
 	repo := &fakeUserRepository{
-		user: model.User{Model: model.Model{ID: testUserID}, OrganizationID: testOrgID, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
+		user: model.User{Model: model.Model{ID: testUserID}, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
 	sessions := &fakeRefreshSessionRepository{}
-	svc := NewAuthService(newTestJWTManager(t), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, sessions)
+	svc := NewAuthService(newTestJWTManager(t), repo, sessions)
 	ctx := newAuthServiceContext(t)
 
 	login, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "analyst", Password: "Password1!"})
@@ -165,31 +152,33 @@ func TestAuthServiceRefreshTranslatesSessionLookupFailure(t *testing.T) {
 
 	sessions.findErr = userrepo.ErrPersistenceFailure
 
-	if _, err := svc.Refresh(ctx, dto.RefreshRequest{RefreshToken: login.RefreshToken}); !errors.Is(err, baseservice.ErrInternal) {
+	if _, err := svc.Refresh(ctx, dto.RefreshRequest{RefreshToken: login.RefreshToken}); !errors.Is(err, ErrAuthInternal) {
 		t.Fatalf("expected internal service error for session lookup failure, got %v", err)
 	}
 }
 
+// TestAuthServiceLoginTranslatesSessionSaveFailure verifies login maps session persistence failures.
 func TestAuthServiceLoginTranslatesSessionSaveFailure(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
 	repo := &fakeUserRepository{
-		user: model.User{Model: model.Model{ID: testUserID}, OrganizationID: testOrgID, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
+		user: model.User{Model: model.Model{ID: testUserID}, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
 	sessions := &fakeRefreshSessionRepository{saveErr: userrepo.ErrPersistenceFailure}
-	svc := NewAuthService(newTestJWTManager(t), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, sessions)
+	svc := NewAuthService(newTestJWTManager(t), repo, sessions)
 	ctx := newAuthServiceContext(t)
 
-	if _, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "analyst", Password: "Password1!"}); !errors.Is(err, baseservice.ErrInternal) {
+	if _, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "analyst", Password: "Password1!"}); !errors.Is(err, ErrAuthInternal) {
 		t.Fatalf("expected internal service error for session save failure, got %v", err)
 	}
 }
 
+// TestAuthServiceLoginResolvesUsernameAndEmailDeterministically verifies username/email lookup selection.
 func TestAuthServiceLoginResolvesUsernameAndEmailDeterministically(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
 	repo := &fakeUserRepository{
-		user: model.User{Model: model.Model{ID: testUserIDFortyTwo}, OrganizationID: testOrgID, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
+		user: model.User{Model: model.Model{ID: testUserIDFortyTwo}, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
-	svc := NewAuthService(newTestJWTManager(t), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, &fakeRefreshSessionRepository{})
+	svc := NewAuthService(newTestJWTManager(t), repo, &fakeRefreshSessionRepository{})
 	ctx := newAuthServiceContext(t)
 
 	if _, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "analyst", Password: "Password1!"}); err != nil {
@@ -218,45 +207,8 @@ type fakeUserRepository struct {
 	emailExists          bool
 	usernameLookupCalled bool
 	emailLookupCalled    bool
+	saveCalled           bool
 }
-
-type fakeOrganizationRepository struct {
-	organization model.Organization
-	findErr      error
-	saveCalled   bool
-}
-
-// FindByID returns the configured fake organization.
-func (f *fakeOrganizationRepository) FindByID(ec *appcontext.GinContext, id string) (model.Organization, error) {
-	if f.findErr != nil {
-		return model.Organization{}, f.findErr
-	}
-	if f.organization.ID == "" || f.organization.ID != id {
-		return model.Organization{}, gorm.ErrRecordNotFound
-	}
-	return f.organization, nil
-}
-
-func (f *fakeOrganizationRepository) FindByName(ec *appcontext.GinContext, name string) (model.Organization, error) {
-	if f.findErr != nil {
-		return model.Organization{}, f.findErr
-	}
-	if f.organization.Name == "" {
-		return model.Organization{}, gorm.ErrRecordNotFound
-	}
-	return f.organization, nil
-}
-
-func (f *fakeOrganizationRepository) Save(ec *appcontext.GinContext, organization model.Organization) (model.Organization, error) {
-	f.saveCalled = true
-	if organization.ID == "" {
-		organization.ID = f.organization.ID
-	}
-	f.organization = organization
-	return organization, nil
-}
-
-var _ baserepository.OrganizationRepository = (*fakeOrganizationRepository)(nil)
 
 // ExistsByUsername reports whether the fake user exists.
 func (f *fakeUserRepository) ExistsByUsername(ec *appcontext.GinContext, username string) (bool, error) {
@@ -276,6 +228,7 @@ func (f *fakeUserRepository) ExistsByEmail(ec *appcontext.GinContext, email stri
 
 // Save accepts the fake user without error.
 func (f *fakeUserRepository) Save(ec *appcontext.GinContext, user model.User) (model.User, error) {
+	f.saveCalled = true
 	if user.ID == "" {
 		user.ID = f.user.ID
 	}
@@ -321,6 +274,7 @@ type fakeRefreshSessionRepository struct {
 	revokeErr error
 }
 
+// Save stores the fake refresh session.
 func (f *fakeRefreshSessionRepository) Save(ec *appcontext.GinContext, session model.RefreshSession) error {
 	if f.saveErr != nil {
 		return f.saveErr
@@ -329,6 +283,7 @@ func (f *fakeRefreshSessionRepository) Save(ec *appcontext.GinContext, session m
 	return nil
 }
 
+// FindActiveByTokenIDForUser returns the active fake refresh session.
 func (f *fakeRefreshSessionRepository) FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID string) (model.RefreshSession, error) {
 	if f.findErr != nil {
 		return model.RefreshSession{}, f.findErr
@@ -339,6 +294,7 @@ func (f *fakeRefreshSessionRepository) FindActiveByTokenIDForUser(ec *appcontext
 	return f.session, nil
 }
 
+// RevokeByTokenIDForUser revokes the fake refresh session.
 func (f *fakeRefreshSessionRepository) RevokeByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID string) error {
 	if f.revokeErr != nil {
 		return f.revokeErr

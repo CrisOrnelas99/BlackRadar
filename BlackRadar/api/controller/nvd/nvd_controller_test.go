@@ -14,6 +14,7 @@ import (
 	"blackradar/api/controller/dto"
 	appcontext "blackradar/api/platform/requestcontext"
 	baseservice "blackradar/api/service"
+	matchservice "blackradar/api/service/match"
 )
 
 // TestNVDControllerLookupCVE verifies the successful CVE lookup response.
@@ -43,10 +44,10 @@ func TestNVDControllerErrorMapping(t *testing.T) {
 		wantStatus int
 		wantCode   string
 	}{
-		{name: "invalid cve", err: baseservice.ErrInvalidRequestData, wantStatus: http.StatusBadRequest, wantCode: "VALIDATION_ERROR"},
-		{name: "not found", err: baseservice.ErrNotFound, wantStatus: http.StatusNotFound, wantCode: "NOT_FOUND"},
-		{name: "rate limited", err: baseservice.ErrRateLimited, wantStatus: http.StatusTooManyRequests, wantCode: "RATE_LIMITED"},
-		{name: "upstream", err: baseservice.ErrExternalService, wantStatus: http.StatusBadGateway, wantCode: "UPSTREAM_ERROR"},
+		{name: "invalid cve", err: matchservice.ErrInvalidCVEID, wantStatus: http.StatusBadRequest, wantCode: "VALIDATION_ERROR"},
+		{name: "not found", err: matchservice.ErrCVENotFound, wantStatus: http.StatusNotFound, wantCode: "NOT_FOUND"},
+		{name: "rate limited", err: matchservice.ErrNVDLookupRateLimited, wantStatus: http.StatusTooManyRequests, wantCode: "RATE_LIMITED"},
+		{name: "upstream", err: matchservice.ErrMatchExternalService, wantStatus: http.StatusBadGateway, wantCode: "UPSTREAM_ERROR"},
 	}
 
 	for _, tc := range cases {

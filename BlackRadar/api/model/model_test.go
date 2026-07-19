@@ -17,7 +17,6 @@ func TestTableNamesRemainStable(t *testing.T) {
 		{name: "asset", table: Asset{}.TableName(), expected: "assets"},
 		{name: "asset assessment", table: AssetAssessment{}.TableName(), expected: "asset_assessments"},
 		{name: "asset vulnerability", table: AssetVulnerability{}.TableName(), expected: "asset_vulnerabilities"},
-		{name: "organization", table: Organization{}.TableName(), expected: "organizations"},
 		{name: "refresh session", table: RefreshSession{}.TableName(), expected: "refresh_sessions"},
 		{name: "user", table: User{}.TableName(), expected: "users"},
 		{name: "vulnerability", table: Vulnerability{}.TableName(), expected: "vulnerabilities"},
@@ -57,7 +56,7 @@ func TestModelConstantsRemainStable(t *testing.T) {
 	}
 }
 
-func TestUserJSONRedactsSecurityAndTenantFields(t *testing.T) {
+func TestUserJSONRedactsSecurityFields(t *testing.T) {
 	updatedByID := "00000000-0000-4000-8000-000000000007"
 	user := User{
 		Model: Model{
@@ -65,11 +64,10 @@ func TestUserJSONRedactsSecurityAndTenantFields(t *testing.T) {
 			DeletedAt:   gorm.DeletedAt{Time: time.Now(), Valid: true},
 			UpdatedByID: &updatedByID,
 		},
-		OrganizationID: "00000000-0000-4000-8000-000000000099",
-		Username:       "analyst",
-		Email:          "analyst@example.com",
-		Role:           RoleUser,
-		PasswordHash:   "$2a$10$redacted",
+		Username:     "analyst",
+		Email:        "analyst@example.com",
+		Role:         RoleUser,
+		PasswordHash: "$2a$10$redacted",
 	}
 
 	encoded := mustMarshalObject(t, user)
@@ -78,11 +76,10 @@ func TestUserJSONRedactsSecurityAndTenantFields(t *testing.T) {
 	assertJSONOmitsKeys(t, encoded, "organization_id", "organizationId", "password_hash", "passwordHash", "deletedAt", "updatedById")
 }
 
-func TestAssetJSONRedactsTenantOwnershipAndAssessmentLinkage(t *testing.T) {
+func TestAssetJSONRedactsOwnershipAndAssessmentLinkage(t *testing.T) {
 	assessmentID := "00000000-0000-4000-8000-000000000010"
 	asset := Asset{
 		Model:             Model{ID: "00000000-0000-4000-8000-000000000002"},
-		OrganizationID:    "00000000-0000-4000-8000-000000000099",
 		UserID:            "00000000-0000-4000-8000-000000000001",
 		AssetAssessmentID: &assessmentID,
 		Name:              "Firewall",
@@ -97,16 +94,15 @@ func TestAssetJSONRedactsTenantOwnershipAndAssessmentLinkage(t *testing.T) {
 	assertJSONOmitsKeys(t, encoded, "organization_id", "organizationId", "user_id", "userId", "assetAssessmentId", "assessment")
 }
 
-func TestVulnerabilityJSONRedactsTenantOwnership(t *testing.T) {
+func TestVulnerabilityJSONRedactsOwnership(t *testing.T) {
 	vulnerability := Vulnerability{
-		Model:          Model{ID: "00000000-0000-4000-8000-000000000003"},
-		OrganizationID: "00000000-0000-4000-8000-000000000099",
-		UserID:         "00000000-0000-4000-8000-000000000001",
-		CVEID:          "CVE-2026-0001",
-		Title:          "Example vulnerability",
-		Severity:       "high",
-		Description:    "example",
-		Status:         "open",
+		Model:       Model{ID: "00000000-0000-4000-8000-000000000003"},
+		UserID:      "00000000-0000-4000-8000-000000000001",
+		CVEID:       "CVE-2026-0001",
+		Title:       "Example vulnerability",
+		Severity:    "high",
+		Description: "example",
+		Status:      "open",
 	}
 
 	encoded := mustMarshalObject(t, vulnerability)

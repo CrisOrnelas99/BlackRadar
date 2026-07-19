@@ -15,16 +15,14 @@ import (
 )
 
 const (
-	bootstrapOrganizationID = "77000000-0000-4000-8000-000000000000"
-	bootstrapUserID         = "77000000-0000-4000-8000-000000000001"
-	bootstrapAssetID        = "77000000-0000-4000-8000-000000000002"
+	bootstrapUserID  = "77000000-0000-4000-8000-000000000001"
+	bootstrapAssetID = "77000000-0000-4000-8000-000000000002"
 
 	bootstrapVulnerabilityID = "77000000-0000-4000-8000-000000000003"
 	bootstrapAssessmentID    = "77000000-0000-4000-8000-000000000004"
 
-	bootstrapUsername     = "system_admin"
-	bootstrapEmail        = "system_admin@example.invalid"
-	bootstrapOrganization = "admin_home"
+	bootstrapUsername = "system_admin"
+	bootstrapEmail    = "system_admin@example.invalid"
 
 	bootstrapAssetName        = "Test Device"
 	bootstrapAssetType        = "Device"
@@ -39,10 +37,7 @@ const (
 	bootstrapDescription        = "Example NVD-backed CVE used for local testing."
 )
 
-var (
-	ErrDatabaseRequired              = errors.New("bootstrap dev data requires a database connection")
-	ErrBootstrapOrganizationConflict = errors.New("bootstrap organization ID belongs to another organization")
-)
+var ErrDatabaseRequired = errors.New("bootstrap dev data requires a database connection")
 
 // Run seeds developer bootstrap data when explicitly enabled.
 func Run(ctx context.Context, database *gorm.DB, cfg config.Config) error {
@@ -76,22 +71,12 @@ func seedDevData(
 	password string,
 ) error {
 	return database.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := validateExistingBootstrapOrganization(tx); err != nil {
-			return err
-		}
-
 		if err := clearBootstrapData(tx); err != nil {
-			return err
-		}
-
-		organization, err := seedBootstrapOrganization(tx)
-		if err != nil {
 			return err
 		}
 
 		user, err := seedBootstrapUser(
 			tx,
-			organization.ID,
 			password,
 		)
 		if err != nil {
@@ -100,7 +85,6 @@ func seedDevData(
 
 		asset, err := seedBootstrapAsset(
 			tx,
-			organization.ID,
 			user.ID,
 		)
 		if err != nil {
@@ -109,7 +93,6 @@ func seedDevData(
 
 		vulnerability, err := seedBootstrapVulnerability(
 			tx,
-			organization.ID,
 			user.ID,
 		)
 		if err != nil {
@@ -124,43 +107,8 @@ func seedDevData(
 	})
 }
 
-// validateExistingBootstrapOrganization prevents the bootstrap process from
-// deleting an organization whose fixed bootstrap ID belongs to another record.
-func validateExistingBootstrapOrganization(tx *gorm.DB) error {
-	var organization model.Organization
-
-	err := tx.Unscoped().
-		Where("id = ?", bootstrapOrganizationID).
-		First(&organization).
-		Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil
-		}
-
-		return fmt.Errorf(
-			"find existing bootstrap organization: %w",
-			err,
-		)
-	}
-
-	expectedName := normalize(bootstrapOrganization)
-	actualName := normalize(organization.Name)
-
-	if actualName != expectedName {
-		return fmt.Errorf(
-			"%w: %q belongs to organization %q",
-			ErrBootstrapOrganizationConflict,
-			bootstrapOrganizationID,
-			organization.Name,
-		)
-	}
-
-	return nil
-}
-
 // clearBootstrapData removes only records identified by the fixed bootstrap
-// IDs. It does not delete every record belonging to an organization.
+// IDs.
 func clearBootstrapData(tx *gorm.DB) error {
 	if err := tx.Exec(
 		`DELETE FROM asset_vulnerabilities
@@ -209,44 +157,12 @@ func clearBootstrapData(tx *gorm.DB) error {
 		return fmt.Errorf("delete bootstrap user: %w", err)
 	}
 
-	if err := tx.Unscoped().
-		Where("id = ?", bootstrapOrganizationID).
-		Delete(&model.Organization{}).
-		Error; err != nil {
-		return fmt.Errorf(
-			"delete bootstrap organization: %w",
-			err,
-		)
-	}
-
 	return nil
-}
-
-// seedBootstrapOrganization creates the bootstrap organization.
-func seedBootstrapOrganization(
-	tx *gorm.DB,
-) (model.Organization, error) {
-	organization := model.Organization{
-		Model: model.Model{
-			ID: bootstrapOrganizationID,
-		},
-		Name: normalize(bootstrapOrganization),
-	}
-
-	if err := tx.Create(&organization).Error; err != nil {
-		return model.Organization{}, fmt.Errorf(
-			"create bootstrap organization: %w",
-			err,
-		)
-	}
-
-	return organization, nil
 }
 
 // seedBootstrapUser creates the bootstrap administrator.
 func seedBootstrapUser(
 	tx *gorm.DB,
-	organizationID string,
 	password string,
 ) (model.User, error) {
 	passwordHash, err := bcrypt.GenerateFromPassword(
@@ -264,11 +180,10 @@ func seedBootstrapUser(
 		Model: model.Model{
 			ID: bootstrapUserID,
 		},
-		OrganizationID: organizationID,
-		Username:       bootstrapUsername,
-		Email:          normalize(bootstrapEmail),
-		Role:           model.RoleAdmin,
-		PasswordHash:   string(passwordHash),
+		Username:     bootstrapUsername,
+		Email:        normalize(bootstrapEmail),
+		Role:         model.RoleAdmin,
+		PasswordHash: string(passwordHash),
 	}
 
 	if err := tx.Create(&user).Error; err != nil {
@@ -284,7 +199,6 @@ func seedBootstrapUser(
 // seedBootstrapAsset creates the sample asset and its assessment.
 func seedBootstrapAsset(
 	tx *gorm.DB,
-	organizationID string,
 	userID string,
 ) (model.Asset, error) {
 	assessment := model.AssetAssessment{
@@ -307,7 +221,6 @@ func seedBootstrapAsset(
 		Model: model.Model{
 			ID: bootstrapAssetID,
 		},
-		OrganizationID:    organizationID,
 		UserID:            userID,
 		AssetAssessmentID: &assessment.ID,
 		Name:              bootstrapAssetName,
@@ -333,20 +246,18 @@ func seedBootstrapAsset(
 // seedBootstrapVulnerability creates the sample vulnerability.
 func seedBootstrapVulnerability(
 	tx *gorm.DB,
-	organizationID string,
 	userID string,
 ) (model.Vulnerability, error) {
 	vulnerability := model.Vulnerability{
 		Model: model.Model{
 			ID: bootstrapVulnerabilityID,
 		},
-		OrganizationID: organizationID,
-		UserID:         userID,
-		CVEID:          bootstrapCVEID,
-		Title:          bootstrapVulnerabilityTitle,
-		Severity:       bootstrapSeverity,
-		Description:    bootstrapDescription,
-		Status:         bootstrapStatus,
+		UserID:      userID,
+		CVEID:       bootstrapCVEID,
+		Title:       bootstrapVulnerabilityTitle,
+		Severity:    bootstrapSeverity,
+		Description: bootstrapDescription,
+		Status:      bootstrapStatus,
 	}
 
 	if err := tx.Create(&vulnerability).Error; err != nil {

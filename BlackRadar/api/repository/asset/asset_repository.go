@@ -46,12 +46,12 @@ func (r *AssetRepository) dbForContext(ec *appcontext.GinContext) *gorm.DB {
 	return r.db
 }
 
-// FindAllByOrganization returns all assets owned by the specified organization.
-func (r *AssetRepository) FindAllByOrganization(ec *appcontext.GinContext, organizationID string) ([]model.Asset, error) {
+// FindAllByUser returns all assets owned by the specified user.
+func (r *AssetRepository) FindAllByUser(ec *appcontext.GinContext, userID string) ([]model.Asset, error) {
 	var assets []model.Asset
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Preload("Assessment").
-		Where("organization_id = ?", organizationID).
+		Where("user_id = ?", userID).
 		Order("id").
 		Find(&assets).Error
 	if err != nil {
@@ -60,12 +60,12 @@ func (r *AssetRepository) FindAllByOrganization(ec *appcontext.GinContext, organ
 	return assets, nil
 }
 
-// FindByIDForOrganization returns a single asset owned by the specified organization.
-func (r *AssetRepository) FindByIDForOrganization(ec *appcontext.GinContext, id string, organizationID string) (model.Asset, error) {
+// FindByIDForUser returns a single asset owned by the specified user.
+func (r *AssetRepository) FindByIDForUser(ec *appcontext.GinContext, id string, userID string) (model.Asset, error) {
 	var asset model.Asset
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Preload("Assessment").
-		Where("organization_id = ?", organizationID).
+		Where("user_id = ?", userID).
 		First(&asset, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.Asset{}, ErrAssetNotFound
@@ -73,14 +73,14 @@ func (r *AssetRepository) FindByIDForOrganization(ec *appcontext.GinContext, id 
 	if err != nil {
 		return model.Asset{}, fmt.Errorf("%w: read asset: %w", ErrPersistenceFailure, err)
 	}
-	if err := r.loadActiveVulnerabilitiesForAsset(ec, &asset, organizationID); err != nil {
+	if err := r.loadActiveVulnerabilitiesForAsset(ec, &asset, userID); err != nil {
 		return model.Asset{}, err
 	}
 	return asset, nil
 }
 
-// ExistsBySignatureForOrganization reports whether a tenant already has an asset with the same normalized signature.
-func (r *AssetRepository) ExistsBySignatureForOrganization(ec *appcontext.GinContext, asset model.Asset, organizationID string) (bool, error) {
+// ExistsBySignatureForUser reports whether a user already has an asset with the same normalized signature.
+func (r *AssetRepository) ExistsBySignatureForUser(ec *appcontext.GinContext, asset model.Asset, userID string) (bool, error) {
 	normalizedName := strings.ToLower(strings.TrimSpace(asset.Name))
 	normalizedType := strings.ToLower(strings.TrimSpace(asset.Type))
 	normalizedOwner := strings.ToLower(strings.TrimSpace(asset.Owner))
@@ -98,7 +98,7 @@ func (r *AssetRepository) ExistsBySignatureForOrganization(ec *appcontext.GinCon
 	var count int64
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Model(&model.Asset{}).
-		Where(`organization_id = ?
+		Where(`user_id = ?
 			AND LOWER(name) = ?
 			AND LOWER(type) = ?
 			AND LOWER(owner) = ?
@@ -108,7 +108,7 @@ func (r *AssetRepository) ExistsBySignatureForOrganization(ec *appcontext.GinCon
 			AND LOWER(COALESCE(product, '')) = ?
 			AND LOWER(COALESCE(version, '')) = ?
 			AND LOWER(COALESCE(device_model, '')) = ?`,
-			organizationID,
+			userID,
 			normalizedName,
 			normalizedType,
 			normalizedOwner,
@@ -128,7 +128,7 @@ func (r *AssetRepository) ExistsBySignatureForOrganization(ec *appcontext.GinCon
 
 // Save creates a new asset record.
 func (r *AssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
-	if asset.OrganizationID == "" || asset.UserID == "" || asset.Name == "" || asset.Type == "" || asset.Owner == "" || asset.Criticality == "" {
+	if asset.UserID == "" || asset.Name == "" || asset.Type == "" || asset.Owner == "" || asset.Criticality == "" {
 		return model.Asset{}, ErrInvalidData
 	}
 
@@ -178,13 +178,13 @@ func (r *AssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (mo
 	return model.Asset{}, fmt.Errorf("%w: exhausted random id retries", ErrPrimaryKeyConflict)
 }
 
-// UpdateForOrganization updates an asset owned by the specified organization.
-func (r *AssetRepository) UpdateForOrganization(ec *appcontext.GinContext, id string, organizationID string, updates model.Asset) (model.Asset, error) {
+// UpdateForUser updates an asset owned by the specified user.
+func (r *AssetRepository) UpdateForUser(ec *appcontext.GinContext, id string, userID string, updates model.Asset) (model.Asset, error) {
 	if updates.Name == "" || updates.Type == "" || updates.Owner == "" || updates.Criticality == "" {
 		return model.Asset{}, ErrInvalidData
 	}
 
-	asset, err := r.FindByIDForOrganization(ec, id, organizationID)
+	asset, err := r.FindByIDForUser(ec, id, userID)
 	if err != nil {
 		return model.Asset{}, err
 	}
@@ -211,11 +211,11 @@ func (r *AssetRepository) UpdateForOrganization(ec *appcontext.GinContext, id st
 		}
 		return model.Asset{}, fmt.Errorf("%w: update asset: %w", ErrPersistenceFailure, databaseErr)
 	}
-	return r.FindByIDForOrganization(ec, id, organizationID)
+	return r.FindByIDForUser(ec, id, userID)
 }
 
-// UpdateMatchAnalysisForOrganization stores backend-generated CPE match state for an asset.
-func (r *AssetRepository) UpdateMatchAnalysisForOrganization(ec *appcontext.GinContext, id string, organizationID string, analysis any) (model.Asset, error) {
+// UpdateMatchAnalysisForUser stores backend-generated CPE match state for an asset.
+func (r *AssetRepository) UpdateMatchAnalysisForUser(ec *appcontext.GinContext, id string, userID string, analysis any) (model.Asset, error) {
 	analysisUpdate, ok := analysis.(AssetMatchUpdate)
 	if !ok {
 		return model.Asset{}, ErrInvalidData
@@ -224,7 +224,7 @@ func (r *AssetRepository) UpdateMatchAnalysisForOrganization(ec *appcontext.GinC
 		return model.Asset{}, ErrInvalidData
 	}
 
-	asset, err := r.FindByIDForOrganization(ec, id, organizationID)
+	asset, err := r.FindByIDForUser(ec, id, userID)
 	if err != nil {
 		return model.Asset{}, err
 	}
@@ -269,12 +269,12 @@ func (r *AssetRepository) UpdateMatchAnalysisForOrganization(ec *appcontext.GinC
 		return model.Asset{}, fmt.Errorf("%w: update asset match analysis: %w", ErrPersistenceFailure, databaseErr)
 	}
 
-	return r.FindByIDForOrganization(ec, id, organizationID)
+	return r.FindByIDForUser(ec, id, userID)
 }
 
-// DeleteForOrganization deletes an asset owned by the specified organization.
-func (r *AssetRepository) DeleteForOrganization(ec *appcontext.GinContext, id string, organizationID string) (model.Asset, error) {
-	asset, err := r.FindByIDForOrganization(ec, id, organizationID)
+// DeleteForUser deletes an asset owned by the specified user.
+func (r *AssetRepository) DeleteForUser(ec *appcontext.GinContext, id string, userID string) (model.Asset, error) {
+	asset, err := r.FindByIDForUser(ec, id, userID)
 	if err != nil {
 		return model.Asset{}, err
 	}
@@ -306,13 +306,13 @@ func (r *AssetRepository) DeleteForOrganization(ec *appcontext.GinContext, id st
 	return asset, nil
 }
 
-// AssignVulnerabilityForOrganization associates a vulnerability with an asset owned by the specified organization.
-func (r *AssetRepository) AssignVulnerabilityForOrganization(ec *appcontext.GinContext, assetID string, organizationID string, vulnerabilityID string) (model.Asset, error) {
+// AssignVulnerabilityForUser associates a vulnerability with an asset owned by the specified user.
+func (r *AssetRepository) AssignVulnerabilityForUser(ec *appcontext.GinContext, assetID string, userID string, vulnerabilityID string) (model.Asset, error) {
 	if err := authrepo.RequireAdminFromDatabase(ec, r.dbForContext(ec)); err != nil {
 		return model.Asset{}, err
 	}
 
-	asset, vulnerability, err := r.findAssetAndVulnerabilityForOrganization(ec, assetID, organizationID, vulnerabilityID)
+	asset, vulnerability, err := r.findAssetAndVulnerabilityForUser(ec, assetID, userID, vulnerabilityID)
 	if err != nil {
 		return model.Asset{}, err
 	}
@@ -327,7 +327,7 @@ func (r *AssetRepository) AssignVulnerabilityForOrganization(ec *appcontext.GinC
 		if err := tx.Model(&asset).Association("Vulnerabilities").Append(&vulnerability); err != nil {
 			return err
 		}
-		return RefreshAssetRisk(tx, assetID, organizationID)
+		return RefreshAssetRisk(tx, assetID, userID)
 	})
 	if err != nil {
 		databaseErr := platformdb.TranslateDatabaseError(err)
@@ -340,16 +340,16 @@ func (r *AssetRepository) AssignVulnerabilityForOrganization(ec *appcontext.GinC
 		return model.Asset{}, fmt.Errorf("%w: assign vulnerability: %w", ErrPersistenceFailure, databaseErr)
 	}
 
-	return r.FindByIDForOrganization(ec, assetID, organizationID)
+	return r.FindByIDForUser(ec, assetID, userID)
 }
 
-// RemoveVulnerabilityForOrganization removes a vulnerability from an asset owned by the specified organization.
-func (r *AssetRepository) RemoveVulnerabilityForOrganization(ec *appcontext.GinContext, assetID string, organizationID string, vulnerabilityID string) (model.Asset, error) {
+// RemoveVulnerabilityForUser removes a vulnerability from an asset owned by the specified user.
+func (r *AssetRepository) RemoveVulnerabilityForUser(ec *appcontext.GinContext, assetID string, userID string, vulnerabilityID string) (model.Asset, error) {
 	if err := authrepo.RequireAdminFromDatabase(ec, r.dbForContext(ec)); err != nil {
 		return model.Asset{}, err
 	}
 
-	asset, vulnerability, err := r.findAssetAndVulnerabilityForOrganization(ec, assetID, organizationID, vulnerabilityID)
+	asset, vulnerability, err := r.findAssetAndVulnerabilityForUser(ec, assetID, userID, vulnerabilityID)
 	if err != nil {
 		return model.Asset{}, err
 	}
@@ -363,24 +363,24 @@ func (r *AssetRepository) RemoveVulnerabilityForOrganization(ec *appcontext.GinC
 		if err := deleteOrphanedVulnerability(tx, vulnerability); err != nil {
 			return err
 		}
-		return RefreshAssetRisk(tx, assetID, organizationID)
+		return RefreshAssetRisk(tx, assetID, userID)
 	})
 	if err != nil {
 		return model.Asset{}, fmt.Errorf("%w: remove vulnerability: %w", ErrPersistenceFailure, err)
 	}
-	return r.FindByIDForOrganization(ec, assetID, organizationID)
+	return r.FindByIDForUser(ec, assetID, userID)
 }
 
-// findAssetAndVulnerabilityForOrganization loads the asset and vulnerability for the specified organization.
-func (r *AssetRepository) findAssetAndVulnerabilityForOrganization(ec *appcontext.GinContext, assetID string, organizationID string, vulnerabilityID string) (model.Asset, model.Vulnerability, error) {
-	asset, err := r.FindByIDForOrganization(ec, assetID, organizationID)
+// findAssetAndVulnerabilityForUser loads the asset and vulnerability for the specified user.
+func (r *AssetRepository) findAssetAndVulnerabilityForUser(ec *appcontext.GinContext, assetID string, userID string, vulnerabilityID string) (model.Asset, model.Vulnerability, error) {
+	asset, err := r.FindByIDForUser(ec, assetID, userID)
 	if err != nil {
 		return model.Asset{}, model.Vulnerability{}, err
 	}
 
 	var vulnerability model.Vulnerability
 	err = r.dbForContext(ec).WithContext(ec.RequestContext()).
-		Where("organization_id = ?", organizationID).
+		Where("user_id = ?", userID).
 		First(&vulnerability, vulnerabilityID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.Asset{}, model.Vulnerability{}, ErrVulnerabilityNotFound
@@ -392,12 +392,13 @@ func (r *AssetRepository) findAssetAndVulnerabilityForOrganization(ec *appcontex
 	return asset, vulnerability, nil
 }
 
-func (r *AssetRepository) loadActiveVulnerabilitiesForAsset(ec *appcontext.GinContext, asset *model.Asset, organizationID string) error {
+// loadActiveVulnerabilitiesForAsset loads active vulnerability assignments for an asset.
+func (r *AssetRepository) loadActiveVulnerabilitiesForAsset(ec *appcontext.GinContext, asset *model.Asset, userID string) error {
 	var vulnerabilities []model.Vulnerability
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Model(&model.Vulnerability{}).
 		Joins("JOIN asset_vulnerabilities av ON av.vulnerability_id = vulnerabilities.id AND av.deleted_at IS NULL").
-		Where("av.asset_id = ? AND vulnerabilities.organization_id = ?", asset.ID, organizationID).
+		Where("av.asset_id = ? AND vulnerabilities.user_id = ?", asset.ID, userID).
 		Order("vulnerabilities.id").
 		Find(&vulnerabilities).Error
 	if err != nil {
@@ -454,6 +455,7 @@ func assignRandomAssetAssessmentID(assessment *model.AssetAssessment) error {
 	return nil
 }
 
+// setUpdatedBy records the authenticated user as the last updater when available.
 func setUpdatedBy(ec *appcontext.GinContext, target *model.Model) {
 	if ec == nil || target == nil {
 		return
@@ -467,6 +469,7 @@ func setUpdatedBy(ec *appcontext.GinContext, target *model.Model) {
 	target.UpdatedByID = &userID
 }
 
+// optionalAssetString returns the pointed string value or an empty string.
 func optionalAssetString(value *string) string {
 	if value == nil {
 		return ""
@@ -475,9 +478,9 @@ func optionalAssetString(value *string) string {
 }
 
 // RefreshAssetRisk recalculates and persists the risk level for a single asset.
-func RefreshAssetRisk(tx *gorm.DB, assetID string, organizationID string) error {
+func RefreshAssetRisk(tx *gorm.DB, assetID string, userID string) error {
 	var asset model.Asset
-	if err := tx.Where("organization_id = ?", organizationID).
+	if err := tx.Where("user_id = ?", userID).
 		First(&asset, assetID).Error; err != nil {
 		return err
 	}
@@ -485,12 +488,12 @@ func RefreshAssetRisk(tx *gorm.DB, assetID string, organizationID string) error 
 	var vulnerabilities []model.Vulnerability
 	if err := tx.Model(&model.Vulnerability{}).
 		Joins("JOIN asset_vulnerabilities av ON av.vulnerability_id = vulnerabilities.id AND av.deleted_at IS NULL").
-		Where("av.asset_id = ? AND vulnerabilities.organization_id = ?", assetID, organizationID).
+		Where("av.asset_id = ? AND vulnerabilities.user_id = ?", assetID, userID).
 		Find(&vulnerabilities).Error; err != nil {
 		return err
 	}
 
 	return tx.Model(&model.Asset{}).
-		Where("id = ? AND organization_id = ?", assetID, organizationID).
+		Where("id = ? AND user_id = ?", assetID, userID).
 		Update("risk_level", commonrisk.PointerFromVulnerabilities(vulnerabilities)).Error
 }

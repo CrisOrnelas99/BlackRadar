@@ -1,5 +1,5 @@
-// Package service provides NVD lookup application services.
-package service
+// Package match provides NVD lookup services used by asset matching workflows.
+package match
 
 import (
 	"context"
@@ -28,41 +28,34 @@ func NewNVDLookupService(client cveLookupClient) baseservice.NVDLookupService {
 
 // LookupCVE validates the request and returns official NVD details for one CVE ID.
 func (s *nvdLookupServiceImpl) LookupCVE(ec *appcontext.GinContext, cveID string) (dto.CVELookupResponse, error) {
-	if _, err := baseservice.AuthenticatedUserID(ec); err != nil {
+	if _, err := authenticatedUserID(ec); err != nil {
 		return dto.CVELookupResponse{}, err
 	}
 
-	normalizedCVEID := baseservice.NormalizeCVEID(cveID)
-	if err := baseservice.ValidateCVEID(normalizedCVEID); err != nil {
-		return dto.CVELookupResponse{}, err
+	normalizedCVEID := normalizeCVEID(cveID)
+	if err := validateCVEID(normalizedCVEID); err != nil {
+		return dto.CVELookupResponse{}, ErrInvalidCVEID
 	}
 	if s.client == nil {
-		return dto.CVELookupResponse{}, baseservice.ErrExternalService
+		return dto.CVELookupResponse{}, ErrMatchExternalService
 	}
 
 	ctx, cancel := context.WithTimeout(ec.Request.Context(), 10*time.Second)
 	defer cancel()
 
 	response, err := s.client.LookupCVE(ctx, normalizedCVEID)
-	if err != nil {
-		return dto.CVELookupResponse{}, translateNVDError(err)
-	}
-	return response, nil
-}
-
-func translateNVDError(err error) error {
 	switch {
 	case err == nil:
-		return nil
+		return response, nil
 	case errors.Is(err, nvdcveclient.ErrInvalidCVEID):
-		return fmt.Errorf("%w: %w", baseservice.ErrInvalidRequestData, err)
+		return dto.CVELookupResponse{}, fmt.Errorf("%w: %w", ErrInvalidCVEID, err)
 	case errors.Is(err, nvdcveclient.ErrCVEIDNotFound):
-		return fmt.Errorf("%w: %w", baseservice.ErrNotFound, err)
+		return dto.CVELookupResponse{}, fmt.Errorf("%w: %w", ErrCVENotFound, err)
 	case errors.Is(err, nvdcveclient.ErrNVDRateLimited):
-		return fmt.Errorf("%w: %w", baseservice.ErrRateLimited, err)
+		return dto.CVELookupResponse{}, fmt.Errorf("%w: %w", ErrNVDLookupRateLimited, err)
 	case errors.Is(err, nvdcveclient.ErrNVDUnavailable), errors.Is(err, nvdcveclient.ErrInvalidNVDResponse):
-		return fmt.Errorf("%w: %w", baseservice.ErrExternalService, err)
+		return dto.CVELookupResponse{}, fmt.Errorf("%w: %w", ErrMatchExternalService, err)
 	default:
-		return fmt.Errorf("%w: %v", baseservice.ErrExternalService, err)
+		return dto.CVELookupResponse{}, fmt.Errorf("%w: %v", ErrMatchExternalService, err)
 	}
 }

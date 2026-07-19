@@ -9,12 +9,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
 	"blackradar/api/controller/dto"
 	externalratelimiter "blackradar/api/external/rate_limiter"
-	baseservice "blackradar/api/service"
 )
 
 const (
@@ -32,6 +32,8 @@ var (
 	ErrNVDUnavailable     = errors.New("nvd unavailable")
 	ErrInvalidNVDResponse = errors.New("invalid nvd response")
 )
+
+var cveIDPattern = regexp.MustCompile(`^CVE-\d{4}-\d{4,}$`)
 
 // Client looks up CVE details from the official NVD CVE API.
 type Client struct {
@@ -76,8 +78,8 @@ func NewClientWithHTTPClient(baseURL string, apiKey string, httpClient *http.Cli
 
 // LookupCVE retrieves a single CVE record from NVD and maps it to the app DTO.
 func (c *Client) LookupCVE(ctx context.Context, cveID string) (dto.CVELookupResponse, error) {
-	normalizedCVEID := baseservice.NormalizeCVEID(cveID)
-	if err := baseservice.ValidateCVEID(normalizedCVEID); err != nil {
+	normalizedCVEID := normalizeCVEID(cveID)
+	if err := validateCVEID(normalizedCVEID); err != nil {
 		return dto.CVELookupResponse{}, ErrInvalidCVEID
 	}
 	if !c.limiter.Allow(time.Now()) {
@@ -119,7 +121,7 @@ func (c *Client) LookupCVE(ctx context.Context, cveID string) (dto.CVELookupResp
 	}
 
 	cve := payload.Vulnerabilities[0].CVE
-	if baseservice.NormalizeCVEID(cve.ID) != normalizedCVEID {
+	if normalizeCVEID(cve.ID) != normalizedCVEID {
 		return dto.CVELookupResponse{}, ErrInvalidNVDResponse
 	}
 
@@ -413,6 +415,19 @@ func validateBaseURL(baseURL string) (string, error) {
 	parsed.RawQuery = ""
 	parsed.Fragment = ""
 	return parsed.String(), nil
+}
+
+// normalizeCVEID trims and uppercases a CVE identifier before lookup.
+func normalizeCVEID(cveID string) string {
+	return strings.ToUpper(strings.TrimSpace(cveID))
+}
+
+// validateCVEID verifies the identifier is safe to use with the NVD CVE API.
+func validateCVEID(cveID string) error {
+	if !cveIDPattern.MatchString(normalizeCVEID(cveID)) {
+		return ErrInvalidCVEID
+	}
+	return nil
 }
 
 type cveAPIResponse struct {

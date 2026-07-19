@@ -14,10 +14,9 @@ const (
 	AssetCPEReviewStatusRejected    = "rejected"
 )
 
-// Asset represents a tenant-scoped asset stored in PostgreSQL.
+// Asset represents a user-scoped asset stored in PostgreSQL.
 type Asset struct {
 	Model
-	OrganizationID    string           `gorm:"type:uuid;column:organization_id;index" json:"-"`
 	UserID            string           `gorm:"type:uuid;column:user_id;index" json:"-"`
 	AssetAssessmentID *string          `gorm:"type:uuid;column:asset_assessment_id;not null;uniqueIndex" json:"-"`
 	Name              string           `gorm:"not null" json:"name"`

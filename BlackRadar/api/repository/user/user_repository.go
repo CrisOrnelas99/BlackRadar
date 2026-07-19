@@ -53,7 +53,7 @@ func (r *UserRepository) ExistsByEmail(ec *appcontext.GinContext, email string) 
 
 // Save creates a new user record.
 func (r *UserRepository) Save(ec *appcontext.GinContext, user model.User) (model.User, error) {
-	if user.OrganizationID == "" || user.Username == "" || user.Email == "" || user.PasswordHash == "" {
+	if user.Username == "" || user.Email == "" || user.PasswordHash == "" {
 		return model.User{}, ErrInvalidData
 	}
 

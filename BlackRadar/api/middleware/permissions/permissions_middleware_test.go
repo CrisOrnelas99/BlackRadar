@@ -102,10 +102,9 @@ func setPrincipal(role string) gin.HandlerFunc {
 			panic(err)
 		}
 		if err := ec.SetPrincipal(requestcontext.Principal{
-			UserID:         "00000000-0000-4000-8000-000000000042",
-			Username:       "analyst",
-			Role:           role,
-			OrganizationID: "00000000-0000-4000-8000-000000000099",
+			UserID:   "00000000-0000-4000-8000-000000000042",
+			Username: "analyst",
+			Role:     role,
 		}); err != nil {
 			panic(err)
 		}

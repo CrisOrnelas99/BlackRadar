@@ -160,7 +160,7 @@ func TestAIRateLimitMiddlewareReturns429(t *testing.T) {
 	}
 }
 
-func TestPrincipalOrganizationKeyUsesAuthenticatedOrganization(t *testing.T) {
+func TestPrincipalUserKeyUsesAuthenticatedUser(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	router.Use(contextmiddleware.RequestContext(nil))
@@ -170,13 +170,12 @@ func TestPrincipalOrganizationKeyUsesAuthenticatedOrganization(t *testing.T) {
 			t.Fatalf("expected request context, got %v", err)
 		}
 		if err := ec.SetPrincipal(requestcontext.Principal{
-			UserID:         "00000000-0000-4000-8000-000000000001",
-			OrganizationID: "00000000-0000-4000-8000-000000000099",
+			UserID: "00000000-0000-4000-8000-000000000001",
 		}); err != nil {
 			t.Fatalf("failed to set principal: %v", err)
 		}
 
-		if key := PrincipalOrganizationKey(ctx); key != "organization:00000000-0000-4000-8000-000000000099" {
+		if key := PrincipalUserKey(ctx); key != "user:00000000-0000-4000-8000-000000000001" {
 			t.Fatalf("unexpected key %q", key)
 		}
 		ctx.Status(http.StatusOK)

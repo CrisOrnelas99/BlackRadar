@@ -142,10 +142,9 @@ func Authentication(
 		}
 
 		if err := ec.SetPrincipal(requestcontext.Principal{
-			UserID:         user.ID,
-			Username:       user.Username,
-			Role:           user.Role,
-			OrganizationID: user.OrganizationID,
+			UserID:   user.ID,
+			Username: user.Username,
+			Role:     user.Role,
 		}); err != nil {
 			ec.Logger().Error(
 				"failed to establish authenticated principal",

@@ -32,12 +32,11 @@ import (
 	"blackradar/api/platform/config"
 	platformdb "blackradar/api/platform/db"
 	repositoryasset "blackradar/api/repository/asset"
-	repositoryorganization "blackradar/api/repository/organization"
 	repositoryuser "blackradar/api/repository/user"
 	repositoryvulnerability "blackradar/api/repository/vulnerability"
 	serviceasset "blackradar/api/service/asset"
 	serviceauth "blackradar/api/service/auth"
-	servicenvd "blackradar/api/service/nvd"
+	servicematch "blackradar/api/service/match"
 	servicevulnerability "blackradar/api/service/vulnerability"
 )
 
@@ -77,16 +76,15 @@ func main() {
 	}
 
 	userRepository := repositoryuser.NewUserRepository(gormDB)
-	organizationRepository := repositoryorganization.NewOrganizationRepository(gormDB)
 	assetRepository := repositoryasset.NewAssetRepository(gormDB)
 	refreshSessionRepository := repositoryuser.NewRefreshSessionRepository(gormDB)
 	vulnerabilityRepository := repositoryvulnerability.NewVulnerabilityRepository(gormDB)
-	authService := serviceauth.NewAuthService(jwtManager, organizationRepository, userRepository, refreshSessionRepository)
+	authService := serviceauth.NewAuthService(jwtManager, userRepository, refreshSessionRepository)
 	nvdClient, err := nvdcveclient.NewClient(cfg.NVDAPIBaseURL, cfg.NVDAPIKey)
 	if err != nil {
 		log.Fatalf("nvd client configuration failed: %v", err)
 	}
-	nvdLookupService := servicenvd.NewNVDLookupService(nvdClient)
+	nvdLookupService := servicematch.NewNVDLookupService(nvdClient)
 	cpeClient, err := nvdcpeclient.NewCPEClient(cfg.NVDCPEAPIBaseURL, cfg.NVDAPIKey)
 	if err != nil {
 		log.Fatalf("nvd cpe client configuration failed: %v", err)
@@ -95,7 +93,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("openai client configuration failed: %v", err)
 	}
-	assetMatchService := serviceasset.NewAssetMatchService(assetRepository, vulnerabilityRepository, cpeClient, nvdClient, openAIClient)
+	assetMatchService := servicematch.NewAssetMatchService(assetRepository, vulnerabilityRepository, cpeClient, nvdClient, openAIClient)
 	assetService := serviceasset.NewAssetService(assetRepository, vulnerabilityRepository, nvdLookupService, openAIClient)
 	vulnerabilityService := servicevulnerability.NewVulnerabilityService(vulnerabilityRepository)
 

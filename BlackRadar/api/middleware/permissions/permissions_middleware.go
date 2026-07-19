@@ -53,7 +53,6 @@ func RequireAdmin() gin.HandlerFunc {
 			ec.Logger().Warn(
 				"administrator permission denied",
 				slog.String("user_id", principal.UserID),
-				slog.String("organization_id", principal.OrganizationID),
 				slog.String("role", principal.Role),
 			)
 			abortForbidden(ctx)

@@ -24,16 +24,6 @@ type UserRepository interface {
 	FindByEmail(ec *appcontext.GinContext, email string) (model.User, error)
 }
 
-// OrganizationRepository defines persistence operations for tenant organizations.
-type OrganizationRepository interface {
-	// FindByID returns an organization by its identifier.
-	FindByID(ec *appcontext.GinContext, id string) (model.Organization, error)
-	// FindByName returns an organization by its normalized name.
-	FindByName(ec *appcontext.GinContext, name string) (model.Organization, error)
-	// Save persists a new organization record.
-	Save(ec *appcontext.GinContext, organization model.Organization) (model.Organization, error)
-}
-
 // RefreshSessionRepository defines persistence operations for refresh token sessions.
 type RefreshSessionRepository interface {
 	// Save persists a new refresh session.
@@ -46,42 +36,42 @@ type RefreshSessionRepository interface {
 
 // AssetRepository defines persistence operations for asset records.
 type AssetRepository interface {
-	// FindAllByOrganization returns all assets belonging to an organization.
-	FindAllByOrganization(ec *appcontext.GinContext, organizationID string) ([]model.Asset, error)
-	// FindByIDForOrganization returns a specific asset for an organization.
-	FindByIDForOrganization(ec *appcontext.GinContext, id string, organizationID string) (model.Asset, error)
-	// ExistsBySignatureForOrganization checks whether an asset with the supplied normalized fields already exists for an organization.
-	ExistsBySignatureForOrganization(ec *appcontext.GinContext, asset model.Asset, organizationID string) (bool, error)
+	// FindAllByUser returns all assets belonging to a user.
+	FindAllByUser(ec *appcontext.GinContext, userID string) ([]model.Asset, error)
+	// FindByIDForUser returns a specific asset for a user.
+	FindByIDForUser(ec *appcontext.GinContext, id string, userID string) (model.Asset, error)
+	// ExistsBySignatureForUser checks whether an asset with the supplied normalized fields already exists for a user.
+	ExistsBySignatureForUser(ec *appcontext.GinContext, asset model.Asset, userID string) (bool, error)
 	// Save persists a new asset.
 	Save(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error)
-	// UpdateForOrganization updates an existing asset for an organization.
-	UpdateForOrganization(ec *appcontext.GinContext, id string, organizationID string, asset model.Asset) (model.Asset, error)
-	// UpdateMatchAnalysisForOrganization stores backend-generated CPE match state for an asset.
-	UpdateMatchAnalysisForOrganization(ec *appcontext.GinContext, id string, organizationID string, analysis any) (model.Asset, error)
-	// DeleteForOrganization deletes an organization's asset.
-	DeleteForOrganization(ec *appcontext.GinContext, id string, organizationID string) (model.Asset, error)
-	// AssignVulnerabilityForOrganization associates a vulnerability with an organization's asset.
-	AssignVulnerabilityForOrganization(ec *appcontext.GinContext, assetID string, organizationID string, vulnerabilityID string) (model.Asset, error)
-	// RemoveVulnerabilityForOrganization disassociates a vulnerability from an organization's asset.
-	RemoveVulnerabilityForOrganization(ec *appcontext.GinContext, assetID string, organizationID string, vulnerabilityID string) (model.Asset, error)
+	// UpdateForUser updates an existing asset for a user.
+	UpdateForUser(ec *appcontext.GinContext, id string, userID string, asset model.Asset) (model.Asset, error)
+	// UpdateMatchAnalysisForUser stores backend-generated CPE match state for an asset.
+	UpdateMatchAnalysisForUser(ec *appcontext.GinContext, id string, userID string, analysis any) (model.Asset, error)
+	// DeleteForUser deletes a user's asset.
+	DeleteForUser(ec *appcontext.GinContext, id string, userID string) (model.Asset, error)
+	// AssignVulnerabilityForUser associates a vulnerability with a user's asset.
+	AssignVulnerabilityForUser(ec *appcontext.GinContext, assetID string, userID string, vulnerabilityID string) (model.Asset, error)
+	// RemoveVulnerabilityForUser disassociates a vulnerability from a user's asset.
+	RemoveVulnerabilityForUser(ec *appcontext.GinContext, assetID string, userID string, vulnerabilityID string) (model.Asset, error)
 }
 
 // VulnerabilityRepository defines persistence operations for vulnerability records.
 type VulnerabilityRepository interface {
-	// FindAllByOrganization returns all vulnerabilities owned by an organization.
-	FindAllByOrganization(ec *appcontext.GinContext, organizationID string) ([]model.Vulnerability, error)
-	// FindByIDForOrganization returns a specific vulnerability for an organization.
-	FindByIDForOrganization(ec *appcontext.GinContext, id string, organizationID string) (model.Vulnerability, error)
-	// ExistsByCVEIDForOrganization checks whether a vulnerability CVE ID exists for an organization.
-	ExistsByCVEIDForOrganization(ec *appcontext.GinContext, cveID string, organizationID string) (bool, error)
-	// ExistsByCVEIDExcludingIDForOrganization checks whether a CVE ID exists for an organization excluding a specific record.
-	ExistsByCVEIDExcludingIDForOrganization(ec *appcontext.GinContext, cveID string, id string, organizationID string) (bool, error)
-	// FindByCVEIDForOrganization returns a vulnerability by CVE ID for an organization.
-	FindByCVEIDForOrganization(ec *appcontext.GinContext, cveID string, organizationID string) (model.Vulnerability, error)
+	// FindAllByUser returns all vulnerabilities owned by a user.
+	FindAllByUser(ec *appcontext.GinContext, userID string) ([]model.Vulnerability, error)
+	// FindByIDForUser returns a specific vulnerability for a user.
+	FindByIDForUser(ec *appcontext.GinContext, id string, userID string) (model.Vulnerability, error)
+	// ExistsByCVEIDForUser checks whether a vulnerability CVE ID exists for a user.
+	ExistsByCVEIDForUser(ec *appcontext.GinContext, cveID string, userID string) (bool, error)
+	// ExistsByCVEIDExcludingIDForUser checks whether a CVE ID exists for a user excluding a specific record.
+	ExistsByCVEIDExcludingIDForUser(ec *appcontext.GinContext, cveID string, id string, userID string) (bool, error)
+	// FindByCVEIDForUser returns a vulnerability by CVE ID for a user.
+	FindByCVEIDForUser(ec *appcontext.GinContext, cveID string, userID string) (model.Vulnerability, error)
 	// Save persists a new vulnerability.
 	Save(ec *appcontext.GinContext, vulnerability model.Vulnerability) (model.Vulnerability, error)
-	// UpdateForOrganization updates an existing vulnerability for an organization.
-	UpdateForOrganization(ec *appcontext.GinContext, id string, organizationID string, vulnerability model.Vulnerability) (model.Vulnerability, error)
-	// DeleteForOrganization deletes a vulnerability for an organization.
-	DeleteForOrganization(ec *appcontext.GinContext, id string, organizationID string) (model.Vulnerability, error)
+	// UpdateForUser updates an existing vulnerability for a user.
+	UpdateForUser(ec *appcontext.GinContext, id string, userID string, vulnerability model.Vulnerability) (model.Vulnerability, error)
+	// DeleteForUser deletes a vulnerability for a user.
+	DeleteForUser(ec *appcontext.GinContext, id string, userID string) (model.Vulnerability, error)
 }

@@ -1,5 +1,5 @@
-// Package service verifies NVD lookup service behavior.
-package service
+// Package match verifies NVD lookup service behavior.
+package match
 
 import (
 	"context"
@@ -16,7 +16,6 @@ import (
 	nvdcveclient "blackradar/api/external/nvd_cve"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
-	baseservice "blackradar/api/service"
 )
 
 // TestNVDLookupService verifies validation and successful lookup behavior.
@@ -44,7 +43,7 @@ func TestNVDLookupServiceValidation(t *testing.T) {
 	ec := newNVDServiceContext(t, "00000000-0000-4000-8000-000000000042")
 
 	_, err := svc.LookupCVE(ec, "https://evil.example/cve")
-	if !errors.Is(err, baseservice.ErrInvalidRequestData) {
+	if !errors.Is(err, ErrInvalidCVEID) {
 		t.Fatalf("expected invalid request data, got %v", err)
 	}
 	if client.called {
@@ -57,7 +56,7 @@ func TestNVDLookupServiceRejectsMissingClient(t *testing.T) {
 	ec := newNVDServiceContext(t, "00000000-0000-4000-8000-000000000042")
 
 	_, err := svc.LookupCVE(ec, "CVE-2021-44228")
-	if !errors.Is(err, baseservice.ErrExternalService) {
+	if !errors.Is(err, ErrMatchExternalService) {
 		t.Fatalf("expected external service error, got %v", err)
 	}
 }
@@ -69,9 +68,9 @@ func TestNVDLookupServiceErrorMapping(t *testing.T) {
 		err  error
 		want error
 	}{
-		{name: "not found", err: nvdcveclient.ErrCVEIDNotFound, want: baseservice.ErrNotFound},
-		{name: "rate limited", err: nvdcveclient.ErrNVDRateLimited, want: baseservice.ErrRateLimited},
-		{name: "invalid response", err: nvdcveclient.ErrInvalidNVDResponse, want: baseservice.ErrExternalService},
+		{name: "not found", err: nvdcveclient.ErrCVEIDNotFound, want: ErrCVENotFound},
+		{name: "rate limited", err: nvdcveclient.ErrNVDRateLimited, want: ErrNVDLookupRateLimited},
+		{name: "invalid response", err: nvdcveclient.ErrInvalidNVDResponse, want: ErrMatchExternalService},
 	}
 
 	for _, tc := range cases {
@@ -108,10 +107,9 @@ func newNVDServiceContext(t *testing.T, userID string) *appcontext.GinContext {
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 	ec := appcontext.NewGinContext(ctx, "txn-123", slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err := ec.SetPrincipal(appcontext.Principal{
-		UserID:         userID,
-		Username:       "analyst",
-		Role:           model.RoleAdmin,
-		OrganizationID: "00000000-0000-4000-8000-000000000099",
+		UserID:   userID,
+		Username: "analyst",
+		Role:     model.RoleAdmin,
 	}); err != nil {
 		t.Fatalf("failed to set test principal: %v", err)
 	}

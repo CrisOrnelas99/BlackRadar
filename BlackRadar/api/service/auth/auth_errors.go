@@ -37,3 +37,15 @@ var (
 	ErrInvalidLoginCredentials = &AuthCredentialsError{Message: "invalid credentials"}
 	ErrInvalidRefreshToken     = &AuthCredentialsError{Message: "invalid refresh token"}
 )
+
+type AuthInternalError struct {
+	Message string
+}
+
+func (e AuthInternalError) Error() string {
+	return e.Message
+}
+
+var (
+	ErrAuthInternal = &AuthInternalError{Message: "authentication service error"}
+)

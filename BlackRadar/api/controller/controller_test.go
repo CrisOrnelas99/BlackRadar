@@ -80,16 +80,6 @@ func TestControllerHelper(t *testing.T) {
 		}
 	})
 
-	t.Run("handle service error", func(t *testing.T) {
-		ec, recorder := newControllerContext(t, http.MethodGet, "/resource", "")
-		if !basecontroller.HandleServiceError(ec, service.ErrNotFound, basecontroller.ServiceErrorMessages{NotFound: "Resource not found"}) {
-			t.Fatal("expected service error to be handled")
-		}
-		if recorder.Code != http.StatusNotFound {
-			t.Fatalf("expected status %d, got %d", http.StatusNotFound, recorder.Code)
-		}
-	})
-
 	t.Run("handle error", func(t *testing.T) {
 		ec, recorder := newControllerContext(t, http.MethodGet, "/resource", "")
 		if !basecontroller.HandleError(ec, http.StatusBadRequest, errors.New("boom"), "Invalid request body") {
@@ -115,7 +105,7 @@ func TestRegisterRoutes(t *testing.T) {
 	engine := gin.New()
 	engine.Use(contextmiddleware.RequestContext(nil))
 	jwtManager := newTestJWTManager(t)
-	lookup := &fakeUserLookup{exists: true, user: model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, OrganizationID: "00000000-0000-4000-8000-000000000099", Username: "analyst", Role: model.RoleAdmin}}
+	lookup := &fakeUserLookup{exists: true, user: model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, Username: "analyst", Role: model.RoleAdmin}}
 	sessions := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: "00000000-0000-4000-8000-000000000001"}}
 
 	authController := controllerauth.NewAuthController(&fakeAuthService{})
@@ -227,7 +217,7 @@ func TestRegisterRoutesRejectsVulnerabilityRoutesForNonAdmin(t *testing.T) {
 	engine := gin.New()
 	engine.Use(contextmiddleware.RequestContext(nil))
 	jwtManager := newTestJWTManager(t)
-	lookup := &fakeUserLookup{exists: true, user: model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, OrganizationID: "00000000-0000-4000-8000-000000000099", Username: "analyst", Role: model.RoleUser}}
+	lookup := &fakeUserLookup{exists: true, user: model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, Username: "analyst", Role: model.RoleUser}}
 	sessions := &fakeRefreshSessionLookup{session: model.RefreshSession{TokenID: "session-1", UserID: "00000000-0000-4000-8000-000000000001"}}
 
 	vulnerabilityController := controllervulnerability.NewVulnerabilityController(&fakeVulnerabilityService{vulnerability: sampleVulnerability(), vulnerabilities: []model.Vulnerability{sampleVulnerability()}})

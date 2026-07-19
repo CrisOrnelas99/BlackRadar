@@ -52,3 +52,27 @@ var (
 	ErrAssetNotFound              = &AssetNotFoundError{Message: "asset not found"}
 	ErrAssetVulnerabilityNotFound = &AssetNotFoundError{Message: "vulnerability not found"}
 )
+
+type AssetExternalServiceError struct {
+	Message string
+}
+
+func (e AssetExternalServiceError) Error() string {
+	return e.Message
+}
+
+var (
+	ErrAssetExternalService = &AssetExternalServiceError{Message: "external service unavailable"}
+)
+
+type AssetInternalError struct {
+	Message string
+}
+
+func (e AssetInternalError) Error() string {
+	return e.Message
+}
+
+var (
+	ErrAssetInternal = &AssetInternalError{Message: "asset service error"}
+)

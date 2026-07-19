@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestSchemaStatementsDoNotAssignFallbackOrganization(t *testing.T) {
+func TestSchemaStatementsDoNotAssignFallbackTenant(t *testing.T) {
 	for _, statement := range schemaStatements() {
 		if strings.Contains(statement, "admin_home") {
 			t.Fatalf("expected schema statements to avoid fallback tenant assignment, found %q", statement)
@@ -15,9 +15,9 @@ func TestSchemaStatementsDoNotAssignFallbackOrganization(t *testing.T) {
 
 func TestConstraintStatementScopesConstraintToTable(t *testing.T) {
 	statement := constraintStatement(
-		"fk_users_organization",
+		"fk_assets_user",
 		"users",
-		`ALTER TABLE users ADD CONSTRAINT fk_users_organization FOREIGN KEY (organization_id) REFERENCES organizations(id)`,
+		`ALTER TABLE assets ADD CONSTRAINT fk_assets_user FOREIGN KEY (user_id) REFERENCES users(id)`,
 	)
 
 	if !strings.Contains(statement, "conrelid = 'users'::regclass") {

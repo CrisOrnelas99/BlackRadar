@@ -1,6 +1,6 @@
 # BlackRadar Security Platform
 
-BlackRadar Security Platform is a focused cybersecurity asset risk platform. It combines asset inventory, vulnerability intelligence, and AI-assisted workflows to help teams understand risk across organizations, applications, home networks, and imported asset inventories.
+BlackRadar Security Platform is a focused cybersecurity asset risk platform. It combines asset inventory, vulnerability intelligence, and AI-assisted workflows to help users understand risk across applications, home networks, and imported asset inventories.
 
 For implementation details and agent rules, use `ARCHITECTURE.md`, `CLEANCODE.md`, and `SECURITY.md` together. `README.md` stays at the product and setup level.
 
@@ -27,16 +27,16 @@ Key capabilities include:
 
 - asset inventory with product-aware metadata
 - vulnerability tracking and asset-to-vulnerability assignment
-- organization-scoped data separation
+- user-scoped asset and vulnerability separation
 - backend-enforced authorization and security controls
 - backend rate limiting on auth and NVD lookup endpoints
 - short-lived access tokens with server-side refresh-token sessions
 - request-scoped GORM database sessions with explicit transactions for atomic writes
 - backend OpenAI-assisted asset creation, CPE matching, and NVD vulnerability attachment
 - planned certificate-based authentication for privileged internal service calls
-- planned organization switching, workflow, alerting, frontend AI flows, and chatbot features listed below
+- planned workflow, alerting, frontend AI flows, organization support, and chatbot features listed below
 
-The platform supports multiple inventory contexts, including organization portfolios, applications, home networks, and imported raw asset lists.
+The platform supports multiple inventory contexts, including applications, home networks, and imported raw asset lists.
 
 ## Architecture
 
@@ -99,7 +99,7 @@ The repository currently contains these working foundations:
 - persisted asset assessment metadata, including risk score, product fingerprint, selected CPE, confidence, review status, review notes, candidate count, and matched timestamp
 - CPE-based NVD CVE lookup and bounded vulnerability attachment to assets
 - admin-only AI diagnostic endpoints
-- organization-aware registration and tenant membership
+- user-owned assets and vulnerabilities
 - PostgreSQL UUID primary keys through embedded model metadata
 - request-scoped GORM database sessions with explicit service-owned transactions for atomic writes
 - GORM soft-delete support for audit-relevant records and active-row uniqueness
@@ -115,15 +115,15 @@ The repository currently contains these working foundations:
 
 Future work documented in `ARCHITECTURE.md` includes:
 
-- organization listing and active organization switching
-- application-aware scoping on top of the organization boundary
-- multi-organization membership with active organization switching
+- future organization listing and active organization switching
+- future application-aware scoping on top of a server-side ownership boundary
+- future multi-organization membership with active organization switching
 - frontend workflows for AI-assisted asset creation, CPE review, and vulnerability attachment
 - asset-scoped chatbot and guided security answers
 - remediation workflows, work orders, checklist items, and exceptions
 - alerting and CVE refresh services
 - dashboard analytics and risk trend reporting
-- organization-aware API and UI flows for assets, vulnerabilities, and memberships
+- future organization-aware API and UI flows for assets, vulnerabilities, and memberships
 - HTTPS/TLS enforcement with certificate handling at the deployment boundary
 - backend-issued internal service certificates for privileged `/internal` service authentication
 - GitHub Actions CI/CD pipeline for tests, builds, and protected releases
@@ -211,7 +211,7 @@ docker compose up --build
 ```
 
 The backend container sets `BOOTSTRAP_DEV_DATA=true`, so Compose startup also requires `BOOTSTRAP_DEV_PASSWORD` in the root `.env` file.
-When that password is supplied, the seeded `system_admin` test account is available after a fresh compose start and belongs to the `admin_home` organization.
+When that password is supplied, the seeded `system_admin` test account is available after a fresh compose start.
 
 Default endpoints:
 
@@ -252,12 +252,11 @@ Docker Compose reads `.env` for containers.
 
 - admin username: `system_admin`
 - email: `system_admin@example.invalid`
-- organization: `admin_home`
 - password: value from `BOOTSTRAP_DEV_PASSWORD`
 - one test device asset
 - one assigned example vulnerability: `CVE-2021-44228`
 
-Registration also requires an organization name so new users are bound to the correct tenant boundary at signup.
+Registration accepts only user identity and password fields. Organization membership is not part of the current implementation.
 
 The bootstrap flag is rejected outside `local`, `development`, and `test` environments.
 Bootstrap also requires `BOOTSTRAP_DEV_PASSWORD` and does not keep a default password in source control.
@@ -304,7 +303,7 @@ Authentication
 - `POST /api/auth/refresh`
 - `POST /api/auth/logout`
 
-Registration accepts `username`, `email`, `organization`, and `password`.
+Registration accepts `username`, `email`, and `password`.
 
 Assets
 - `GET /api/assets`
@@ -336,11 +335,10 @@ AI diagnostics
 
 ### Planned API areas
 
-- `GET /api/organizations`
-- `POST /api/organizations/switch`
+- future organization membership and switching endpoints
 - `POST /api/assets/{id}/chat`
 - asset alert endpoints
-- organization-scoped work order workflows
+- organization-scoped work order workflows after organization support is reintroduced
 - comment and remediation endpoints
 - checklist and exception endpoints for remediation workflows
 - `POST /api/sync/nvd`
@@ -353,14 +351,13 @@ AI diagnostics
 
 The current model is centered on:
 
-- `organizations`
 - `users`
 - `assets`
 - `vulnerabilities`
 - `asset_vulnerabilities`
 - `refresh_sessions`
 
-Users, assets, and vulnerabilities are scoped to one organization.
+Users own their assets and vulnerabilities directly in the current implementation.
 Assets keep core inventory fields plus `riskLevel`, `criticality`, and a linked assessment record. `riskLevel` stays null until vulnerabilities are attached and the backend derives a value from their severities. The linked `asset_assessments` data holds `riskScore`, product fingerprint, selected CPE, confidence, review status, review notes, candidate count, and match timestamp.
 
 Future expansions may include:
@@ -373,7 +370,7 @@ Future expansions may include:
 - `comments`
 - optional `chat_sessions` and `chat_messages`
 - sync history records
-- organization membership and active-organization records
+- future organization membership and active-organization records
 - audit and notification records for sensitive actions
 
 ### Asset model goals
