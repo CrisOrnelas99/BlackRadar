@@ -11,11 +11,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
 	"blackradar/api/model"
+	appcontext "blackradar/api/platform/requestcontext"
 	baserepository "blackradar/api/repository"
 	assetrepo "blackradar/api/repository/asset"
+	vulnrepo "blackradar/api/repository/vulnerability"
 	baseservice "blackradar/api/service"
 )
 
@@ -44,13 +45,13 @@ func TestAssetServiceHelpers(t *testing.T) {
 	if err := baseservice.ValidateAsset(sampleAsset()); err != nil {
 		t.Fatalf("expected valid asset, got %v", err)
 	}
-	if !errors.Is(baseservice.TranslateRepositoryError(baserepository.ErrAssetNotFound), baseservice.ErrNotFound) {
+	if !errors.Is(baseservice.TranslateRepositoryError(assetrepo.ErrAssetNotFound), baseservice.ErrNotFound) {
 		t.Fatal("expected not found translation")
 	}
-	if !errors.Is(baseservice.TranslateRepositoryError(baserepository.ErrDuplicateAssignment), baseservice.ErrConflict) {
+	if !errors.Is(baseservice.TranslateRepositoryError(assetrepo.ErrDuplicateAssignment), baseservice.ErrConflict) {
 		t.Fatal("expected conflict translation")
 	}
-	if !errors.Is(baseservice.TranslateRepositoryError(baserepository.ErrInvalidData), baseservice.ErrInvalidRequestData) {
+	if !errors.Is(baseservice.TranslateRepositoryError(assetrepo.ErrInvalidData), baseservice.ErrInvalidRequestData) {
 		t.Fatal("expected invalid request data translation")
 	}
 
@@ -65,13 +66,13 @@ func TestAssetServiceHelpers(t *testing.T) {
 
 // TestAssetServiceValidationAndTranslation verifies validation and error mapping.
 func TestAssetServiceValidationAndTranslation(t *testing.T) {
-	svc := NewAssetService(&fakeAssetRepository{findErr: baserepository.ErrAssetNotFound}, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{}, nil)
+	svc := NewAssetService(&fakeAssetRepository{findErr: assetrepo.ErrAssetNotFound}, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{}, nil)
 	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042", "00000000-0000-4000-8000-000000000099")
 
-	if _, err := svc.GetAsset(ctx, "00000000-0000-4000-8000-000000000001"); !errors.Is(err, baseservice.ErrNotFound) {
+	if _, err := svc.GetAsset(ctx, "00000000-0000-4000-8000-000000000001"); !errors.Is(err, ErrAssetNotFound) {
 		t.Fatalf("expected not found translation, got %v", err)
 	}
-	if _, err := svc.CreateAsset(ctx, model.Asset{}); !errors.Is(err, baseservice.ErrInvalidRequestData) {
+	if _, err := svc.CreateAsset(ctx, model.Asset{}); !errors.Is(err, ErrInvalidAssetData) {
 		t.Fatalf("expected invalid request data, got %v", err)
 	}
 }
@@ -119,7 +120,7 @@ func TestAssetServiceRejectsDuplicateAssetSignaturePerOrganization(t *testing.T)
 		Owner:       "cloud engineer",
 		Criticality: "Medium",
 	})
-	if !errors.Is(err, baseservice.ErrConflict) {
+	if !errors.Is(err, ErrDuplicateAsset) {
 		t.Fatalf("expected duplicate asset signature to be rejected with conflict, got %v", err)
 	}
 }
@@ -129,7 +130,7 @@ func TestAssetServiceRejectsWrongOrganization(t *testing.T) {
 	svc := NewAssetService(repo, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{}, nil)
 	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042", "00000000-0000-4000-8000-000000000100")
 
-	if _, err := svc.GetAsset(ctx, "00000000-0000-4000-8000-000000000001"); !errors.Is(err, baseservice.ErrNotFound) {
+	if _, err := svc.GetAsset(ctx, "00000000-0000-4000-8000-000000000001"); !errors.Is(err, ErrAssetNotFound) {
 		t.Fatalf("expected wrong organization access to be hidden as not found, got %v", err)
 	}
 }
@@ -137,7 +138,7 @@ func TestAssetServiceRejectsWrongOrganization(t *testing.T) {
 // TestAssetServiceAssignVulnerabilityByCVE verifies the NVD-backed assignment flow stores local data.
 func TestAssetServiceAssignVulnerabilityByCVE(t *testing.T) {
 	assetRepo := &fakeAssetRepository{asset: sampleAsset()}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: baserepository.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
 	nvdSvc := &fakeNVDLookupService{response: dto.CVELookupResponse{
 		CVEID:       "CVE-2024-3094",
 		Title:       "XZ Utils Backdoor",
@@ -170,7 +171,7 @@ func TestAssetServiceAssignVulnerabilityByCVEValidatesCVEBeforeLookup(t *testing
 	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042", "00000000-0000-4000-8000-000000000099")
 	ctx.SetUserRole(model.RoleAdmin)
 
-	if _, err := svc.AssignVulnerabilityByCVE(ctx, "00000000-0000-4000-8000-000000000001", "not-a-cve"); !errors.Is(err, baseservice.ErrInvalidRequestData) {
+	if _, err := svc.AssignVulnerabilityByCVE(ctx, "00000000-0000-4000-8000-000000000001", "not-a-cve"); !errors.Is(err, ErrInvalidAssetCVEID) {
 		t.Fatalf("expected invalid cve to be rejected, got %v", err)
 	}
 	if assetRepo.findByIDCalls != 0 {
@@ -245,13 +246,13 @@ func TestAssetServiceRejectsVulnerabilityActionsForNonAdmin(t *testing.T) {
 	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042", "00000000-0000-4000-8000-000000000099")
 	ctx.SetUserRole(model.RoleUser)
 
-	if _, err := svc.AssignVulnerability(ctx, "00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"); !errors.Is(err, baseservice.ErrForbidden) {
+	if _, err := svc.AssignVulnerability(ctx, "00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"); !errors.Is(err, ErrVulnerabilityManagementDenied) {
 		t.Fatalf("expected assign vulnerability to be forbidden, got %v", err)
 	}
-	if _, err := svc.AssignVulnerabilityByCVE(ctx, "00000000-0000-4000-8000-000000000001", "CVE-2024-3094"); !errors.Is(err, baseservice.ErrForbidden) {
+	if _, err := svc.AssignVulnerabilityByCVE(ctx, "00000000-0000-4000-8000-000000000001", "CVE-2024-3094"); !errors.Is(err, ErrVulnerabilityManagementDenied) {
 		t.Fatalf("expected assign by cve to be forbidden, got %v", err)
 	}
-	if _, err := svc.RemoveVulnerability(ctx, "00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"); !errors.Is(err, baseservice.ErrForbidden) {
+	if _, err := svc.RemoveVulnerability(ctx, "00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"); !errors.Is(err, ErrVulnerabilityManagementDenied) {
 		t.Fatalf("expected remove vulnerability to be forbidden, got %v", err)
 	}
 }
@@ -272,7 +273,7 @@ type fakeAssetRepository struct {
 // FindAllByUser returns the configured fake asset list.
 func (f *fakeAssetRepository) FindAllByOrganization(ec *appcontext.GinContext, organizationID string) ([]model.Asset, error) {
 	if f.expectedOrganizationID != "" && organizationID != f.expectedOrganizationID {
-		return nil, baserepository.ErrAssetNotFound
+		return nil, assetrepo.ErrAssetNotFound
 	}
 	return f.assets, f.findErr
 }
@@ -281,7 +282,7 @@ func (f *fakeAssetRepository) FindAllByOrganization(ec *appcontext.GinContext, o
 func (f *fakeAssetRepository) FindByIDForOrganization(ec *appcontext.GinContext, id string, organizationID string) (model.Asset, error) {
 	f.findByIDCalls++
 	if f.expectedOrganizationID != "" && organizationID != f.expectedOrganizationID {
-		return model.Asset{}, baserepository.ErrAssetNotFound
+		return model.Asset{}, assetrepo.ErrAssetNotFound
 	}
 	if f.findErr != nil {
 		return model.Asset{}, f.findErr

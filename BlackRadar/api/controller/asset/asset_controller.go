@@ -2,13 +2,15 @@
 package controller
 
 import (
+	"errors"
 	"net/http"
 
-	appcontext "blackradar/api/context"
 	basecontroller "blackradar/api/controller"
 	"blackradar/api/controller/dto"
 	"blackradar/api/model"
+	appcontext "blackradar/api/platform/requestcontext"
 	baseservice "blackradar/api/service"
+	assetservice "blackradar/api/service/asset"
 )
 
 // AssetController handles asset-related HTTP requests.
@@ -225,6 +227,22 @@ func (c *AssetController) MatchAssetCPEAndAttachVulnerabilities(ec *appcontext.G
 
 // handleAssetServiceError maps asset service sentinels to HTTP responses.
 func handleAssetServiceError(ec *appcontext.GinContext, err error) bool {
+	switch {
+	case errors.Is(err, assetservice.ErrInvalidAssetData),
+		errors.Is(err, assetservice.ErrInvalidAssetText),
+		errors.Is(err, assetservice.ErrInvalidAssetCVEID):
+		return basecontroller.HandleError(ec, http.StatusBadRequest, err, err.Error())
+	case errors.Is(err, assetservice.ErrDuplicateAsset),
+		errors.Is(err, assetservice.ErrDuplicateAssetVulnerability):
+		return basecontroller.HandleError(ec, http.StatusConflict, err, err.Error())
+	case errors.Is(err, assetservice.ErrAssetPermissionDenied),
+		errors.Is(err, assetservice.ErrVulnerabilityManagementDenied):
+		return basecontroller.HandleError(ec, http.StatusForbidden, err, err.Error())
+	case errors.Is(err, assetservice.ErrAssetNotFound),
+		errors.Is(err, assetservice.ErrAssetVulnerabilityNotFound):
+		return basecontroller.HandleError(ec, http.StatusNotFound, err, err.Error())
+	}
+
 	return basecontroller.HandleServiceError(ec, err, basecontroller.ServiceErrorMessages{
 		NotFound:        "Asset not found",
 		ExternalService: "External service unavailable",

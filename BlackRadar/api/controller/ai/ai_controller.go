@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	appcontext "blackradar/api/context"
 	basecontroller "blackradar/api/controller"
 	"blackradar/api/controller/dto"
+	appcontext "blackradar/api/platform/requestcontext"
 	baseservice "blackradar/api/service"
 	aiservice "blackradar/api/service/prompt"
 )

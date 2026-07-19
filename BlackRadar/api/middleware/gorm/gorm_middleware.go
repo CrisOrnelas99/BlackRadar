@@ -2,14 +2,17 @@
 package gormmiddleware
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	requestcontext "blackradar/api/context"
+	requestcontext "blackradar/api/platform/requestcontext"
 )
+
+var ErrDatabaseUnavailable = errors.New("database unavailable")
 
 // RequestDatabase adds a request-context-aware database session to GinContext.
 //

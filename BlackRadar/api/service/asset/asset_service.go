@@ -3,13 +3,16 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
-	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
 	"blackradar/api/model"
+	appcontext "blackradar/api/platform/requestcontext"
 	baserepository "blackradar/api/repository"
+	assetrepository "blackradar/api/repository/asset"
+	vulnerabilityrepository "blackradar/api/repository/vulnerability"
 	baseservice "blackradar/api/service"
 	promptservice "blackradar/api/service/prompt"
 )
@@ -48,6 +51,9 @@ func (s *assetServiceImpl) GetAsset(ec *appcontext.GinContext, id string) (model
 		return model.Asset{}, err
 	}
 	asset, err := s.assetRepository.FindByIDForOrganization(ec, id, organizationID)
+	if errors.Is(err, assetrepository.ErrAssetNotFound) {
+		return model.Asset{}, ErrAssetNotFound
+	}
 	return asset, baseservice.TranslateRepositoryError(err)
 }
 
@@ -55,7 +61,7 @@ func (s *assetServiceImpl) GetAsset(ec *appcontext.GinContext, id string) (model
 func (s *assetServiceImpl) CreateAsset(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
 	asset = normalizeAssetDisplayFields(asset)
 	if err := baseservice.ValidateAsset(asset); err != nil {
-		return model.Asset{}, err
+		return model.Asset{}, ErrInvalidAssetData
 	}
 
 	userID, err := baseservice.AuthenticatedUserID(ec)
@@ -72,7 +78,7 @@ func (s *assetServiceImpl) CreateAsset(ec *appcontext.GinContext, asset model.As
 		return model.Asset{}, baseservice.TranslateRepositoryError(err)
 	}
 	if exists {
-		return model.Asset{}, baseservice.ErrConflict
+		return model.Asset{}, ErrDuplicateAsset
 	}
 
 	asset.UserID = userID
@@ -90,12 +96,12 @@ func (s *assetServiceImpl) CreateAssetFromAI(ec *appcontext.GinContext, rawText 
 
 	sanitizedText, err := baseservice.SanitizeAIIngestionText(rawText)
 	if err != nil {
-		return model.Asset{}, err
+		return model.Asset{}, ErrInvalidAssetText
 	}
 
 	response, err := s.textAI.GenerateText(ec.RequestContext(), promptservice.BuildAssetCreationExtractionRequest(sanitizedText))
 	if err != nil {
-		return model.Asset{}, fmt.Errorf("%w: asset extraction failed", baseservice.ErrExternalService)
+		return model.Asset{}, fmt.Errorf("%w: asset AI extraction failed: %w", baseservice.ErrExternalService, err)
 	}
 
 	asset, err := assetFromAIExtraction(response.Text)
@@ -110,7 +116,7 @@ func (s *assetServiceImpl) CreateAssetFromAI(ec *appcontext.GinContext, rawText 
 func (s *assetServiceImpl) UpdateAsset(ec *appcontext.GinContext, id string, asset model.Asset) (model.Asset, error) {
 	asset = normalizeAssetDisplayFields(asset)
 	if err := baseservice.ValidateAsset(asset); err != nil {
-		return model.Asset{}, err
+		return model.Asset{}, ErrInvalidAssetData
 	}
 
 	organizationID, err := baseservice.AuthenticatedOrganizationID(ec)
@@ -119,6 +125,9 @@ func (s *assetServiceImpl) UpdateAsset(ec *appcontext.GinContext, id string, ass
 	}
 
 	updated, err := s.assetRepository.UpdateForOrganization(ec, id, organizationID, asset)
+	if errors.Is(err, assetrepository.ErrAssetNotFound) {
+		return model.Asset{}, ErrAssetNotFound
+	}
 	return updated, baseservice.TranslateRepositoryError(err)
 }
 
@@ -129,6 +138,9 @@ func (s *assetServiceImpl) DeleteAsset(ec *appcontext.GinContext, id string) (mo
 		return model.Asset{}, err
 	}
 	asset, err := s.assetRepository.DeleteForOrganization(ec, id, organizationID)
+	if errors.Is(err, assetrepository.ErrAssetNotFound) {
+		return model.Asset{}, ErrAssetNotFound
+	}
 	return asset, baseservice.TranslateRepositoryError(err)
 }
 
@@ -136,10 +148,10 @@ func (s *assetServiceImpl) DeleteAsset(ec *appcontext.GinContext, id string) (mo
 func (s *assetServiceImpl) AssignVulnerability(ec *appcontext.GinContext, assetID string, vulnerabilityID string) (model.Asset, error) {
 	role, err := baseservice.AuthenticatedRole(ec)
 	if err != nil {
-		return model.Asset{}, baseservice.ErrForbidden
+		return model.Asset{}, ErrAssetPermissionDenied
 	}
 	if !baseservice.CanManageVulnerabilities(role) {
-		return model.Asset{}, baseservice.ErrForbidden
+		return model.Asset{}, ErrVulnerabilityManagementDenied
 	}
 
 	organizationID, err := baseservice.AuthenticatedOrganizationID(ec)
@@ -147,17 +159,26 @@ func (s *assetServiceImpl) AssignVulnerability(ec *appcontext.GinContext, assetI
 		return model.Asset{}, err
 	}
 	asset, err := s.assetRepository.AssignVulnerabilityForOrganization(ec, assetID, organizationID, vulnerabilityID)
-	return asset, baseservice.TranslateRepositoryError(err)
+	switch {
+	case errors.Is(err, assetrepository.ErrAssetNotFound):
+		return model.Asset{}, ErrAssetNotFound
+	case errors.Is(err, assetrepository.ErrVulnerabilityNotFound):
+		return model.Asset{}, ErrAssetVulnerabilityNotFound
+	case errors.Is(err, assetrepository.ErrDuplicateAssignment):
+		return model.Asset{}, ErrDuplicateAssetVulnerability
+	default:
+		return asset, baseservice.TranslateRepositoryError(err)
+	}
 }
 
 // AssignVulnerabilityByCVE looks up or stores a local vulnerability by CVE ID, then assigns it to the asset.
 func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, assetID string, cveID string) (model.Asset, error) {
 	role, err := baseservice.AuthenticatedRole(ec)
 	if err != nil {
-		return model.Asset{}, baseservice.ErrForbidden
+		return model.Asset{}, ErrAssetPermissionDenied
 	}
 	if !baseservice.CanManageVulnerabilities(role) {
-		return model.Asset{}, baseservice.ErrForbidden
+		return model.Asset{}, ErrVulnerabilityManagementDenied
 	}
 
 	organizationID, err := baseservice.AuthenticatedOrganizationID(ec)
@@ -167,11 +188,14 @@ func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, a
 
 	normalizedCVEID := baseservice.NormalizeCVEID(cveID)
 	if err := baseservice.ValidateCVEID(normalizedCVEID); err != nil {
-		return model.Asset{}, err
+		return model.Asset{}, ErrInvalidAssetCVEID
 	}
 
 	asset, err := s.assetRepository.FindByIDForOrganization(ec, assetID, organizationID)
 	if err != nil {
+		if errors.Is(err, assetrepository.ErrAssetNotFound) {
+			return model.Asset{}, ErrAssetNotFound
+		}
 		return model.Asset{}, baseservice.TranslateRepositoryError(err)
 	}
 
@@ -181,7 +205,7 @@ func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, a
 	}
 
 	existingVulnerability, err := s.vulnerabilityRepository.FindByCVEIDForOrganization(ec, normalizedCVEID, organizationID)
-	if err != nil && err != baserepository.ErrVulnerabilityNotFound {
+	if err != nil && !errors.Is(err, vulnerabilityrepository.ErrVulnerabilityNotFound) {
 		return model.Asset{}, baseservice.TranslateRepositoryError(err)
 	}
 
@@ -192,6 +216,9 @@ func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, a
 
 	asset, err = s.assetRepository.AssignVulnerabilityForOrganization(ec, asset.ID, organizationID, vulnerability.ID)
 	if err != nil {
+		if errors.Is(err, assetrepository.ErrDuplicateAssignment) {
+			return model.Asset{}, ErrDuplicateAssetVulnerability
+		}
 		return model.Asset{}, baseservice.TranslateRepositoryError(err)
 	}
 
@@ -202,10 +229,10 @@ func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, a
 func (s *assetServiceImpl) RemoveVulnerability(ec *appcontext.GinContext, assetID string, vulnerabilityID string) (model.Asset, error) {
 	role, err := baseservice.AuthenticatedRole(ec)
 	if err != nil {
-		return model.Asset{}, baseservice.ErrForbidden
+		return model.Asset{}, ErrAssetPermissionDenied
 	}
 	if !baseservice.CanManageVulnerabilities(role) {
-		return model.Asset{}, baseservice.ErrForbidden
+		return model.Asset{}, ErrVulnerabilityManagementDenied
 	}
 
 	organizationID, err := baseservice.AuthenticatedOrganizationID(ec)
@@ -213,7 +240,14 @@ func (s *assetServiceImpl) RemoveVulnerability(ec *appcontext.GinContext, assetI
 		return model.Asset{}, err
 	}
 	asset, err := s.assetRepository.RemoveVulnerabilityForOrganization(ec, assetID, organizationID, vulnerabilityID)
-	return asset, baseservice.TranslateRepositoryError(err)
+	switch {
+	case errors.Is(err, assetrepository.ErrAssetNotFound):
+		return model.Asset{}, ErrAssetNotFound
+	case errors.Is(err, assetrepository.ErrVulnerabilityNotFound):
+		return model.Asset{}, ErrAssetVulnerabilityNotFound
+	default:
+		return asset, baseservice.TranslateRepositoryError(err)
+	}
 }
 
 func (s *assetServiceImpl) saveNVDVulnerability(ec *appcontext.GinContext, organizationID string, response dto.CVELookupResponse, existing model.Vulnerability) (model.Vulnerability, error) {
@@ -233,10 +267,12 @@ func (s *assetServiceImpl) saveNVDVulnerability(ec *appcontext.GinContext, organ
 	}
 
 	if existing.ID != "" {
-		return s.vulnerabilityRepository.UpdateForOrganization(ec, existing.ID, organizationID, vulnerability)
+		updated, err := s.vulnerabilityRepository.UpdateForOrganization(ec, existing.ID, organizationID, vulnerability)
+		return updated, baseservice.TranslateRepositoryError(err)
 	}
 
-	return s.vulnerabilityRepository.Save(ec, vulnerability)
+	created, err := s.vulnerabilityRepository.Save(ec, vulnerability)
+	return created, baseservice.TranslateRepositoryError(err)
 }
 
 type assetCreationExtractionResponse struct {
@@ -277,7 +313,7 @@ func assetFromAIExtraction(raw string) (model.Asset, error) {
 		asset.Name = fallbackAssetName(asset)
 	}
 	if strings.TrimSpace(asset.Name) == "" {
-		return model.Asset{}, baseservice.ErrInvalidRequestData
+		return model.Asset{}, ErrInvalidAssetData
 	}
 
 	return asset, nil

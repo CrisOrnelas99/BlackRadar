@@ -8,8 +8,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	requestcontext "blackradar/api/context"
 	"blackradar/api/model"
+	requestcontext "blackradar/api/platform/requestcontext"
+)
+
+var (
+	ErrForbidden      = errors.New("forbidden")
+	ErrUnauthorized   = errors.New("Unauthorized")
+	ErrInternalServer = errors.New("internal server error")
 )
 
 // RequireAdmin allows only authenticated users with the administrator role.

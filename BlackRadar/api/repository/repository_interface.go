@@ -2,8 +2,8 @@
 package repository
 
 import (
-	appcontext "blackradar/api/context"
 	"blackradar/api/model"
+	appcontext "blackradar/api/platform/requestcontext"
 )
 
 // UserRepository defines persistence operations for user accounts.

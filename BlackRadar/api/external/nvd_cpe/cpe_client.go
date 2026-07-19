@@ -4,6 +4,7 @@ package cpeclient
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +17,14 @@ import (
 )
 
 const officialCPEHost = "services.nvd.nist.gov"
+
+var (
+	ErrInvalidNVDBaseURL  = errors.New("invalid nvd base url")
+	ErrInvalidCPESearch   = errors.New("invalid cpe search")
+	ErrNVDRateLimited     = errors.New("nvd rate limited")
+	ErrNVDUnavailable     = errors.New("nvd unavailable")
+	ErrInvalidNVDResponse = errors.New("invalid nvd response")
+)
 
 // CPEClient searches the official NVD CPE API for candidate product matches.
 type CPEClient struct {

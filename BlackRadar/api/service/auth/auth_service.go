@@ -13,11 +13,12 @@ import (
 
 	commonjwt "blackradar/api/common/jwt"
 	commontoken "blackradar/api/common/token"
-	"blackradar/api/config"
-	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
 	"blackradar/api/model"
+	"blackradar/api/platform/config"
+	appcontext "blackradar/api/platform/requestcontext"
 	baserepository "blackradar/api/repository"
+	userrepository "blackradar/api/repository/user"
 	baseservice "blackradar/api/service"
 )
 
@@ -37,7 +38,7 @@ func NewAuthService(jwtManager *commonjwt.Manager, organizationRepository basere
 func (s *authServiceImpl) Register(ec *appcontext.GinContext, request dto.RegisterRequest) (dto.UserResponse, error) {
 	request = baseservice.NormalizeRegisterRequest(request)
 	if err := baseservice.ValidateRegisterRequest(request); err != nil {
-		return dto.UserResponse{}, err
+		return dto.UserResponse{}, ErrInvalidRegisterRequest
 	}
 
 	exists, err := s.userRepository.ExistsByUsername(ec, request.Username)
@@ -45,7 +46,7 @@ func (s *authServiceImpl) Register(ec *appcontext.GinContext, request dto.Regist
 		return dto.UserResponse{}, baseservice.TranslateRepositoryError(err)
 	}
 	if exists {
-		return dto.UserResponse{}, baseservice.ErrConflict
+		return dto.UserResponse{}, ErrUsernameAlreadyExists
 	}
 
 	exists, err = s.userRepository.ExistsByEmail(ec, request.Email)
@@ -53,7 +54,7 @@ func (s *authServiceImpl) Register(ec *appcontext.GinContext, request dto.Regist
 		return dto.UserResponse{}, baseservice.TranslateRepositoryError(err)
 	}
 	if exists {
-		return dto.UserResponse{}, baseservice.ErrConflict
+		return dto.UserResponse{}, ErrEmailAlreadyExists
 	}
 
 	organization, err := s.findOrCreateOrganization(ec, request.Organization)
@@ -109,7 +110,7 @@ func (s *authServiceImpl) Login(ec *appcontext.GinContext, request dto.LoginRequ
 		request.UserOrEmail = strings.ToLower(request.UserOrEmail)
 	}
 	if request.UserOrEmail == "" || utf8.RuneCountInString(request.Password) < 8 || utf8.RuneCountInString(request.Password) > 100 {
-		return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+		return dto.LoginResponse{}, ErrInvalidLoginCredentials
 	}
 
 	var user model.User
@@ -121,19 +122,19 @@ func (s *authServiceImpl) Login(ec *appcontext.GinContext, request dto.LoginRequ
 	}
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+			return dto.LoginResponse{}, ErrInvalidLoginCredentials
 		}
 		return dto.LoginResponse{}, baseservice.TranslateRepositoryError(err)
 	}
 
 	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(request.Password)) != nil {
-		return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+		return dto.LoginResponse{}, ErrInvalidLoginCredentials
 	}
 
 	organization, err := s.organizationRepository.FindByID(ec, user.OrganizationID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+			return dto.LoginResponse{}, ErrInvalidLoginCredentials
 		}
 		return dto.LoginResponse{}, baseservice.TranslateRepositoryError(err)
 	}
@@ -174,7 +175,7 @@ func (s *authServiceImpl) Login(ec *appcontext.GinContext, request dto.LoginRequ
 func (s *authServiceImpl) Refresh(ec *appcontext.GinContext, request dto.RefreshRequest) (dto.LoginResponse, error) {
 	refreshToken := strings.TrimSpace(request.RefreshToken)
 	if refreshToken == "" {
-		return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+		return dto.LoginResponse{}, ErrInvalidRefreshToken
 	}
 
 	if s.jwtManager == nil {
@@ -183,33 +184,33 @@ func (s *authServiceImpl) Refresh(ec *appcontext.GinContext, request dto.Refresh
 
 	claims, err := s.jwtManager.ExtractRefreshClaims(refreshToken)
 	if err != nil {
-		return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+		return dto.LoginResponse{}, ErrInvalidRefreshToken
 	}
 
 	user, err := s.userRepository.FindByID(ec, claims.Subject)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+			return dto.LoginResponse{}, ErrInvalidRefreshToken
 		}
 		return dto.LoginResponse{}, baseservice.TranslateRepositoryError(err)
 	}
 
 	session, err := s.refreshSessionRepository.FindActiveByTokenIDForUser(ec, claims.ID, user.ID)
 	if err != nil {
-		if errors.Is(err, baserepository.ErrRefreshSessionNotFound) {
-			return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+		if errors.Is(err, userrepository.ErrRefreshSessionNotFound) {
+			return dto.LoginResponse{}, ErrInvalidRefreshToken
 		}
 		return dto.LoginResponse{}, baseservice.TranslateRepositoryError(err)
 	}
 
 	if session.UserID != user.ID {
-		return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+		return dto.LoginResponse{}, ErrInvalidRefreshToken
 	}
 
 	organization, err := s.organizationRepository.FindByID(ec, user.OrganizationID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return dto.LoginResponse{}, baseservice.ErrInvalidCredentials
+			return dto.LoginResponse{}, ErrInvalidRefreshToken
 		}
 		return dto.LoginResponse{}, baseservice.TranslateRepositoryError(err)
 	}
@@ -246,7 +247,7 @@ func (s *authServiceImpl) Refresh(ec *appcontext.GinContext, request dto.Refresh
 func (s *authServiceImpl) Logout(ec *appcontext.GinContext, request dto.RefreshRequest) error {
 	refreshToken := strings.TrimSpace(request.RefreshToken)
 	if refreshToken == "" {
-		return baseservice.ErrInvalidCredentials
+		return ErrInvalidRefreshToken
 	}
 
 	if s.jwtManager == nil {
@@ -255,20 +256,20 @@ func (s *authServiceImpl) Logout(ec *appcontext.GinContext, request dto.RefreshR
 
 	claims, err := s.jwtManager.ExtractRefreshClaims(refreshToken)
 	if err != nil {
-		return baseservice.ErrInvalidCredentials
+		return ErrInvalidRefreshToken
 	}
 
 	user, err := s.userRepository.FindByID(ec, claims.Subject)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return baseservice.ErrInvalidCredentials
+			return ErrInvalidRefreshToken
 		}
 		return baseservice.TranslateRepositoryError(err)
 	}
 
 	if err := s.refreshSessionRepository.RevokeByTokenIDForUser(ec, claims.ID, user.ID); err != nil {
-		if errors.Is(err, baserepository.ErrRefreshSessionNotFound) {
-			return baseservice.ErrInvalidCredentials
+		if errors.Is(err, userrepository.ErrRefreshSessionNotFound) {
+			return ErrInvalidRefreshToken
 		}
 		return baseservice.TranslateRepositoryError(err)
 	}

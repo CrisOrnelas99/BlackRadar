@@ -14,8 +14,8 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	requestcontext "blackradar/api/context"
 	contextmiddleware "blackradar/api/middleware/context"
+	requestcontext "blackradar/api/platform/requestcontext"
 )
 
 func init() {

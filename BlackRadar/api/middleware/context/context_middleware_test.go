@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	appcontext "blackradar/api/context"
+	appcontext "blackradar/api/platform/requestcontext"
 )
 
 func TestRequestContextStoresGinContextAndContinues(t *testing.T) {

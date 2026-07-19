@@ -11,9 +11,9 @@ import (
 	"gorm.io/gorm"
 
 	commonjwt "blackradar/api/common/jwt"
-	requestcontext "blackradar/api/context"
 	"blackradar/api/model"
-	baserepository "blackradar/api/repository"
+	requestcontext "blackradar/api/platform/requestcontext"
+	userrepository "blackradar/api/repository/user"
 )
 
 // UserLookup resolves the current authenticated user.
@@ -31,6 +31,15 @@ type UserLookup interface {
 type RefreshSessionLookup interface {
 	FindActiveByTokenIDForUser(ec *requestcontext.GinContext, tokenID string, userID string) (model.RefreshSession, error)
 }
+
+var (
+	ErrUnauthorized             = errors.New("Unauthorized")
+	ErrDatabaseUnavailable      = errors.New("database unavailable")
+	ErrInternalServer           = errors.New("internal server error")
+	ErrJWTManagerRequired       = errors.New("JWT authentication manager is required")
+	ErrJWTUserLookupRequired    = errors.New("JWT authentication user lookup is required")
+	ErrJWTSessionLookupRequired = errors.New("JWT authentication session lookup is required")
+)
 
 // Authentication validates bearer access tokens and stores the authenticated
 // principal on request context.
@@ -173,7 +182,7 @@ func bearerToken(header string) (string, bool) {
 // because the user or session does not exist.
 func isAuthenticationNotFound(err error) bool {
 	return errors.Is(err, gorm.ErrRecordNotFound) ||
-		errors.Is(err, baserepository.ErrRefreshSessionNotFound)
+		errors.Is(err, userrepository.ErrRefreshSessionNotFound)
 }
 
 // abortUnauthorized returns a generic bearer authentication failure.

@@ -12,10 +12,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
 	nvdcveclient "blackradar/api/external/nvd_cve"
 	"blackradar/api/model"
+	appcontext "blackradar/api/platform/requestcontext"
 	baseservice "blackradar/api/service"
 )
 

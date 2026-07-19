@@ -3,6 +3,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -35,6 +36,15 @@ const (
 	defaultDevCorsAllowedOrigins = "http://localhost:4200,http://localhost:4000"
 
 	minimumJWTSecretLength = 32
+)
+
+var (
+	ErrInvalidEnvironment        = errors.New("GO_ENV must be a supported environment")
+	ErrBootstrapNotAllowed       = errors.New("BOOTSTRAP_DEV_DATA cannot be enabled in this environment")
+	ErrMissingBootstrapPassword  = errors.New("BOOTSTRAP_DEV_PASSWORD is required when BOOTSTRAP_DEV_DATA is enabled")
+	ErrMissingJWTSecret          = errors.New("JWT_SECRET is required")
+	ErrMissingCorsAllowedOrigins = errors.New("CORS_ALLOWED_ORIGINS or CORS_ALLOWED_ORIGIN is required in production")
+	ErrMissingDatabaseURL        = errors.New("database connection settings are required in production")
 )
 
 // Config holds application settings loaded from environment variables.

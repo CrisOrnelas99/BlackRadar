@@ -9,9 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	appcontext "blackradar/api/context"
 	"blackradar/api/model"
-	baserepository "blackradar/api/repository"
+	appcontext "blackradar/api/platform/requestcontext"
 )
 
 // TestOrganizationRepositoryDatabasePrefersContextDB verifies the context database is preferred.
@@ -38,7 +37,7 @@ func TestOrganizationRepositoryDatabasePrefersContextDB(t *testing.T) {
 func TestOrganizationRepositorySaveRejectsBlankName(t *testing.T) {
 	repo := NewOrganizationRepository(nil)
 
-	if _, err := repo.Save(nil, model.Organization{Name: "   "}); err != baserepository.ErrInvalidData {
+	if _, err := repo.Save(nil, model.Organization{Name: "   "}); err != ErrInvalidData {
 		t.Fatalf("expected invalid data error, got %v", err)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,6 +20,15 @@ import (
 const openAIResponsesPath = "/v1/responses"
 const defaultOpenAIRateLimitWindow = time.Minute
 const officialOpenAIHost = "api.openai.com"
+
+var (
+	ErrInvalidOpenAIBaseURL  = errors.New("invalid openai base url")
+	ErrInvalidOpenAIModel    = errors.New("invalid openai model")
+	ErrMissingOpenAIAPIKey   = errors.New("missing openai api key")
+	ErrOpenAIRateLimited     = errors.New("openai rate limited")
+	ErrOpenAIUnavailable     = errors.New("openai unavailable")
+	ErrInvalidOpenAIResponse = errors.New("invalid openai response")
+)
 
 // Client submits text-generation requests to the OpenAI API.
 type Client struct {

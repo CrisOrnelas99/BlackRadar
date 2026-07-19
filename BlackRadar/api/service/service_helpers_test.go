@@ -6,7 +6,11 @@ import (
 	"testing"
 
 	"blackradar/api/model"
-	baserepository "blackradar/api/repository"
+	assetrepository "blackradar/api/repository/asset"
+	authorizationrepository "blackradar/api/repository/authorization"
+	organizationrepository "blackradar/api/repository/organization"
+	userrepository "blackradar/api/repository/user"
+	vulnerabilityrepository "blackradar/api/repository/vulnerability"
 )
 
 // TestCVEIDValidation verifies strict CVE ID allowlist behavior.
@@ -59,42 +63,47 @@ func TestTranslateRepositoryErrorPreservesLayeredErrorChain(t *testing.T) {
 	}{
 		{
 			name:          "asset not found",
-			repositoryErr: baserepository.ErrAssetNotFound,
+			repositoryErr: assetrepository.ErrAssetNotFound,
 			serviceErr:    ErrNotFound,
 		},
 		{
 			name:          "vulnerability not found",
-			repositoryErr: baserepository.ErrVulnerabilityNotFound,
+			repositoryErr: vulnerabilityrepository.ErrVulnerabilityNotFound,
 			serviceErr:    ErrNotFound,
 		},
 		{
 			name:          "refresh session not found",
-			repositoryErr: baserepository.ErrRefreshSessionNotFound,
+			repositoryErr: userrepository.ErrRefreshSessionNotFound,
 			serviceErr:    ErrNotFound,
 		},
 		{
 			name:          "duplicate assignment",
-			repositoryErr: baserepository.ErrDuplicateAssignment,
+			repositoryErr: assetrepository.ErrDuplicateAssignment,
 			serviceErr:    ErrConflict,
 		},
 		{
 			name:          "duplicate data",
-			repositoryErr: baserepository.ErrDuplicateData,
+			repositoryErr: organizationrepository.ErrDuplicateData,
 			serviceErr:    ErrConflict,
 		},
 		{
 			name:          "invalid data",
-			repositoryErr: baserepository.ErrInvalidData,
+			repositoryErr: userrepository.ErrInvalidData,
 			serviceErr:    ErrInvalidRequestData,
 		},
 		{
 			name:          "invalid reference",
-			repositoryErr: baserepository.ErrInvalidReference,
+			repositoryErr: vulnerabilityrepository.ErrInvalidReference,
 			serviceErr:    ErrInvalidRequestData,
 		},
 		{
+			name:          "forbidden",
+			repositoryErr: authorizationrepository.ErrForbidden,
+			serviceErr:    ErrForbidden,
+		},
+		{
 			name:          "unknown repository failure",
-			repositoryErr: baserepository.ErrReadFailed,
+			repositoryErr: assetrepository.ErrPersistenceFailure,
 			serviceErr:    ErrInternal,
 		},
 	}

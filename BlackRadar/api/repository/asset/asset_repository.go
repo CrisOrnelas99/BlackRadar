@@ -7,12 +7,13 @@ import (
 	"strings"
 	"time"
 
-	commondb "blackradar/api/common/db"
 	commonid "blackradar/api/common/id"
-	appcontext "blackradar/api/context"
+	commonrisk "blackradar/api/common/risk"
 	"blackradar/api/model"
-	baserepository "blackradar/api/repository"
+	platformdb "blackradar/api/platform/db"
+	appcontext "blackradar/api/platform/requestcontext"
 	authrepo "blackradar/api/repository/authorization"
+
 	"gorm.io/gorm"
 )
 
@@ -54,7 +55,7 @@ func (r *AssetRepository) FindAllByOrganization(ec *appcontext.GinContext, organ
 		Order("id").
 		Find(&assets).Error
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+		return nil, fmt.Errorf("%w: read assets: %w", ErrPersistenceFailure, err)
 	}
 	return assets, nil
 }
@@ -67,10 +68,10 @@ func (r *AssetRepository) FindByIDForOrganization(ec *appcontext.GinContext, id 
 		Where("organization_id = ?", organizationID).
 		First(&asset, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.Asset{}, baserepository.ErrAssetNotFound
+		return model.Asset{}, ErrAssetNotFound
 	}
 	if err != nil {
-		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+		return model.Asset{}, fmt.Errorf("%w: read asset: %w", ErrPersistenceFailure, err)
 	}
 	if err := r.loadActiveVulnerabilitiesForAsset(ec, &asset, organizationID); err != nil {
 		return model.Asset{}, err
@@ -120,7 +121,7 @@ func (r *AssetRepository) ExistsBySignatureForOrganization(ec *appcontext.GinCon
 		).
 		Count(&count).Error
 	if err != nil {
-		return false, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+		return false, fmt.Errorf("%w: check asset uniqueness: %w", ErrPersistenceFailure, err)
 	}
 	return count > 0, nil
 }
@@ -128,14 +129,14 @@ func (r *AssetRepository) ExistsBySignatureForOrganization(ec *appcontext.GinCon
 // Save creates a new asset record.
 func (r *AssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
 	if asset.OrganizationID == "" || asset.UserID == "" || asset.Name == "" || asset.Type == "" || asset.Owner == "" || asset.Criticality == "" {
-		return model.Asset{}, baserepository.ErrInvalidData
+		return model.Asset{}, ErrInvalidData
 	}
 
 	for attempt := 0; attempt < 3; attempt++ {
 		if asset.ID == "" || attempt > 0 {
 			identifier, err := commonid.New()
 			if err != nil {
-				return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrCreateFailed, err)
+				return model.Asset{}, fmt.Errorf("%w: generate asset id: %w", ErrPersistenceFailure, err)
 			}
 			asset.ID = identifier
 		}
@@ -161,26 +162,26 @@ func (r *AssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (mo
 			return asset, nil
 		}
 
-		databaseErr := commondb.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, commondb.ErrUniqueViolation) && commondb.IsPrimaryKeyViolation(err) {
+		databaseErr := platformdb.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, platformdb.ErrUniqueViolation) && platformdb.IsPrimaryKeyViolation(err) {
 			continue
 		}
-		if errors.Is(databaseErr, commondb.ErrForeignKeyViolation) {
-			return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidReference, databaseErr)
+		if errors.Is(databaseErr, platformdb.ErrForeignKeyViolation) {
+			return model.Asset{}, fmt.Errorf("%w: %w", ErrInvalidReference, databaseErr)
 		}
-		if errors.Is(databaseErr, commondb.ErrCheckConstraintViolation) {
-			return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidData, databaseErr)
+		if errors.Is(databaseErr, platformdb.ErrCheckConstraintViolation) {
+			return model.Asset{}, fmt.Errorf("%w: %w", ErrInvalidData, databaseErr)
 		}
-		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrCreateFailed, databaseErr)
+		return model.Asset{}, fmt.Errorf("%w: create asset: %w", ErrPersistenceFailure, databaseErr)
 	}
 
-	return model.Asset{}, fmt.Errorf("%w: exhausted random id retries", baserepository.ErrCreateFailed)
+	return model.Asset{}, fmt.Errorf("%w: exhausted random id retries", ErrPrimaryKeyConflict)
 }
 
 // UpdateForOrganization updates an asset owned by the specified organization.
 func (r *AssetRepository) UpdateForOrganization(ec *appcontext.GinContext, id string, organizationID string, updates model.Asset) (model.Asset, error) {
 	if updates.Name == "" || updates.Type == "" || updates.Owner == "" || updates.Criticality == "" {
-		return model.Asset{}, baserepository.ErrInvalidData
+		return model.Asset{}, ErrInvalidData
 	}
 
 	asset, err := r.FindByIDForOrganization(ec, id, organizationID)
@@ -201,14 +202,14 @@ func (r *AssetRepository) UpdateForOrganization(ec *appcontext.GinContext, id st
 
 	err = r.dbForContext(ec).WithContext(ec.RequestContext()).Save(&asset).Error
 	if err != nil {
-		databaseErr := commondb.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, commondb.ErrForeignKeyViolation) {
-			return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidReference, databaseErr)
+		databaseErr := platformdb.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, platformdb.ErrForeignKeyViolation) {
+			return model.Asset{}, fmt.Errorf("%w: %w", ErrInvalidReference, databaseErr)
 		}
-		if errors.Is(databaseErr, commondb.ErrCheckConstraintViolation) {
-			return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidData, databaseErr)
+		if errors.Is(databaseErr, platformdb.ErrCheckConstraintViolation) {
+			return model.Asset{}, fmt.Errorf("%w: %w", ErrInvalidData, databaseErr)
 		}
-		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrUpdateFailed, databaseErr)
+		return model.Asset{}, fmt.Errorf("%w: update asset: %w", ErrPersistenceFailure, databaseErr)
 	}
 	return r.FindByIDForOrganization(ec, id, organizationID)
 }
@@ -217,10 +218,10 @@ func (r *AssetRepository) UpdateForOrganization(ec *appcontext.GinContext, id st
 func (r *AssetRepository) UpdateMatchAnalysisForOrganization(ec *appcontext.GinContext, id string, organizationID string, analysis any) (model.Asset, error) {
 	analysisUpdate, ok := analysis.(AssetMatchUpdate)
 	if !ok {
-		return model.Asset{}, baserepository.ErrInvalidData
+		return model.Asset{}, ErrInvalidData
 	}
 	if analysisUpdate.CPEReviewStatus == "" {
-		return model.Asset{}, baserepository.ErrInvalidData
+		return model.Asset{}, ErrInvalidData
 	}
 
 	asset, err := r.FindByIDForOrganization(ec, id, organizationID)
@@ -258,14 +259,14 @@ func (r *AssetRepository) UpdateMatchAnalysisForOrganization(ec *appcontext.GinC
 		return tx.Save(&assessment).Error
 	})
 	if err != nil {
-		databaseErr := commondb.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, commondb.ErrCheckConstraintViolation) {
-			return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidData, databaseErr)
+		databaseErr := platformdb.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, platformdb.ErrCheckConstraintViolation) {
+			return model.Asset{}, fmt.Errorf("%w: %w", ErrInvalidData, databaseErr)
 		}
-		if errors.Is(databaseErr, commondb.ErrForeignKeyViolation) {
-			return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidReference, databaseErr)
+		if errors.Is(databaseErr, platformdb.ErrForeignKeyViolation) {
+			return model.Asset{}, fmt.Errorf("%w: %w", ErrInvalidReference, databaseErr)
 		}
-		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrUpdateFailed, databaseErr)
+		return model.Asset{}, fmt.Errorf("%w: update asset match analysis: %w", ErrPersistenceFailure, databaseErr)
 	}
 
 	return r.FindByIDForOrganization(ec, id, organizationID)
@@ -300,7 +301,7 @@ func (r *AssetRepository) DeleteForOrganization(ec *appcontext.GinContext, id st
 		return nil
 	})
 	if err != nil {
-		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrDeleteFailed, err)
+		return model.Asset{}, fmt.Errorf("%w: delete asset: %w", ErrPersistenceFailure, err)
 	}
 	return asset, nil
 }
@@ -318,7 +319,7 @@ func (r *AssetRepository) AssignVulnerabilityForOrganization(ec *appcontext.GinC
 
 	for _, assigned := range asset.Vulnerabilities {
 		if assigned.ID == vulnerability.ID {
-			return model.Asset{}, baserepository.ErrDuplicateAssignment
+			return model.Asset{}, ErrDuplicateAssignment
 		}
 	}
 
@@ -329,14 +330,14 @@ func (r *AssetRepository) AssignVulnerabilityForOrganization(ec *appcontext.GinC
 		return RefreshAssetRisk(tx, assetID, organizationID)
 	})
 	if err != nil {
-		databaseErr := commondb.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, commondb.ErrUniqueViolation) {
-			return model.Asset{}, baserepository.ErrDuplicateAssignment
+		databaseErr := platformdb.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, platformdb.ErrUniqueViolation) {
+			return model.Asset{}, ErrDuplicateAssignment
 		}
-		if errors.Is(databaseErr, commondb.ErrForeignKeyViolation) {
-			return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidReference, databaseErr)
+		if errors.Is(databaseErr, platformdb.ErrForeignKeyViolation) {
+			return model.Asset{}, fmt.Errorf("%w: %w", ErrInvalidReference, databaseErr)
 		}
-		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrCreateFailed, databaseErr)
+		return model.Asset{}, fmt.Errorf("%w: assign vulnerability: %w", ErrPersistenceFailure, databaseErr)
 	}
 
 	return r.FindByIDForOrganization(ec, assetID, organizationID)
@@ -365,7 +366,7 @@ func (r *AssetRepository) RemoveVulnerabilityForOrganization(ec *appcontext.GinC
 		return RefreshAssetRisk(tx, assetID, organizationID)
 	})
 	if err != nil {
-		return model.Asset{}, fmt.Errorf("%w: %w", baserepository.ErrDeleteFailed, err)
+		return model.Asset{}, fmt.Errorf("%w: remove vulnerability: %w", ErrPersistenceFailure, err)
 	}
 	return r.FindByIDForOrganization(ec, assetID, organizationID)
 }
@@ -382,10 +383,10 @@ func (r *AssetRepository) findAssetAndVulnerabilityForOrganization(ec *appcontex
 		Where("organization_id = ?", organizationID).
 		First(&vulnerability, vulnerabilityID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.Asset{}, model.Vulnerability{}, baserepository.ErrVulnerabilityNotFound
+		return model.Asset{}, model.Vulnerability{}, ErrVulnerabilityNotFound
 	}
 	if err != nil {
-		return model.Asset{}, model.Vulnerability{}, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+		return model.Asset{}, model.Vulnerability{}, fmt.Errorf("%w: read vulnerability: %w", ErrPersistenceFailure, err)
 	}
 
 	return asset, vulnerability, nil
@@ -400,7 +401,7 @@ func (r *AssetRepository) loadActiveVulnerabilitiesForAsset(ec *appcontext.GinCo
 		Order("vulnerabilities.id").
 		Find(&vulnerabilities).Error
 	if err != nil {
-		return fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+		return fmt.Errorf("%w: load asset vulnerabilities: %w", ErrPersistenceFailure, err)
 	}
 	asset.Vulnerabilities = vulnerabilities
 	return nil
@@ -432,8 +433,8 @@ func createAssetAssessmentWithRandomID(tx *gorm.DB, assessment *model.AssetAsses
 			return nil
 		}
 
-		databaseErr := commondb.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, commondb.ErrUniqueViolation) && commondb.IsPrimaryKeyViolation(err) {
+		databaseErr := platformdb.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, platformdb.ErrUniqueViolation) && platformdb.IsPrimaryKeyViolation(err) {
 			continue
 		}
 		return err
@@ -471,4 +472,25 @@ func optionalAssetString(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+// RefreshAssetRisk recalculates and persists the risk level for a single asset.
+func RefreshAssetRisk(tx *gorm.DB, assetID string, organizationID string) error {
+	var asset model.Asset
+	if err := tx.Where("organization_id = ?", organizationID).
+		First(&asset, assetID).Error; err != nil {
+		return err
+	}
+
+	var vulnerabilities []model.Vulnerability
+	if err := tx.Model(&model.Vulnerability{}).
+		Joins("JOIN asset_vulnerabilities av ON av.vulnerability_id = vulnerabilities.id AND av.deleted_at IS NULL").
+		Where("av.asset_id = ? AND vulnerabilities.organization_id = ?", assetID, organizationID).
+		Find(&vulnerabilities).Error; err != nil {
+		return err
+	}
+
+	return tx.Model(&model.Asset{}).
+		Where("id = ? AND organization_id = ?", assetID, organizationID).
+		Update("risk_level", commonrisk.PointerFromVulnerabilities(vulnerabilities)).Error
 }

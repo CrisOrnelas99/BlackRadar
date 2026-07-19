@@ -17,7 +17,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonjwt "blackradar/api/common/jwt"
-	appcontext "blackradar/api/context"
 	basecontroller "blackradar/api/controller"
 	controllerai "blackradar/api/controller/ai"
 	controllerasset "blackradar/api/controller/asset"
@@ -27,7 +26,8 @@ import (
 	contextmiddleware "blackradar/api/middleware/context"
 	jwtmiddleware "blackradar/api/middleware/jwt"
 	"blackradar/api/model"
-	baserepository "blackradar/api/repository"
+	appcontext "blackradar/api/platform/requestcontext"
+	userrepository "blackradar/api/repository/user"
 	"blackradar/api/service"
 )
 
@@ -320,7 +320,7 @@ func (f *fakeRefreshSessionLookup) FindActiveByTokenIDForUser(ec *appcontext.Gin
 	if f.session.TokenID == tokenID && f.session.UserID == userID {
 		return f.session, nil
 	}
-	return model.RefreshSession{}, baserepository.ErrRefreshSessionNotFound
+	return model.RefreshSession{}, userrepository.ErrRefreshSessionNotFound
 }
 
 type fakeAuthService struct{}

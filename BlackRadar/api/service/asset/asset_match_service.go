@@ -11,11 +11,12 @@ import (
 	"strings"
 	"time"
 
-	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
 	"blackradar/api/model"
+	appcontext "blackradar/api/platform/requestcontext"
 	baserepository "blackradar/api/repository"
 	assetrepo "blackradar/api/repository/asset"
+	vulnerabilityrepo "blackradar/api/repository/vulnerability"
 	baseservice "blackradar/api/service"
 	promptservice "blackradar/api/service/prompt"
 )
@@ -170,6 +171,9 @@ func (s *assetMatchServiceImpl) AnalyzeAndPersistAssetMatch(ec *appcontext.GinCo
 
 	asset, err := s.assetRepository.FindByIDForOrganization(ec, assetID, organizationID)
 	if err != nil {
+		if errors.Is(err, assetrepo.ErrAssetNotFound) {
+			return model.Asset{}, ErrAssetNotFound
+		}
 		return model.Asset{}, baseservice.TranslateRepositoryError(err)
 	}
 
@@ -204,10 +208,10 @@ func (s *assetMatchServiceImpl) AnalyzeAndPersistAssetMatch(ec *appcontext.GinCo
 func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appcontext.GinContext, assetID string) (model.Asset, error) {
 	role, err := baseservice.AuthenticatedRole(ec)
 	if err != nil {
-		return model.Asset{}, baseservice.ErrForbidden
+		return model.Asset{}, ErrAssetPermissionDenied
 	}
 	if !baseservice.CanManageVulnerabilities(role) {
-		return model.Asset{}, baseservice.ErrForbidden
+		return model.Asset{}, ErrVulnerabilityManagementDenied
 	}
 	if s.vulnRepository == nil || s.cveSearcher == nil {
 		return model.Asset{}, baseservice.ErrExternalService
@@ -220,6 +224,9 @@ func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appco
 
 	asset, err := s.assetRepository.FindByIDForOrganization(ec, assetID, organizationID)
 	if err != nil {
+		if errors.Is(err, assetrepo.ErrAssetNotFound) {
+			return model.Asset{}, ErrAssetNotFound
+		}
 		return model.Asset{}, baseservice.TranslateRepositoryError(err)
 	}
 
@@ -278,7 +285,7 @@ func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appco
 		}
 		assigned, err := s.assetRepository.AssignVulnerabilityForOrganization(ec, updated.ID, organizationID, vulnerability.ID)
 		if err != nil {
-			if errors.Is(err, baserepository.ErrDuplicateAssignment) {
+			if errors.Is(err, assetrepo.ErrDuplicateAssignment) {
 				continue
 			}
 			return model.Asset{}, baseservice.TranslateRepositoryError(err)
@@ -286,7 +293,11 @@ func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appco
 		updated = assigned
 	}
 
-	return s.assetRepository.FindByIDForOrganization(ec, assetID, organizationID)
+	asset, err = s.assetRepository.FindByIDForOrganization(ec, assetID, organizationID)
+	if errors.Is(err, assetrepo.ErrAssetNotFound) {
+		return model.Asset{}, ErrAssetNotFound
+	}
+	return asset, baseservice.TranslateRepositoryError(err)
 }
 
 func (s *assetMatchServiceImpl) findCVEsForAnalysis(ctx context.Context, analysis AssetMatchAnalysis, logger *slog.Logger) (cveMatchResult, error) {
@@ -473,12 +484,12 @@ func (s *assetMatchServiceImpl) findOrSaveNVDVulnerability(ec *appcontext.GinCon
 
 	normalizedCVEID := baseservice.NormalizeCVEID(response.CVEID)
 	if err := baseservice.ValidateCVEID(normalizedCVEID); err != nil {
-		return model.Vulnerability{}, err
+		return model.Vulnerability{}, ErrInvalidAssetCVEID
 	}
 
 	existing, err := s.vulnRepository.FindByCVEIDForOrganization(ec, normalizedCVEID, organizationID)
 	if err == nil {
-		return s.vulnRepository.UpdateForOrganization(ec, existing.ID, organizationID, model.Vulnerability{
+		updated, err := s.vulnRepository.UpdateForOrganization(ec, existing.ID, organizationID, model.Vulnerability{
 			OrganizationID: organizationID,
 			UserID:         userID,
 			CVEID:          normalizedCVEID,
@@ -487,12 +498,13 @@ func (s *assetMatchServiceImpl) findOrSaveNVDVulnerability(ec *appcontext.GinCon
 			Description:    firstNonEmptyString(response.Description, "No description returned by NVD."),
 			Status:         "Open",
 		})
+		return updated, baseservice.TranslateRepositoryError(err)
 	}
-	if !errors.Is(err, baserepository.ErrVulnerabilityNotFound) {
+	if !errors.Is(err, vulnerabilityrepo.ErrVulnerabilityNotFound) {
 		return model.Vulnerability{}, baseservice.TranslateRepositoryError(err)
 	}
 
-	return s.vulnRepository.Save(ec, model.Vulnerability{
+	created, err := s.vulnRepository.Save(ec, model.Vulnerability{
 		OrganizationID: organizationID,
 		UserID:         userID,
 		CVEID:          normalizedCVEID,
@@ -501,6 +513,7 @@ func (s *assetMatchServiceImpl) findOrSaveNVDVulnerability(ec *appcontext.GinCon
 		Description:    firstNonEmptyString(response.Description, "No description returned by NVD."),
 		Status:         "Open",
 	})
+	return created, baseservice.TranslateRepositoryError(err)
 }
 
 func (s *assetMatchServiceImpl) persistMatchAnalysis(ec *appcontext.GinContext, assetID string, organizationID string, analysis AssetMatchAnalysis) (model.Asset, error) {

@@ -13,10 +13,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
 	"blackradar/api/model"
-	baserepository "blackradar/api/repository"
+	appcontext "blackradar/api/platform/requestcontext"
+	assetrepo "blackradar/api/repository/asset"
+	vulnrepo "blackradar/api/repository/vulnerability"
 	baseservice "blackradar/api/service"
 )
 
@@ -414,7 +415,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesStoresNVDResults(t *testing.T) {
 	asset.Product = ptrString("xz")
 	asset.Version = ptrString("5.6.1")
 	repo := &fakeAssetRepository{asset: asset}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: baserepository.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{
 		results: []dto.CVELookupResponse{
 			{CVEID: "CVE-2024-3094", Title: "XZ Utils Backdoor", Description: "NVD CVE response", Severity: "Critical"},
@@ -464,7 +465,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesNVDValidatedFallbackCPE(t *te
 	asset.Product = ptrString("xz utils")
 	asset.Version = ptrString("5.6.1")
 	repo := &fakeAssetRepository{asset: asset}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: baserepository.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{
 		resultsByCPE: map[string][]dto.CVELookupResponse{
 			"cpe:2.3:a:tukaani:xz:5.6.1:*:*:*:*:*:*:*": {
@@ -514,7 +515,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesFallsBackToFirmwareCPEWhenAIUnava
 	asset.Product = ptrString("Ring Video Doorbell Firmware")
 	asset.Version = ptrString("3.4.6")
 	repo := &fakeAssetRepository{asset: asset}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: baserepository.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{
 		resultsByCPE: map[string][]dto.CVELookupResponse{
 			"cpe:2.3:o:amazon:ring_video_doorbell_firmware:3.4.7:*:*:*:*:*:*:*": {
@@ -569,7 +570,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesTriesFirmwareAliasFromOperatingSy
 	asset.DeviceModel = ptrString("camera")
 
 	repo := &fakeAssetRepository{asset: asset}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: baserepository.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{
 		resultsByCPE: map[string][]dto.CVELookupResponse{
 			"cpe:2.3:o:amazon:ring_video_doorbell_firmware:3.4.6:*:*:*:*:*:*:*": {
@@ -624,7 +625,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesKeywordFallbackAndAIRanking(t
 	asset.DeviceModel = ptrString("plugin")
 
 	repo := &fakeAssetRepository{asset: asset}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: baserepository.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{
 		resultsByKeyword: map[string][]dto.CVELookupResponse{
 			"wp ultimate map": {
@@ -697,7 +698,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesFallsThroughToAIKeywordFallbackWh
 	asset.DeviceModel = ptrString("network")
 
 	repo := &fakeAssetRepository{asset: asset}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: baserepository.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{
 		resultsByCPE: map[string][]dto.CVELookupResponse{
 			"cpe:2.3:a:ui:unifi:2.3.6:*:*:*:*:*:*:*": {},
@@ -772,7 +773,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesAIKeywordFallbackWhenExactCPE
 	asset.DeviceModel = ptrString("network")
 
 	repo := &fakeAssetRepository{asset: asset}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: baserepository.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{
 		resultsByKeyword: map[string][]dto.CVELookupResponse{
 			"unifi network application": {
@@ -841,7 +842,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesAggregatesAIKeywordSearchesBefore
 	asset.DeviceModel = ptrString("device")
 
 	repo := &fakeAssetRepository{asset: asset}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: baserepository.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{
 		resultsByKeyword: map[string][]dto.CVELookupResponse{
 			"ubiquiti unifi network device": {
@@ -906,7 +907,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesStopsKeywordFallbackOnNVDUnavaila
 	asset.DeviceModel = ptrString("plugin")
 
 	repo := &fakeAssetRepository{asset: asset}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: baserepository.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{err: errors.New("nvd unavailable: status 503")}
 	svc := &assetMatchServiceImpl{
 		assetRepository: repo,
@@ -1009,11 +1010,11 @@ func TestSortCVECandidatesByPublishedAtDesc(t *testing.T) {
 }
 
 func TestAnalyzeAndPersistAssetMatchReturnsReviewOnRepositoryError(t *testing.T) {
-	repo := &fakeAssetRepository{asset: sampleMatchedAsset(), findErr: baserepository.ErrAssetNotFound}
+	repo := &fakeAssetRepository{asset: sampleMatchedAsset(), findErr: assetrepo.ErrAssetNotFound}
 	svc := &assetMatchServiceImpl{assetRepository: repo, now: time.Now}
 
 	_, err := svc.AnalyzeAndPersistAssetMatch(contextForTest(t), "00000000-0000-4000-8000-000000000001")
-	if !errors.Is(err, baseservice.ErrNotFound) {
+	if !errors.Is(err, ErrAssetNotFound) {
 		t.Fatalf("expected not found error, got %v", err)
 	}
 }

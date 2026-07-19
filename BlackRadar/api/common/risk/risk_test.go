@@ -1,5 +1,4 @@
-// Package risk_backfill verifies the startup backfill orchestration.
-package risk_backfill
+package risk
 
 import (
 	"context"
@@ -7,7 +6,54 @@ import (
 	"testing"
 
 	"gorm.io/gorm"
+
+	"blackradar/api/model"
 )
+
+func TestFromSeverity(t *testing.T) {
+	tests := []struct {
+		name     string
+		severity string
+		want     string
+	}{
+		{name: "critical", severity: "CRITICAL", want: "Critical"},
+		{name: "high", severity: "High", want: "High"},
+		{name: "medium", severity: "medium", want: "Medium"},
+		{name: "unknown defaults low", severity: "informational", want: "Low"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := FromSeverity(tt.severity); got != tt.want {
+				t.Fatalf("expected %q, got %q", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestFromVulnerabilities(t *testing.T) {
+	vulnerabilities := []model.Vulnerability{
+		{Severity: "Low"},
+		{Severity: "Critical"},
+		{Severity: "Medium"},
+	}
+
+	if got := FromVulnerabilities(vulnerabilities); got != "Critical" {
+		t.Fatalf("expected Critical, got %q", got)
+	}
+}
+
+func TestPointerFromVulnerabilities(t *testing.T) {
+	if got := PointerFromVulnerabilities(nil); got != nil {
+		t.Fatalf("expected nil risk pointer for empty vulnerabilities, got %#v", got)
+	}
+
+	vulnerabilities := []model.Vulnerability{{Severity: "High"}}
+	got := PointerFromVulnerabilities(vulnerabilities)
+	if got == nil || *got != "High" {
+		t.Fatalf("expected High risk level pointer, got %#v", got)
+	}
+}
 
 func TestBackfillAssetRiskLevels(t *testing.T) {
 	originalLoadAssetRows := loadAssetRows

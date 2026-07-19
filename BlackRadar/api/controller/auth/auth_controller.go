@@ -2,12 +2,14 @@
 package controller
 
 import (
+	"errors"
 	"net/http"
 
-	appcontext "blackradar/api/context"
 	basecontroller "blackradar/api/controller"
 	"blackradar/api/controller/dto"
+	appcontext "blackradar/api/platform/requestcontext"
 	baseservice "blackradar/api/service"
+	authservice "blackradar/api/service/auth"
 )
 
 // AuthController handles authentication requests.
@@ -97,6 +99,17 @@ func (c *AuthController) Logout(ec *appcontext.GinContext) {
 
 // handleAuthServiceError maps auth service sentinels to HTTP responses.
 func handleAuthServiceError(ec *appcontext.GinContext, err error) bool {
+	switch {
+	case errors.Is(err, authservice.ErrInvalidRegisterRequest):
+		return basecontroller.HandleError(ec, http.StatusBadRequest, err, err.Error())
+	case errors.Is(err, authservice.ErrUsernameAlreadyExists),
+		errors.Is(err, authservice.ErrEmailAlreadyExists):
+		return basecontroller.HandleError(ec, http.StatusConflict, err, err.Error())
+	case errors.Is(err, authservice.ErrInvalidLoginCredentials),
+		errors.Is(err, authservice.ErrInvalidRefreshToken):
+		return basecontroller.HandleError(ec, http.StatusUnauthorized, err, "Invalid credentials.")
+	}
+
 	return basecontroller.HandleServiceError(ec, err, basecontroller.ServiceErrorMessages{
 		InvalidCredentials: "Invalid credentials.",
 	})

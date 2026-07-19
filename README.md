@@ -157,16 +157,15 @@ Inside `BlackRadar/`:
 ```text
 BlackRadar/
 |-- api/
-|   |-- bootstrap/
-|   |-- config/
+|   |-- common/
 |   |-- controller/
 |   |-- external/
 |   |-- middleware/
 |   |-- model/
+|   |-- platform/
 |   |-- repository/
-|   |-- context/
 |   |-- service/
-|   `-- common/
+|   `-- tests/
 |-- Dockerfile
 |-- go.mod
 |-- go.sum
@@ -181,7 +180,10 @@ BlackRadar/
 - Repositories handle GORM/database access only.
 - DTOs are separated from domain models.
 - Model files are grouped by domain: `asset.go` owns asset, assessment, and asset-vulnerability persistence models; `user.go` owns user and refresh-session persistence models.
-- `errors.go` files contain sentinel errors and error type declarations.
+- `platform` owns runtime infrastructure such as configuration, startup bootstrap, database setup/migrations, and request context.
+- `common` stays narrow: secure ID/token helpers, JWT primitives, and shared risk calculation/backfill helpers.
+- Repository, service, and controller packages own their layer-specific error contracts; small helper packages keep simple sentinel errors inline.
+- API collection files live under `BlackRadar/api/tests/`.
 - Admin permissions must not be exposed through client-controlled registration.
 
 ## Getting Started

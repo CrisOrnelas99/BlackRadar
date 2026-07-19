@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	commondb "blackradar/api/common/db"
 	commonid "blackradar/api/common/id"
-	appcontext "blackradar/api/context"
 	"blackradar/api/model"
+	platformdb "blackradar/api/platform/db"
+	appcontext "blackradar/api/platform/requestcontext"
 	baserepository "blackradar/api/repository"
 	"gorm.io/gorm"
 )
@@ -41,7 +41,7 @@ func (r *OrganizationRepository) FindByID(ec *appcontext.GinContext, id string) 
 		return model.Organization{}, gorm.ErrRecordNotFound
 	}
 	if err != nil {
-		return model.Organization{}, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+		return model.Organization{}, fmt.Errorf("%w: read organization: %w", ErrPersistenceFailure, err)
 	}
 	return organization, nil
 }
@@ -56,7 +56,7 @@ func (r *OrganizationRepository) FindByName(ec *appcontext.GinContext, name stri
 		return model.Organization{}, gorm.ErrRecordNotFound
 	}
 	if err != nil {
-		return model.Organization{}, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+		return model.Organization{}, fmt.Errorf("%w: read organization by name: %w", ErrPersistenceFailure, err)
 	}
 	return organization, nil
 }
@@ -65,14 +65,14 @@ func (r *OrganizationRepository) FindByName(ec *appcontext.GinContext, name stri
 func (r *OrganizationRepository) Save(ec *appcontext.GinContext, organization model.Organization) (model.Organization, error) {
 	organization.Name = strings.ToLower(strings.TrimSpace(organization.Name))
 	if organization.Name == "" {
-		return model.Organization{}, baserepository.ErrInvalidData
+		return model.Organization{}, ErrInvalidData
 	}
 
 	for attempt := 0; attempt < 3; attempt++ {
 		if organization.ID == "" || attempt > 0 {
 			identifier, err := commonid.New()
 			if err != nil {
-				return model.Organization{}, fmt.Errorf("%w: %w", baserepository.ErrCreateFailed, err)
+				return model.Organization{}, fmt.Errorf("%w: generate organization id: %w", ErrPersistenceFailure, err)
 			}
 			organization.ID = identifier
 		}
@@ -82,20 +82,20 @@ func (r *OrganizationRepository) Save(ec *appcontext.GinContext, organization mo
 			return organization, nil
 		}
 
-		databaseErr := commondb.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, commondb.ErrUniqueViolation) && commondb.IsPrimaryKeyViolation(err) {
+		databaseErr := platformdb.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, platformdb.ErrUniqueViolation) && platformdb.IsPrimaryKeyViolation(err) {
 			continue
 		}
-		if errors.Is(databaseErr, commondb.ErrUniqueViolation) {
-			return model.Organization{}, fmt.Errorf("%w: %w", baserepository.ErrDuplicateData, databaseErr)
+		if errors.Is(databaseErr, platformdb.ErrUniqueViolation) {
+			return model.Organization{}, fmt.Errorf("%w: %w", ErrDuplicateData, databaseErr)
 		}
-		if errors.Is(databaseErr, commondb.ErrCheckConstraintViolation) {
-			return model.Organization{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidData, databaseErr)
+		if errors.Is(databaseErr, platformdb.ErrCheckConstraintViolation) {
+			return model.Organization{}, fmt.Errorf("%w: %w", ErrInvalidData, databaseErr)
 		}
-		return model.Organization{}, fmt.Errorf("%w: %w", baserepository.ErrCreateFailed, databaseErr)
+		return model.Organization{}, fmt.Errorf("%w: create organization: %w", ErrPersistenceFailure, databaseErr)
 	}
 
-	return model.Organization{}, fmt.Errorf("%w: exhausted random id retries", baserepository.ErrCreateFailed)
+	return model.Organization{}, fmt.Errorf("%w: exhausted random id retries", ErrPrimaryKeyConflict)
 }
 
 var _ baserepository.OrganizationRepository = (*OrganizationRepository)(nil)

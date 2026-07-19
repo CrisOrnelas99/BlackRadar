@@ -9,8 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	requestcontext "blackradar/api/context"
 	contextmiddleware "blackradar/api/middleware/context"
+	requestcontext "blackradar/api/platform/requestcontext"
 )
 
 func TestNewRejectsInvalidConfig(t *testing.T) {

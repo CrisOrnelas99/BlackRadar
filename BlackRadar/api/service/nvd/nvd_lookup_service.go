@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
 	nvdcveclient "blackradar/api/external/nvd_cve"
+	appcontext "blackradar/api/platform/requestcontext"
 	baseservice "blackradar/api/service"
 )
 

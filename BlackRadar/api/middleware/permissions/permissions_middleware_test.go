@@ -7,9 +7,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	requestcontext "blackradar/api/context"
 	contextmiddleware "blackradar/api/middleware/context"
 	"blackradar/api/model"
+	requestcontext "blackradar/api/platform/requestcontext"
 )
 
 func TestRequireAdminRejectsMissingRequestContext(t *testing.T) {

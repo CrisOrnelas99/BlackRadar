@@ -2,6 +2,7 @@
 package ratelimit
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -12,8 +13,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	requestcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
+	requestcontext "blackradar/api/platform/requestcontext"
 )
 
 const (
@@ -21,6 +22,15 @@ const (
 	defaultEntryRetention   = 10 * time.Minute
 	defaultCleanupInterval  = time.Minute
 	defaultUnknownClientKey = "unknown"
+)
+
+var (
+	ErrRateLimited               = errors.New("Rate limit exceeded.")
+	ErrRateLimitNameRequired     = errors.New("rate limit rule name is required")
+	ErrInvalidRateLimit          = errors.New("rate limit must be greater than zero")
+	ErrInvalidRateLimitWindow    = errors.New("rate limit window must be greater than zero")
+	ErrInvalidRateLimitCleanup   = errors.New("rate-limit cleanup interval cannot be negative")
+	ErrInvalidRateLimitRetention = errors.New("rate-limit entry retention cannot be negative")
 )
 
 // RateLimitRule describes a fixed-window rate limit.

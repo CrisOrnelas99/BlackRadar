@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	commondb "blackradar/api/common/db"
-	appcontext "blackradar/api/context"
 	"blackradar/api/model"
+	platformdb "blackradar/api/platform/db"
+	appcontext "blackradar/api/platform/requestcontext"
 	baserepository "blackradar/api/repository"
 	"gorm.io/gorm"
 )
@@ -33,22 +33,22 @@ func (r *RefreshSessionRepository) dbForContext(ec *appcontext.GinContext) *gorm
 // Save creates a new refresh session.
 func (r *RefreshSessionRepository) Save(ec *appcontext.GinContext, session model.RefreshSession) error {
 	if session.TokenID == "" || session.UserID == "" || session.DeviceName == "" || session.ExpiresAt.IsZero() {
-		return baserepository.ErrInvalidData
+		return ErrInvalidData
 	}
 
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Create(&session).Error
 	if err != nil {
-		databaseErr := commondb.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, commondb.ErrUniqueViolation) {
-			return fmt.Errorf("%w: %w", baserepository.ErrDuplicateData, databaseErr)
+		databaseErr := platformdb.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, platformdb.ErrUniqueViolation) {
+			return fmt.Errorf("%w: %w", ErrDuplicateData, databaseErr)
 		}
-		if errors.Is(databaseErr, commondb.ErrForeignKeyViolation) {
-			return fmt.Errorf("%w: %w", baserepository.ErrInvalidReference, databaseErr)
+		if errors.Is(databaseErr, platformdb.ErrForeignKeyViolation) {
+			return fmt.Errorf("%w: %w", ErrInvalidReference, databaseErr)
 		}
-		if errors.Is(databaseErr, commondb.ErrCheckConstraintViolation) {
-			return fmt.Errorf("%w: %w", baserepository.ErrInvalidData, databaseErr)
+		if errors.Is(databaseErr, platformdb.ErrCheckConstraintViolation) {
+			return fmt.Errorf("%w: %w", ErrInvalidData, databaseErr)
 		}
-		return fmt.Errorf("%w: %w", baserepository.ErrCreateFailed, databaseErr)
+		return fmt.Errorf("%w: create refresh session: %w", ErrPersistenceFailure, databaseErr)
 	}
 	return nil
 }
@@ -64,10 +64,10 @@ func (r *RefreshSessionRepository) FindActiveByTokenIDForUser(ec *appcontext.Gin
 	).
 		First(&session).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.RefreshSession{}, baserepository.ErrRefreshSessionNotFound
+		return model.RefreshSession{}, ErrRefreshSessionNotFound
 	}
 	if err != nil {
-		return model.RefreshSession{}, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+		return model.RefreshSession{}, fmt.Errorf("%w: read refresh session: %w", ErrPersistenceFailure, err)
 	}
 	return session, nil
 }
@@ -90,10 +90,10 @@ func (r *RefreshSessionRepository) RevokeByTokenIDForUser(ec *appcontext.GinCont
 		Update("revoked_at", &now)
 	if result.Error != nil {
 		err := result.Error
-		return fmt.Errorf("%w: %w", baserepository.ErrUpdateFailed, err)
+		return fmt.Errorf("%w: revoke refresh session: %w", ErrPersistenceFailure, err)
 	}
 	if result.RowsAffected == 0 {
-		return baserepository.ErrRefreshSessionNotFound
+		return ErrRefreshSessionNotFound
 	}
 	return nil
 }

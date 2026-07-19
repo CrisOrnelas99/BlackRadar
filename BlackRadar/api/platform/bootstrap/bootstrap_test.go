@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"blackradar/api/config"
+	"blackradar/api/platform/config"
 )
 
 func TestRunSkipsWhenDisabled(t *testing.T) {

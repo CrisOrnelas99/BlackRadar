@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	commondb "blackradar/api/common/db"
 	commonid "blackradar/api/common/id"
-	appcontext "blackradar/api/context"
 	"blackradar/api/model"
-	baserepository "blackradar/api/repository"
+	platformdb "blackradar/api/platform/db"
+	appcontext "blackradar/api/platform/requestcontext"
 	"gorm.io/gorm"
 )
 
@@ -37,7 +36,7 @@ func (r *UserRepository) ExistsByUsername(ec *appcontext.GinContext, username st
 	var count int64
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Model(&model.User{}).Where("username = ?", strings.TrimSpace(username)).Count(&count).Error
 	if err != nil {
-		return false, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+		return false, fmt.Errorf("%w: check username uniqueness: %w", ErrPersistenceFailure, err)
 	}
 	return count > 0, err
 }
@@ -47,7 +46,7 @@ func (r *UserRepository) ExistsByEmail(ec *appcontext.GinContext, email string) 
 	var count int64
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Model(&model.User{}).Where("email = ?", strings.ToLower(strings.TrimSpace(email))).Count(&count).Error
 	if err != nil {
-		return false, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+		return false, fmt.Errorf("%w: check email uniqueness: %w", ErrPersistenceFailure, err)
 	}
 	return count > 0, err
 }
@@ -55,14 +54,14 @@ func (r *UserRepository) ExistsByEmail(ec *appcontext.GinContext, email string) 
 // Save creates a new user record.
 func (r *UserRepository) Save(ec *appcontext.GinContext, user model.User) (model.User, error) {
 	if user.OrganizationID == "" || user.Username == "" || user.Email == "" || user.PasswordHash == "" {
-		return model.User{}, baserepository.ErrInvalidData
+		return model.User{}, ErrInvalidData
 	}
 
 	for attempt := 0; attempt < 3; attempt++ {
 		if user.ID == "" || attempt > 0 {
 			identifier, err := commonid.New()
 			if err != nil {
-				return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrCreateFailed, err)
+				return model.User{}, fmt.Errorf("%w: generate user id: %w", ErrPersistenceFailure, err)
 			}
 			user.ID = identifier
 		}
@@ -72,23 +71,23 @@ func (r *UserRepository) Save(ec *appcontext.GinContext, user model.User) (model
 			return user, nil
 		}
 
-		databaseErr := commondb.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, commondb.ErrUniqueViolation) && commondb.IsPrimaryKeyViolation(err) {
+		databaseErr := platformdb.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, platformdb.ErrUniqueViolation) && platformdb.IsPrimaryKeyViolation(err) {
 			continue
 		}
-		if errors.Is(databaseErr, commondb.ErrUniqueViolation) {
-			return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrDuplicateData, databaseErr)
+		if errors.Is(databaseErr, platformdb.ErrUniqueViolation) {
+			return model.User{}, fmt.Errorf("%w: %w", ErrDuplicateData, databaseErr)
 		}
-		if errors.Is(databaseErr, commondb.ErrForeignKeyViolation) {
-			return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidReference, databaseErr)
+		if errors.Is(databaseErr, platformdb.ErrForeignKeyViolation) {
+			return model.User{}, fmt.Errorf("%w: %w", ErrInvalidReference, databaseErr)
 		}
-		if errors.Is(databaseErr, commondb.ErrCheckConstraintViolation) {
-			return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrInvalidData, databaseErr)
+		if errors.Is(databaseErr, platformdb.ErrCheckConstraintViolation) {
+			return model.User{}, fmt.Errorf("%w: %w", ErrInvalidData, databaseErr)
 		}
-		return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrCreateFailed, databaseErr)
+		return model.User{}, fmt.Errorf("%w: create user: %w", ErrPersistenceFailure, databaseErr)
 	}
 
-	return model.User{}, fmt.Errorf("%w: exhausted random id retries", baserepository.ErrCreateFailed)
+	return model.User{}, fmt.Errorf("%w: exhausted random id retries", ErrPrimaryKeyConflict)
 }
 
 // FindByUsernameOrEmail returns a user that matches the supplied username or email.
@@ -101,7 +100,7 @@ func (r *UserRepository) FindByUsernameOrEmail(ec *appcontext.GinContext, userOr
 		return model.User{}, gorm.ErrRecordNotFound
 	}
 	if err != nil {
-		return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+		return model.User{}, fmt.Errorf("%w: read user by username or email: %w", ErrPersistenceFailure, err)
 	}
 	return user, err
 }
@@ -114,7 +113,7 @@ func (r *UserRepository) FindByUsername(ec *appcontext.GinContext, username stri
 		return model.User{}, gorm.ErrRecordNotFound
 	}
 	if err != nil {
-		return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+		return model.User{}, fmt.Errorf("%w: read user by username: %w", ErrPersistenceFailure, err)
 	}
 	return user, nil
 }
@@ -127,7 +126,7 @@ func (r *UserRepository) FindByID(ec *appcontext.GinContext, id string) (model.U
 		return model.User{}, gorm.ErrRecordNotFound
 	}
 	if err != nil {
-		return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+		return model.User{}, fmt.Errorf("%w: read user by id: %w", ErrPersistenceFailure, err)
 	}
 	return user, nil
 }
@@ -140,7 +139,7 @@ func (r *UserRepository) FindByEmail(ec *appcontext.GinContext, email string) (m
 		return model.User{}, gorm.ErrRecordNotFound
 	}
 	if err != nil {
-		return model.User{}, fmt.Errorf("%w: %w", baserepository.ErrReadFailed, err)
+		return model.User{}, fmt.Errorf("%w: read user by email: %w", ErrPersistenceFailure, err)
 	}
 	return user, nil
 }

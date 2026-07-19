@@ -2,6 +2,7 @@
 package repository
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,9 +10,20 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	appcontext "blackradar/api/context"
 	"blackradar/api/model"
+	appcontext "blackradar/api/platform/requestcontext"
 )
+
+// TestAssetRepositoryErrors verifies asset repository errors are storage outcome sentinels.
+func TestAssetRepositoryErrors(t *testing.T) {
+	err := errors.Join(ErrPersistenceFailure, errors.New("database unavailable"))
+	if !errors.Is(err, ErrPersistenceFailure) {
+		t.Fatal("expected wrapped persistence failure to match sentinel")
+	}
+	if errors.Is(err, ErrInvalidData) {
+		t.Fatal("expected persistence failure to stay distinct from invalid data")
+	}
+}
 
 // TestAssetRepositoryDatabasePrefersContextDB verifies the context database is preferred.
 func TestAssetRepositoryDatabasePrefersContextDB(t *testing.T) {
@@ -50,5 +62,14 @@ func TestAssignRandomAssetAssessmentID(t *testing.T) {
 	}
 	if assessment.CPEReviewStatus != model.AssetCPEReviewStatusNeedsReview {
 		t.Fatalf("expected review status to remain %q, got %q", model.AssetCPEReviewStatusNeedsReview, assessment.CPEReviewStatus)
+	}
+}
+
+// TestAssetRepositorySaveRejectsInvalidInput verifies invalid asset input is rejected before database use.
+func TestAssetRepositorySaveRejectsInvalidInput(t *testing.T) {
+	repo := NewAssetRepository(nil)
+
+	if _, err := repo.Save(nil, model.Asset{}); !errors.Is(err, ErrInvalidData) {
+		t.Fatalf("expected invalid data error, got %v", err)
 	}
 }

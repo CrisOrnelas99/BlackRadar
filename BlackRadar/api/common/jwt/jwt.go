@@ -22,6 +22,15 @@ const (
 	defaultClockSkew        = 30 * time.Second
 )
 
+var (
+	ErrUnexpectedSigningMethod = errors.New("unexpected signing method")
+	ErrInvalidToken            = errors.New("invalid token")
+	ErrMissingSubject          = errors.New("missing subject")
+	ErrInvalidScope            = errors.New("invalid scope")
+	ErrInvalidTokenUse         = errors.New("invalid token use")
+	ErrMissingSecret           = errors.New("missing jwt secret")
+)
+
 // Manager issues and validates application JWTs.
 type Manager struct {
 	secret            []byte

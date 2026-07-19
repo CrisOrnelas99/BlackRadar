@@ -1,7 +1,5 @@
-// Package db provides database connection, migration, and error translation helpers.
+// Package db provides database connection, migration, transaction, and error translation helpers.
 package db
-
-// This file manages database connection lifecycle and PostgreSQL error translation.
 
 import (
 	"context"
@@ -14,7 +12,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"blackradar/api/config"
+	"blackradar/api/platform/config"
 )
 
 const (
@@ -22,6 +20,12 @@ const (
 	defaultMaxIdleConnections = 10
 	defaultConnectionLifetime = 30 * time.Minute
 	defaultConnectionIdleTime = 5 * time.Minute
+)
+
+var (
+	ErrForeignKeyViolation      = errors.New("foreign key violation")
+	ErrCheckConstraintViolation = errors.New("check constraint violation")
+	ErrUniqueViolation          = errors.New("unique violation")
 )
 
 // Connect opens and verifies the application database connection.
@@ -114,6 +118,25 @@ func IsPrimaryKeyViolation(err error) bool {
 	default:
 		return false
 	}
+}
+
+// WithinTransaction executes an operation inside a GORM transaction.
+//
+// Returning an error from operation rolls the transaction back. Returning nil
+// commits the transaction.
+func WithinTransaction(ctx context.Context, database *gorm.DB, operation func(tx *gorm.DB) error) error {
+	if database == nil {
+		return fmt.Errorf("database transaction: database is required")
+	}
+	if operation == nil {
+		return fmt.Errorf("database transaction: operation is required")
+	}
+
+	if err := database.WithContext(ctx).Transaction(operation); err != nil {
+		return fmt.Errorf("database transaction: %w", err)
+	}
+
+	return nil
 }
 
 // isPostgresError reports whether err is a pgx error with the expected SQLSTATE code.

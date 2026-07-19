@@ -10,10 +10,14 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
 	"blackradar/api/model"
-	baserepository "blackradar/api/repository"
+	appcontext "blackradar/api/platform/requestcontext"
+	assetrepository "blackradar/api/repository/asset"
+	authorizationrepository "blackradar/api/repository/authorization"
+	organizationrepository "blackradar/api/repository/organization"
+	userrepository "blackradar/api/repository/user"
+	vulnerabilityrepository "blackradar/api/repository/vulnerability"
 )
 
 var cveIDPattern = regexp.MustCompile(`^CVE-\d{4}-\d{4,}$`)
@@ -50,13 +54,25 @@ func TranslateRepositoryError(err error) error {
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, baserepository.ErrAssetNotFound), errors.Is(err, baserepository.ErrVulnerabilityNotFound), errors.Is(err, baserepository.ErrRefreshSessionNotFound):
+	case errors.Is(err, assetrepository.ErrAssetNotFound),
+		errors.Is(err, assetrepository.ErrVulnerabilityNotFound),
+		errors.Is(err, userrepository.ErrRefreshSessionNotFound),
+		errors.Is(err, vulnerabilityrepository.ErrVulnerabilityNotFound):
 		return wrapRepositoryError(ErrNotFound, err)
-	case errors.Is(err, baserepository.ErrDuplicateData), errors.Is(err, baserepository.ErrDuplicateAssignment):
+	case errors.Is(err, assetrepository.ErrDuplicateAssignment),
+		errors.Is(err, organizationrepository.ErrDuplicateData),
+		errors.Is(err, userrepository.ErrDuplicateData),
+		errors.Is(err, vulnerabilityrepository.ErrDuplicateData):
 		return wrapRepositoryError(ErrConflict, err)
-	case errors.Is(err, baserepository.ErrInvalidData), errors.Is(err, baserepository.ErrInvalidReference):
+	case errors.Is(err, assetrepository.ErrInvalidData),
+		errors.Is(err, assetrepository.ErrInvalidReference),
+		errors.Is(err, organizationrepository.ErrInvalidData),
+		errors.Is(err, userrepository.ErrInvalidData),
+		errors.Is(err, userrepository.ErrInvalidReference),
+		errors.Is(err, vulnerabilityrepository.ErrInvalidData),
+		errors.Is(err, vulnerabilityrepository.ErrInvalidReference):
 		return wrapRepositoryError(ErrInvalidRequestData, err)
-	case errors.Is(err, baserepository.ErrForbidden):
+	case errors.Is(err, authorizationrepository.ErrForbidden):
 		return wrapRepositoryError(ErrForbidden, err)
 	default:
 		return wrapRepositoryError(ErrInternal, err)

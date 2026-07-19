@@ -2,6 +2,7 @@
 package cors
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -13,6 +14,13 @@ import (
 )
 
 const defaultPreflightMaxAge = 10 * time.Minute
+
+var (
+	ErrInvalidCORSOrigin  = errors.New("invalid CORS origin")
+	ErrCORSWildcardOrigin = errors.New("CORS wildcard origin is not allowed")
+	ErrCORSNullOrigin     = errors.New(`CORS origin "null" is not allowed`)
+	ErrInvalidCORSMaxAge  = errors.New("CORS max age cannot be negative")
+)
 
 // Config defines the cross-origin policy for the API.
 type Config struct {

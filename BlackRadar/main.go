@@ -12,11 +12,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"blackradar/api/bootstrap"
-	commondb "blackradar/api/common/db"
 	commonjwt "blackradar/api/common/jwt"
-	commonriskbackfill "blackradar/api/common/risk_backfill"
-	"blackradar/api/config"
+	commonrisk "blackradar/api/common/risk"
 	"blackradar/api/controller"
 	controllerai "blackradar/api/controller/ai"
 	controllerasset "blackradar/api/controller/asset"
@@ -31,6 +28,9 @@ import (
 	"blackradar/api/middleware/filter"
 	gormmiddleware "blackradar/api/middleware/gorm"
 	securityheaders "blackradar/api/middleware/security_headers"
+	"blackradar/api/platform/bootstrap"
+	"blackradar/api/platform/config"
+	platformdb "blackradar/api/platform/db"
 	repositoryasset "blackradar/api/repository/asset"
 	repositoryorganization "blackradar/api/repository/organization"
 	repositoryuser "blackradar/api/repository/user"
@@ -56,15 +56,15 @@ func main() {
 		log.Fatalf("database connection failed: %v", err)
 	}
 	defer func() {
-		if err := commondb.Close(gormDB); err != nil {
+		if err := platformdb.Close(gormDB); err != nil {
 			log.Printf("database close failed: %v", err)
 		}
 	}()
 
-	if err := commondb.RunMigrations(ctx, gormDB); err != nil {
+	if err := platformdb.RunMigrations(ctx, gormDB); err != nil {
 		log.Fatalf("database migration failed: %v", err)
 	}
-	if err := commonriskbackfill.BackfillAssetRiskLevels(ctx, gormDB); err != nil {
+	if err := commonrisk.BackfillAssetRiskLevels(ctx, gormDB); err != nil {
 		log.Fatalf("asset risk level backfill failed: %v", err)
 	}
 	if err := bootstrap.Run(ctx, gormDB, cfg); err != nil {
@@ -169,7 +169,7 @@ func connectDatabaseWithRetry(ctx context.Context, cfg config.Config) (*gorm.DB,
 	var lastErr error
 
 	for attempt := 1; attempt <= databaseConnectAttempts; attempt++ {
-		database, err := commondb.Connect(ctx, cfg)
+		database, err := platformdb.Connect(ctx, cfg)
 		if err == nil {
 			return database, nil
 		}

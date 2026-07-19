@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	commonid "blackradar/api/common/id"
-	requestcontext "blackradar/api/context"
+	requestcontext "blackradar/api/platform/requestcontext"
 )
 
 const requestIDHeader = "X-Request-ID"

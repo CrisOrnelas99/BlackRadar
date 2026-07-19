@@ -4,6 +4,7 @@ package requestcontext
 
 import (
 	stdcontext "context"
+	"errors"
 	"log/slog"
 	"strings"
 
@@ -12,6 +13,14 @@ import (
 )
 
 const ginContextKey = "blackradar.requestcontext"
+
+var (
+	ErrContextNotInitialized = errors.New("request context has not been initialized")
+	ErrPrincipalNotSet       = errors.New("authenticated principal has not been set")
+	ErrInvalidPrincipal      = errors.New("authenticated principal is invalid")
+	ErrUsernameNotSet        = errors.New("authenticated principal username has not been set")
+	ErrRoleNotSet            = errors.New("authenticated principal role has not been set")
+)
 
 // Principal contains identity information established by authentication
 // middleware.

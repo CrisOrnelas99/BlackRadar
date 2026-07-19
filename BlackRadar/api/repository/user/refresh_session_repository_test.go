@@ -12,9 +12,8 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	appcontext "blackradar/api/context"
 	"blackradar/api/model"
-	baserepository "blackradar/api/repository"
+	appcontext "blackradar/api/platform/requestcontext"
 )
 
 // TestRefreshSessionRepositoryDatabasePrefersContextDB verifies the context database is preferred.
@@ -41,7 +40,7 @@ func TestRefreshSessionRepositoryDatabasePrefersContextDB(t *testing.T) {
 func TestRefreshSessionRepositorySaveRejectsInvalidInput(t *testing.T) {
 	repo := NewRefreshSessionRepository(nil)
 
-	if err := repo.Save(nil, model.RefreshSession{}); err != baserepository.ErrInvalidData {
+	if err := repo.Save(nil, model.RefreshSession{}); err != ErrInvalidData {
 		t.Fatalf("expected invalid data error, got %v", err)
 	}
 
@@ -50,7 +49,7 @@ func TestRefreshSessionRepositorySaveRejectsInvalidInput(t *testing.T) {
 		UserID:     "00000000-0000-4000-8000-000000000001",
 		DeviceName: "desktop",
 		ExpiresAt:  time.Time{},
-	}); err != baserepository.ErrInvalidData {
+	}); err != ErrInvalidData {
 		t.Fatalf("expected invalid data error for missing expiry, got %v", err)
 	}
 }

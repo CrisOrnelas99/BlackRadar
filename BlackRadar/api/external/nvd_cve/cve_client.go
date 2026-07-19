@@ -22,6 +22,17 @@ const (
 	nvdRetryDelay   = 6 * time.Second
 )
 
+var (
+	ErrInvalidNVDBaseURL  = errors.New("invalid nvd base url")
+	ErrInvalidCVEID       = errors.New("invalid cve id")
+	ErrInvalidCVESearch   = errors.New("invalid cve search")
+	ErrInvalidCPESearch   = errors.New("invalid cpe search")
+	ErrCVEIDNotFound      = errors.New("cve id not found")
+	ErrNVDRateLimited     = errors.New("nvd rate limited")
+	ErrNVDUnavailable     = errors.New("nvd unavailable")
+	ErrInvalidNVDResponse = errors.New("invalid nvd response")
+)
+
 // Client looks up CVE details from the official NVD CVE API.
 type Client struct {
 	baseURL    string

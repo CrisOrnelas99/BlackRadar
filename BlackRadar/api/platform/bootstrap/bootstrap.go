@@ -10,8 +10,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 
-	"blackradar/api/config"
 	"blackradar/api/model"
+	"blackradar/api/platform/config"
 )
 
 const (
@@ -37,6 +37,11 @@ const (
 	bootstrapSeverity           = "Critical"
 	bootstrapStatus             = "Open"
 	bootstrapDescription        = "Example NVD-backed CVE used for local testing."
+)
+
+var (
+	ErrDatabaseRequired              = errors.New("bootstrap dev data requires a database connection")
+	ErrBootstrapOrganizationConflict = errors.New("bootstrap organization ID belongs to another organization")
 )
 
 // Run seeds developer bootstrap data when explicitly enabled.

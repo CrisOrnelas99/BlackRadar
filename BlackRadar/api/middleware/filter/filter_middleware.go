@@ -11,10 +11,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	requestcontext "blackradar/api/context"
+	requestcontext "blackradar/api/platform/requestcontext"
 )
 
 const defaultMaximumPathLength = 2048
+
+var (
+	ErrInvalidRequestPath     = errors.New("invalid request path")
+	ErrRequestPathTooLong     = errors.New("request path exceeds maximum length")
+	ErrRequestPathControlChar = errors.New("request path contains a control character")
+	ErrRequestPathBadEncoding = errors.New("request path contains malformed encoding")
+	ErrRequestPathTraversal   = errors.New("request path contains traversal segments")
+)
 
 // Config defines request-path safety limits.
 type Config struct {

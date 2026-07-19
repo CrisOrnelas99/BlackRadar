@@ -15,10 +15,11 @@ import (
 	"gorm.io/gorm"
 
 	commonjwt "blackradar/api/common/jwt"
-	appcontext "blackradar/api/context"
 	"blackradar/api/controller/dto"
 	"blackradar/api/model"
+	appcontext "blackradar/api/platform/requestcontext"
 	baserepository "blackradar/api/repository"
+	userrepo "blackradar/api/repository/user"
 	baseservice "blackradar/api/service"
 )
 
@@ -97,10 +98,10 @@ func TestAuthServiceValidationAndTranslation(t *testing.T) {
 	ctx := newAuthServiceContext(t)
 	svc := NewAuthService(newTestJWTManager(t), &fakeOrganizationRepository{findErr: gorm.ErrRecordNotFound}, &fakeUserRepository{findErr: gorm.ErrRecordNotFound}, &fakeRefreshSessionRepository{})
 
-	if _, err := svc.Register(ctx, dto.RegisterRequest{Username: "ab", Email: "bad", Organization: "home", Password: "short"}); !errors.Is(err, baseservice.ErrInvalidRequestData) {
+	if _, err := svc.Register(ctx, dto.RegisterRequest{Username: "ab", Email: "bad", Organization: "home", Password: "short"}); !errors.Is(err, ErrInvalidRegisterRequest) {
 		t.Fatalf("expected invalid request data, got %v", err)
 	}
-	if _, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "missing", Password: "Password1!"}); !errors.Is(err, baseservice.ErrInvalidCredentials) {
+	if _, err := svc.Login(ctx, dto.LoginRequest{UserOrEmail: "missing", Password: "Password1!"}); !errors.Is(err, ErrInvalidLoginCredentials) {
 		t.Fatalf("expected invalid credentials, got %v", err)
 	}
 }
@@ -117,7 +118,7 @@ func TestAuthServiceRegisterChecksEmailBeforeCreatingOrganization(t *testing.T) 
 		Organization: "home",
 		Password:     "Password1!",
 	})
-	if !errors.Is(err, baseservice.ErrConflict) {
+	if !errors.Is(err, ErrEmailAlreadyExists) {
 		t.Fatalf("expected duplicate email conflict, got %v", err)
 	}
 	if organizations.saveCalled {
@@ -143,7 +144,7 @@ func TestAuthServiceLogoutRejectsSecondLogout(t *testing.T) {
 		t.Fatalf("expected first Logout to succeed, got %v", err)
 	}
 
-	if err := svc.Logout(ctx, dto.RefreshRequest{RefreshToken: login.RefreshToken}); !errors.Is(err, baseservice.ErrInvalidCredentials) {
+	if err := svc.Logout(ctx, dto.RefreshRequest{RefreshToken: login.RefreshToken}); !errors.Is(err, ErrInvalidRefreshToken) {
 		t.Fatalf("expected second Logout to be rejected, got %v", err)
 	}
 }
@@ -162,7 +163,7 @@ func TestAuthServiceRefreshTranslatesSessionLookupFailure(t *testing.T) {
 		t.Fatalf("expected Login to succeed, got %v", err)
 	}
 
-	sessions.findErr = baserepository.ErrReadFailed
+	sessions.findErr = userrepo.ErrPersistenceFailure
 
 	if _, err := svc.Refresh(ctx, dto.RefreshRequest{RefreshToken: login.RefreshToken}); !errors.Is(err, baseservice.ErrInternal) {
 		t.Fatalf("expected internal service error for session lookup failure, got %v", err)
@@ -174,7 +175,7 @@ func TestAuthServiceLoginTranslatesSessionSaveFailure(t *testing.T) {
 	repo := &fakeUserRepository{
 		user: model.User{Model: model.Model{ID: testUserID}, OrganizationID: testOrgID, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
-	sessions := &fakeRefreshSessionRepository{saveErr: baserepository.ErrCreateFailed}
+	sessions := &fakeRefreshSessionRepository{saveErr: userrepo.ErrPersistenceFailure}
 	svc := NewAuthService(newTestJWTManager(t), &fakeOrganizationRepository{organization: model.Organization{Model: model.Model{ID: testOrgID}, Name: "home"}}, repo, sessions)
 	ctx := newAuthServiceContext(t)
 
@@ -333,7 +334,7 @@ func (f *fakeRefreshSessionRepository) FindActiveByTokenIDForUser(ec *appcontext
 		return model.RefreshSession{}, f.findErr
 	}
 	if f.session.TokenID == "" || f.revoked || f.session.TokenID != tokenID || f.session.UserID != userID {
-		return model.RefreshSession{}, baserepository.ErrRefreshSessionNotFound
+		return model.RefreshSession{}, userrepo.ErrRefreshSessionNotFound
 	}
 	return f.session, nil
 }
@@ -343,7 +344,7 @@ func (f *fakeRefreshSessionRepository) RevokeByTokenIDForUser(ec *appcontext.Gin
 		return f.revokeErr
 	}
 	if f.session.TokenID == "" || f.revoked || f.session.TokenID != tokenID || f.session.UserID != userID {
-		return baserepository.ErrRefreshSessionNotFound
+		return userrepo.ErrRefreshSessionNotFound
 	}
 	f.revoked = true
 	return nil

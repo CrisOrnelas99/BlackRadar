@@ -11,10 +11,10 @@ import (
 	"gorm.io/gorm"
 
 	commonjwt "blackradar/api/common/jwt"
-	requestcontext "blackradar/api/context"
 	contextmiddleware "blackradar/api/middleware/context"
 	"blackradar/api/model"
-	baserepository "blackradar/api/repository"
+	requestcontext "blackradar/api/platform/requestcontext"
+	userrepository "blackradar/api/repository/user"
 )
 
 const testJWTSecret = "0123456789abcdef0123456789abcdef"
@@ -116,7 +116,7 @@ func TestAuthenticationRejectsInvalidCredentials(t *testing.T) {
 			name:     "inactive session",
 			header:   "Bearer " + mustGenerateToken(t, jwtManager, userID, "analyst", sessionID),
 			users:    &fakeUserLookup{user: user},
-			sessions: &fakeRefreshSessionLookup{findErr: baserepository.ErrRefreshSessionNotFound},
+			sessions: &fakeRefreshSessionLookup{findErr: userrepository.ErrRefreshSessionNotFound},
 		},
 	}
 
@@ -344,7 +344,7 @@ func (f *fakeRefreshSessionLookup) FindActiveByTokenIDForUser(ec *requestcontext
 	if f.session.TokenID == tokenID && f.session.UserID == userID {
 		return f.session, nil
 	}
-	return model.RefreshSession{}, baserepository.ErrRefreshSessionNotFound
+	return model.RefreshSession{}, userrepository.ErrRefreshSessionNotFound
 }
 
 func newTestJWTManager(t *testing.T) *commonjwt.Manager {
