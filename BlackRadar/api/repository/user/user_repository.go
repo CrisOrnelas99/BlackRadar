@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	commonid "blackradar/api/common/id"
 	"blackradar/api/model"
@@ -31,6 +32,47 @@ func (r *UserRepository) dbForContext(ec *appcontext.GinContext) *gorm.DB {
 	return r.db
 }
 
+// RefreshSessionRepository persists refresh token sessions.
+type RefreshSessionRepository struct {
+	db *gorm.DB
+}
+
+// NewRefreshSessionRepository creates a refresh session repository backed by the supplied database.
+func NewRefreshSessionRepository(db *gorm.DB) *RefreshSessionRepository {
+	return &RefreshSessionRepository{db: db}
+}
+
+func (r *RefreshSessionRepository) dbForContext(ec *appcontext.GinContext) *gorm.DB {
+	if ec != nil && ec.Database() != nil {
+		return ec.Database()
+	}
+	return r.db
+}
+
+// RequireAdmin verifies the current request user is still an active admin in PostgreSQL.
+func RequireAdmin(ec *appcontext.GinContext, db *gorm.DB) error {
+	if ec == nil || db == nil {
+		return ErrPermissionDenied
+	}
+
+	userID, err := ec.UserID()
+	if err != nil {
+		return ErrPermissionDenied
+	}
+
+	var user model.User
+	err = db.WithContext(ec.RequestContext()).
+		Where("id = ?", userID).
+		First(&user).Error
+	if err != nil {
+		return ErrPermissionDenied
+	}
+	if user.Role != model.RoleAdmin {
+		return ErrPermissionDenied
+	}
+	return nil
+}
+
 // ExistsByUsername reports whether a username already exists.
 func (r *UserRepository) ExistsByUsername(ec *appcontext.GinContext, username string) (bool, error) {
 	var count int64
@@ -54,7 +96,7 @@ func (r *UserRepository) ExistsByEmail(ec *appcontext.GinContext, email string) 
 // Save creates a new user record.
 func (r *UserRepository) Save(ec *appcontext.GinContext, user model.User) (model.User, error) {
 	if user.Username == "" || user.Email == "" || user.PasswordHash == "" {
-		return model.User{}, ErrInvalidData
+		return model.User{}, ErrNotNullViolation
 	}
 
 	for attempt := 0; attempt < 3; attempt++ {
@@ -76,18 +118,18 @@ func (r *UserRepository) Save(ec *appcontext.GinContext, user model.User) (model
 			continue
 		}
 		if errors.Is(databaseErr, platformdb.ErrUniqueViolation) {
-			return model.User{}, fmt.Errorf("%w: %w", ErrDuplicateData, databaseErr)
+			return model.User{}, fmt.Errorf("%w: %w", ErrUniqueViolation, databaseErr)
 		}
 		if errors.Is(databaseErr, platformdb.ErrForeignKeyViolation) {
-			return model.User{}, fmt.Errorf("%w: %w", ErrInvalidReference, databaseErr)
+			return model.User{}, fmt.Errorf("%w: %w", ErrForeignKeyViolation, databaseErr)
 		}
 		if errors.Is(databaseErr, platformdb.ErrCheckConstraintViolation) {
-			return model.User{}, fmt.Errorf("%w: %w", ErrInvalidData, databaseErr)
+			return model.User{}, fmt.Errorf("%w: %w", ErrCheckConstraintViolation, databaseErr)
 		}
 		return model.User{}, fmt.Errorf("%w: create user: %w", ErrPersistenceFailure, databaseErr)
 	}
 
-	return model.User{}, fmt.Errorf("%w: exhausted random id retries", ErrPrimaryKeyConflict)
+	return model.User{}, fmt.Errorf("%w: exhausted random id retries", ErrPrimaryKeyViolation)
 }
 
 // FindByUsernameOrEmail returns a user that matches the supplied username or email.
@@ -142,4 +184,72 @@ func (r *UserRepository) FindByEmail(ec *appcontext.GinContext, email string) (m
 		return model.User{}, fmt.Errorf("%w: read user by email: %w", ErrPersistenceFailure, err)
 	}
 	return user, nil
+}
+
+// Save creates a new refresh session.
+func (r *RefreshSessionRepository) Save(ec *appcontext.GinContext, session model.RefreshSession) error {
+	if session.TokenID == "" || session.UserID == "" || session.DeviceName == "" || session.ExpiresAt.IsZero() {
+		return ErrNotNullViolation
+	}
+
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Create(&session).Error
+	if err != nil {
+		databaseErr := platformdb.TranslateDatabaseError(err)
+		if errors.Is(databaseErr, platformdb.ErrUniqueViolation) {
+			return fmt.Errorf("%w: %w", ErrUniqueViolation, databaseErr)
+		}
+		if errors.Is(databaseErr, platformdb.ErrForeignKeyViolation) {
+			return fmt.Errorf("%w: %w", ErrForeignKeyViolation, databaseErr)
+		}
+		if errors.Is(databaseErr, platformdb.ErrCheckConstraintViolation) {
+			return fmt.Errorf("%w: %w", ErrCheckConstraintViolation, databaseErr)
+		}
+		return fmt.Errorf("%w: create refresh session: %w", ErrPersistenceFailure, databaseErr)
+	}
+	return nil
+}
+
+// FindActiveByTokenIDForUser returns an unrevoked refresh session for a user.
+func (r *RefreshSessionRepository) FindActiveByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID string) (model.RefreshSession, error) {
+	var session model.RefreshSession
+	err := activeRefreshSessionQuery(
+		r.dbForContext(ec).WithContext(ec.RequestContext()),
+		tokenID,
+		userID,
+		time.Now().UTC(),
+	).
+		First(&session).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return model.RefreshSession{}, ErrRecordNotFound
+	}
+	if err != nil {
+		return model.RefreshSession{}, fmt.Errorf("%w: read refresh session: %w", ErrPersistenceFailure, err)
+	}
+	return session, nil
+}
+
+func activeRefreshSessionQuery(db *gorm.DB, tokenID string, userID string, now time.Time) *gorm.DB {
+	return db.Where(
+		"token_id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?",
+		tokenID,
+		userID,
+		now,
+	)
+}
+
+// RevokeByTokenIDForUser marks the specified refresh session revoked.
+func (r *RefreshSessionRepository) RevokeByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID string) error {
+	now := time.Now().UTC()
+	result := r.dbForContext(ec).WithContext(ec.RequestContext()).
+		Model(&model.RefreshSession{}).
+		Where("token_id = ? AND user_id = ? AND revoked_at IS NULL", tokenID, userID).
+		Update("revoked_at", &now)
+	if result.Error != nil {
+		err := result.Error
+		return fmt.Errorf("%w: revoke refresh session: %w", ErrPersistenceFailure, err)
+	}
+	if result.RowsAffected == 0 {
+		return ErrRecordNotFound
+	}
+	return nil
 }

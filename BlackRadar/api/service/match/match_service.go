@@ -13,27 +13,15 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"blackradar/api/controller/dto"
+	nvdcpeclient "blackradar/api/external/nvd_cpe"
+	nvdcveclient "blackradar/api/external/nvd_cve"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
-	baserepository "blackradar/api/repository"
 	assetrepo "blackradar/api/repository/asset"
 	vulnerabilityrepo "blackradar/api/repository/vulnerability"
-	baseservice "blackradar/api/service"
 	assetservice "blackradar/api/service/asset"
 	promptservice "blackradar/api/service/prompt"
 )
-
-// CPECandidateSearcher looks up NVD CPE candidates for a normalized search request.
-type CPECandidateSearcher interface {
-	SearchCandidates(ctx context.Context, request dto.CPEMatchRequest) ([]dto.CPECandidate, error)
-}
-
-// CVEByCPESearcher looks up NVD CVEs for selected CPEs and bounded keyword fallback searches.
-type CVEByCPESearcher interface {
-	SearchCVEsByCPE(ctx context.Context, cpeName string, limit int) ([]dto.CVELookupResponse, error)
-	SearchCVEsByKeyword(ctx context.Context, keywordSearch string, limit int) ([]dto.CVELookupResponse, error)
-}
 
 const (
 	maxAutoAttachedCVEs          = 10
@@ -52,7 +40,7 @@ type AssetMatchAnalysis struct {
 	ReviewStatus       string
 	ReviewNotes        string
 	CandidateCount     int
-	Candidates         []dto.CPECandidate
+	Candidates         []nvdcpeclient.CPECandidate
 }
 
 // AssetFingerprint captures the normalized product signals derived from an asset.
@@ -332,16 +320,16 @@ func composeAssetFingerprint(fingerprint AssetFingerprint) string {
 }
 
 type assetMatchServiceImpl struct {
-	assetRepository baserepository.AssetRepository
-	vulnRepository  baserepository.VulnerabilityRepository
+	assetRepository assetrepo.AssetRepositoryInterface
+	vulnRepository  vulnerabilityrepo.VulnerabilityRepositoryInterface
 	cpeSearcher     CPECandidateSearcher
 	cveSearcher     CVEByCPESearcher
-	textAI          baseservice.TextGenerationService
+	textAI          textGenerationService
 	now             func() time.Time
 }
 
 // NewAssetMatchService creates a backend-only asset matching service.
-func NewAssetMatchService(assetRepository baserepository.AssetRepository, vulnRepository baserepository.VulnerabilityRepository, cpeSearcher CPECandidateSearcher, cveSearcher CVEByCPESearcher, textAI baseservice.TextGenerationService) *assetMatchServiceImpl {
+func NewAssetMatchService(assetRepository assetrepo.AssetRepositoryInterface, vulnRepository vulnerabilityrepo.VulnerabilityRepositoryInterface, cpeSearcher CPECandidateSearcher, cveSearcher CVEByCPESearcher, textAI textGenerationService) *assetMatchServiceImpl {
 	return &assetMatchServiceImpl{
 		assetRepository: assetRepository,
 		vulnRepository:  vulnRepository,
@@ -349,6 +337,49 @@ func NewAssetMatchService(assetRepository baserepository.AssetRepository, vulnRe
 		cveSearcher:     cveSearcher,
 		textAI:          textAI,
 		now:             time.Now,
+	}
+}
+
+type nvdLookupServiceImpl struct {
+	client cveLookupClient
+}
+
+// NewNVDLookupService creates a read-only NVD lookup service.
+func NewNVDLookupService(client cveLookupClient) *nvdLookupServiceImpl {
+	return &nvdLookupServiceImpl{client: client}
+}
+
+// LookupCVE validates the request and returns official NVD details for one CVE ID.
+func (s *nvdLookupServiceImpl) LookupCVE(ec *appcontext.GinContext, cveID string) (nvdcveclient.CVELookupResponse, error) {
+	if _, err := authenticatedUserID(ec); err != nil {
+		return nvdcveclient.CVELookupResponse{}, err
+	}
+
+	normalizedCVEID := normalizeCVEID(cveID)
+	if err := validateCVEID(normalizedCVEID); err != nil {
+		return nvdcveclient.CVELookupResponse{}, ErrInvalidCVEID
+	}
+	if s.client == nil {
+		return nvdcveclient.CVELookupResponse{}, ErrMatchExternalService
+	}
+
+	ctx, cancel := context.WithTimeout(ec.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	response, err := s.client.LookupCVE(ctx, normalizedCVEID)
+	switch {
+	case err == nil:
+		return response, nil
+	case errors.Is(err, nvdcveclient.ErrInvalidCVEID):
+		return nvdcveclient.CVELookupResponse{}, fmt.Errorf("%w: %w", ErrInvalidCVEID, err)
+	case errors.Is(err, nvdcveclient.ErrCVEIDNotFound):
+		return nvdcveclient.CVELookupResponse{}, fmt.Errorf("%w: %w", ErrCVENotFound, err)
+	case errors.Is(err, nvdcveclient.ErrNVDRateLimited):
+		return nvdcveclient.CVELookupResponse{}, fmt.Errorf("%w: %w", ErrNVDLookupRateLimited, err)
+	case errors.Is(err, nvdcveclient.ErrNVDUnavailable), errors.Is(err, nvdcveclient.ErrInvalidNVDResponse):
+		return nvdcveclient.CVELookupResponse{}, fmt.Errorf("%w: %w", ErrMatchExternalService, err)
+	default:
+		return nvdcveclient.CVELookupResponse{}, fmt.Errorf("%w: %v", ErrMatchExternalService, err)
 	}
 }
 
@@ -450,7 +481,7 @@ func (s *assetMatchServiceImpl) AnalyzeAndPersistAssetMatch(ec *appcontext.GinCo
 
 	asset, err := s.assetRepository.FindByIDForUser(ec, assetID, userID)
 	if err != nil {
-		if errors.Is(err, assetrepo.ErrAssetNotFound) {
+		if errors.Is(err, assetrepo.ErrRecordNotFound) {
 			return model.Asset{}, assetservice.ErrAssetNotFound
 		}
 		return model.Asset{}, translateMatchRepositoryError(err)
@@ -503,7 +534,7 @@ func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appco
 
 	asset, err := s.assetRepository.FindByIDForUser(ec, assetID, userID)
 	if err != nil {
-		if errors.Is(err, assetrepo.ErrAssetNotFound) {
+		if errors.Is(err, assetrepo.ErrRecordNotFound) {
 			return model.Asset{}, assetservice.ErrAssetNotFound
 		}
 		return model.Asset{}, translateMatchRepositoryError(err)
@@ -564,7 +595,7 @@ func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appco
 		}
 		assigned, err := s.assetRepository.AssignVulnerabilityForUser(ec, updated.ID, userID, vulnerability.ID)
 		if err != nil {
-			if errors.Is(err, assetrepo.ErrDuplicateAssignment) {
+			if errors.Is(err, assetrepo.ErrDuplicateRelationship) {
 				continue
 			}
 			return model.Asset{}, translateMatchRepositoryError(err)
@@ -573,7 +604,7 @@ func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appco
 	}
 
 	asset, err = s.assetRepository.FindByIDForUser(ec, assetID, userID)
-	if errors.Is(err, assetrepo.ErrAssetNotFound) {
+	if errors.Is(err, assetrepo.ErrRecordNotFound) {
 		return model.Asset{}, assetservice.ErrAssetNotFound
 	}
 	return asset, translateMatchRepositoryError(err)
@@ -636,8 +667,8 @@ func (s *assetMatchServiceImpl) findKeywordFallbackCVEs(ctx context.Context, ana
 		"nvd_keyword_searches", keywordSearches,
 	)
 
-	candidatesByID := make(map[string]dto.CVELookupResponse)
-	broadCandidatesByID := make(map[string]dto.CVELookupResponse)
+	candidatesByID := make(map[string]nvdcveclient.CVELookupResponse)
+	broadCandidatesByID := make(map[string]nvdcveclient.CVELookupResponse)
 	usedSearches := make([]string, 0, len(keywordSearches))
 	keywordFallbackUnavailable := false
 	for _, keywordSearch := range keywordSearches {
@@ -696,7 +727,7 @@ func (s *assetMatchServiceImpl) findKeywordFallbackCVEs(ctx context.Context, ana
 		return cveMatchResult{}, nil
 	}
 
-	candidates := make([]dto.CVELookupResponse, 0, len(candidatesByID))
+	candidates := make([]nvdcveclient.CVELookupResponse, 0, len(candidatesByID))
 	for _, cve := range candidatesByID {
 		candidates = append(candidates, cve)
 	}
@@ -758,7 +789,7 @@ func (s *assetMatchServiceImpl) findKeywordFallbackCVEs(ctx context.Context, ana
 }
 
 // findOrSaveNVDVulnerability creates or updates a local vulnerability from an NVD CVE response.
-func (s *assetMatchServiceImpl) findOrSaveNVDVulnerability(ec *appcontext.GinContext, userID string, response dto.CVELookupResponse) (model.Vulnerability, error) {
+func (s *assetMatchServiceImpl) findOrSaveNVDVulnerability(ec *appcontext.GinContext, userID string, response nvdcveclient.CVELookupResponse) (model.Vulnerability, error) {
 	normalizedCVEID := normalizeCVEID(response.CVEID)
 	if err := validateCVEID(normalizedCVEID); err != nil {
 		return model.Vulnerability{}, assetservice.ErrInvalidAssetCVEID
@@ -776,7 +807,7 @@ func (s *assetMatchServiceImpl) findOrSaveNVDVulnerability(ec *appcontext.GinCon
 		})
 		return updated, translateMatchRepositoryError(err)
 	}
-	if !errors.Is(err, vulnerabilityrepo.ErrVulnerabilityNotFound) {
+	if !errors.Is(err, vulnerabilityrepo.ErrRecordNotFound) {
 		return model.Vulnerability{}, translateMatchRepositoryError(err)
 	}
 
@@ -820,20 +851,19 @@ func translateMatchRepositoryError(err error) error {
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, assetrepo.ErrAssetNotFound):
+	case errors.Is(err, assetrepo.ErrRecordNotFound):
 		return fmt.Errorf("%w: %w", assetservice.ErrAssetNotFound, err)
-	case errors.Is(err, assetrepo.ErrVulnerabilityNotFound),
-		errors.Is(err, vulnerabilityrepo.ErrVulnerabilityNotFound):
+	case errors.Is(err, vulnerabilityrepo.ErrRecordNotFound):
 		return fmt.Errorf("%w: %w", assetservice.ErrAssetVulnerabilityNotFound, err)
-	case errors.Is(err, assetrepo.ErrDuplicateAssignment):
+	case errors.Is(err, assetrepo.ErrDuplicateRelationship):
 		return fmt.Errorf("%w: %w", assetservice.ErrDuplicateAssetVulnerability, err)
-	case errors.Is(err, assetrepo.ErrInvalidData),
-		errors.Is(err, assetrepo.ErrInvalidReference),
-		errors.Is(err, vulnerabilityrepo.ErrInvalidData),
-		errors.Is(err, vulnerabilityrepo.ErrInvalidReference):
+	case errors.Is(err, assetrepo.ErrNotNullViolation),
+		errors.Is(err, assetrepo.ErrForeignKeyViolation),
+		errors.Is(err, vulnerabilityrepo.ErrNotNullViolation),
+		errors.Is(err, vulnerabilityrepo.ErrForeignKeyViolation):
 		return fmt.Errorf("%w: %w", assetservice.ErrInvalidAssetData, err)
 	default:
-		return fmt.Errorf("%w: %w", ErrMatchInternal, err)
+		return fmt.Errorf("%w: %w", ErrMatchDependency, err)
 	}
 }
 
@@ -856,7 +886,7 @@ type assetCVEKeywordSearchResponse struct {
 }
 
 type cveMatchResult struct {
-	CVEs            []dto.CVELookupResponse
+	CVEs            []nvdcveclient.CVELookupResponse
 	CPEName         string
 	KeywordSearches []string
 	Confidence      float64
@@ -913,7 +943,7 @@ func (s *assetMatchServiceImpl) normalizeFingerprintWithAI(ctx context.Context, 
 }
 
 // rankCandidates asks AI to rank bounded NVD CPE candidates for one fingerprint.
-func (s *assetMatchServiceImpl) rankCandidates(ctx context.Context, fingerprint AssetFingerprint, keywordSearch string, candidates []dto.CPECandidate) (assetMatchRankingResponse, error) {
+func (s *assetMatchServiceImpl) rankCandidates(ctx context.Context, fingerprint AssetFingerprint, keywordSearch string, candidates []nvdcpeclient.CPECandidate) (assetMatchRankingResponse, error) {
 	request := promptservice.BuildAssetMatchRankingRequest(fingerprint.Canonical, keywordSearch, candidates)
 	response, err := s.textAI.GenerateText(ctx, request)
 	if err != nil {
@@ -929,7 +959,7 @@ func (s *assetMatchServiceImpl) rankCandidates(ctx context.Context, fingerprint 
 }
 
 // rankKeywordCVEs asks AI to select relevant CVEs from bounded NVD keyword results.
-func (s *assetMatchServiceImpl) rankKeywordCVEs(ctx context.Context, fingerprint string, keywordSearches []string, candidates []dto.CVELookupResponse) (assetCVERankingResponse, error) {
+func (s *assetMatchServiceImpl) rankKeywordCVEs(ctx context.Context, fingerprint string, keywordSearches []string, candidates []nvdcveclient.CVELookupResponse) (assetCVERankingResponse, error) {
 	if s.textAI == nil {
 		return assetCVERankingResponse{}, ErrMatchExternalService
 	}
@@ -1123,10 +1153,10 @@ func containsString(values []string, target string) bool {
 }
 
 // searchCPECandidates tries CPE keyword searches until NVD returns candidates.
-func (s *assetMatchServiceImpl) searchCPECandidates(ctx context.Context, keywordSearches []string) (string, []dto.CPECandidate, error) {
+func (s *assetMatchServiceImpl) searchCPECandidates(ctx context.Context, keywordSearches []string) (string, []nvdcpeclient.CPECandidate, error) {
 	var lastErr error
 	for _, keywordSearch := range keywordSearches {
-		candidates, err := s.cpeSearcher.SearchCandidates(ctx, dto.CPEMatchRequest{KeywordSearch: keywordSearch})
+		candidates, err := s.cpeSearcher.SearchCandidates(ctx, nvdcpeclient.CPEMatchRequest{KeywordSearch: keywordSearch})
 		if err != nil {
 			lastErr = err
 			continue
@@ -1139,7 +1169,7 @@ func (s *assetMatchServiceImpl) searchCPECandidates(ctx context.Context, keyword
 	if lastErr != nil {
 		return keywordSearches[0], nil, lastErr
 	}
-	return keywordSearches[0], []dto.CPECandidate{}, nil
+	return keywordSearches[0], []nvdcpeclient.CPECandidate{}, nil
 }
 
 // buildCPEKeywordSearches creates ordered NVD CPE search terms from a fingerprint.
@@ -1341,13 +1371,13 @@ func keywordAliases(value string) []string {
 }
 
 // filterRelevantKeywordCVEs keeps keyword CVEs that mention product aliases.
-func filterRelevantKeywordCVEs(cves []dto.CVELookupResponse, canonicalFingerprint string) []dto.CVELookupResponse {
+func filterRelevantKeywordCVEs(cves []nvdcveclient.CVELookupResponse, canonicalFingerprint string) []nvdcveclient.CVELookupResponse {
 	aliases := productRelevanceAliases(canonicalFingerprint)
 	if len(aliases) == 0 {
 		return nil
 	}
 
-	filtered := make([]dto.CVELookupResponse, 0, len(cves))
+	filtered := make([]nvdcveclient.CVELookupResponse, 0, len(cves))
 	for _, cve := range cves {
 		text := normalizedSearchPhrase(cve.Title + " " + cve.Description)
 		for _, alias := range aliases {
@@ -1392,8 +1422,8 @@ func productRelevanceAliases(canonicalFingerprint string) []string {
 }
 
 // selectRankedCVEs returns candidate CVEs selected by the AI ranking response.
-func selectRankedCVEs(candidates []dto.CVELookupResponse, selectedCVEIDs []string) []dto.CVELookupResponse {
-	byID := make(map[string]dto.CVELookupResponse, len(candidates))
+func selectRankedCVEs(candidates []nvdcveclient.CVELookupResponse, selectedCVEIDs []string) []nvdcveclient.CVELookupResponse {
+	byID := make(map[string]nvdcveclient.CVELookupResponse, len(candidates))
 	for _, cve := range candidates {
 		cveID := normalizeCVEID(cve.CVEID)
 		if cveID != "" {
@@ -1401,7 +1431,7 @@ func selectRankedCVEs(candidates []dto.CVELookupResponse, selectedCVEIDs []strin
 		}
 	}
 
-	selected := make([]dto.CVELookupResponse, 0, min(len(selectedCVEIDs), maxAutoAttachedCVEs))
+	selected := make([]nvdcveclient.CVELookupResponse, 0, min(len(selectedCVEIDs), maxAutoAttachedCVEs))
 	for _, cveID := range selectedCVEIDs {
 		cve, ok := byID[normalizeCVEID(cveID)]
 		if !ok {
@@ -1419,7 +1449,7 @@ func selectRankedCVEs(candidates []dto.CVELookupResponse, selectedCVEIDs []strin
 }
 
 // sortCVECandidatesByPublishedAtDesc orders CVE candidates by newest published date first.
-func sortCVECandidatesByPublishedAtDesc(candidates []dto.CVELookupResponse) {
+func sortCVECandidatesByPublishedAtDesc(candidates []nvdcveclient.CVELookupResponse) {
 	sort.SliceStable(candidates, func(i, j int) bool {
 		left := strings.TrimSpace(candidates[i].PublishedAt)
 		right := strings.TrimSpace(candidates[j].PublishedAt)
@@ -1434,7 +1464,7 @@ func sortCVECandidatesByPublishedAtDesc(candidates []dto.CVELookupResponse) {
 }
 
 // containsCVEID reports whether a CVE list contains the normalized CVE ID.
-func containsCVEID(cves []dto.CVELookupResponse, cveID string) bool {
+func containsCVEID(cves []nvdcveclient.CVELookupResponse, cveID string) bool {
 	cveID = normalizeCVEID(cveID)
 	for _, cve := range cves {
 		if normalizeCVEID(cve.CVEID) == cveID {
@@ -1445,7 +1475,7 @@ func containsCVEID(cves []dto.CVELookupResponse, cveID string) bool {
 }
 
 // cveIDs returns unique normalized CVE IDs from lookup responses.
-func cveIDs(cves []dto.CVELookupResponse) []string {
+func cveIDs(cves []nvdcveclient.CVELookupResponse) []string {
 	ids := make([]string, 0, len(cves))
 	for _, cve := range cves {
 		cveID := normalizeCVEID(cve.CVEID)
@@ -1567,7 +1597,7 @@ func isStrongFingerprint(fingerprint AssetFingerprint) bool {
 }
 
 // containsCPECandidate reports whether CPE candidates include the selected CPE.
-func containsCPECandidate(candidates []dto.CPECandidate, cpeName string) bool {
+func containsCPECandidate(candidates []nvdcpeclient.CPECandidate, cpeName string) bool {
 	for _, candidate := range candidates {
 		if normalizeCPEName(candidate.CPEName) == normalizeCPEName(cpeName) {
 			return true

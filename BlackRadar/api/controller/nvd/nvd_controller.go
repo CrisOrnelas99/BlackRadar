@@ -5,19 +5,18 @@ import (
 	"errors"
 	"net/http"
 
-	basecontroller "blackradar/api/controller"
+	basecontroller "blackradar/api/controller/shared"
 	appcontext "blackradar/api/platform/requestcontext"
-	baseservice "blackradar/api/service"
 	matchservice "blackradar/api/service/match"
 )
 
 // NVDController handles read-only NVD lookup HTTP requests.
 type NVDController struct {
-	nvdLookupService baseservice.NVDLookupService
+	nvdLookupService matchservice.NVDLookupService
 }
 
 // NewNVDController creates a new NVDController.
-func NewNVDController(nvdLookupService baseservice.NVDLookupService) *NVDController {
+func NewNVDController(nvdLookupService matchservice.NVDLookupService) *NVDController {
 	return &NVDController{nvdLookupService: nvdLookupService}
 }
 
@@ -36,15 +35,20 @@ func (c *NVDController) LookupCVE(ec *appcontext.GinContext) {
 }
 
 func handleNVDLookupServiceError(ec *appcontext.GinContext, err error) bool {
+	var validationErr *matchservice.ValidationError
+	var notFoundErr *matchservice.NotFoundError
+	var dependencyErr *matchservice.DependencyError
+	var internalErr *matchservice.InternalError
+
 	switch {
-	case errors.Is(err, matchservice.ErrInvalidCVEID):
+	case errors.As(err, &validationErr):
 		return basecontroller.HandleError(ec, http.StatusBadRequest, err, "CVE ID must use format CVE-YYYY-NNNN")
-	case errors.Is(err, matchservice.ErrCVENotFound):
+	case errors.As(err, &notFoundErr):
 		return basecontroller.HandleError(ec, http.StatusNotFound, err, "CVE not found")
-	case errors.Is(err, matchservice.ErrNVDLookupRateLimited):
-		return basecontroller.HandleError(ec, http.StatusTooManyRequests, err, "CVE lookup rate limit exceeded")
-	case errors.Is(err, matchservice.ErrMatchExternalService):
+	case errors.As(err, &dependencyErr):
 		return basecontroller.HandleError(ec, http.StatusBadGateway, err, "CVE lookup failed")
+	case errors.As(err, &internalErr):
+		return basecontroller.HandleError(ec, http.StatusInternalServerError, err, "CVE lookup failed")
 	}
 
 	return false

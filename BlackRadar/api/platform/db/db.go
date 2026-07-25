@@ -24,8 +24,15 @@ const (
 
 var (
 	ErrForeignKeyViolation      = errors.New("foreign key violation")
+	ErrNotNullViolation         = errors.New("not null violation")
 	ErrCheckConstraintViolation = errors.New("check constraint violation")
 	ErrUniqueViolation          = errors.New("unique violation")
+	ErrDataTypeViolation        = errors.New("data type violation")
+	ErrConcurrencyConflict      = errors.New("concurrency conflict")
+	ErrConnectionFailure        = errors.New("connection failure")
+	ErrPermissionDenied         = errors.New("permission denied")
+	ErrMissingObject            = errors.New("missing database object")
+	ErrQueryError               = errors.New("query error")
 )
 
 // Connect opens and verifies the application database connection.
@@ -91,10 +98,31 @@ func TranslateDatabaseError(err error) error {
 		return nil
 	case isPostgresError(err, "23503"):
 		return fmt.Errorf("%w: %w", ErrForeignKeyViolation, err)
+	case isPostgresError(err, "23502"):
+		return fmt.Errorf("%w: %w", ErrNotNullViolation, err)
 	case isPostgresError(err, "23514"):
 		return fmt.Errorf("%w: %w", ErrCheckConstraintViolation, err)
 	case isPostgresError(err, "23505"):
 		return fmt.Errorf("%w: %w", ErrUniqueViolation, err)
+	case isPostgresErrorClass(err, "22"):
+		return fmt.Errorf("%w: %w", ErrDataTypeViolation, err)
+	case isPostgresError(err, "40001"),
+		isPostgresError(err, "40P01"),
+		isPostgresError(err, "55P03"):
+		return fmt.Errorf("%w: %w", ErrConcurrencyConflict, err)
+	case isPostgresErrorClass(err, "08"),
+		isPostgresError(err, "57014"):
+		return fmt.Errorf("%w: %w", ErrConnectionFailure, err)
+	case isPostgresError(err, "42501"),
+		isPostgresErrorClass(err, "28"):
+		return fmt.Errorf("%w: %w", ErrPermissionDenied, err)
+	case isPostgresError(err, "42P01"),
+		isPostgresError(err, "42703"),
+		isPostgresError(err, "42704"),
+		isPostgresError(err, "3F000"):
+		return fmt.Errorf("%w: %w", ErrMissingObject, err)
+	case isPostgresErrorClass(err, "42"):
+		return fmt.Errorf("%w: %w", ErrQueryError, err)
 	default:
 		return err
 	}
@@ -142,4 +170,9 @@ func WithinTransaction(ctx context.Context, database *gorm.DB, operation func(tx
 func isPostgresError(err error, code string) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == code
+}
+
+func isPostgresErrorClass(err error, class string) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && len(pgErr.Code) >= 2 && pgErr.Code[:2] == class
 }

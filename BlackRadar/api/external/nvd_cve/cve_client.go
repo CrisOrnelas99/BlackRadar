@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"blackradar/api/controller/dto"
 	externalratelimiter "blackradar/api/external/rate_limiter"
 )
 
@@ -77,59 +76,59 @@ func NewClientWithHTTPClient(baseURL string, apiKey string, httpClient *http.Cli
 }
 
 // LookupCVE retrieves a single CVE record from NVD and maps it to the app DTO.
-func (c *Client) LookupCVE(ctx context.Context, cveID string) (dto.CVELookupResponse, error) {
+func (c *Client) LookupCVE(ctx context.Context, cveID string) (CVELookupResponse, error) {
 	normalizedCVEID := normalizeCVEID(cveID)
 	if err := validateCVEID(normalizedCVEID); err != nil {
-		return dto.CVELookupResponse{}, ErrInvalidCVEID
+		return CVELookupResponse{}, ErrInvalidCVEID
 	}
 	if !c.limiter.Allow(time.Now()) {
-		return dto.CVELookupResponse{}, ErrNVDRateLimited
+		return CVELookupResponse{}, ErrNVDRateLimited
 	}
 
 	requestURL, err := c.lookupURL(normalizedCVEID)
 	if err != nil {
-		return dto.CVELookupResponse{}, err
+		return CVELookupResponse{}, err
 	}
 
 	response, err := c.doRequestWithRetry(ctx, requestURL)
 	if err != nil {
-		return dto.CVELookupResponse{}, fmt.Errorf("%w: request failed", ErrNVDUnavailable)
+		return CVELookupResponse{}, fmt.Errorf("%w: request failed", ErrNVDUnavailable)
 	}
 	defer response.Body.Close()
 
 	switch response.StatusCode {
 	case http.StatusOK:
 	case http.StatusTooManyRequests:
-		return dto.CVELookupResponse{}, ErrNVDRateLimited
+		return CVELookupResponse{}, ErrNVDRateLimited
 	case http.StatusNotFound:
-		return dto.CVELookupResponse{}, ErrCVEIDNotFound
+		return CVELookupResponse{}, ErrCVEIDNotFound
 	default:
-		return dto.CVELookupResponse{}, fmt.Errorf("%w: status %d", ErrNVDUnavailable, response.StatusCode)
+		return CVELookupResponse{}, fmt.Errorf("%w: status %d", ErrNVDUnavailable, response.StatusCode)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(response.Body, 2<<20))
 	if err != nil {
-		return dto.CVELookupResponse{}, fmt.Errorf("%w: read response", ErrNVDUnavailable)
+		return CVELookupResponse{}, fmt.Errorf("%w: read response", ErrNVDUnavailable)
 	}
 
 	var payload cveAPIResponse
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return dto.CVELookupResponse{}, fmt.Errorf("%w: decode response", ErrInvalidNVDResponse)
+		return CVELookupResponse{}, fmt.Errorf("%w: decode response", ErrInvalidNVDResponse)
 	}
 	if payload.TotalResults == 0 || len(payload.Vulnerabilities) == 0 {
-		return dto.CVELookupResponse{}, ErrCVEIDNotFound
+		return CVELookupResponse{}, ErrCVEIDNotFound
 	}
 
 	cve := payload.Vulnerabilities[0].CVE
 	if normalizeCVEID(cve.ID) != normalizedCVEID {
-		return dto.CVELookupResponse{}, ErrInvalidNVDResponse
+		return CVELookupResponse{}, ErrInvalidNVDResponse
 	}
 
 	return mapCVE(cve), nil
 }
 
 // SearchCVEsByCPE retrieves vulnerable CVE records for an exact NVD CPE name.
-func (c *Client) SearchCVEsByCPE(ctx context.Context, cpeName string, limit int) ([]dto.CVELookupResponse, error) {
+func (c *Client) SearchCVEsByCPE(ctx context.Context, cpeName string, limit int) ([]CVELookupResponse, error) {
 	cpeName = strings.TrimSpace(cpeName)
 	if !strings.HasPrefix(cpeName, "cpe:2.3:") {
 		return nil, ErrInvalidCPESearch
@@ -170,10 +169,10 @@ func (c *Client) SearchCVEsByCPE(ctx context.Context, cpeName string, limit int)
 		return nil, fmt.Errorf("%w: decode response", ErrInvalidNVDResponse)
 	}
 	if payload.TotalResults == 0 || len(payload.Vulnerabilities) == 0 {
-		return []dto.CVELookupResponse{}, nil
+		return []CVELookupResponse{}, nil
 	}
 
-	results := make([]dto.CVELookupResponse, 0, min(limit, len(payload.Vulnerabilities)))
+	results := make([]CVELookupResponse, 0, min(limit, len(payload.Vulnerabilities)))
 	for _, vulnerability := range payload.Vulnerabilities {
 		if strings.TrimSpace(vulnerability.CVE.ID) == "" {
 			continue
@@ -188,7 +187,7 @@ func (c *Client) SearchCVEsByCPE(ctx context.Context, cpeName string, limit int)
 }
 
 // SearchCVEsByKeyword retrieves CVE records from NVD for a bounded backend-generated keyword search.
-func (c *Client) SearchCVEsByKeyword(ctx context.Context, keywordSearch string, limit int) ([]dto.CVELookupResponse, error) {
+func (c *Client) SearchCVEsByKeyword(ctx context.Context, keywordSearch string, limit int) ([]CVELookupResponse, error) {
 	keywordSearch = normalizeCVEKeywordSearch(keywordSearch)
 	if keywordSearch == "" {
 		return nil, ErrInvalidCVESearch
@@ -232,10 +231,10 @@ func (c *Client) SearchCVEsByKeyword(ctx context.Context, keywordSearch string, 
 		return nil, fmt.Errorf("%w: decode response", ErrInvalidNVDResponse)
 	}
 	if payload.TotalResults == 0 || len(payload.Vulnerabilities) == 0 {
-		return []dto.CVELookupResponse{}, nil
+		return []CVELookupResponse{}, nil
 	}
 
-	results := make([]dto.CVELookupResponse, 0, min(limit, len(payload.Vulnerabilities)))
+	results := make([]CVELookupResponse, 0, min(limit, len(payload.Vulnerabilities)))
 	for _, vulnerability := range payload.Vulnerabilities {
 		if strings.TrimSpace(vulnerability.CVE.ID) == "" {
 			continue
@@ -477,13 +476,13 @@ type cvssData struct {
 }
 
 // mapCVE converts an NVD CVE item into the application's lookup response DTO.
-func mapCVE(cve cveItem) dto.CVELookupResponse {
+func mapCVE(cve cveItem) CVELookupResponse {
 	title := strings.TrimSpace(cve.CISAVulnerabilityName)
 	if title == "" {
 		title = strings.TrimSpace(cve.ID)
 	}
 
-	return dto.CVELookupResponse{
+	return CVELookupResponse{
 		CVEID:          strings.TrimSpace(cve.ID),
 		Title:          title,
 		Description:    englishDescription(cve.Descriptions),

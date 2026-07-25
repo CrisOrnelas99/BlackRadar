@@ -42,7 +42,13 @@ func TestTranslateDatabaseError(t *testing.T) {
 	foreignKeyErr := &pgconn.PgError{Code: "23503", Message: "foreign key violation"}
 	checkConstraintErr := &pgconn.PgError{Code: "23514", Message: "check constraint violation"}
 	uniqueErr := &pgconn.PgError{Code: "23505", Message: "unique violation"}
-	unknownPgErr := &pgconn.PgError{Code: "22001", Message: "value too long"}
+	dataTypeErr := &pgconn.PgError{Code: "22001", Message: "value too long"}
+	deadlockErr := &pgconn.PgError{Code: "40P01", Message: "deadlock detected"}
+	connectionErr := &pgconn.PgError{Code: "08006", Message: "connection failure"}
+	permissionErr := &pgconn.PgError{Code: "42501", Message: "permission denied"}
+	missingObjectErr := &pgconn.PgError{Code: "42P01", Message: "undefined table"}
+	queryErr := &pgconn.PgError{Code: "42601", Message: "syntax error"}
+	unknownPgErr := &pgconn.PgError{Code: "XX000", Message: "internal postgres error"}
 	plainErr := errors.New("plain database error")
 
 	tests := []struct {
@@ -56,6 +62,12 @@ func TestTranslateDatabaseError(t *testing.T) {
 		{name: "wrapped foreign key violation", input: fmt.Errorf("insert asset vulnerability: %w", foreignKeyErr), expectIs: ErrForeignKeyViolation},
 		{name: "check constraint violation", input: checkConstraintErr, expectIs: ErrCheckConstraintViolation},
 		{name: "unique violation", input: uniqueErr, expectIs: ErrUniqueViolation},
+		{name: "data type violation", input: dataTypeErr, expectIs: ErrDataTypeViolation},
+		{name: "concurrency conflict", input: deadlockErr, expectIs: ErrConcurrencyConflict},
+		{name: "connection failure", input: connectionErr, expectIs: ErrConnectionFailure},
+		{name: "permission denied", input: permissionErr, expectIs: ErrPermissionDenied},
+		{name: "missing object", input: missingObjectErr, expectIs: ErrMissingObject},
+		{name: "query error", input: queryErr, expectIs: ErrQueryError},
 		{name: "unknown postgres error", input: unknownPgErr, expectSame: unknownPgErr},
 		{name: "plain error", input: plainErr, expectSame: plainErr},
 	}

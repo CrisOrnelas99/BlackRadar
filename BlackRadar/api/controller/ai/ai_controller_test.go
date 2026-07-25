@@ -14,14 +14,15 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"blackradar/api/controller/dto"
+	basecontroller "blackradar/api/controller/shared"
+	contextmiddleware "blackradar/api/middleware/context"
 	appcontext "blackradar/api/platform/requestcontext"
-	baseservice "blackradar/api/service"
+	promptservice "blackradar/api/service/prompt"
 )
 
 func TestAIControllerTestProvider(t *testing.T) {
 	controller := NewAIController(&fakeTextGenerationService{
-		response: dto.TextGenerationResponse{Text: `{"ok":true,"message":"ai provider reachable"}`, FinishReason: "stop"},
+		response: promptservice.TextGenerationResponse{Text: `{"ok":true,"message":"ai provider reachable"}`, FinishReason: "stop"},
 	})
 	ec, recorder := newAIControllerContext(t)
 
@@ -30,7 +31,7 @@ func TestAIControllerTestProvider(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
-	var response dto.AITestResponse
+	var response AITestResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -54,7 +55,7 @@ func TestAIControllerTestProviderMapsProviderError(t *testing.T) {
 	if recorder.Code != http.StatusBadGateway {
 		t.Fatalf("expected status %d, got %d", http.StatusBadGateway, recorder.Code)
 	}
-	var response dto.ErrorResponse
+	var response basecontroller.ErrorResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -76,7 +77,7 @@ func TestAIControllerTestProviderRejectsMissingProvider(t *testing.T) {
 
 func TestAIControllerSendMessage(t *testing.T) {
 	controller := NewAIController(&fakeTextGenerationService{
-		response: dto.TextGenerationResponse{Text: "Hello from OpenAI.", FinishReason: "completed"},
+		response: promptservice.TextGenerationResponse{Text: "Hello from OpenAI.", FinishReason: "completed"},
 	})
 	ec, recorder := newAIMessageControllerContext(t, `{"message":"Say hello."}`)
 
@@ -85,7 +86,7 @@ func TestAIControllerSendMessage(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
-	var response dto.AIMessageResponse
+	var response AIMessageResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -108,19 +109,33 @@ func TestAIControllerSendMessageRejectsBlankMessage(t *testing.T) {
 	}
 }
 
+func TestRegisterRoutes(t *testing.T) {
+	controller := NewAIController(&fakeTextGenerationService{response: promptservice.TextGenerationResponse{Text: `{"ok":true}`, FinishReason: "stop"}})
+	engine := gin.New()
+	engine.Use(contextmiddleware.RequestContext(nil))
+	RegisterRoutes(engine.Group("/api"), controller)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/ai/test", nil)
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+}
+
 type fakeTextGenerationService struct {
-	response dto.TextGenerationResponse
+	response promptservice.TextGenerationResponse
 	err      error
 }
 
-func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request dto.TextGenerationRequest) (dto.TextGenerationResponse, error) {
+func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request promptservice.TextGenerationRequest) (promptservice.TextGenerationResponse, error) {
 	if f.err != nil {
-		return dto.TextGenerationResponse{}, f.err
+		return promptservice.TextGenerationResponse{}, f.err
 	}
 	return f.response, nil
 }
 
-var _ baseservice.TextGenerationService = (*fakeTextGenerationService)(nil)
+var _ promptservice.TextGenerationService = (*fakeTextGenerationService)(nil)
 
 func newAIControllerContext(t *testing.T) (*appcontext.GinContext, *httptest.ResponseRecorder) {
 	t.Helper()

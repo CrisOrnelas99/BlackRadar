@@ -10,13 +10,11 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"blackradar/api/controller/dto"
+	nvdcveclient "blackradar/api/external/nvd_cve"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
-	baserepository "blackradar/api/repository"
 	assetrepository "blackradar/api/repository/asset"
 	vulnerabilityrepository "blackradar/api/repository/vulnerability"
-	baseservice "blackradar/api/service"
 	promptservice "blackradar/api/service/prompt"
 )
 
@@ -54,14 +52,14 @@ var displayAcronyms = map[string]string{
 }
 
 type assetServiceImpl struct {
-	assetRepository         baserepository.AssetRepository
-	vulnerabilityRepository baserepository.VulnerabilityRepository
-	nvdLookupService        baseservice.NVDLookupService
-	textAI                  baseservice.TextGenerationService
+	assetRepository         assetrepository.AssetRepositoryInterface
+	vulnerabilityRepository vulnerabilityrepository.VulnerabilityRepositoryInterface
+	nvdLookupService        nvdLookupService
+	textAI                  textGenerationService
 }
 
 // NewAssetService creates an asset service backed by the supplied repository.
-func NewAssetService(assetRepository baserepository.AssetRepository, vulnerabilityRepository baserepository.VulnerabilityRepository, nvdLookupService baseservice.NVDLookupService, textAI baseservice.TextGenerationService) baseservice.AssetService {
+func NewAssetService(assetRepository assetrepository.AssetRepositoryInterface, vulnerabilityRepository vulnerabilityrepository.VulnerabilityRepositoryInterface, nvdLookupService nvdLookupService, textAI textGenerationService) *assetServiceImpl {
 	return &assetServiceImpl{
 		assetRepository:         assetRepository,
 		vulnerabilityRepository: vulnerabilityRepository,
@@ -87,7 +85,7 @@ func (s *assetServiceImpl) GetAsset(ec *appcontext.GinContext, id string) (model
 		return model.Asset{}, err
 	}
 	asset, err := s.assetRepository.FindByIDForUser(ec, id, userID)
-	if errors.Is(err, assetrepository.ErrAssetNotFound) {
+	if errors.Is(err, assetrepository.ErrRecordNotFound) {
 		return model.Asset{}, ErrAssetNotFound
 	}
 	return asset, translateAssetRepositoryError(err)
@@ -156,7 +154,7 @@ func (s *assetServiceImpl) UpdateAsset(ec *appcontext.GinContext, id string, ass
 	}
 
 	updated, err := s.assetRepository.UpdateForUser(ec, id, userID, asset)
-	if errors.Is(err, assetrepository.ErrAssetNotFound) {
+	if errors.Is(err, assetrepository.ErrRecordNotFound) {
 		return model.Asset{}, ErrAssetNotFound
 	}
 	return updated, translateAssetRepositoryError(err)
@@ -169,7 +167,7 @@ func (s *assetServiceImpl) DeleteAsset(ec *appcontext.GinContext, id string) (mo
 		return model.Asset{}, err
 	}
 	asset, err := s.assetRepository.DeleteForUser(ec, id, userID)
-	if errors.Is(err, assetrepository.ErrAssetNotFound) {
+	if errors.Is(err, assetrepository.ErrRecordNotFound) {
 		return model.Asset{}, ErrAssetNotFound
 	}
 	return asset, translateAssetRepositoryError(err)
@@ -191,11 +189,9 @@ func (s *assetServiceImpl) AssignVulnerability(ec *appcontext.GinContext, assetI
 	}
 	asset, err := s.assetRepository.AssignVulnerabilityForUser(ec, assetID, userID, vulnerabilityID)
 	switch {
-	case errors.Is(err, assetrepository.ErrAssetNotFound):
+	case errors.Is(err, assetrepository.ErrRecordNotFound):
 		return model.Asset{}, ErrAssetNotFound
-	case errors.Is(err, assetrepository.ErrVulnerabilityNotFound):
-		return model.Asset{}, ErrAssetVulnerabilityNotFound
-	case errors.Is(err, assetrepository.ErrDuplicateAssignment):
+	case errors.Is(err, assetrepository.ErrDuplicateRelationship):
 		return model.Asset{}, ErrDuplicateAssetVulnerability
 	default:
 		return asset, translateAssetRepositoryError(err)
@@ -224,7 +220,7 @@ func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, a
 
 	asset, err := s.assetRepository.FindByIDForUser(ec, assetID, userID)
 	if err != nil {
-		if errors.Is(err, assetrepository.ErrAssetNotFound) {
+		if errors.Is(err, assetrepository.ErrRecordNotFound) {
 			return model.Asset{}, ErrAssetNotFound
 		}
 		return model.Asset{}, translateAssetRepositoryError(err)
@@ -236,7 +232,7 @@ func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, a
 	}
 
 	existingVulnerability, err := s.vulnerabilityRepository.FindByCVEIDForUser(ec, normalizedCVEID, userID)
-	if err != nil && !errors.Is(err, vulnerabilityrepository.ErrVulnerabilityNotFound) {
+	if err != nil && !errors.Is(err, vulnerabilityrepository.ErrRecordNotFound) {
 		return model.Asset{}, translateAssetRepositoryError(err)
 	}
 
@@ -247,7 +243,7 @@ func (s *assetServiceImpl) AssignVulnerabilityByCVE(ec *appcontext.GinContext, a
 
 	asset, err = s.assetRepository.AssignVulnerabilityForUser(ec, asset.ID, userID, vulnerability.ID)
 	if err != nil {
-		if errors.Is(err, assetrepository.ErrDuplicateAssignment) {
+		if errors.Is(err, assetrepository.ErrDuplicateRelationship) {
 			return model.Asset{}, ErrDuplicateAssetVulnerability
 		}
 		return model.Asset{}, translateAssetRepositoryError(err)
@@ -272,9 +268,9 @@ func (s *assetServiceImpl) RemoveVulnerability(ec *appcontext.GinContext, assetI
 	}
 	asset, err := s.assetRepository.RemoveVulnerabilityForUser(ec, assetID, userID, vulnerabilityID)
 	switch {
-	case errors.Is(err, assetrepository.ErrAssetNotFound):
+	case errors.Is(err, assetrepository.ErrRecordNotFound):
 		return model.Asset{}, ErrAssetNotFound
-	case errors.Is(err, assetrepository.ErrVulnerabilityNotFound):
+	case errors.Is(err, assetrepository.ErrRecordNotFound):
 		return model.Asset{}, ErrAssetVulnerabilityNotFound
 	default:
 		return asset, translateAssetRepositoryError(err)
@@ -282,7 +278,7 @@ func (s *assetServiceImpl) RemoveVulnerability(ec *appcontext.GinContext, assetI
 }
 
 // saveNVDVulnerability creates or updates a local vulnerability from an NVD response.
-func (s *assetServiceImpl) saveNVDVulnerability(ec *appcontext.GinContext, userID string, response dto.CVELookupResponse, existing model.Vulnerability) (model.Vulnerability, error) {
+func (s *assetServiceImpl) saveNVDVulnerability(ec *appcontext.GinContext, userID string, response nvdcveclient.CVELookupResponse, existing model.Vulnerability) (model.Vulnerability, error) {
 	vulnerability := model.Vulnerability{
 		UserID:      userID,
 		CVEID:       response.CVEID,
@@ -391,20 +387,19 @@ func translateAssetRepositoryError(err error) error {
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, assetrepository.ErrAssetNotFound):
+	case errors.Is(err, assetrepository.ErrRecordNotFound):
 		return fmt.Errorf("%w: %w", ErrAssetNotFound, err)
-	case errors.Is(err, assetrepository.ErrVulnerabilityNotFound),
-		errors.Is(err, vulnerabilityrepository.ErrVulnerabilityNotFound):
+	case errors.Is(err, vulnerabilityrepository.ErrRecordNotFound):
 		return fmt.Errorf("%w: %w", ErrAssetVulnerabilityNotFound, err)
-	case errors.Is(err, assetrepository.ErrDuplicateAssignment):
+	case errors.Is(err, assetrepository.ErrDuplicateRelationship):
 		return fmt.Errorf("%w: %w", ErrDuplicateAssetVulnerability, err)
-	case errors.Is(err, assetrepository.ErrPrimaryKeyConflict):
+	case errors.Is(err, assetrepository.ErrPrimaryKeyViolation):
 		return fmt.Errorf("%w: %w", ErrDuplicateAsset, err)
-	case errors.Is(err, assetrepository.ErrInvalidData),
-		errors.Is(err, assetrepository.ErrInvalidReference):
+	case errors.Is(err, assetrepository.ErrNotNullViolation),
+		errors.Is(err, assetrepository.ErrForeignKeyViolation):
 		return fmt.Errorf("%w: %w", ErrInvalidAssetData, err)
 	default:
-		return fmt.Errorf("%w: %w", ErrAssetInternal, err)
+		return fmt.Errorf("%w: %w", ErrAssetDependency, err)
 	}
 }
 

@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"blackradar/api/controller/dto"
 	externalratelimiter "blackradar/api/external/rate_limiter"
 )
 
@@ -36,7 +35,7 @@ func TestCPEClientSearchCandidates(t *testing.T) {
 		t.Fatalf("expected client creation to succeed, got %v", err)
 	}
 
-	candidates, err := client.SearchCandidates(context.Background(), dto.CPEMatchRequest{KeywordSearch: "dell latitude 7420"})
+	candidates, err := client.SearchCandidates(context.Background(), CPEMatchRequest{KeywordSearch: "dell latitude 7420"})
 	if err != nil {
 		t.Fatalf("expected search to succeed, got %v", err)
 	}
@@ -75,7 +74,7 @@ func TestCPEClientNormalizesKeywordSearch(t *testing.T) {
 
 	_, err = client.SearchCandidates(
 		context.Background(),
-		dto.CPEMatchRequest{KeywordSearch: "  dell   latitude   7420  "},
+		CPEMatchRequest{KeywordSearch: "  dell   latitude   7420  "},
 	)
 	if err != nil {
 		t.Fatalf("expected normalized search to succeed, got %v", err)
@@ -98,7 +97,7 @@ func TestCPEClientRejectsOversizedKeywordSearch(t *testing.T) {
 
 	_, err = client.SearchCandidates(
 		context.Background(),
-		dto.CPEMatchRequest{KeywordSearch: strings.Repeat("a", 121)},
+		CPEMatchRequest{KeywordSearch: strings.Repeat("a", 121)},
 	)
 	if !errors.Is(err, ErrInvalidCPESearch) {
 		t.Fatalf("expected invalid CPE search error, got %v", err)

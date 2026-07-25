@@ -5,23 +5,21 @@ import (
 	"errors"
 	"net/http"
 
-	basecontroller "blackradar/api/controller"
-	"blackradar/api/controller/dto"
+	basecontroller "blackradar/api/controller/shared"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
-	baseservice "blackradar/api/service"
 	assetservice "blackradar/api/service/asset"
 	matchservice "blackradar/api/service/match"
 )
 
 // AssetController handles asset-related HTTP requests.
 type AssetController struct {
-	assetService      baseservice.AssetService
-	assetMatchService baseservice.AssetMatchService
+	assetService      assetservice.AssetService
+	assetMatchService matchservice.AssetMatchService
 }
 
 // NewAssetController creates a new AssetController.
-func NewAssetController(assetService baseservice.AssetService, assetMatchService baseservice.AssetMatchService) *AssetController {
+func NewAssetController(assetService assetservice.AssetService, assetMatchService matchservice.AssetMatchService) *AssetController {
 	return &AssetController{assetService: assetService, assetMatchService: assetMatchService}
 }
 
@@ -36,7 +34,7 @@ func (c *AssetController) GetAssets(ec *appcontext.GinContext) {
 		return
 	}
 
-	ec.JSON(http.StatusOK, dto.ToAssetResponseDTOs(assets))
+	ec.JSON(http.StatusOK, ToAssetResponseDTOs(assets))
 }
 
 // GetAsset returns a single asset by ID.
@@ -55,12 +53,12 @@ func (c *AssetController) GetAsset(ec *appcontext.GinContext) {
 		return
 	}
 
-	ec.JSON(http.StatusOK, dto.ToAssetResponseDTO(asset))
+	ec.JSON(http.StatusOK, ToAssetResponseDTO(asset))
 }
 
 // CreateAsset creates a new asset for the authenticated user.
 func (c *AssetController) CreateAsset(ec *appcontext.GinContext) {
-	var request dto.AssetRequest
+	var request AssetRequest
 	if basecontroller.BindJSON(ec, &request) {
 		return
 	}
@@ -81,7 +79,7 @@ func (c *AssetController) CreateAsset(ec *appcontext.GinContext) {
 		return
 	}
 
-	ec.JSON(http.StatusCreated, dto.ToAssetResponseDTO(created))
+	ec.JSON(http.StatusCreated, ToAssetResponseDTO(created))
 }
 
 // UpdateAsset updates an existing asset by ID.
@@ -91,7 +89,7 @@ func (c *AssetController) UpdateAsset(ec *appcontext.GinContext) {
 		return
 	}
 
-	var request dto.AssetRequest
+	var request AssetRequest
 	if basecontroller.BindJSON(ec, &request) {
 		return
 	}
@@ -107,7 +105,7 @@ func (c *AssetController) UpdateAsset(ec *appcontext.GinContext) {
 		return
 	}
 
-	ec.JSON(http.StatusOK, dto.ToAssetResponseDTO(updated))
+	ec.JSON(http.StatusOK, ToAssetResponseDTO(updated))
 }
 
 // DeleteAsset removes an asset by ID.
@@ -146,7 +144,7 @@ func (c *AssetController) AssignVulnerability(ec *appcontext.GinContext) {
 		return
 	}
 
-	ec.JSON(http.StatusOK, dto.ToAssetResponseDTO(asset))
+	ec.JSON(http.StatusOK, ToAssetResponseDTO(asset))
 }
 
 // AssignVulnerabilityByCVE looks up a CVE, stores it locally if needed, and assigns it to an asset.
@@ -165,7 +163,7 @@ func (c *AssetController) AssignVulnerabilityByCVE(ec *appcontext.GinContext) {
 		return
 	}
 
-	ec.JSON(http.StatusOK, dto.ToAssetResponseDTO(asset))
+	ec.JSON(http.StatusOK, ToAssetResponseDTO(asset))
 }
 
 // RemoveVulnerability removes a vulnerability association from an asset.
@@ -185,7 +183,7 @@ func (c *AssetController) RemoveVulnerability(ec *appcontext.GinContext) {
 		return
 	}
 
-	ec.JSON(http.StatusOK, dto.ToAssetResponseDTO(asset))
+	ec.JSON(http.StatusOK, ToAssetResponseDTO(asset))
 }
 
 // MatchAssetCPE normalizes saved asset fields, ranks NVD candidates, and stores the selected match metadata.
@@ -204,7 +202,7 @@ func (c *AssetController) MatchAssetCPE(ec *appcontext.GinContext) {
 		return
 	}
 
-	ec.JSON(http.StatusOK, dto.ToAssetMatchResponseDTO(asset))
+	ec.JSON(http.StatusOK, ToAssetMatchResponseDTO(asset))
 }
 
 // MatchAssetCPEAndAttachVulnerabilities matches a CPE, fetches NVD CVEs, and attaches them to the asset.
@@ -223,28 +221,33 @@ func (c *AssetController) MatchAssetCPEAndAttachVulnerabilities(ec *appcontext.G
 		return
 	}
 
-	ec.JSON(http.StatusOK, dto.ToAssetMatchResponseDTO(asset))
+	ec.JSON(http.StatusOK, ToAssetMatchResponseDTO(asset))
 }
 
-// handleAssetServiceError maps asset service sentinels to HTTP responses.
+// handleAssetServiceError maps service error categories to HTTP responses.
 func handleAssetServiceError(ec *appcontext.GinContext, err error) bool {
+	var validationErr *assetservice.ValidationError
+	var conflictErr *assetservice.ConflictError
+	var forbiddenErr *assetservice.ForbiddenError
+	var notFoundErr *assetservice.NotFoundError
+	var assetDependencyErr *assetservice.DependencyError
+	var matchDependencyErr *matchservice.DependencyError
+	var assetInternalErr *assetservice.InternalError
+	var matchInternalErr *matchservice.InternalError
+
 	switch {
-	case errors.Is(err, assetservice.ErrInvalidAssetData),
-		errors.Is(err, assetservice.ErrInvalidAssetText),
-		errors.Is(err, assetservice.ErrInvalidAssetCVEID):
+	case errors.As(err, &validationErr):
 		return basecontroller.HandleError(ec, http.StatusBadRequest, err, err.Error())
-	case errors.Is(err, assetservice.ErrDuplicateAsset),
-		errors.Is(err, assetservice.ErrDuplicateAssetVulnerability):
+	case errors.As(err, &conflictErr):
 		return basecontroller.HandleError(ec, http.StatusConflict, err, err.Error())
-	case errors.Is(err, assetservice.ErrAssetPermissionDenied),
-		errors.Is(err, assetservice.ErrVulnerabilityManagementDenied):
+	case errors.As(err, &forbiddenErr):
 		return basecontroller.HandleError(ec, http.StatusForbidden, err, err.Error())
-	case errors.Is(err, assetservice.ErrAssetNotFound),
-		errors.Is(err, assetservice.ErrAssetVulnerabilityNotFound):
+	case errors.As(err, &notFoundErr):
 		return basecontroller.HandleError(ec, http.StatusNotFound, err, err.Error())
-	case errors.Is(err, assetservice.ErrAssetExternalService),
-		errors.Is(err, matchservice.ErrMatchExternalService):
-		return basecontroller.HandleError(ec, http.StatusBadGateway, err, "External service unavailable")
+	case errors.As(err, &assetDependencyErr), errors.As(err, &matchDependencyErr):
+		return basecontroller.HandleError(ec, http.StatusBadGateway, err, "Asset dependency unavailable")
+	case errors.As(err, &assetInternalErr), errors.As(err, &matchInternalErr):
+		return basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Asset service failed")
 	}
 
 	return false

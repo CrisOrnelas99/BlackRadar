@@ -13,7 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"blackradar/api/controller/dto"
+	basecontroller "blackradar/api/controller/shared"
 	requestcontext "blackradar/api/platform/requestcontext"
 )
 
@@ -122,7 +122,7 @@ func New(cfg Config) (gin.HandlerFunc, error) {
 			slog.Int64("retry_after_seconds", retryAfterSeconds(result.RetryAfter)),
 		)
 
-		ctx.AbortWithStatusJSON(http.StatusTooManyRequests, dto.ErrorResponse{
+		ctx.AbortWithStatusJSON(http.StatusTooManyRequests, basecontroller.ErrorResponse{
 			Code:      "RATE_LIMITED",
 			Message:   ErrRateLimited.Error(),
 			RequestID: requestID,

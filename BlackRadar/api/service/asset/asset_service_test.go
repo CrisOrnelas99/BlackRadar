@@ -12,13 +12,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"blackradar/api/controller/dto"
+	nvdcveclient "blackradar/api/external/nvd_cve"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
-	baserepository "blackradar/api/repository"
 	assetrepo "blackradar/api/repository/asset"
 	vulnrepo "blackradar/api/repository/vulnerability"
-	baseservice "blackradar/api/service"
+	promptservice "blackradar/api/service/prompt"
 )
 
 // TestAssetService verifies the happy-path asset service flow.
@@ -46,13 +45,13 @@ func TestAssetServiceHelpers(t *testing.T) {
 	if err := validateAsset(sampleAsset()); err != nil {
 		t.Fatalf("expected valid asset, got %v", err)
 	}
-	if !errors.Is(translateAssetRepositoryError(assetrepo.ErrAssetNotFound), ErrAssetNotFound) {
+	if !errors.Is(translateAssetRepositoryError(assetrepo.ErrRecordNotFound), ErrAssetNotFound) {
 		t.Fatal("expected not found translation")
 	}
-	if !errors.Is(translateAssetRepositoryError(assetrepo.ErrDuplicateAssignment), ErrDuplicateAssetVulnerability) {
+	if !errors.Is(translateAssetRepositoryError(assetrepo.ErrDuplicateRelationship), ErrDuplicateAssetVulnerability) {
 		t.Fatal("expected conflict translation")
 	}
-	if !errors.Is(translateAssetRepositoryError(assetrepo.ErrInvalidData), ErrInvalidAssetData) {
+	if !errors.Is(translateAssetRepositoryError(assetrepo.ErrNotNullViolation), ErrInvalidAssetData) {
 		t.Fatal("expected invalid request data translation")
 	}
 
@@ -64,7 +63,7 @@ func TestAssetServiceHelpers(t *testing.T) {
 
 // TestAssetServiceValidationAndTranslation verifies validation and error mapping.
 func TestAssetServiceValidationAndTranslation(t *testing.T) {
-	svc := NewAssetService(&fakeAssetRepository{findErr: assetrepo.ErrAssetNotFound}, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{}, nil)
+	svc := NewAssetService(&fakeAssetRepository{findErr: assetrepo.ErrRecordNotFound}, &fakeVulnerabilityRepository{}, &fakeNVDLookupService{}, nil)
 	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042", "00000000-0000-4000-8000-000000000099")
 
 	if _, err := svc.GetAsset(ctx, "00000000-0000-4000-8000-000000000001"); !errors.Is(err, ErrAssetNotFound) {
@@ -72,6 +71,36 @@ func TestAssetServiceValidationAndTranslation(t *testing.T) {
 	}
 	if _, err := svc.CreateAsset(ctx, model.Asset{}); !errors.Is(err, ErrInvalidAssetData) {
 		t.Fatalf("expected invalid request data, got %v", err)
+	}
+}
+
+func TestAssetServiceErrorsExposeCategories(t *testing.T) {
+	var validationErr *ValidationError
+	if !errors.As(ErrInvalidAssetData, &validationErr) {
+		t.Fatal("expected invalid asset data to be an asset validation error")
+	}
+	var conflictErr *ConflictError
+	if !errors.As(ErrDuplicateAsset, &conflictErr) {
+		t.Fatal("expected duplicate asset to be an asset conflict error")
+	}
+	var forbiddenErr *ForbiddenError
+	if !errors.As(ErrAssetPermissionDenied, &forbiddenErr) {
+		t.Fatal("expected permission denied to be an asset permission error")
+	}
+	var notFoundErr *NotFoundError
+	if !errors.As(ErrAssetNotFound, &notFoundErr) {
+		t.Fatal("expected asset not found to be an asset not found error")
+	}
+	var dependencyErr *DependencyError
+	if !errors.As(ErrAssetDependency, &dependencyErr) {
+		t.Fatal("expected asset dependency failure to be an asset dependency error")
+	}
+	if !errors.As(ErrAssetExternalService, &dependencyErr) {
+		t.Fatal("expected external service failure to be an asset dependency error")
+	}
+	var internalErr *InternalError
+	if !errors.As(ErrAssetInternal, &internalErr) {
+		t.Fatal("expected asset internal failure to be an asset internal error")
 	}
 }
 
@@ -136,8 +165,8 @@ func TestAssetServiceRejectsWrongUser(t *testing.T) {
 // TestAssetServiceAssignVulnerabilityByCVE verifies the NVD-backed assignment flow stores local data.
 func TestAssetServiceAssignVulnerabilityByCVE(t *testing.T) {
 	assetRepo := &fakeAssetRepository{asset: sampleAsset()}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
-	nvdSvc := &fakeNVDLookupService{response: dto.CVELookupResponse{
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrRecordNotFound}
+	nvdSvc := &fakeNVDLookupService{response: nvdcveclient.CVELookupResponse{
 		CVEID:       "CVE-2024-3094",
 		Title:       "XZ Utils Backdoor",
 		Description: "Example NVD response",
@@ -185,7 +214,7 @@ func TestAssetServiceCreateAssetFromAI(t *testing.T) {
 	createdAsset.ID = "00000000-0000-4000-8000-000000000088"
 	repo := &fakeAssetRepository{asset: createdAsset}
 	ai := &fakeTextGenerationService{
-		response: dto.TextGenerationResponse{
+		response: promptservice.TextGenerationResponse{
 			Text: `{"name":"Ring Video Doorbell","type":"IoT Camera","operatingSystem":"Ring Firmware","vendor":"Amazon","product":"Ring Video Doorbell Firmware","version":"3.4.6","deviceModel":"Ring Video Doorbell","owner":"","criticality":"","confidence":0.91,"reviewNotes":"single asset extracted"}`,
 		},
 	}
@@ -216,7 +245,7 @@ func TestAssetServiceCreateAssetFromAIAllowsNoNetworkAddressField(t *testing.T) 
 	createdAsset.ID = "00000000-0000-4000-8000-000000000089"
 	repo := &fakeAssetRepository{asset: createdAsset}
 	ai := &fakeTextGenerationService{
-		response: dto.TextGenerationResponse{
+		response: promptservice.TextGenerationResponse{
 			Text: `{"name":"WP-Ultimate-Map WordPress Plugin","type":"Web Application","operatingSystem":"WordPress","vendor":"","product":"WP-Ultimate-Map","version":"1.1","deviceModel":"","owner":"","criticality":"","confidence":0.86,"reviewNotes":"single asset extracted"}`,
 		},
 	}
@@ -271,7 +300,7 @@ type fakeAssetRepository struct {
 // FindAllByUser returns the configured fake asset list.
 func (f *fakeAssetRepository) FindAllByUser(ec *appcontext.GinContext, userID string) ([]model.Asset, error) {
 	if f.expectedUserID != "" && userID != f.expectedUserID {
-		return nil, assetrepo.ErrAssetNotFound
+		return nil, assetrepo.ErrRecordNotFound
 	}
 	return f.assets, f.findErr
 }
@@ -280,7 +309,7 @@ func (f *fakeAssetRepository) FindAllByUser(ec *appcontext.GinContext, userID st
 func (f *fakeAssetRepository) FindByIDForUser(ec *appcontext.GinContext, id string, userID string) (model.Asset, error) {
 	f.findByIDCalls++
 	if f.expectedUserID != "" && userID != f.expectedUserID {
-		return model.Asset{}, assetrepo.ErrAssetNotFound
+		return model.Asset{}, assetrepo.ErrRecordNotFound
 	}
 	if f.findErr != nil {
 		return model.Asset{}, f.findErr
@@ -332,7 +361,7 @@ func (f *fakeAssetRepository) RemoveVulnerabilityForUser(ec *appcontext.GinConte
 	return f.asset, nil
 }
 
-var _ baserepository.AssetRepository = (*fakeAssetRepository)(nil)
+var _ assetrepo.AssetRepositoryInterface = (*fakeAssetRepository)(nil)
 
 type fakeVulnerabilityRepository struct {
 	findErr error
@@ -379,17 +408,17 @@ func (f *fakeVulnerabilityRepository) DeleteForUser(ec *appcontext.GinContext, i
 	return model.Vulnerability{}, nil
 }
 
-var _ baserepository.VulnerabilityRepository = (*fakeVulnerabilityRepository)(nil)
+var _ vulnrepo.VulnerabilityRepositoryInterface = (*fakeVulnerabilityRepository)(nil)
 
 type fakeTextGenerationService struct {
-	response    dto.TextGenerationResponse
-	responses   []dto.TextGenerationResponse
+	response    promptservice.TextGenerationResponse
+	responses   []promptservice.TextGenerationResponse
 	err         error
-	lastRequest dto.TextGenerationRequest
-	requests    []dto.TextGenerationRequest
+	lastRequest promptservice.TextGenerationRequest
+	requests    []promptservice.TextGenerationRequest
 }
 
-func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request dto.TextGenerationRequest) (dto.TextGenerationResponse, error) {
+func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request promptservice.TextGenerationRequest) (promptservice.TextGenerationResponse, error) {
 	f.lastRequest = request
 	f.requests = append(f.requests, request)
 	if len(f.responses) > 0 {
@@ -401,17 +430,18 @@ func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request dt
 }
 
 type fakeNVDLookupService struct {
-	response dto.CVELookupResponse
+	response nvdcveclient.CVELookupResponse
 	err      error
 	called   bool
 }
 
-func (f *fakeNVDLookupService) LookupCVE(ec *appcontext.GinContext, cveID string) (dto.CVELookupResponse, error) {
+func (f *fakeNVDLookupService) LookupCVE(ec *appcontext.GinContext, cveID string) (nvdcveclient.CVELookupResponse, error) {
 	f.called = true
 	return f.response, f.err
 }
 
-var _ baseservice.NVDLookupService = (*fakeNVDLookupService)(nil)
+var _ nvdLookupService = (*fakeNVDLookupService)(nil)
+var _ textGenerationService = (*fakeTextGenerationService)(nil)
 
 // newServiceContext creates a request context with an authenticated user ID.
 func newServiceContext(t *testing.T, userID string, organizationID string) *appcontext.GinContext {

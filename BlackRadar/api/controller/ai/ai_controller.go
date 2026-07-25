@@ -5,22 +5,20 @@ import (
 	"net/http"
 	"strings"
 
-	basecontroller "blackradar/api/controller"
-	"blackradar/api/controller/dto"
+	basecontroller "blackradar/api/controller/shared"
 	appcontext "blackradar/api/platform/requestcontext"
-	baseservice "blackradar/api/service"
-	aiservice "blackradar/api/service/prompt"
+	promptservice "blackradar/api/service/prompt"
 )
 
 const maxTemporaryAIMessageLength = 1000
 
 // AIController handles backend-only AI diagnostic HTTP requests.
 type AIController struct {
-	textAI baseservice.TextGenerationService
+	textAI promptservice.TextGenerationService
 }
 
 // NewAIController creates a new AIController.
-func NewAIController(textAI baseservice.TextGenerationService) *AIController {
+func NewAIController(textAI promptservice.TextGenerationService) *AIController {
 	return &AIController{textAI: textAI}
 }
 
@@ -31,13 +29,13 @@ func (c *AIController) TestProvider(ec *appcontext.GinContext) {
 		return
 	}
 
-	response, err := c.textAI.GenerateText(ec.RequestContext(), aiservice.BuildDiagnosticRequest())
+	response, err := c.textAI.GenerateText(ec.RequestContext(), promptservice.BuildDiagnosticRequest())
 	if err != nil {
 		basecontroller.HandleError(ec, http.StatusBadGateway, err, "AI provider test failed")
 		return
 	}
 
-	ec.JSON(http.StatusOK, dto.AITestResponse{
+	ec.JSON(http.StatusOK, AITestResponse{
 		Status:       "ok",
 		Provider:     "openai",
 		ResponseText: response.Text,
@@ -52,7 +50,7 @@ func (c *AIController) SendMessage(ec *appcontext.GinContext) {
 		return
 	}
 
-	var request dto.AIMessageRequest
+	var request AIMessageRequest
 	if handled := basecontroller.BindJSON(ec, &request); handled {
 		return
 	}
@@ -63,13 +61,13 @@ func (c *AIController) SendMessage(ec *appcontext.GinContext) {
 		return
 	}
 
-	response, err := c.textAI.GenerateText(ec.RequestContext(), aiservice.BuildTemporaryMessageRequest(message))
+	response, err := c.textAI.GenerateText(ec.RequestContext(), promptservice.BuildTemporaryMessageRequest(message))
 	if err != nil {
 		basecontroller.HandleError(ec, http.StatusBadGateway, err, "AI message request failed")
 		return
 	}
 
-	ec.JSON(http.StatusOK, dto.AIMessageResponse{
+	ec.JSON(http.StatusOK, AIMessageResponse{
 		Provider:     "openai",
 		ResponseText: response.Text,
 		FinishReason: response.FinishReason,

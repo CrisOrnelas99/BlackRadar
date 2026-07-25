@@ -20,7 +20,7 @@ func TestAssetRepositoryErrors(t *testing.T) {
 	if !errors.Is(err, ErrPersistenceFailure) {
 		t.Fatal("expected wrapped persistence failure to match sentinel")
 	}
-	if errors.Is(err, ErrInvalidData) {
+	if errors.Is(err, ErrNotNullViolation) {
 		t.Fatal("expected persistence failure to stay distinct from invalid data")
 	}
 }
@@ -69,7 +69,7 @@ func TestAssignRandomAssetAssessmentID(t *testing.T) {
 func TestAssetRepositorySaveRejectsInvalidInput(t *testing.T) {
 	repo := NewAssetRepository(nil)
 
-	if _, err := repo.Save(nil, model.Asset{}); !errors.Is(err, ErrInvalidData) {
+	if _, err := repo.Save(nil, model.Asset{}); !errors.Is(err, ErrNotNullViolation) {
 		t.Fatalf("expected invalid data error, got %v", err)
 	}
 }

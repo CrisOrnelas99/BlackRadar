@@ -115,7 +115,7 @@ func TestAuthenticationRejectsInvalidCredentials(t *testing.T) {
 			name:     "inactive session",
 			header:   "Bearer " + mustGenerateToken(t, jwtManager, userID, "analyst", sessionID),
 			users:    &fakeUserLookup{user: user},
-			sessions: &fakeRefreshSessionLookup{findErr: userrepository.ErrRefreshSessionNotFound},
+			sessions: &fakeRefreshSessionLookup{findErr: userrepository.ErrRecordNotFound},
 		},
 	}
 
@@ -316,7 +316,7 @@ func (f *fakeRefreshSessionLookup) FindActiveByTokenIDForUser(ec *requestcontext
 	if f.session.TokenID == tokenID && f.session.UserID == userID {
 		return f.session, nil
 	}
-	return model.RefreshSession{}, userrepository.ErrRefreshSessionNotFound
+	return model.RefreshSession{}, userrepository.ErrRecordNotFound
 }
 
 func newTestJWTManager(t *testing.T) *commonjwt.Manager {

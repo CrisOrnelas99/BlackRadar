@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"blackradar/api/controller/dto"
 	externalratelimiter "blackradar/api/external/rate_limiter"
+	dto "blackradar/api/service/prompt"
 )
 
 const openAIResponsesPath = "/v1/responses"

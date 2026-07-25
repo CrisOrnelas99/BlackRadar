@@ -54,3 +54,23 @@ func TestReadyRejectsMissingDatabase(t *testing.T) {
 		t.Fatalf("expected status unavailable, got %q", response["status"])
 	}
 }
+
+func TestRegisterRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	health.RegisterRoutes(router, nil)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/health", nil)
+	router.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected health status %d, got %d", http.StatusOK, recorder.Code)
+	}
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodGet, "/api/ready", nil)
+	router.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected ready status %d, got %d", http.StatusServiceUnavailable, recorder.Code)
+	}
+}

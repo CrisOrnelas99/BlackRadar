@@ -181,7 +181,7 @@ func bearerToken(header string) (string, bool) {
 // because the user or session does not exist.
 func isAuthenticationNotFound(err error) bool {
 	return errors.Is(err, gorm.ErrRecordNotFound) ||
-		errors.Is(err, userrepository.ErrRefreshSessionNotFound)
+		errors.Is(err, userrepository.ErrRecordNotFound)
 }
 
 // abortUnauthorized returns a generic bearer authentication failure.

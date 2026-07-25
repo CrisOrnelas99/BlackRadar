@@ -12,7 +12,7 @@ import (
 	"blackradar/api/model"
 	platformdb "blackradar/api/platform/db"
 	appcontext "blackradar/api/platform/requestcontext"
-	authrepo "blackradar/api/repository/authorization"
+	userrepo "blackradar/api/repository/user"
 
 	"gorm.io/gorm"
 )
@@ -68,7 +68,7 @@ func (r *AssetRepository) FindByIDForUser(ec *appcontext.GinContext, id string, 
 		Where("user_id = ? AND id = ?", userID, id).
 		First(&asset).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.Asset{}, ErrAssetNotFound
+		return model.Asset{}, ErrRecordNotFound
 	}
 	if err != nil {
 		return model.Asset{}, fmt.Errorf("%w: read asset: %w", ErrPersistenceFailure, err)
@@ -129,7 +129,7 @@ func (r *AssetRepository) ExistsBySignatureForUser(ec *appcontext.GinContext, as
 // Save creates a new asset record.
 func (r *AssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
 	if asset.UserID == "" || asset.Name == "" || asset.Type == "" || asset.Owner == "" || asset.Criticality == "" {
-		return model.Asset{}, ErrInvalidData
+		return model.Asset{}, ErrNotNullViolation
 	}
 
 	for attempt := 0; attempt < 3; attempt++ {
@@ -167,21 +167,21 @@ func (r *AssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (mo
 			continue
 		}
 		if errors.Is(databaseErr, platformdb.ErrForeignKeyViolation) {
-			return model.Asset{}, fmt.Errorf("%w: %w", ErrInvalidReference, databaseErr)
+			return model.Asset{}, fmt.Errorf("%w: %w", ErrForeignKeyViolation, databaseErr)
 		}
 		if errors.Is(databaseErr, platformdb.ErrCheckConstraintViolation) {
-			return model.Asset{}, fmt.Errorf("%w: %w", ErrInvalidData, databaseErr)
+			return model.Asset{}, fmt.Errorf("%w: %w", ErrCheckConstraintViolation, databaseErr)
 		}
 		return model.Asset{}, fmt.Errorf("%w: create asset: %w", ErrPersistenceFailure, databaseErr)
 	}
 
-	return model.Asset{}, fmt.Errorf("%w: exhausted random id retries", ErrPrimaryKeyConflict)
+	return model.Asset{}, fmt.Errorf("%w: exhausted random id retries", ErrPrimaryKeyViolation)
 }
 
 // UpdateForUser updates an asset owned by the specified user.
 func (r *AssetRepository) UpdateForUser(ec *appcontext.GinContext, id string, userID string, updates model.Asset) (model.Asset, error) {
 	if updates.Name == "" || updates.Type == "" || updates.Owner == "" || updates.Criticality == "" {
-		return model.Asset{}, ErrInvalidData
+		return model.Asset{}, ErrNotNullViolation
 	}
 
 	asset, err := r.FindByIDForUser(ec, id, userID)
@@ -204,10 +204,10 @@ func (r *AssetRepository) UpdateForUser(ec *appcontext.GinContext, id string, us
 	if err != nil {
 		databaseErr := platformdb.TranslateDatabaseError(err)
 		if errors.Is(databaseErr, platformdb.ErrForeignKeyViolation) {
-			return model.Asset{}, fmt.Errorf("%w: %w", ErrInvalidReference, databaseErr)
+			return model.Asset{}, fmt.Errorf("%w: %w", ErrForeignKeyViolation, databaseErr)
 		}
 		if errors.Is(databaseErr, platformdb.ErrCheckConstraintViolation) {
-			return model.Asset{}, fmt.Errorf("%w: %w", ErrInvalidData, databaseErr)
+			return model.Asset{}, fmt.Errorf("%w: %w", ErrCheckConstraintViolation, databaseErr)
 		}
 		return model.Asset{}, fmt.Errorf("%w: update asset: %w", ErrPersistenceFailure, databaseErr)
 	}
@@ -218,10 +218,10 @@ func (r *AssetRepository) UpdateForUser(ec *appcontext.GinContext, id string, us
 func (r *AssetRepository) UpdateMatchAnalysisForUser(ec *appcontext.GinContext, id string, userID string, analysis any) (model.Asset, error) {
 	analysisUpdate, ok := analysis.(AssetMatchUpdate)
 	if !ok {
-		return model.Asset{}, ErrInvalidData
+		return model.Asset{}, ErrNotNullViolation
 	}
 	if analysisUpdate.CPEReviewStatus == "" {
-		return model.Asset{}, ErrInvalidData
+		return model.Asset{}, ErrNotNullViolation
 	}
 
 	asset, err := r.FindByIDForUser(ec, id, userID)
@@ -261,10 +261,10 @@ func (r *AssetRepository) UpdateMatchAnalysisForUser(ec *appcontext.GinContext, 
 	if err != nil {
 		databaseErr := platformdb.TranslateDatabaseError(err)
 		if errors.Is(databaseErr, platformdb.ErrCheckConstraintViolation) {
-			return model.Asset{}, fmt.Errorf("%w: %w", ErrInvalidData, databaseErr)
+			return model.Asset{}, fmt.Errorf("%w: %w", ErrCheckConstraintViolation, databaseErr)
 		}
 		if errors.Is(databaseErr, platformdb.ErrForeignKeyViolation) {
-			return model.Asset{}, fmt.Errorf("%w: %w", ErrInvalidReference, databaseErr)
+			return model.Asset{}, fmt.Errorf("%w: %w", ErrForeignKeyViolation, databaseErr)
 		}
 		return model.Asset{}, fmt.Errorf("%w: update asset match analysis: %w", ErrPersistenceFailure, databaseErr)
 	}
@@ -308,7 +308,7 @@ func (r *AssetRepository) DeleteForUser(ec *appcontext.GinContext, id string, us
 
 // AssignVulnerabilityForUser associates a vulnerability with an asset owned by the specified user.
 func (r *AssetRepository) AssignVulnerabilityForUser(ec *appcontext.GinContext, assetID string, userID string, vulnerabilityID string) (model.Asset, error) {
-	if err := authrepo.RequireAdminFromDatabase(ec, r.dbForContext(ec)); err != nil {
+	if err := userrepo.RequireAdmin(ec, r.dbForContext(ec)); err != nil {
 		return model.Asset{}, err
 	}
 
@@ -319,7 +319,7 @@ func (r *AssetRepository) AssignVulnerabilityForUser(ec *appcontext.GinContext, 
 
 	for _, assigned := range asset.Vulnerabilities {
 		if assigned.ID == vulnerability.ID {
-			return model.Asset{}, ErrDuplicateAssignment
+			return model.Asset{}, ErrDuplicateRelationship
 		}
 	}
 
@@ -332,10 +332,10 @@ func (r *AssetRepository) AssignVulnerabilityForUser(ec *appcontext.GinContext, 
 	if err != nil {
 		databaseErr := platformdb.TranslateDatabaseError(err)
 		if errors.Is(databaseErr, platformdb.ErrUniqueViolation) {
-			return model.Asset{}, ErrDuplicateAssignment
+			return model.Asset{}, ErrDuplicateRelationship
 		}
 		if errors.Is(databaseErr, platformdb.ErrForeignKeyViolation) {
-			return model.Asset{}, fmt.Errorf("%w: %w", ErrInvalidReference, databaseErr)
+			return model.Asset{}, fmt.Errorf("%w: %w", ErrForeignKeyViolation, databaseErr)
 		}
 		return model.Asset{}, fmt.Errorf("%w: assign vulnerability: %w", ErrPersistenceFailure, databaseErr)
 	}
@@ -345,7 +345,7 @@ func (r *AssetRepository) AssignVulnerabilityForUser(ec *appcontext.GinContext, 
 
 // RemoveVulnerabilityForUser removes a vulnerability from an asset owned by the specified user.
 func (r *AssetRepository) RemoveVulnerabilityForUser(ec *appcontext.GinContext, assetID string, userID string, vulnerabilityID string) (model.Asset, error) {
-	if err := authrepo.RequireAdminFromDatabase(ec, r.dbForContext(ec)); err != nil {
+	if err := userrepo.RequireAdmin(ec, r.dbForContext(ec)); err != nil {
 		return model.Asset{}, err
 	}
 
@@ -383,7 +383,7 @@ func (r *AssetRepository) findAssetAndVulnerabilityForUser(ec *appcontext.GinCon
 		Where("user_id = ? AND id = ?", userID, vulnerabilityID).
 		First(&vulnerability).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.Asset{}, model.Vulnerability{}, ErrVulnerabilityNotFound
+		return model.Asset{}, model.Vulnerability{}, ErrRecordNotFound
 	}
 	if err != nil {
 		return model.Asset{}, model.Vulnerability{}, fmt.Errorf("%w: read vulnerability: %w", ErrPersistenceFailure, err)

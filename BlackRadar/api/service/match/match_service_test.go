@@ -13,24 +13,25 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"blackradar/api/controller/dto"
+	nvdcpeclient "blackradar/api/external/nvd_cpe"
+	nvdcveclient "blackradar/api/external/nvd_cve"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
-	baserepository "blackradar/api/repository"
 	assetrepo "blackradar/api/repository/asset"
 	vulnrepo "blackradar/api/repository/vulnerability"
 	assetservice "blackradar/api/service/asset"
+	promptservice "blackradar/api/service/prompt"
 )
 
 func TestAnalyzeAssetMatchAcceptsStrongCandidate(t *testing.T) {
 	ai := &fakeTextGenerationService{
-		response: dto.TextGenerationResponse{
+		response: promptservice.TextGenerationResponse{
 			Text: `{"selectedCpe":"cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*","confidence":0.92,"reviewNotes":"strong match","rankedCpes":["cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*"]}`,
 		},
 	}
 	svc := &assetMatchServiceImpl{
 		cpeSearcher: &fakeCPECandidateSearcher{
-			candidates: []dto.CPECandidate{
+			candidates: []nvdcpeclient.CPECandidate{
 				{CPEName: "cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*", Title: "Dell Latitude 7420"},
 			},
 		},
@@ -189,7 +190,7 @@ func TestAnalyzeAssetMatchRejectsMissingCPESearcher(t *testing.T) {
 
 func TestAnalyzeAssetMatchUsesBroadSearchBeforeSpecificSearch(t *testing.T) {
 	searcher := &fakeCPECandidateSearcher{
-		candidatesBySearch: map[string][]dto.CPECandidate{
+		candidatesBySearch: map[string][]nvdcpeclient.CPECandidate{
 			"apache log4j": {
 				{CPEName: "cpe:2.3:a:apache:log4j:*:*:*:*:*:*:*:*", Title: "Apache Log4j"},
 			},
@@ -198,7 +199,7 @@ func TestAnalyzeAssetMatchUsesBroadSearchBeforeSpecificSearch(t *testing.T) {
 	svc := &assetMatchServiceImpl{
 		cpeSearcher: searcher,
 		textAI: &fakeTextGenerationService{
-			response: dto.TextGenerationResponse{
+			response: promptservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:a:apache:log4j:*:*:*:*:*:*:*:*","confidence":0.91,"reviewNotes":"strong match","rankedCpes":["cpe:2.3:a:apache:log4j:*:*:*:*:*:*:*:*"]}`,
 			},
 		},
@@ -221,7 +222,7 @@ func TestAnalyzeAssetMatchUsesBroadSearchBeforeSpecificSearch(t *testing.T) {
 
 func TestAnalyzeAssetMatchUsesStructuredAssetProductFields(t *testing.T) {
 	searcher := &fakeCPECandidateSearcher{
-		candidatesBySearch: map[string][]dto.CPECandidate{
+		candidatesBySearch: map[string][]nvdcpeclient.CPECandidate{
 			"amazon ring video doorbell firmware": {
 				{CPEName: "cpe:2.3:o:amazon:ring_video_doorbell_firmware:3.4.6:*:*:*:*:*:*:*", Title: "Amazon Ring Video Doorbell Firmware 3.4.6"},
 			},
@@ -230,7 +231,7 @@ func TestAnalyzeAssetMatchUsesStructuredAssetProductFields(t *testing.T) {
 	svc := &assetMatchServiceImpl{
 		cpeSearcher: searcher,
 		textAI: &fakeTextGenerationService{
-			response: dto.TextGenerationResponse{
+			response: promptservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:o:amazon:ring_video_doorbell_firmware:3.4.6:*:*:*:*:*:*:*","confidence":0.91,"reviewNotes":"strong structured match","rankedCpes":["cpe:2.3:o:amazon:ring_video_doorbell_firmware:3.4.6:*:*:*:*:*:*:*"]}`,
 			},
 		},
@@ -255,7 +256,7 @@ func TestAnalyzeAssetMatchUsesStructuredAssetProductFields(t *testing.T) {
 
 func TestAnalyzeAssetMatchAllowsExactVersionCPEWhenAssetVersionMissing(t *testing.T) {
 	searcher := &fakeCPECandidateSearcher{
-		candidatesBySearch: map[string][]dto.CPECandidate{
+		candidatesBySearch: map[string][]nvdcpeclient.CPECandidate{
 			"ubiquiti unifi network controller": {
 				{CPEName: "cpe:2.3:a:ui:unifi_controller:2.4.4:*:*:*:*:*:*:*", Title: "UI UniFi Controller 2.4.4"},
 			},
@@ -264,7 +265,7 @@ func TestAnalyzeAssetMatchAllowsExactVersionCPEWhenAssetVersionMissing(t *testin
 	svc := &assetMatchServiceImpl{
 		cpeSearcher: searcher,
 		textAI: &fakeTextGenerationService{
-			response: dto.TextGenerationResponse{
+			response: promptservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:a:ui:unifi_controller:2.4.4:*:*:*:*:*:*:*","confidence":0.95,"reviewNotes":"possible match","rankedCpes":["cpe:2.3:a:ui:unifi_controller:2.4.4:*:*:*:*:*:*:*"]}`,
 			},
 		},
@@ -291,14 +292,14 @@ func TestAnalyzeAssetMatchAllowsExactVersionCPEWhenAssetVersionMissing(t *testin
 
 func TestAnalyzeAssetMatchUsesAIExtractionForMessyInput(t *testing.T) {
 	searcher := &fakeCPECandidateSearcher{
-		candidatesBySearch: map[string][]dto.CPECandidate{
+		candidatesBySearch: map[string][]nvdcpeclient.CPECandidate{
 			"apache log4j": {
 				{CPEName: "cpe:2.3:a:apache:log4j:*:*:*:*:*:*:*:*", Title: "Apache Log4j"},
 			},
 		},
 	}
 	ai := &fakeTextGenerationService{
-		responses: []dto.TextGenerationResponse{
+		responses: []promptservice.TextGenerationResponse{
 			{Text: `{"vendor":"Apache","product":"Log4j","version":"2.14.1","operatingSystem":"Linux","deviceModel":null,"confidence":"High","reviewNotes":"messy text normalized"}`},
 			{Text: `{"selectedCpe":"cpe:2.3:a:apache:log4j:*:*:*:*:*:*:*:*","confidence":0.91,"reviewNotes":"strong nvd candidate match","rankedCpes":["cpe:2.3:a:apache:log4j:*:*:*:*:*:*:*:*"]}`},
 		},
@@ -325,14 +326,14 @@ func TestAnalyzeAssetMatchUsesAIExtractionForMessyInput(t *testing.T) {
 
 func TestAnalyzeAssetMatchUsesPlainTextAIExtraction(t *testing.T) {
 	searcher := &fakeCPECandidateSearcher{
-		candidatesBySearch: map[string][]dto.CPECandidate{
+		candidatesBySearch: map[string][]nvdcpeclient.CPECandidate{
 			"tukaani project xz utils": {
 				{CPEName: "cpe:2.3:a:tukaani:xz:5.6.1:*:*:*:*:*:*:*", Title: "Tukaani XZ 5.6.1"},
 			},
 		},
 	}
 	ai := &fakeTextGenerationService{
-		responses: []dto.TextGenerationResponse{
+		responses: []promptservice.TextGenerationResponse{
 			{Text: "Vendor: Tukaani project\nProduct: XZ Utils\nVersion: 5.6.1"},
 			{Text: `{"selectedCpe":"cpe:2.3:a:tukaani:xz:5.6.1:*:*:*:*:*:*:*","confidence":0.91,"reviewNotes":"strong nvd candidate match","rankedCpes":["cpe:2.3:a:tukaani:xz:5.6.1:*:*:*:*:*:*:*"]}`},
 		},
@@ -357,12 +358,12 @@ func TestAnalyzeAssetMatchUsesPlainTextAIExtraction(t *testing.T) {
 func TestAnalyzeAssetMatchKeepsLowConfidenceInReview(t *testing.T) {
 	svc := &assetMatchServiceImpl{
 		cpeSearcher: &fakeCPECandidateSearcher{
-			candidates: []dto.CPECandidate{
+			candidates: []nvdcpeclient.CPECandidate{
 				{CPEName: "cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*", Title: "Dell Latitude 7420"},
 			},
 		},
 		textAI: &fakeTextGenerationService{
-			response: dto.TextGenerationResponse{
+			response: promptservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*","confidence":0.5,"reviewNotes":"uncertain","rankedCpes":["cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*"]}`,
 			},
 		},
@@ -380,12 +381,12 @@ func TestAnalyzeAssetMatchKeepsLowConfidenceInReview(t *testing.T) {
 func TestAnalyzeAssetMatchRejectsCandidateOutsideNVDSet(t *testing.T) {
 	svc := &assetMatchServiceImpl{
 		cpeSearcher: &fakeCPECandidateSearcher{
-			candidates: []dto.CPECandidate{
+			candidates: []nvdcpeclient.CPECandidate{
 				{CPEName: "cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*", Title: "Dell Latitude 7420"},
 			},
 		},
 		textAI: &fakeTextGenerationService{
-			response: dto.TextGenerationResponse{
+			response: promptservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:a:other:product:*:*:*:*:*:*:*:*","confidence":0.99,"reviewNotes":"invalid candidate","rankedCpes":["cpe:2.3:a:other:product:*:*:*:*:*:*:*:*"]}`,
 			},
 		},
@@ -406,12 +407,12 @@ func TestAnalyzeAssetMatchRejectsCandidateOutsideNVDSet(t *testing.T) {
 func TestAnalyzeAssetMatchAllowsMismatchedSelectedCPEVersion(t *testing.T) {
 	svc := &assetMatchServiceImpl{
 		cpeSearcher: &fakeCPECandidateSearcher{
-			candidates: []dto.CPECandidate{
+			candidates: []nvdcpeclient.CPECandidate{
 				{CPEName: "cpe:2.3:a:tukaani:xz:5.0.8:*:*:*:*:*:*:*", Title: "Tukaani XZ 5.0.8"},
 			},
 		},
 		textAI: &fakeTextGenerationService{
-			response: dto.TextGenerationResponse{
+			response: promptservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:a:tukaani:xz:5.0.8:*:*:*:*:*:*:*","confidence":0.99,"reviewNotes":"version mismatch","rankedCpes":["cpe:2.3:a:tukaani:xz:5.0.8:*:*:*:*:*:*:*"]}`,
 			},
 		},
@@ -432,12 +433,12 @@ func TestAnalyzeAssetMatchAllowsMismatchedSelectedCPEVersion(t *testing.T) {
 func TestAnalyzeAssetMatchHandlesMalformedRankingResponse(t *testing.T) {
 	svc := &assetMatchServiceImpl{
 		cpeSearcher: &fakeCPECandidateSearcher{
-			candidates: []dto.CPECandidate{
+			candidates: []nvdcpeclient.CPECandidate{
 				{CPEName: "cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*", Title: "Dell Latitude 7420"},
 			},
 		},
 		textAI: &fakeTextGenerationService{
-			response: dto.TextGenerationResponse{Text: `not-json`},
+			response: promptservice.TextGenerationResponse{Text: `not-json`},
 		},
 	}
 
@@ -470,7 +471,7 @@ func TestAnalyzeAssetMatchFallsBackWhenCPESearchFails(t *testing.T) {
 func TestAnalyzeAssetMatchRejectsUnsafeInput(t *testing.T) {
 	svc := &assetMatchServiceImpl{
 		cpeSearcher: &fakeCPECandidateSearcher{
-			candidates: []dto.CPECandidate{
+			candidates: []nvdcpeclient.CPECandidate{
 				{CPEName: "cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*", Title: "Dell Latitude 7420"},
 			},
 		},
@@ -499,12 +500,12 @@ func TestAnalyzeAndPersistAssetMatchStoresResult(t *testing.T) {
 	svc := &assetMatchServiceImpl{
 		assetRepository: repo,
 		cpeSearcher: &fakeCPECandidateSearcher{
-			candidates: []dto.CPECandidate{
+			candidates: []nvdcpeclient.CPECandidate{
 				{CPEName: "cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*", Title: "Dell Latitude 7420"},
 			},
 		},
 		textAI: &fakeTextGenerationService{
-			response: dto.TextGenerationResponse{
+			response: promptservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*","confidence":0.91,"reviewNotes":"strong match","rankedCpes":["cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*"]}`,
 			},
 		},
@@ -535,9 +536,9 @@ func TestAnalyzePersistAndAttachVulnerabilitiesStoresNVDResults(t *testing.T) {
 	asset.Product = ptrString("xz")
 	asset.Version = ptrString("5.6.1")
 	repo := &fakeAssetRepository{asset: asset}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrRecordNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{
-		results: []dto.CVELookupResponse{
+		results: []nvdcveclient.CVELookupResponse{
 			{CVEID: "CVE-2024-3094", Title: "XZ Utils Backdoor", Description: "NVD CVE response", Severity: "Critical"},
 		},
 	}
@@ -546,12 +547,12 @@ func TestAnalyzePersistAndAttachVulnerabilitiesStoresNVDResults(t *testing.T) {
 		vulnRepository:  vulnRepo,
 		cveSearcher:     cveSearcher,
 		cpeSearcher: &fakeCPECandidateSearcher{
-			candidates: []dto.CPECandidate{
+			candidates: []nvdcpeclient.CPECandidate{
 				{CPEName: "cpe:2.3:a:tukaani:xz:5.6.1:*:*:*:*:*:*:*", Title: "Tukaani XZ 5.6.1"},
 			},
 		},
 		textAI: &fakeTextGenerationService{
-			response: dto.TextGenerationResponse{
+			response: promptservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:a:tukaani:xz:5.6.1:*:*:*:*:*:*:*","confidence":0.91,"reviewNotes":"strong match","rankedCpes":["cpe:2.3:a:tukaani:xz:5.6.1:*:*:*:*:*:*:*"]}`,
 			},
 		},
@@ -585,9 +586,9 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesNVDValidatedFallbackCPE(t *te
 	asset.Product = ptrString("xz utils")
 	asset.Version = ptrString("5.6.1")
 	repo := &fakeAssetRepository{asset: asset}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrRecordNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{
-		resultsByCPE: map[string][]dto.CVELookupResponse{
+		resultsByCPE: map[string][]nvdcveclient.CVELookupResponse{
 			"cpe:2.3:a:tukaani:xz:5.6.1:*:*:*:*:*:*:*": {
 				{CVEID: "CVE-2024-3094", Title: "XZ Utils Backdoor", Description: "NVD CVE response", Severity: "Critical"},
 			},
@@ -599,7 +600,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesNVDValidatedFallbackCPE(t *te
 		cveSearcher:     cveSearcher,
 		cpeSearcher:     &fakeCPECandidateSearcher{err: errors.New("nvd cpe unavailable")},
 		textAI: &fakeTextGenerationService{
-			response: dto.TextGenerationResponse{
+			response: promptservice.TextGenerationResponse{
 				Text: `{"vendor":"Tukaani","product":"xz utils","version":"5.6.1","operatingSystem":"Linux","deviceModel":null,"confidence":"High","reviewNotes":"normalized"}`,
 			},
 		},
@@ -635,9 +636,9 @@ func TestAnalyzePersistAndAttachVulnerabilitiesFallsBackToFirmwareCPEWhenAIUnava
 	asset.Product = ptrString("Ring Video Doorbell Firmware")
 	asset.Version = ptrString("3.4.6")
 	repo := &fakeAssetRepository{asset: asset}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrRecordNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{
-		resultsByCPE: map[string][]dto.CVELookupResponse{
+		resultsByCPE: map[string][]nvdcveclient.CVELookupResponse{
 			"cpe:2.3:o:amazon:ring_video_doorbell_firmware:3.4.7:*:*:*:*:*:*:*": {
 				{CVEID: "CVE-2019-9483", Title: "Ring Doorbell Encryption Issue", Description: "NVD CVE response", Severity: "Critical"},
 			},
@@ -651,7 +652,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesFallsBackToFirmwareCPEWhenAIUnava
 		vulnRepository:  vulnRepo,
 		cveSearcher:     cveSearcher,
 		cpeSearcher: &fakeCPECandidateSearcher{
-			candidates: []dto.CPECandidate{
+			candidates: []nvdcpeclient.CPECandidate{
 				{CPEName: "cpe:2.3:o:amazon:ring_video_doorbell_firmware:3.4.7:*:*:*:*:*:*:*", Title: "Amazon Ring Video Doorbell Firmware 3.4.7"},
 			},
 		},
@@ -690,16 +691,16 @@ func TestAnalyzePersistAndAttachVulnerabilitiesTriesFirmwareAliasFromOperatingSy
 	asset.DeviceModel = ptrString("camera")
 
 	repo := &fakeAssetRepository{asset: asset}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrRecordNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{
-		resultsByCPE: map[string][]dto.CVELookupResponse{
+		resultsByCPE: map[string][]nvdcveclient.CVELookupResponse{
 			"cpe:2.3:o:amazon:ring_video_doorbell_firmware:3.4.6:*:*:*:*:*:*:*": {
 				{CVEID: "CVE-2019-9483", Title: "Ring Doorbell Encryption Issue", Description: "NVD CVE response", Severity: "Critical"},
 			},
 		},
 	}
 	searcher := &fakeCPECandidateSearcher{
-		candidates: []dto.CPECandidate{
+		candidates: []nvdcpeclient.CPECandidate{
 			{CPEName: "cpe:2.3:o:amazon:ring_video_doorbell_firmware:3.4.7:*:*:*:*:*:*:*", Title: "Amazon Ring Video Doorbell Firmware 3.4.7"},
 		},
 	}
@@ -709,7 +710,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesTriesFirmwareAliasFromOperatingSy
 		cveSearcher:     cveSearcher,
 		cpeSearcher:     searcher,
 		textAI: &fakeTextGenerationService{
-			response: dto.TextGenerationResponse{
+			response: promptservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:o:amazon:ring_video_doorbell_firmware:3.4.7:*:*:*:*:*:*:*","confidence":0.5,"reviewNotes":"selected cpe version mismatch","rankedCpes":["cpe:2.3:o:amazon:ring_video_doorbell_firmware:3.4.7:*:*:*:*:*:*:*"]}`,
 			},
 		},
@@ -745,9 +746,9 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesKeywordFallbackAndAIRanking(t
 	asset.DeviceModel = ptrString("plugin")
 
 	repo := &fakeAssetRepository{asset: asset}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrRecordNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{
-		resultsByKeyword: map[string][]dto.CVELookupResponse{
+		resultsByKeyword: map[string][]nvdcveclient.CVELookupResponse{
 			"wp ultimate map": {
 				{
 					CVEID:       "CVE-2026-12345",
@@ -768,9 +769,9 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesKeywordFallbackAndAIRanking(t
 		assetRepository: repo,
 		vulnRepository:  vulnRepo,
 		cveSearcher:     cveSearcher,
-		cpeSearcher:     &fakeCPECandidateSearcher{candidates: []dto.CPECandidate{}},
+		cpeSearcher:     &fakeCPECandidateSearcher{candidates: []nvdcpeclient.CPECandidate{}},
 		textAI: &fakeTextGenerationService{
-			responses: []dto.TextGenerationResponse{
+			responses: []promptservice.TextGenerationResponse{
 				{
 					Text: `{"keywordSearches":["wp ultimate map"],"reviewNotes":"normalized plugin name"}`,
 				},
@@ -818,12 +819,12 @@ func TestAnalyzePersistAndAttachVulnerabilitiesFallsThroughToAIKeywordFallbackWh
 	asset.DeviceModel = ptrString("network")
 
 	repo := &fakeAssetRepository{asset: asset}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrRecordNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{
-		resultsByCPE: map[string][]dto.CVELookupResponse{
+		resultsByCPE: map[string][]nvdcveclient.CVELookupResponse{
 			"cpe:2.3:a:ui:unifi:2.3.6:*:*:*:*:*:*:*": {},
 		},
-		resultsByKeyword: map[string][]dto.CVELookupResponse{
+		resultsByKeyword: map[string][]nvdcveclient.CVELookupResponse{
 			"unifi network application": {
 				{
 					CVEID:       "CVE-2026-56842",
@@ -840,12 +841,12 @@ func TestAnalyzePersistAndAttachVulnerabilitiesFallsThroughToAIKeywordFallbackWh
 		vulnRepository:  vulnRepo,
 		cveSearcher:     cveSearcher,
 		cpeSearcher: &fakeCPECandidateSearcher{
-			candidates: []dto.CPECandidate{
+			candidates: []nvdcpeclient.CPECandidate{
 				{CPEName: "cpe:2.3:a:ui:unifi:2.3.6:*:*:*:*:*:*:*", Title: "UI UniFi 2.3.6"},
 			},
 		},
 		textAI: &fakeTextGenerationService{
-			responses: []dto.TextGenerationResponse{
+			responses: []promptservice.TextGenerationResponse{
 				{
 					Text: `{"selectedCpe":"cpe:2.3:a:ui:unifi:2.3.6:*:*:*:*:*:*:*","confidence":0.8,"reviewNotes":"possible UniFi match","rankedCpes":["cpe:2.3:a:ui:unifi:2.3.6:*:*:*:*:*:*:*"]}`,
 				},
@@ -893,9 +894,9 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesAIKeywordFallbackWhenExactCPE
 	asset.DeviceModel = ptrString("network")
 
 	repo := &fakeAssetRepository{asset: asset}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrRecordNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{
-		resultsByKeyword: map[string][]dto.CVELookupResponse{
+		resultsByKeyword: map[string][]nvdcveclient.CVELookupResponse{
 			"unifi network application": {
 				{
 					CVEID:       "CVE-2026-56842",
@@ -912,12 +913,12 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesAIKeywordFallbackWhenExactCPE
 		vulnRepository:  vulnRepo,
 		cveSearcher:     cveSearcher,
 		cpeSearcher: &fakeCPECandidateSearcher{
-			candidates: []dto.CPECandidate{
+			candidates: []nvdcpeclient.CPECandidate{
 				{CPEName: "cpe:2.3:a:ui:unifi_controller:2.4.4:*:*:*:*:*:*:*", Title: "UI UniFi Controller 2.4.4"},
 			},
 		},
 		textAI: &fakeTextGenerationService{
-			responses: []dto.TextGenerationResponse{
+			responses: []promptservice.TextGenerationResponse{
 				{
 					Text: `{"selectedCpe":"cpe:2.3:a:ui:unifi_controller:2.4.4:*:*:*:*:*:*:*","confidence":0.95,"reviewNotes":"possible UniFi match","rankedCpes":["cpe:2.3:a:ui:unifi_controller:2.4.4:*:*:*:*:*:*:*"]}`,
 				},
@@ -962,9 +963,9 @@ func TestAnalyzePersistAndAttachVulnerabilitiesAggregatesAIKeywordSearchesBefore
 	asset.DeviceModel = ptrString("device")
 
 	repo := &fakeAssetRepository{asset: asset}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrRecordNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{
-		resultsByKeyword: map[string][]dto.CVELookupResponse{
+		resultsByKeyword: map[string][]nvdcveclient.CVELookupResponse{
 			"ubiquiti unifi network device": {
 				{
 					CVEID:       "CVE-2019-25651",
@@ -989,9 +990,9 @@ func TestAnalyzePersistAndAttachVulnerabilitiesAggregatesAIKeywordSearchesBefore
 		assetRepository: repo,
 		vulnRepository:  vulnRepo,
 		cveSearcher:     cveSearcher,
-		cpeSearcher:     &fakeCPECandidateSearcher{candidates: []dto.CPECandidate{}},
+		cpeSearcher:     &fakeCPECandidateSearcher{candidates: []nvdcpeclient.CPECandidate{}},
 		textAI: &fakeTextGenerationService{
-			responses: []dto.TextGenerationResponse{
+			responses: []promptservice.TextGenerationResponse{
 				{
 					Text: `{"keywordSearches":["ubiquiti unifi network device","ubiquiti unifi network application"],"reviewNotes":"try device and application wording"}`,
 				},
@@ -1027,13 +1028,13 @@ func TestAnalyzePersistAndAttachVulnerabilitiesStopsKeywordFallbackOnNVDUnavaila
 	asset.DeviceModel = ptrString("plugin")
 
 	repo := &fakeAssetRepository{asset: asset}
-	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrVulnerabilityNotFound}
+	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrRecordNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{err: errors.New("nvd unavailable: status 503")}
 	svc := &assetMatchServiceImpl{
 		assetRepository: repo,
 		vulnRepository:  vulnRepo,
 		cveSearcher:     cveSearcher,
-		cpeSearcher:     &fakeCPECandidateSearcher{candidates: []dto.CPECandidate{}},
+		cpeSearcher:     &fakeCPECandidateSearcher{candidates: []nvdcpeclient.CPECandidate{}},
 		now:             time.Now,
 	}
 	ctx := contextForTest(t)
@@ -1101,7 +1102,7 @@ func TestMergeCVEKeywordSearchesKeepsDeterministicProductSearchesFirst(t *testin
 }
 
 func TestFilterRelevantKeywordCVEsIgnoresAssetNameWhenProductExists(t *testing.T) {
-	cves := []dto.CVELookupResponse{
+	cves := []nvdcveclient.CVELookupResponse{
 		{
 			CVEID:       "CVE-2026-14265",
 			Title:       "AWS Advanced JDBC Wrapper issue",
@@ -1116,7 +1117,7 @@ func TestFilterRelevantKeywordCVEsIgnoresAssetNameWhenProductExists(t *testing.T
 }
 
 func TestSortCVECandidatesByPublishedAtDesc(t *testing.T) {
-	candidates := []dto.CVELookupResponse{
+	candidates := []nvdcveclient.CVELookupResponse{
 		{CVEID: "CVE-2022-0001", PublishedAt: "2022-01-01T00:00:00.000"},
 		{CVEID: "CVE-2026-14265", PublishedAt: "2026-07-01T00:00:00.000"},
 		{CVEID: "CVE-2024-0001", PublishedAt: "2024-01-01T00:00:00.000"},
@@ -1130,12 +1131,105 @@ func TestSortCVECandidatesByPublishedAtDesc(t *testing.T) {
 }
 
 func TestAnalyzeAndPersistAssetMatchReturnsReviewOnRepositoryError(t *testing.T) {
-	repo := &fakeAssetRepository{asset: sampleMatchedAsset(), findErr: assetrepo.ErrAssetNotFound}
+	repo := &fakeAssetRepository{asset: sampleMatchedAsset(), findErr: assetrepo.ErrRecordNotFound}
 	svc := &assetMatchServiceImpl{assetRepository: repo, now: time.Now}
 
 	_, err := svc.AnalyzeAndPersistAssetMatch(contextForTest(t), "00000000-0000-4000-8000-000000000001")
 	if !errors.Is(err, assetservice.ErrAssetNotFound) {
 		t.Fatalf("expected not found error, got %v", err)
+	}
+}
+
+// TestNVDLookupService verifies validation and successful lookup behavior.
+func TestNVDLookupService(t *testing.T) {
+	client := &fakeCVELookupClient{response: sampleCVELookupResponse()}
+	svc := NewNVDLookupService(client)
+	ec := newNVDServiceContext(t, "00000000-0000-4000-8000-000000000042")
+
+	response, err := svc.LookupCVE(ec, " cve-2021-44228 ")
+	if err != nil {
+		t.Fatalf("expected lookup to succeed, got %v", err)
+	}
+	if client.cveID != "CVE-2021-44228" {
+		t.Fatalf("expected normalized CVE ID, got %q", client.cveID)
+	}
+	if response.CVEID != "CVE-2021-44228" {
+		t.Fatalf("expected response CVE ID, got %q", response.CVEID)
+	}
+}
+
+// TestNVDLookupServiceValidation verifies invalid CVE IDs fail before NVD is called.
+func TestNVDLookupServiceValidation(t *testing.T) {
+	client := &fakeCVELookupClient{response: sampleCVELookupResponse()}
+	svc := NewNVDLookupService(client)
+	ec := newNVDServiceContext(t, "00000000-0000-4000-8000-000000000042")
+
+	_, err := svc.LookupCVE(ec, "https://evil.example/cve")
+	if !errors.Is(err, ErrInvalidCVEID) {
+		t.Fatalf("expected invalid request data, got %v", err)
+	}
+	if client.called {
+		t.Fatal("expected invalid CVE ID to fail before client call")
+	}
+}
+
+func TestNVDLookupServiceRejectsMissingClient(t *testing.T) {
+	svc := NewNVDLookupService(nil)
+	ec := newNVDServiceContext(t, "00000000-0000-4000-8000-000000000042")
+
+	_, err := svc.LookupCVE(ec, "CVE-2021-44228")
+	if !errors.Is(err, ErrMatchExternalService) {
+		t.Fatalf("expected external service error, got %v", err)
+	}
+}
+
+// TestNVDLookupServiceErrorMapping verifies NVD client errors become service errors.
+func TestNVDLookupServiceErrorMapping(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want error
+	}{
+		{name: "not found", err: nvdcveclient.ErrCVEIDNotFound, want: ErrCVENotFound},
+		{name: "rate limited", err: nvdcveclient.ErrNVDRateLimited, want: ErrNVDLookupRateLimited},
+		{name: "invalid response", err: nvdcveclient.ErrInvalidNVDResponse, want: ErrMatchExternalService},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := NewNVDLookupService(&fakeCVELookupClient{err: tc.err})
+			ec := newNVDServiceContext(t, "00000000-0000-4000-8000-000000000042")
+
+			_, err := svc.LookupCVE(ec, "CVE-2021-44228")
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("expected %v, got %v", tc.want, err)
+			}
+		})
+	}
+}
+
+func TestMatchServiceErrorsExposeCategories(t *testing.T) {
+	var validationErr *ValidationError
+	if !errors.As(ErrInvalidCVEID, &validationErr) {
+		t.Fatal("expected invalid CVE ID to be a match validation error")
+	}
+	var notFoundErr *NotFoundError
+	if !errors.As(ErrCVENotFound, &notFoundErr) {
+		t.Fatal("expected CVE not found to be a match not found error")
+	}
+	var dependencyErr *DependencyError
+	if !errors.As(ErrMatchDependency, &dependencyErr) {
+		t.Fatal("expected match dependency failure to be a match dependency error")
+	}
+	if !errors.As(ErrNVDLookupRateLimited, &dependencyErr) {
+		t.Fatal("expected NVD rate limit to be a match dependency error")
+	}
+	if !errors.As(ErrMatchExternalService, &dependencyErr) {
+		t.Fatal("expected external service failure to be a match dependency error")
+	}
+	var internalErr *InternalError
+	if !errors.As(ErrMatchInternal, &internalErr) {
+		t.Fatal("expected match internal failure to be a match internal error")
 	}
 }
 
@@ -1198,7 +1292,7 @@ func (f *fakeAssetRepository) RemoveVulnerabilityForUser(ec *appcontext.GinConte
 	return f.asset, nil
 }
 
-var _ baserepository.AssetRepository = (*fakeAssetRepository)(nil)
+var _ assetrepo.AssetRepositoryInterface = (*fakeAssetRepository)(nil)
 
 type fakeVulnerabilityRepository struct {
 	findErr error
@@ -1245,12 +1339,12 @@ func (f *fakeVulnerabilityRepository) DeleteForUser(ec *appcontext.GinContext, i
 	return model.Vulnerability{}, nil
 }
 
-var _ baserepository.VulnerabilityRepository = (*fakeVulnerabilityRepository)(nil)
+var _ vulnrepo.VulnerabilityRepositoryInterface = (*fakeVulnerabilityRepository)(nil)
 
 type fakeCVEByCPESearcher struct {
-	results          []dto.CVELookupResponse
-	resultsByCPE     map[string][]dto.CVELookupResponse
-	resultsByKeyword map[string][]dto.CVELookupResponse
+	results          []nvdcveclient.CVELookupResponse
+	resultsByCPE     map[string][]nvdcveclient.CVELookupResponse
+	resultsByKeyword map[string][]nvdcveclient.CVELookupResponse
 	cpeName          string
 	cpeRequests      []string
 	keywordRequests  []string
@@ -1258,7 +1352,7 @@ type fakeCVEByCPESearcher struct {
 	err              error
 }
 
-func (f *fakeCVEByCPESearcher) SearchCVEsByCPE(ctx context.Context, cpeName string, limit int) ([]dto.CVELookupResponse, error) {
+func (f *fakeCVEByCPESearcher) SearchCVEsByCPE(ctx context.Context, cpeName string, limit int) ([]nvdcveclient.CVELookupResponse, error) {
 	f.cpeName = cpeName
 	f.cpeRequests = append(f.cpeRequests, cpeName)
 	if f.resultsByCPE != nil {
@@ -1267,7 +1361,7 @@ func (f *fakeCVEByCPESearcher) SearchCVEsByCPE(ctx context.Context, cpeName stri
 	return f.results, f.err
 }
 
-func (f *fakeCVEByCPESearcher) SearchCVEsByKeyword(ctx context.Context, keywordSearch string, limit int) ([]dto.CVELookupResponse, error) {
+func (f *fakeCVEByCPESearcher) SearchCVEsByKeyword(ctx context.Context, keywordSearch string, limit int) ([]nvdcveclient.CVELookupResponse, error) {
 	f.keywordRequests = append(f.keywordRequests, keywordSearch)
 	f.keywordLimits = append(f.keywordLimits, limit)
 	if f.resultsByKeyword != nil {
@@ -1277,13 +1371,13 @@ func (f *fakeCVEByCPESearcher) SearchCVEsByKeyword(ctx context.Context, keywordS
 }
 
 type fakeCPECandidateSearcher struct {
-	candidates         []dto.CPECandidate
-	candidatesBySearch map[string][]dto.CPECandidate
+	candidates         []nvdcpeclient.CPECandidate
+	candidatesBySearch map[string][]nvdcpeclient.CPECandidate
 	requests           []string
 	err                error
 }
 
-func (f *fakeCPECandidateSearcher) SearchCandidates(ctx context.Context, request dto.CPEMatchRequest) ([]dto.CPECandidate, error) {
+func (f *fakeCPECandidateSearcher) SearchCandidates(ctx context.Context, request nvdcpeclient.CPEMatchRequest) ([]nvdcpeclient.CPECandidate, error) {
 	f.requests = append(f.requests, request.KeywordSearch)
 	if f.candidatesBySearch != nil {
 		return f.candidatesBySearch[request.KeywordSearch], f.err
@@ -1292,14 +1386,14 @@ func (f *fakeCPECandidateSearcher) SearchCandidates(ctx context.Context, request
 }
 
 type fakeTextGenerationService struct {
-	response    dto.TextGenerationResponse
-	responses   []dto.TextGenerationResponse
+	response    promptservice.TextGenerationResponse
+	responses   []promptservice.TextGenerationResponse
 	err         error
-	lastRequest dto.TextGenerationRequest
-	requests    []dto.TextGenerationRequest
+	lastRequest promptservice.TextGenerationRequest
+	requests    []promptservice.TextGenerationRequest
 }
 
-func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request dto.TextGenerationRequest) (dto.TextGenerationResponse, error) {
+func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request promptservice.TextGenerationRequest) (promptservice.TextGenerationResponse, error) {
 	f.lastRequest = request
 	f.requests = append(f.requests, request)
 	if len(f.responses) > 0 {
@@ -1307,6 +1401,19 @@ func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request dt
 		f.responses = f.responses[1:]
 		return response, f.err
 	}
+	return f.response, f.err
+}
+
+type fakeCVELookupClient struct {
+	response nvdcveclient.CVELookupResponse
+	err      error
+	cveID    string
+	called   bool
+}
+
+func (f *fakeCVELookupClient) LookupCVE(ctx context.Context, cveID string) (nvdcveclient.CVELookupResponse, error) {
+	f.called = true
+	f.cveID = cveID
 	return f.response, f.err
 }
 
@@ -1337,6 +1444,34 @@ func contextForTest(t *testing.T) *appcontext.GinContext {
 	}
 	appcontext.SetGinContext(ctx, ec)
 	return ec
+}
+
+func newNVDServiceContext(t *testing.T, userID string) *appcontext.GinContext {
+	t.Helper()
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+	ec := appcontext.NewGinContext(ctx, "txn-123", slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err := ec.SetPrincipal(appcontext.Principal{
+		UserID:   userID,
+		Username: "analyst",
+		Role:     model.RoleAdmin,
+	}); err != nil {
+		t.Fatalf("failed to set test principal: %v", err)
+	}
+	appcontext.SetGinContext(ctx, ec)
+	return ec
+}
+
+func sampleCVELookupResponse() nvdcveclient.CVELookupResponse {
+	return nvdcveclient.CVELookupResponse{
+		CVEID:       "CVE-2021-44228",
+		Title:       "CVE-2021-44228",
+		Description: "Apache Log4j remote code execution.",
+		Severity:    "CRITICAL",
+		NVDURL:      "https://nvd.nist.gov/vuln/detail/CVE-2021-44228",
+	}
 }
 
 func ptrString(value string) *string {

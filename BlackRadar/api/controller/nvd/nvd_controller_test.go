@@ -11,9 +11,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"blackradar/api/controller/dto"
+	basecontroller "blackradar/api/controller/shared"
+	nvdcveclient "blackradar/api/external/nvd_cve"
+	contextmiddleware "blackradar/api/middleware/context"
 	appcontext "blackradar/api/platform/requestcontext"
-	baseservice "blackradar/api/service"
 	matchservice "blackradar/api/service/match"
 )
 
@@ -27,7 +28,7 @@ func TestNVDControllerLookupCVE(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
-	var response dto.CVELookupResponse
+	var response nvdcveclient.CVELookupResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -46,7 +47,7 @@ func TestNVDControllerErrorMapping(t *testing.T) {
 	}{
 		{name: "invalid cve", err: matchservice.ErrInvalidCVEID, wantStatus: http.StatusBadRequest, wantCode: "VALIDATION_ERROR"},
 		{name: "not found", err: matchservice.ErrCVENotFound, wantStatus: http.StatusNotFound, wantCode: "NOT_FOUND"},
-		{name: "rate limited", err: matchservice.ErrNVDLookupRateLimited, wantStatus: http.StatusTooManyRequests, wantCode: "RATE_LIMITED"},
+		{name: "rate limited", err: matchservice.ErrNVDLookupRateLimited, wantStatus: http.StatusBadGateway, wantCode: "UPSTREAM_ERROR"},
 		{name: "upstream", err: matchservice.ErrMatchExternalService, wantStatus: http.StatusBadGateway, wantCode: "UPSTREAM_ERROR"},
 	}
 
@@ -60,7 +61,7 @@ func TestNVDControllerErrorMapping(t *testing.T) {
 			if recorder.Code != tc.wantStatus {
 				t.Fatalf("expected status %d, got %d", tc.wantStatus, recorder.Code)
 			}
-			var response dto.ErrorResponse
+			var response basecontroller.ErrorResponse
 			if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 				t.Fatalf("failed to decode error response: %v", err)
 			}
@@ -71,19 +72,34 @@ func TestNVDControllerErrorMapping(t *testing.T) {
 	}
 }
 
+func TestRegisterRoutes(t *testing.T) {
+	service := &fakeNVDLookupService{response: nvdcveclient.CVELookupResponse{CVEID: "CVE-2021-44228"}}
+	controller := NewNVDController(service)
+	engine := gin.New()
+	engine.Use(contextmiddleware.RequestContext(nil))
+	RegisterRoutes(engine.Group("/api"), controller)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/nvd/cves/CVE-2021-44228", nil)
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+}
+
 type fakeNVDLookupService struct {
-	response dto.CVELookupResponse
+	response nvdcveclient.CVELookupResponse
 	err      error
 }
 
-func (f *fakeNVDLookupService) LookupCVE(ec *appcontext.GinContext, cveID string) (dto.CVELookupResponse, error) {
+func (f *fakeNVDLookupService) LookupCVE(ec *appcontext.GinContext, cveID string) (nvdcveclient.CVELookupResponse, error) {
 	if f.err != nil {
-		return dto.CVELookupResponse{}, f.err
+		return nvdcveclient.CVELookupResponse{}, f.err
 	}
 	return f.response, nil
 }
 
-var _ baseservice.NVDLookupService = (*fakeNVDLookupService)(nil)
+var _ matchservice.NVDLookupService = (*fakeNVDLookupService)(nil)
 
 func newNVDControllerContext(t *testing.T, cveID string) (*appcontext.GinContext, *httptest.ResponseRecorder) {
 	t.Helper()
@@ -97,8 +113,8 @@ func newNVDControllerContext(t *testing.T, cveID string) (*appcontext.GinContext
 	return ec, recorder
 }
 
-func sampleCVELookupResponse() dto.CVELookupResponse {
-	return dto.CVELookupResponse{
+func sampleCVELookupResponse() nvdcveclient.CVELookupResponse {
+	return nvdcveclient.CVELookupResponse{
 		CVEID:       "CVE-2021-44228",
 		Title:       "CVE-2021-44228",
 		Description: "Apache Log4j remote code execution.",

@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"blackradar/api/controller/dto"
 	externalratelimiter "blackradar/api/external/rate_limiter"
 )
 
@@ -64,7 +63,7 @@ func NewCPEClientWithHTTPClient(baseURL string, apiKey string, httpClient *http.
 }
 
 // SearchCandidates returns CPE candidates for a normalized search request.
-func (c *CPEClient) SearchCandidates(ctx context.Context, request dto.CPEMatchRequest) ([]dto.CPECandidate, error) {
+func (c *CPEClient) SearchCandidates(ctx context.Context, request CPEMatchRequest) ([]CPECandidate, error) {
 	keywordSearch := normalizeCPEKeywordSearch(request.KeywordSearch)
 	if keywordSearch == "" {
 		return nil, ErrInvalidCPESearch
@@ -112,10 +111,10 @@ func (c *CPEClient) SearchCandidates(ctx context.Context, request dto.CPEMatchRe
 		return nil, fmt.Errorf("%w: decode response", ErrInvalidNVDResponse)
 	}
 	if len(payload.Products) == 0 {
-		return []dto.CPECandidate{}, nil
+		return []CPECandidate{}, nil
 	}
 
-	candidates := make([]dto.CPECandidate, 0, len(payload.Products))
+	candidates := make([]CPECandidate, 0, len(payload.Products))
 	for _, product := range payload.Products {
 		candidate := mapCPECandidate(product.CPE)
 		if candidate.CPEName == "" {
@@ -224,7 +223,7 @@ type title struct {
 }
 
 // mapCPECandidate converts an NVD CPE item into the application's candidate DTO.
-func mapCPECandidate(cpe cpeItem) dto.CPECandidate {
+func mapCPECandidate(cpe cpeItem) CPECandidate {
 	title := cpe.CPEName
 	for _, entry := range cpe.Titles {
 		if strings.EqualFold(entry.Lang, "en") && strings.TrimSpace(entry.Title) != "" {
@@ -233,7 +232,7 @@ func mapCPECandidate(cpe cpeItem) dto.CPECandidate {
 		}
 	}
 
-	return dto.CPECandidate{
+	return CPECandidate{
 		CPEName:    strings.TrimSpace(cpe.CPEName),
 		Title:      title,
 		Deprecated: cpe.Deprecated,

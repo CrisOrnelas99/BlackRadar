@@ -14,11 +14,11 @@ import (
 
 	commonjwt "blackradar/api/common/jwt"
 	commonrisk "blackradar/api/common/risk"
-	"blackradar/api/controller"
 	controllerai "blackradar/api/controller/ai"
 	controllerasset "blackradar/api/controller/asset"
-	controllerauth "blackradar/api/controller/auth"
+	controllerhealth "blackradar/api/controller/health"
 	controllernvd "blackradar/api/controller/nvd"
+	controlleruser "blackradar/api/controller/user"
 	controllervulnerability "blackradar/api/controller/vulnerability"
 	nvdcpeclient "blackradar/api/external/nvd_cpe"
 	nvdcveclient "blackradar/api/external/nvd_cve"
@@ -27,6 +27,8 @@ import (
 	"blackradar/api/middleware/cors"
 	"blackradar/api/middleware/filter"
 	gormmiddleware "blackradar/api/middleware/gorm"
+	jwtmiddleware "blackradar/api/middleware/jwt"
+	"blackradar/api/middleware/permissions"
 	securityheaders "blackradar/api/middleware/security_headers"
 	"blackradar/api/platform/bootstrap"
 	"blackradar/api/platform/config"
@@ -35,8 +37,8 @@ import (
 	repositoryuser "blackradar/api/repository/user"
 	repositoryvulnerability "blackradar/api/repository/vulnerability"
 	serviceasset "blackradar/api/service/asset"
-	serviceauth "blackradar/api/service/auth"
 	servicematch "blackradar/api/service/match"
+	serviceuser "blackradar/api/service/user"
 	servicevulnerability "blackradar/api/service/vulnerability"
 )
 
@@ -79,7 +81,7 @@ func main() {
 	assetRepository := repositoryasset.NewAssetRepository(gormDB)
 	refreshSessionRepository := repositoryuser.NewRefreshSessionRepository(gormDB)
 	vulnerabilityRepository := repositoryvulnerability.NewVulnerabilityRepository(gormDB)
-	authService := serviceauth.NewAuthService(jwtManager, userRepository, refreshSessionRepository)
+	userService := serviceuser.NewUserService(jwtManager, userRepository, refreshSessionRepository)
 	nvdClient, err := nvdcveclient.NewClient(cfg.NVDAPIBaseURL, cfg.NVDAPIKey)
 	if err != nil {
 		log.Fatalf("nvd client configuration failed: %v", err)
@@ -97,7 +99,7 @@ func main() {
 	assetService := serviceasset.NewAssetService(assetRepository, vulnerabilityRepository, nvdLookupService, openAIClient)
 	vulnerabilityService := servicevulnerability.NewVulnerabilityService(vulnerabilityRepository)
 
-	authController := controllerauth.NewAuthController(authService)
+	userController := controlleruser.NewUserController(userService)
 	aiController := controllerai.NewAIController(openAIClient)
 	assetController := controllerasset.NewAssetController(assetService, assetMatchService)
 	vulnerabilityController := controllervulnerability.NewVulnerabilityController(vulnerabilityService)
@@ -126,31 +128,23 @@ func main() {
 	}
 	engine.Use(corsMiddleware)
 	engine.Use(filter.RequestFilter())
-	// Register all routes centrally in the controller package
-	if err := controller.RegisterRoutes(engine, gormDB, jwtManager, userRepository, refreshSessionRepository, controller.RouteHandlers{
-		RegisterAuth:           authController.Register,
-		LoginAuth:              authController.Login,
-		RefreshAuth:            authController.Refresh,
-		LogoutAuth:             authController.Logout,
-		GetAssets:              assetController.GetAssets,
-		GetAsset:               assetController.GetAsset,
-		CreateAsset:            assetController.CreateAsset,
-		UpdateAsset:            assetController.UpdateAsset,
-		DeleteAsset:            assetController.DeleteAsset,
-		MatchAssetCPEAndAttach: assetController.MatchAssetCPEAndAttachVulnerabilities,
-		TestAIProvider:         aiController.TestProvider,
-		SendAIMessage:          aiController.SendMessage,
-		AssignVulnerability:    assetController.AssignVulnerability,
-		RemoveVulnerability:    assetController.RemoveVulnerability,
-		GetVulnerabilities:     vulnerabilityController.GetVulnerabilities,
-		GetVulnerability:       vulnerabilityController.GetVulnerability,
-		CreateVulnerability:    vulnerabilityController.CreateVulnerability,
-		UpdateVulnerability:    vulnerabilityController.UpdateVulnerability,
-		DeleteVulnerability:    vulnerabilityController.DeleteVulnerability,
-		LookupCVE:              nvdController.LookupCVE,
-	}); err != nil {
-		log.Fatalf("route registration failed: %v", err)
+
+	controllerhealth.RegisterRoutes(engine, gormDB)
+	controlleruser.RegisterRoutes(engine.Group("/api/auth"), userController)
+
+	authenticationMiddleware, err := jwtmiddleware.Authentication(jwtManager, userRepository, refreshSessionRepository)
+	if err != nil {
+		log.Fatalf("jwt middleware configuration failed: %v", err)
 	}
+	protected := engine.Group("/api")
+	protected.Use(authenticationMiddleware)
+	adminOnly := protected.Group("")
+	adminOnly.Use(permissions.RequireAdmin())
+
+	controllerasset.RegisterRoutes(protected, adminOnly, assetController)
+	controllervulnerability.RegisterRoutes(adminOnly, vulnerabilityController)
+	controllernvd.RegisterRoutes(adminOnly, nvdController)
+	controllerai.RegisterRoutes(adminOnly, aiController)
 
 	log.Printf("Go backend running on :%s", cfg.Port)
 	if err := engine.Run(":" + cfg.Port); err != nil {
