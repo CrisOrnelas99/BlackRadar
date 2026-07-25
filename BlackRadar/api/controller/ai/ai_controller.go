@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	basecontroller "blackradar/api/controller/shared"
+	shared "blackradar/api/controller/shared"
 	appcontext "blackradar/api/platform/requestcontext"
 	promptservice "blackradar/api/service/prompt"
 )
@@ -25,13 +25,13 @@ func NewAIController(textAI promptservice.TextGenerationService) *AIController {
 // TestProvider sends a fixed prompt to the configured AI provider.
 func (c *AIController) TestProvider(ec *appcontext.GinContext) {
 	if c.textAI == nil {
-		basecontroller.HandleError(ec, http.StatusBadGateway, basecontroller.ErrUpstreamUnavailable, "AI provider test failed")
+		shared.HandleError(ec, http.StatusBadGateway, shared.ErrUpstreamUnavailable, "AI provider test failed")
 		return
 	}
 
 	response, err := c.textAI.GenerateText(ec.RequestContext(), promptservice.BuildDiagnosticRequest())
 	if err != nil {
-		basecontroller.HandleError(ec, http.StatusBadGateway, err, "AI provider test failed")
+		shared.HandleError(ec, http.StatusBadGateway, err, "AI provider test failed")
 		return
 	}
 
@@ -46,24 +46,24 @@ func (c *AIController) TestProvider(ec *appcontext.GinContext) {
 // SendMessage sends a temporary admin-only diagnostic message to the configured AI provider.
 func (c *AIController) SendMessage(ec *appcontext.GinContext) {
 	if c.textAI == nil {
-		basecontroller.HandleError(ec, http.StatusBadGateway, basecontroller.ErrUpstreamUnavailable, "AI message request failed")
+		shared.HandleError(ec, http.StatusBadGateway, shared.ErrUpstreamUnavailable, "AI message request failed")
 		return
 	}
 
 	var request AIMessageRequest
-	if handled := basecontroller.BindJSON(ec, &request); handled {
+	if handled := shared.BindJSON(ec, &request); handled {
 		return
 	}
 
 	message := strings.TrimSpace(request.Message)
 	if message == "" || len(message) > maxTemporaryAIMessageLength {
-		basecontroller.HandleError(ec, http.StatusBadRequest, basecontroller.ErrInvalidRequestBody, "Message must be between 1 and 1000 characters")
+		shared.HandleError(ec, http.StatusBadRequest, shared.ErrInvalidRequestBody, "Message must be between 1 and 1000 characters")
 		return
 	}
 
 	response, err := c.textAI.GenerateText(ec.RequestContext(), promptservice.BuildTemporaryMessageRequest(message))
 	if err != nil {
-		basecontroller.HandleError(ec, http.StatusBadGateway, err, "AI message request failed")
+		shared.HandleError(ec, http.StatusBadGateway, err, "AI message request failed")
 		return
 	}
 

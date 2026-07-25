@@ -2,10 +2,9 @@
 package controller
 
 import (
-	"errors"
 	"net/http"
 
-	basecontroller "blackradar/api/controller/shared"
+	shared "blackradar/api/controller/shared"
 	appcontext "blackradar/api/platform/requestcontext"
 	userservice "blackradar/api/service/user"
 )
@@ -23,7 +22,7 @@ func NewUserController(userService userservice.UserService) *UserController {
 // Register handles new user registration requests.
 func (c *UserController) Register(ec *appcontext.GinContext) {
 	var request RegisterRequest
-	if basecontroller.BindJSON(ec, &request) {
+	if shared.BindJSON(ec, &request) {
 		return
 	}
 
@@ -32,7 +31,7 @@ func (c *UserController) Register(ec *appcontext.GinContext) {
 		if handleUserServiceError(ec, err) {
 			return
 		}
-		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error registering user")
+		shared.HandleError(ec, http.StatusInternalServerError, err, "Error registering user")
 		return
 	}
 
@@ -42,7 +41,7 @@ func (c *UserController) Register(ec *appcontext.GinContext) {
 // Login handles user authentication requests and returns credentials.
 func (c *UserController) Login(ec *appcontext.GinContext) {
 	var request LoginRequest
-	if basecontroller.BindJSON(ec, &request) {
+	if shared.BindJSON(ec, &request) {
 		return
 	}
 
@@ -51,7 +50,7 @@ func (c *UserController) Login(ec *appcontext.GinContext) {
 		if handleUserServiceError(ec, err) {
 			return
 		}
-		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error logging in")
+		shared.HandleError(ec, http.StatusInternalServerError, err, "Error logging in")
 		return
 	}
 
@@ -61,7 +60,7 @@ func (c *UserController) Login(ec *appcontext.GinContext) {
 // Refresh exchanges a refresh token for fresh credentials.
 func (c *UserController) Refresh(ec *appcontext.GinContext) {
 	var request RefreshRequest
-	if basecontroller.BindJSON(ec, &request) {
+	if shared.BindJSON(ec, &request) {
 		return
 	}
 
@@ -70,7 +69,7 @@ func (c *UserController) Refresh(ec *appcontext.GinContext) {
 		if handleUserServiceError(ec, err) {
 			return
 		}
-		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error refreshing token")
+		shared.HandleError(ec, http.StatusInternalServerError, err, "Error refreshing token")
 		return
 	}
 
@@ -80,7 +79,7 @@ func (c *UserController) Refresh(ec *appcontext.GinContext) {
 // Logout revokes the current refresh token session.
 func (c *UserController) Logout(ec *appcontext.GinContext) {
 	var request RefreshRequest
-	if basecontroller.BindJSON(ec, &request) {
+	if shared.BindJSON(ec, &request) {
 		return
 	}
 
@@ -88,33 +87,9 @@ func (c *UserController) Logout(ec *appcontext.GinContext) {
 		if handleUserServiceError(ec, err) {
 			return
 		}
-		basecontroller.HandleError(ec, http.StatusInternalServerError, err, "Error logging out")
+		shared.HandleError(ec, http.StatusInternalServerError, err, "Error logging out")
 		return
 	}
 
 	ec.Status(http.StatusOK)
-}
-
-// handleUserServiceError maps user service error categories to HTTP responses.
-func handleUserServiceError(ec *appcontext.GinContext, err error) bool {
-	var validationErr *userservice.ValidationError
-	var conflictErr *userservice.ConflictError
-	var unauthorizedErr *userservice.UnauthorizedError
-	var dependencyErr *userservice.DependencyError
-	var internalErr *userservice.InternalError
-
-	switch {
-	case errors.As(err, &validationErr):
-		return basecontroller.HandleError(ec, http.StatusBadRequest, err, err.Error())
-	case errors.As(err, &conflictErr):
-		return basecontroller.HandleError(ec, http.StatusConflict, err, err.Error())
-	case errors.As(err, &unauthorizedErr):
-		return basecontroller.HandleError(ec, http.StatusUnauthorized, err, "Invalid credentials.")
-	case errors.As(err, &dependencyErr):
-		return basecontroller.HandleError(ec, http.StatusBadGateway, err, "User dependency unavailable")
-	case errors.As(err, &internalErr):
-		return basecontroller.HandleError(ec, http.StatusInternalServerError, err, "User service failed")
-	}
-
-	return false
 }

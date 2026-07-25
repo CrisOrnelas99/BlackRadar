@@ -93,16 +93,6 @@ func errorCode(status int) string {
 
 // ParseID validates a path or query identifier as a UUID.
 func ParseID(value string) (string, error) {
-	return parseID(value)
-}
-
-// ParsePair validates the asset and vulnerability identifiers from a request context.
-func ParsePair(ec *appcontext.GinContext) (string, string, bool) {
-	return parsePair(ec)
-}
-
-// parseID validates a UUID identifier.
-func parseID(value string) (string, error) {
 	id := strings.ToLower(strings.TrimSpace(value))
 	if !uuidPattern.MatchString(id) {
 		return "", ErrInvalidIdentifier
@@ -110,13 +100,13 @@ func parseID(value string) (string, error) {
 	return id, nil
 }
 
-// parsePair parses the asset and vulnerability identifiers from the request.
-func parsePair(ec *appcontext.GinContext) (string, string, bool) {
-	assetID, err := parseID(ec.Param("id"))
+// ParsePair validates the asset and vulnerability identifiers from a request context.
+func ParsePair(ec *appcontext.GinContext) (string, string, bool) {
+	assetID, err := ParseID(ec.Param("id"))
 	if err != nil {
 		return "", "", false
 	}
-	vulnerabilityID, err := parseID(ec.Param("vulnerabilityId"))
+	vulnerabilityID, err := ParseID(ec.Param("vulnerabilityId"))
 	if err != nil {
 		return "", "", false
 	}

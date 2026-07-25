@@ -11,7 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	basecontroller "blackradar/api/controller/shared"
+	shared "blackradar/api/controller/shared"
 	nvdcveclient "blackradar/api/external/nvd_cve"
 	contextmiddleware "blackradar/api/middleware/context"
 	appcontext "blackradar/api/platform/requestcontext"
@@ -61,7 +61,7 @@ func TestNVDControllerErrorMapping(t *testing.T) {
 			if recorder.Code != tc.wantStatus {
 				t.Fatalf("expected status %d, got %d", tc.wantStatus, recorder.Code)
 			}
-			var response basecontroller.ErrorResponse
+			var response shared.ErrorResponse
 			if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 				t.Fatalf("failed to decode error response: %v", err)
 			}

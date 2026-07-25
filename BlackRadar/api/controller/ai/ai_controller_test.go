@@ -14,7 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	basecontroller "blackradar/api/controller/shared"
+	shared "blackradar/api/controller/shared"
 	contextmiddleware "blackradar/api/middleware/context"
 	appcontext "blackradar/api/platform/requestcontext"
 	promptservice "blackradar/api/service/prompt"
@@ -55,7 +55,7 @@ func TestAIControllerTestProviderMapsProviderError(t *testing.T) {
 	if recorder.Code != http.StatusBadGateway {
 		t.Fatalf("expected status %d, got %d", http.StatusBadGateway, recorder.Code)
 	}
-	var response basecontroller.ErrorResponse
+	var response shared.ErrorResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}

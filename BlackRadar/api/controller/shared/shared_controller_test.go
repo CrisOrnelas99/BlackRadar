@@ -13,7 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	basecontroller "blackradar/api/controller/shared"
+	shared "blackradar/api/controller/shared"
 	appcontext "blackradar/api/platform/requestcontext"
 )
 
@@ -26,7 +26,7 @@ type bindJSONRequest struct {
 
 func TestControllerHelper(t *testing.T) {
 	t.Run("parse id", func(t *testing.T) {
-		id, err := basecontroller.ParseID("00000000-0000-4000-8000-000000000042")
+		id, err := shared.ParseID("00000000-0000-4000-8000-000000000042")
 		if err != nil {
 			t.Fatalf("expected id to parse, got %v", err)
 		}
@@ -35,12 +35,31 @@ func TestControllerHelper(t *testing.T) {
 		}
 	})
 
+	t.Run("parse pair", func(t *testing.T) {
+		ec, _ := newControllerContext(t, http.MethodPost, "/assets/00000000-0000-4000-8000-000000000001/vulnerabilities/00000000-0000-4000-8000-000000000002", "")
+		ec.Params = gin.Params{
+			{Key: "id", Value: "00000000-0000-4000-8000-000000000001"},
+			{Key: "vulnerabilityId", Value: "00000000-0000-4000-8000-000000000002"},
+		}
+
+		assetID, vulnerabilityID, ok := shared.ParsePair(ec)
+		if !ok {
+			t.Fatal("expected identifier pair to parse")
+		}
+		if assetID != "00000000-0000-4000-8000-000000000001" {
+			t.Fatalf("expected asset UUID, got %s", assetID)
+		}
+		if vulnerabilityID != "00000000-0000-4000-8000-000000000002" {
+			t.Fatalf("expected vulnerability UUID, got %s", vulnerabilityID)
+		}
+	})
+
 	t.Run("bind json", func(t *testing.T) {
 		ec, recorder := newControllerContext(t, http.MethodPost, "/assets", `{"name":"Asset 1","type":"Server","owner":"IT","criticality":"High"}`)
 		ec.Request.Header.Set("Content-Type", "application/json")
 
 		var request bindJSONRequest
-		if handled := basecontroller.BindJSON(ec, &request); handled {
+		if handled := shared.BindJSON(ec, &request); handled {
 			t.Fatal("expected request to bind")
 		}
 		if request.Name != "Asset 1" {
@@ -56,7 +75,7 @@ func TestControllerHelper(t *testing.T) {
 		ec.Request.Header.Set("Content-Type", "application/jsonfoo")
 
 		var request bindJSONRequest
-		if handled := basecontroller.BindJSON(ec, &request); !handled {
+		if handled := shared.BindJSON(ec, &request); !handled {
 			t.Fatal("expected malformed content type to be rejected")
 		}
 		if recorder.Code != http.StatusUnsupportedMediaType {
@@ -66,7 +85,7 @@ func TestControllerHelper(t *testing.T) {
 
 	t.Run("handle error", func(t *testing.T) {
 		ec, recorder := newControllerContext(t, http.MethodGet, "/resource", "")
-		if !basecontroller.HandleError(ec, http.StatusBadRequest, errors.New("boom"), "Invalid request body") {
+		if !shared.HandleError(ec, http.StatusBadRequest, errors.New("boom"), "Invalid request body") {
 			t.Fatal("expected error to be handled")
 		}
 
@@ -74,7 +93,7 @@ func TestControllerHelper(t *testing.T) {
 			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, recorder.Code)
 		}
 
-		var response basecontroller.ErrorResponse
+		var response shared.ErrorResponse
 		if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 			t.Fatalf("failed to decode error response: %v", err)
 		}
