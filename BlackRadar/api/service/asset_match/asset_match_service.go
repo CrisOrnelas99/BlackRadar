@@ -11,9 +11,11 @@ import (
 
 	nvdcpeclient "blackradar/api/external/nvd_cpe"
 	nvdcveclient "blackradar/api/external/nvd_cve"
+	openaiexternal "blackradar/api/external/openai"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
-	assetrepo "blackradar/api/repository/asset"
+	assetmatchrepo "blackradar/api/repository/asset_match"
+	assetvulnerabilityrepo "blackradar/api/repository/asset_vulnerability"
 	vulnerabilityrepo "blackradar/api/repository/vulnerability"
 	assetvulnerabilityservice "blackradar/api/service/asset_vulnerability"
 	textgenerationservice "blackradar/api/service/text_generation"
@@ -52,32 +54,34 @@ type AssetFingerprint struct {
 }
 
 type assetMatchServiceImpl struct {
-	assetRepository assetrepo.AssetRepositoryInterface
-	vulnRepository  vulnerabilityrepo.VulnerabilityRepositoryInterface
-	cpeSearcher     CPECandidateSearcher
-	cveSearcher     CVEByCPESearcher
-	textAI          textGenerationService
-	now             func() time.Time
+	assetMatchRepository         assetmatchrepo.AssetMatchRepositoryInterface
+	assetVulnerabilityRepository assetvulnerabilityrepo.AssetVulnerabilityRepositoryInterface
+	vulnRepository               vulnerabilityrepo.VulnerabilityRepositoryInterface
+	cpeSearcher                  nvdcpeclient.CPEClientInterface
+	cveSearcher                  nvdcveclient.CVEClientInterface
+	textAI                       openaiexternal.OpenAIClientInterface
+	now                          func() time.Time
 }
 
 // NewAssetMatchService creates a backend-only asset matching service.
-func NewAssetMatchService(assetRepository assetrepo.AssetRepositoryInterface, vulnRepository vulnerabilityrepo.VulnerabilityRepositoryInterface, cpeSearcher CPECandidateSearcher, cveSearcher CVEByCPESearcher, textAI textGenerationService) *assetMatchServiceImpl {
+func NewAssetMatchService(assetMatchRepository assetmatchrepo.AssetMatchRepositoryInterface, assetVulnerabilityRepository assetvulnerabilityrepo.AssetVulnerabilityRepositoryInterface, vulnRepository vulnerabilityrepo.VulnerabilityRepositoryInterface, cpeSearcher nvdcpeclient.CPEClientInterface, cveSearcher nvdcveclient.CVEClientInterface, textAI openaiexternal.OpenAIClientInterface) *assetMatchServiceImpl {
 	return &assetMatchServiceImpl{
-		assetRepository: assetRepository,
-		vulnRepository:  vulnRepository,
-		cpeSearcher:     cpeSearcher,
-		cveSearcher:     cveSearcher,
-		textAI:          textAI,
-		now:             time.Now,
+		assetMatchRepository:         assetMatchRepository,
+		assetVulnerabilityRepository: assetVulnerabilityRepository,
+		vulnRepository:               vulnRepository,
+		cpeSearcher:                  cpeSearcher,
+		cveSearcher:                  cveSearcher,
+		textAI:                       textAI,
+		now:                          time.Now,
 	}
 }
 
 type nvdLookupServiceImpl struct {
-	client cveLookupClient
+	client nvdcveclient.CVEClientInterface
 }
 
 // NewNVDLookupService creates a read-only NVD lookup service.
-func NewNVDLookupService(client cveLookupClient) *nvdLookupServiceImpl {
+func NewNVDLookupService(client nvdcveclient.CVEClientInterface) *nvdLookupServiceImpl {
 	return &nvdLookupServiceImpl{client: client}
 }
 
@@ -211,7 +215,7 @@ func (s *assetMatchServiceImpl) AnalyzeAndPersistAssetMatch(ec *appcontext.GinCo
 		return model.Asset{}, err
 	}
 
-	asset, err := s.assetRepository.FindByIDForUser(ec, assetID, userID)
+	asset, err := s.assetMatchRepository.FindByIDForUser(ec, assetID, userID)
 	if err != nil {
 		return model.Asset{}, translateMatchRepositoryError(err)
 	}
@@ -227,7 +231,7 @@ func (s *assetMatchServiceImpl) AnalyzeAndPersistAssetMatch(ec *appcontext.GinCo
 		reviewStatus = model.AssetCPEReviewStatusNeedsReview
 	}
 
-	updated, err := s.assetRepository.UpdateMatchAnalysisForUser(ec, assetID, userID, assetrepo.AssetMatchUpdate{
+	updated, err := s.assetMatchRepository.UpdateMatchAnalysisForUser(ec, assetID, userID, assetmatchrepo.AssetMatchUpdate{
 		ProductFingerprint: stringPtrOrNil(analysis.ProductFingerprint),
 		SelectedCPE:        stringPtrOrNil(analysis.SelectedCPE),
 		CPEConfidence:      floatPtrOrNil(analysis.Confidence),
@@ -252,7 +256,7 @@ func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appco
 	if !canManageVulnerabilities(role) {
 		return model.Asset{}, assetvulnerabilityservice.ErrVulnerabilityManagementDenied
 	}
-	if s.vulnRepository == nil || s.cveSearcher == nil {
+	if s.assetVulnerabilityRepository == nil || s.vulnRepository == nil || s.cveSearcher == nil {
 		return model.Asset{}, ErrMatchExternalService
 	}
 
@@ -261,7 +265,7 @@ func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appco
 		return model.Asset{}, err
 	}
 
-	asset, err := s.assetRepository.FindByIDForUser(ec, assetID, userID)
+	asset, err := s.assetMatchRepository.FindByIDForUser(ec, assetID, userID)
 	if err != nil {
 		return model.Asset{}, translateMatchRepositoryError(err)
 	}
@@ -315,13 +319,13 @@ func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appco
 	}
 
 	for _, cve := range matchResult.CVEs {
-		vulnerability, err := s.findOrSaveNVDVulnerability(ec, userID, cve)
+		vulnerability, err := s.findOrCreateNVDVulnerability(ec, userID, cve)
 		if err != nil {
 			return model.Asset{}, err
 		}
-		assigned, err := s.assetRepository.AssignVulnerabilityForUser(ec, updated.ID, userID, vulnerability.ID)
+		assigned, err := s.assetVulnerabilityRepository.AssignVulnerabilityForUser(ec, updated.ID, userID, vulnerability.ID)
 		if err != nil {
-			if errors.Is(err, assetrepo.ErrDuplicateRelationship) {
+			if errors.Is(err, assetvulnerabilityrepo.ErrDuplicateRelationship) {
 				continue
 			}
 			return model.Asset{}, translateMatchRepositoryError(err)
@@ -329,7 +333,7 @@ func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appco
 		updated = assigned
 	}
 
-	asset, err = s.assetRepository.FindByIDForUser(ec, assetID, userID)
+	asset, err = s.assetMatchRepository.FindByIDForUser(ec, assetID, userID)
 	return asset, translateMatchRepositoryError(err)
 }
 
@@ -511,8 +515,8 @@ func (s *assetMatchServiceImpl) findKeywordFallbackCVEs(ctx context.Context, ana
 	}, nil
 }
 
-// findOrSaveNVDVulnerability creates or updates a local vulnerability from an NVD CVE response.
-func (s *assetMatchServiceImpl) findOrSaveNVDVulnerability(ec *appcontext.GinContext, userID string, response nvdcveclient.CVELookupResponse) (model.Vulnerability, error) {
+// findOrCreateNVDVulnerability creates or updates a local vulnerability from an NVD CVE response.
+func (s *assetMatchServiceImpl) findOrCreateNVDVulnerability(ec *appcontext.GinContext, userID string, response nvdcveclient.CVELookupResponse) (model.Vulnerability, error) {
 	normalizedCVEID := normalizeCVEID(response.CVEID)
 	if err := validateCVEID(normalizedCVEID); err != nil {
 		return model.Vulnerability{}, assetvulnerabilityservice.ErrInvalidAssetCVEID
@@ -534,8 +538,7 @@ func (s *assetMatchServiceImpl) findOrSaveNVDVulnerability(ec *appcontext.GinCon
 		return model.Vulnerability{}, translateMatchRepositoryError(err)
 	}
 
-	created, err := s.vulnRepository.Save(ec, model.Vulnerability{
-		UserID:      userID,
+	created, err := s.vulnRepository.CreateForUser(ec, userID, model.Vulnerability{
 		CVEID:       normalizedCVEID,
 		Title:       firstNonEmptyString(response.Title, normalizedCVEID),
 		Severity:    normalizeSeverity(response.Severity),
@@ -553,7 +556,7 @@ func (s *assetMatchServiceImpl) persistMatchAnalysis(ec *appcontext.GinContext, 
 		reviewStatus = model.AssetCPEReviewStatusNeedsReview
 	}
 
-	updated, err := s.assetRepository.UpdateMatchAnalysisForUser(ec, assetID, userID, assetrepo.AssetMatchUpdate{
+	updated, err := s.assetMatchRepository.UpdateMatchAnalysisForUser(ec, assetID, userID, assetmatchrepo.AssetMatchUpdate{
 		ProductFingerprint: stringPtrOrNil(analysis.ProductFingerprint),
 		SelectedCPE:        stringPtrOrNil(analysis.SelectedCPE),
 		CPEConfidence:      floatPtrOrNil(analysis.Confidence),

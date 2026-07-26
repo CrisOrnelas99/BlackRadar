@@ -57,15 +57,15 @@ func TestRefreshSessionRepositoryDatabasePrefersContextDB(t *testing.T) {
 	}
 }
 
-// TestRefreshSessionRepositorySaveRejectsInvalidInput verifies invalid refresh session input is rejected before database use.
-func TestRefreshSessionRepositorySaveRejectsInvalidInput(t *testing.T) {
+// TestRefreshSessionRepositoryCreateRejectsInvalidInput verifies invalid refresh session input is rejected before database use.
+func TestRefreshSessionRepositoryCreateRejectsInvalidInput(t *testing.T) {
 	repo := NewRefreshSessionRepository(nil)
 
-	if err := repo.Save(nil, model.RefreshSession{}); err != ErrNotNullViolation {
+	if err := repo.CreateRefreshSession(nil, model.RefreshSession{}); err != ErrNotNullViolation {
 		t.Fatalf("expected invalid data error, got %v", err)
 	}
 
-	if err := repo.Save(nil, model.RefreshSession{
+	if err := repo.CreateRefreshSession(nil, model.RefreshSession{
 		TokenID:    "token-1",
 		UserID:     "00000000-0000-4000-8000-000000000001",
 		DeviceName: "desktop",

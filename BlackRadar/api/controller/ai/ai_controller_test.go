@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	shared "blackradar/api/controller/shared"
+	openaiexternal "blackradar/api/external/openai"
 	contextmiddleware "blackradar/api/middleware/context"
 	appcontext "blackradar/api/platform/requestcontext"
 	textgenerationservice "blackradar/api/service/text_generation"
@@ -135,7 +136,7 @@ func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request te
 	return f.response, nil
 }
 
-var _ textgenerationservice.TextGenerationService = (*fakeTextGenerationService)(nil)
+var _ openaiexternal.OpenAIClientInterface = (*fakeTextGenerationService)(nil)
 
 func newAIControllerContext(t *testing.T) (*appcontext.GinContext, *httptest.ResponseRecorder) {
 	t.Helper()

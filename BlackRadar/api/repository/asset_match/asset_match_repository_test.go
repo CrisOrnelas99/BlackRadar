@@ -1,4 +1,4 @@
-// Package repository verifies asset repository behavior.
+// Package repository verifies asset match repository behavior.
 package repository
 
 import (
@@ -10,12 +10,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 )
 
-// TestAssetRepositoryErrors verifies asset repository errors are storage outcome sentinels.
-func TestAssetRepositoryErrors(t *testing.T) {
+// TestAssetMatchRepositoryErrors verifies asset match repository errors are storage outcome sentinels.
+func TestAssetMatchRepositoryErrors(t *testing.T) {
 	err := errors.Join(ErrPersistenceFailure, errors.New("database unavailable"))
 	if !errors.Is(err, ErrPersistenceFailure) {
 		t.Fatal("expected wrapped persistence failure to match sentinel")
@@ -25,10 +24,10 @@ func TestAssetRepositoryErrors(t *testing.T) {
 	}
 }
 
-// TestAssetRepositoryDatabasePrefersContextDB verifies the context database is preferred.
-func TestAssetRepositoryDatabasePrefersContextDB(t *testing.T) {
+// TestAssetMatchRepositoryDatabasePrefersContextDB verifies the context database is preferred.
+func TestAssetMatchRepositoryDatabasePrefersContextDB(t *testing.T) {
 	fallback := &gorm.DB{}
-	repo := NewAssetRepository(fallback)
+	repo := NewAssetMatchRepository(fallback)
 
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
@@ -42,14 +41,5 @@ func TestAssetRepositoryDatabasePrefersContextDB(t *testing.T) {
 	}
 	if repo.dbForContext(nil) != fallback {
 		t.Fatal("expected fallback database when context is nil")
-	}
-}
-
-// TestAssetRepositoryCreateForUserRejectsInvalidInput verifies invalid asset input is rejected before database use.
-func TestAssetRepositoryCreateForUserRejectsInvalidInput(t *testing.T) {
-	repo := NewAssetRepository(nil)
-
-	if _, err := repo.CreateForUser(nil, "", model.Asset{}); !errors.Is(err, ErrNotNullViolation) {
-		t.Fatalf("expected invalid data error, got %v", err)
 	}
 }

@@ -24,14 +24,6 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
-// dbForContext returns the request-scoped database when present, otherwise the repository database.
-func (r *UserRepository) dbForContext(ec *appcontext.GinContext) *gorm.DB {
-	if ec != nil && ec.Database() != nil {
-		return ec.Database()
-	}
-	return r.db
-}
-
 // RefreshSessionRepository persists refresh token sessions.
 type RefreshSessionRepository struct {
 	db *gorm.DB
@@ -42,37 +34,6 @@ func NewRefreshSessionRepository(db *gorm.DB) *RefreshSessionRepository {
 	return &RefreshSessionRepository{db: db}
 }
 
-func (r *RefreshSessionRepository) dbForContext(ec *appcontext.GinContext) *gorm.DB {
-	if ec != nil && ec.Database() != nil {
-		return ec.Database()
-	}
-	return r.db
-}
-
-// RequireAdmin verifies the current request user is still an active admin in PostgreSQL.
-func RequireAdmin(ec *appcontext.GinContext, db *gorm.DB) error {
-	if ec == nil || db == nil {
-		return ErrPermissionDenied
-	}
-
-	userID, err := ec.UserID()
-	if err != nil {
-		return ErrPermissionDenied
-	}
-
-	var user model.User
-	err = db.WithContext(ec.RequestContext()).
-		Where("id = ?", userID).
-		First(&user).Error
-	if err != nil {
-		return ErrPermissionDenied
-	}
-	if user.Role != model.RoleAdmin {
-		return ErrPermissionDenied
-	}
-	return nil
-}
-
 // ExistsByUsername reports whether a username already exists.
 func (r *UserRepository) ExistsByUsername(ec *appcontext.GinContext, username string) (bool, error) {
 	var count int64
@@ -80,7 +41,7 @@ func (r *UserRepository) ExistsByUsername(ec *appcontext.GinContext, username st
 	if err != nil {
 		return false, fmt.Errorf("%w: check username uniqueness: %w", ErrPersistenceFailure, err)
 	}
-	return count > 0, err
+	return count > 0, nil
 }
 
 // ExistsByEmail reports whether an email address already exists.
@@ -90,11 +51,11 @@ func (r *UserRepository) ExistsByEmail(ec *appcontext.GinContext, email string) 
 	if err != nil {
 		return false, fmt.Errorf("%w: check email uniqueness: %w", ErrPersistenceFailure, err)
 	}
-	return count > 0, err
+	return count > 0, nil
 }
 
-// Save creates a new user record.
-func (r *UserRepository) Save(ec *appcontext.GinContext, user model.User) (model.User, error) {
+// CreateUser creates a new user record.
+func (r *UserRepository) CreateUser(ec *appcontext.GinContext, user model.User) (model.User, error) {
 	if user.Username == "" || user.Email == "" || user.PasswordHash == "" {
 		return model.User{}, ErrNotNullViolation
 	}
@@ -139,12 +100,12 @@ func (r *UserRepository) FindByUsernameOrEmail(ec *appcontext.GinContext, userOr
 		Where("username = ? OR email = ?", strings.TrimSpace(userOrEmail), strings.ToLower(strings.TrimSpace(userOrEmail))).
 		First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.User{}, gorm.ErrRecordNotFound
+		return model.User{}, ErrRecordNotFound
 	}
 	if err != nil {
 		return model.User{}, fmt.Errorf("%w: read user by username or email: %w", ErrPersistenceFailure, err)
 	}
-	return user, err
+	return user, nil
 }
 
 // FindByUsername returns a user that matches the supplied username.
@@ -152,7 +113,7 @@ func (r *UserRepository) FindByUsername(ec *appcontext.GinContext, username stri
 	var user model.User
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("username = ?", strings.TrimSpace(username)).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.User{}, gorm.ErrRecordNotFound
+		return model.User{}, ErrRecordNotFound
 	}
 	if err != nil {
 		return model.User{}, fmt.Errorf("%w: read user by username: %w", ErrPersistenceFailure, err)
@@ -165,7 +126,7 @@ func (r *UserRepository) FindByID(ec *appcontext.GinContext, id string) (model.U
 	var user model.User
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("id = ?", strings.TrimSpace(id)).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.User{}, gorm.ErrRecordNotFound
+		return model.User{}, ErrRecordNotFound
 	}
 	if err != nil {
 		return model.User{}, fmt.Errorf("%w: read user by id: %w", ErrPersistenceFailure, err)
@@ -178,7 +139,7 @@ func (r *UserRepository) FindByEmail(ec *appcontext.GinContext, email string) (m
 	var user model.User
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("email = ?", strings.ToLower(strings.TrimSpace(email))).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.User{}, gorm.ErrRecordNotFound
+		return model.User{}, ErrRecordNotFound
 	}
 	if err != nil {
 		return model.User{}, fmt.Errorf("%w: read user by email: %w", ErrPersistenceFailure, err)
@@ -186,8 +147,8 @@ func (r *UserRepository) FindByEmail(ec *appcontext.GinContext, email string) (m
 	return user, nil
 }
 
-// Save creates a new refresh session.
-func (r *RefreshSessionRepository) Save(ec *appcontext.GinContext, session model.RefreshSession) error {
+// CreateRefreshSession creates a new refresh session.
+func (r *RefreshSessionRepository) CreateRefreshSession(ec *appcontext.GinContext, session model.RefreshSession) error {
 	if session.TokenID == "" || session.UserID == "" || session.DeviceName == "" || session.ExpiresAt.IsZero() {
 		return ErrNotNullViolation
 	}
@@ -226,15 +187,6 @@ func (r *RefreshSessionRepository) FindActiveByTokenIDForUser(ec *appcontext.Gin
 		return model.RefreshSession{}, fmt.Errorf("%w: read refresh session: %w", ErrPersistenceFailure, err)
 	}
 	return session, nil
-}
-
-func activeRefreshSessionQuery(db *gorm.DB, tokenID string, userID string, now time.Time) *gorm.DB {
-	return db.Where(
-		"token_id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?",
-		tokenID,
-		userID,
-		now,
-	)
 }
 
 // RevokeByTokenIDForUser marks the specified refresh session revoked.

@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	openaiexternal "blackradar/api/external/openai"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetrepo "blackradar/api/repository/asset"
@@ -33,6 +34,9 @@ func TestAssetService(t *testing.T) {
 	}
 	if repo.saved.Name != "Asset 1" || repo.saved.Owner != "IT" {
 		t.Fatalf("expected manual asset fields to stay title-cased, got name=%q owner=%q", repo.saved.Name, repo.saved.Owner)
+	}
+	if repo.saved.UserID != "00000000-0000-4000-8000-000000000042" {
+		t.Fatalf("expected asset to be created for authenticated user, got %q", repo.saved.UserID)
 	}
 	if _, err := svc.UpdateAsset(ctx, "00000000-0000-4000-8000-000000000001", sampleAsset()); err != nil {
 		t.Fatalf("expected UpdateAsset to succeed, got %v", err)
@@ -218,16 +222,13 @@ func TestAssetServiceCreateAssetFromAIAllowsNoNetworkAddressField(t *testing.T) 
 }
 
 type fakeAssetRepository struct {
-	assets           []model.Asset
-	asset            model.Asset
-	saved            model.Asset
-	findErr          error
-	assigned         bool
-	signatureExists  bool
-	expectedUserID   string
-	matchUpdate      assetrepo.AssetMatchUpdate
-	updateMatchCalls int
-	findByIDCalls    int
+	assets          []model.Asset
+	asset           model.Asset
+	saved           model.Asset
+	findErr         error
+	signatureExists bool
+	expectedUserID  string
+	findByIDCalls   int
 }
 
 // FindAllByUser returns the configured fake asset list.
@@ -255,11 +256,12 @@ func (f *fakeAssetRepository) ExistsBySignatureForUser(ec *appcontext.GinContext
 	return f.signatureExists, nil
 }
 
-// Save returns the supplied fake asset.
-func (f *fakeAssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
+// CreateForUser returns the supplied fake asset.
+func (f *fakeAssetRepository) CreateForUser(ec *appcontext.GinContext, userID string, asset model.Asset) (model.Asset, error) {
 	if f.asset.ID != "" {
 		asset.ID = f.asset.ID
 	}
+	asset.UserID = userID
 	f.saved = asset
 	return asset, nil
 }
@@ -269,28 +271,8 @@ func (f *fakeAssetRepository) UpdateForUser(ec *appcontext.GinContext, id string
 	return asset, nil
 }
 
-// UpdateMatchAnalysisForUser returns the configured fake asset after recording the match update.
-func (f *fakeAssetRepository) UpdateMatchAnalysisForUser(ec *appcontext.GinContext, id string, userID string, analysis any) (model.Asset, error) {
-	f.updateMatchCalls++
-	if typed, ok := analysis.(assetrepo.AssetMatchUpdate); ok {
-		f.matchUpdate = typed
-	}
-	return f.asset, nil
-}
-
 // DeleteForUser returns the configured fake asset.
 func (f *fakeAssetRepository) DeleteForUser(ec *appcontext.GinContext, id string, userID string) (model.Asset, error) {
-	return f.asset, nil
-}
-
-// AssignVulnerabilityForUser returns the configured fake asset.
-func (f *fakeAssetRepository) AssignVulnerabilityForUser(ec *appcontext.GinContext, assetID string, userID string, vulnerabilityID string) (model.Asset, error) {
-	f.assigned = true
-	return f.asset, nil
-}
-
-// RemoveVulnerabilityForUser returns the configured fake asset.
-func (f *fakeAssetRepository) RemoveVulnerabilityForUser(ec *appcontext.GinContext, assetID string, userID string, vulnerabilityID string) (model.Asset, error) {
 	return f.asset, nil
 }
 
@@ -325,9 +307,10 @@ func (f *fakeVulnerabilityRepository) FindByCVEIDForUser(ec *appcontext.GinConte
 	return f.saved, nil
 }
 
-func (f *fakeVulnerabilityRepository) Save(ec *appcontext.GinContext, vulnerability model.Vulnerability) (model.Vulnerability, error) {
+func (f *fakeVulnerabilityRepository) CreateForUser(ec *appcontext.GinContext, userID string, vulnerability model.Vulnerability) (model.Vulnerability, error) {
 	f.saved = vulnerability
 	f.saved.ID = "00000000-0000-4000-8000-000000000099"
+	f.saved.UserID = userID
 	return f.saved, nil
 }
 
@@ -362,7 +345,7 @@ func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request te
 	return f.response, f.err
 }
 
-var _ textgenerationservice.TextGenerationService = (*fakeTextGenerationService)(nil)
+var _ openaiexternal.OpenAIClientInterface = (*fakeTextGenerationService)(nil)
 
 // newServiceContext creates a request context with an authenticated user ID.
 func newServiceContext(t *testing.T, userID string, organizationID string) *appcontext.GinContext {

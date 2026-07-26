@@ -12,7 +12,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 
 	commonjwt "blackradar/api/common/jwt"
 	"blackradar/api/model"
@@ -83,7 +82,7 @@ func TestUserServiceSupport(t *testing.T) {
 // TestUserServiceValidationAndTranslation verifies validation and error mapping.
 func TestUserServiceValidationAndTranslation(t *testing.T) {
 	ctx := newUserServiceContext(t)
-	svc := NewUserService(newTestJWTManager(t), &fakeUserRepository{findErr: gorm.ErrRecordNotFound}, &fakeRefreshSessionRepository{})
+	svc := NewUserService(newTestJWTManager(t), &fakeUserRepository{findErr: userrepo.ErrRecordNotFound}, &fakeRefreshSessionRepository{})
 
 	if _, err := svc.Register(ctx, RegisterInput{Username: "ab", Email: "bad", Password: "short"}); !errors.Is(err, ErrInvalidRegisterRequest) {
 		t.Fatalf("expected invalid request data, got %v", err)
@@ -116,8 +115,8 @@ func TestUserServiceErrorsExposeCategories(t *testing.T) {
 	}
 }
 
-// TestUserServiceRegisterChecksEmailBeforeSave verifies duplicate email validation runs before persistence.
-func TestUserServiceRegisterChecksEmailBeforeSave(t *testing.T) {
+// TestUserServiceRegisterChecksEmailBeforeCreate verifies duplicate email validation runs before creation.
+func TestUserServiceRegisterChecksEmailBeforeCreate(t *testing.T) {
 	users := &fakeUserRepository{emailExists: true}
 	svc := NewUserService(newTestJWTManager(t), users, &fakeRefreshSessionRepository{})
 	ctx := newUserServiceContext(t)
@@ -130,7 +129,7 @@ func TestUserServiceRegisterChecksEmailBeforeSave(t *testing.T) {
 	if !errors.Is(err, ErrEmailAlreadyExists) {
 		t.Fatalf("expected duplicate email conflict, got %v", err)
 	}
-	if users.saveCalled {
+	if users.createCalled {
 		t.Fatal("expected duplicate email to be rejected before saving user")
 	}
 }
@@ -181,18 +180,18 @@ func TestUserServiceRefreshTranslatesSessionLookupFailure(t *testing.T) {
 	}
 }
 
-// TestUserServiceLoginTranslatesSessionSaveFailure verifies login maps session persistence failures.
-func TestUserServiceLoginTranslatesSessionSaveFailure(t *testing.T) {
+// TestUserServiceLoginTranslatesSessionCreateFailure verifies login maps session persistence failures.
+func TestUserServiceLoginTranslatesSessionCreateFailure(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
 	repo := &fakeUserRepository{
 		user: model.User{Model: model.Model{ID: testUserID}, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
-	sessions := &fakeRefreshSessionRepository{saveErr: userrepo.ErrPersistenceFailure}
+	sessions := &fakeRefreshSessionRepository{createErr: userrepo.ErrPersistenceFailure}
 	svc := NewUserService(newTestJWTManager(t), repo, sessions)
 	ctx := newUserServiceContext(t)
 
 	if _, err := svc.Login(ctx, LoginInput{UserOrEmail: "analyst", Password: "Password1!"}); !errors.Is(err, ErrUserDependency) {
-		t.Fatalf("expected dependency service error for session save failure, got %v", err)
+		t.Fatalf("expected dependency service error for session create failure, got %v", err)
 	}
 }
 
@@ -250,7 +249,7 @@ type fakeUserRepository struct {
 	emailExists          bool
 	usernameLookupCalled bool
 	emailLookupCalled    bool
-	saveCalled           bool
+	createCalled         bool
 }
 
 // ExistsByUsername reports whether the fake user exists.
@@ -269,9 +268,9 @@ func (f *fakeUserRepository) ExistsByEmail(ec *appcontext.GinContext, email stri
 	return f.exists, nil
 }
 
-// Save accepts the fake user without error.
-func (f *fakeUserRepository) Save(ec *appcontext.GinContext, user model.User) (model.User, error) {
-	f.saveCalled = true
+// CreateUser accepts the fake user without error.
+func (f *fakeUserRepository) CreateUser(ec *appcontext.GinContext, user model.User) (model.User, error) {
+	f.createCalled = true
 	if user.ID == "" {
 		user.ID = f.user.ID
 	}
@@ -296,7 +295,7 @@ func (f *fakeUserRepository) FindByID(ec *appcontext.GinContext, id string) (mod
 		return model.User{}, f.findErr
 	}
 	if f.user.ID == "" || f.user.ID != id {
-		return model.User{}, gorm.ErrRecordNotFound
+		return model.User{}, userrepo.ErrRecordNotFound
 	}
 	return f.user, nil
 }
@@ -312,15 +311,15 @@ var _ userrepo.UserRepositoryInterface = (*fakeUserRepository)(nil)
 type fakeRefreshSessionRepository struct {
 	session   model.RefreshSession
 	revoked   bool
-	saveErr   error
+	createErr error
 	findErr   error
 	revokeErr error
 }
 
-// Save stores the fake refresh session.
-func (f *fakeRefreshSessionRepository) Save(ec *appcontext.GinContext, session model.RefreshSession) error {
-	if f.saveErr != nil {
-		return f.saveErr
+// CreateRefreshSession stores the fake refresh session.
+func (f *fakeRefreshSessionRepository) CreateRefreshSession(ec *appcontext.GinContext, session model.RefreshSession) error {
+	if f.createErr != nil {
+		return f.createErr
 	}
 	f.session = session
 	return nil

@@ -4,6 +4,7 @@ package service
 import (
 	"fmt"
 
+	openaiexternal "blackradar/api/external/openai"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetrepository "blackradar/api/repository/asset"
@@ -12,11 +13,11 @@ import (
 
 type assetServiceImpl struct {
 	assetRepository assetrepository.AssetRepositoryInterface
-	textAI          textgenerationservice.TextGenerationService
+	textAI          openaiexternal.OpenAIClientInterface
 }
 
 // NewAssetService creates an asset service backed by the supplied repository.
-func NewAssetService(assetRepository assetrepository.AssetRepositoryInterface, textAI textgenerationservice.TextGenerationService) *assetServiceImpl {
+func NewAssetService(assetRepository assetrepository.AssetRepositoryInterface, textAI openaiexternal.OpenAIClientInterface) *assetServiceImpl {
 	return &assetServiceImpl{
 		assetRepository: assetRepository,
 		textAI:          textAI,
@@ -43,7 +44,7 @@ func (s *assetServiceImpl) GetAsset(ec *appcontext.GinContext, id string) (model
 	return asset, translateAssetRepositoryError(err)
 }
 
-// CreateAsset validates and saves a new asset for the authenticated user.
+// CreateAsset validates and creates a new asset for the authenticated user.
 func (s *assetServiceImpl) CreateAsset(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
 	asset = normalizeAssetDisplayFields(asset)
 	if err := validateAsset(asset); err != nil {
@@ -63,9 +64,7 @@ func (s *assetServiceImpl) CreateAsset(ec *appcontext.GinContext, asset model.As
 		return model.Asset{}, ErrDuplicateAsset
 	}
 
-	asset.UserID = userID
-
-	created, err := s.assetRepository.Save(ec, asset)
+	created, err := s.assetRepository.CreateForUser(ec, userID, asset)
 	return created, translateAssetRepositoryError(err)
 }
 

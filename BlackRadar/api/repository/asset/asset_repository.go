@@ -5,14 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	commonid "blackradar/api/common/id"
-	commonrisk "blackradar/api/common/risk"
 	"blackradar/api/model"
 	platformdb "blackradar/api/platform/db"
 	appcontext "blackradar/api/platform/requestcontext"
-	userrepo "blackradar/api/repository/user"
 
 	"gorm.io/gorm"
 )
@@ -22,28 +19,9 @@ type AssetRepository struct {
 	db *gorm.DB
 }
 
-// AssetMatchUpdate carries the backend-generated CPE match state for an asset.
-type AssetMatchUpdate struct {
-	ProductFingerprint *string
-	SelectedCPE        *string
-	CPEConfidence      *float64
-	CPEReviewStatus    string
-	CPEReviewNotes     *string
-	CPECandidateCount  int
-	CPEMatchedAt       *time.Time
-}
-
 // NewAssetRepository creates an asset repository backed by the supplied database.
 func NewAssetRepository(db *gorm.DB) *AssetRepository {
 	return &AssetRepository{db: db}
-}
-
-// dbForContext returns the request-scoped database when present, otherwise the repository database.
-func (r *AssetRepository) dbForContext(ec *appcontext.GinContext) *gorm.DB {
-	if ec != nil && ec.Database() != nil {
-		return ec.Database()
-	}
-	return r.db
 }
 
 // FindAllByUser returns all assets owned by the specified user.
@@ -126,11 +104,12 @@ func (r *AssetRepository) ExistsBySignatureForUser(ec *appcontext.GinContext, as
 	return count > 0, nil
 }
 
-// Save creates a new asset record.
-func (r *AssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
-	if asset.UserID == "" || asset.Name == "" || asset.Type == "" || asset.Owner == "" || asset.Criticality == "" {
+// CreateForUser creates a new asset owned by the specified user.
+func (r *AssetRepository) CreateForUser(ec *appcontext.GinContext, userID string, asset model.Asset) (model.Asset, error) {
+	if userID == "" || asset.Name == "" || asset.Type == "" || asset.Owner == "" || asset.Criticality == "" {
 		return model.Asset{}, ErrNotNullViolation
 	}
+	asset.UserID = userID
 
 	for attempt := 0; attempt < 3; attempt++ {
 		if asset.ID == "" || attempt > 0 {
@@ -214,64 +193,6 @@ func (r *AssetRepository) UpdateForUser(ec *appcontext.GinContext, id string, us
 	return r.FindByIDForUser(ec, id, userID)
 }
 
-// UpdateMatchAnalysisForUser stores backend-generated CPE match state for an asset.
-func (r *AssetRepository) UpdateMatchAnalysisForUser(ec *appcontext.GinContext, id string, userID string, analysis any) (model.Asset, error) {
-	analysisUpdate, ok := analysis.(AssetMatchUpdate)
-	if !ok {
-		return model.Asset{}, ErrNotNullViolation
-	}
-	if analysisUpdate.CPEReviewStatus == "" {
-		return model.Asset{}, ErrNotNullViolation
-	}
-
-	asset, err := r.FindByIDForUser(ec, id, userID)
-	if err != nil {
-		return model.Asset{}, err
-	}
-
-	err = r.dbForContext(ec).WithContext(ec.RequestContext()).Transaction(func(tx *gorm.DB) error {
-		assessment := model.AssetAssessment{}
-		if asset.Assessment != nil {
-			assessment = *asset.Assessment
-		}
-
-		assessment.ProductFingerprint = analysisUpdate.ProductFingerprint
-		assessment.SelectedCPE = analysisUpdate.SelectedCPE
-		assessment.CPEConfidence = analysisUpdate.CPEConfidence
-		assessment.CPEReviewStatus = analysisUpdate.CPEReviewStatus
-		assessment.CPEReviewNotes = analysisUpdate.CPEReviewNotes
-		assessment.CPECandidateCount = analysisUpdate.CPECandidateCount
-		assessment.CPEMatchedAt = analysisUpdate.CPEMatchedAt
-		setUpdatedBy(ec, &assessment.Model)
-
-		if asset.AssetAssessmentID == nil {
-			if err := createAssetAssessmentWithRandomID(tx, &assessment); err != nil {
-				return err
-			}
-			asset.AssetAssessmentID = &assessment.ID
-			if err := tx.Model(&asset).Update("asset_assessment_id", assessment.ID).Error; err != nil {
-				return err
-			}
-			return nil
-		}
-
-		assessment.ID = *asset.AssetAssessmentID
-		return tx.Save(&assessment).Error
-	})
-	if err != nil {
-		databaseErr := platformdb.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, platformdb.ErrCheckConstraintViolation) {
-			return model.Asset{}, fmt.Errorf("%w: %w", ErrCheckConstraintViolation, databaseErr)
-		}
-		if errors.Is(databaseErr, platformdb.ErrForeignKeyViolation) {
-			return model.Asset{}, fmt.Errorf("%w: %w", ErrForeignKeyViolation, databaseErr)
-		}
-		return model.Asset{}, fmt.Errorf("%w: update asset match analysis: %w", ErrPersistenceFailure, databaseErr)
-	}
-
-	return r.FindByIDForUser(ec, id, userID)
-}
-
 // DeleteForUser deletes an asset owned by the specified user.
 func (r *AssetRepository) DeleteForUser(ec *appcontext.GinContext, id string, userID string) (model.Asset, error) {
 	asset, err := r.FindByIDForUser(ec, id, userID)
@@ -304,196 +225,4 @@ func (r *AssetRepository) DeleteForUser(ec *appcontext.GinContext, id string, us
 		return model.Asset{}, fmt.Errorf("%w: delete asset: %w", ErrPersistenceFailure, err)
 	}
 	return asset, nil
-}
-
-// AssignVulnerabilityForUser associates a vulnerability with an asset owned by the specified user.
-func (r *AssetRepository) AssignVulnerabilityForUser(ec *appcontext.GinContext, assetID string, userID string, vulnerabilityID string) (model.Asset, error) {
-	if err := userrepo.RequireAdmin(ec, r.dbForContext(ec)); err != nil {
-		return model.Asset{}, err
-	}
-
-	asset, vulnerability, err := r.findAssetAndVulnerabilityForUser(ec, assetID, userID, vulnerabilityID)
-	if err != nil {
-		return model.Asset{}, err
-	}
-
-	for _, assigned := range asset.Vulnerabilities {
-		if assigned.ID == vulnerability.ID {
-			return model.Asset{}, ErrDuplicateRelationship
-		}
-	}
-
-	err = r.dbForContext(ec).WithContext(ec.RequestContext()).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&asset).Association("Vulnerabilities").Append(&vulnerability); err != nil {
-			return err
-		}
-		return RefreshAssetRisk(tx, assetID, userID)
-	})
-	if err != nil {
-		databaseErr := platformdb.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, platformdb.ErrUniqueViolation) {
-			return model.Asset{}, ErrDuplicateRelationship
-		}
-		if errors.Is(databaseErr, platformdb.ErrForeignKeyViolation) {
-			return model.Asset{}, fmt.Errorf("%w: %w", ErrForeignKeyViolation, databaseErr)
-		}
-		return model.Asset{}, fmt.Errorf("%w: assign vulnerability: %w", ErrPersistenceFailure, databaseErr)
-	}
-
-	return r.FindByIDForUser(ec, assetID, userID)
-}
-
-// RemoveVulnerabilityForUser removes a vulnerability from an asset owned by the specified user.
-func (r *AssetRepository) RemoveVulnerabilityForUser(ec *appcontext.GinContext, assetID string, userID string, vulnerabilityID string) (model.Asset, error) {
-	if err := userrepo.RequireAdmin(ec, r.dbForContext(ec)); err != nil {
-		return model.Asset{}, err
-	}
-
-	asset, vulnerability, err := r.findAssetAndVulnerabilityForUser(ec, assetID, userID, vulnerabilityID)
-	if err != nil {
-		return model.Asset{}, err
-	}
-
-	err = r.dbForContext(ec).WithContext(ec.RequestContext()).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(&model.AssetVulnerability{}).
-			Where("asset_id = ? AND vulnerability_id = ? AND deleted_at IS NULL", asset.ID, vulnerability.ID).
-			Update("deleted_at", gorm.Expr("NOW()")).Error; err != nil {
-			return err
-		}
-		if err := deleteOrphanedVulnerability(tx, vulnerability); err != nil {
-			return err
-		}
-		return RefreshAssetRisk(tx, assetID, userID)
-	})
-	if err != nil {
-		return model.Asset{}, fmt.Errorf("%w: remove vulnerability: %w", ErrPersistenceFailure, err)
-	}
-	return r.FindByIDForUser(ec, assetID, userID)
-}
-
-// findAssetAndVulnerabilityForUser loads the asset and vulnerability for the specified user.
-func (r *AssetRepository) findAssetAndVulnerabilityForUser(ec *appcontext.GinContext, assetID string, userID string, vulnerabilityID string) (model.Asset, model.Vulnerability, error) {
-	asset, err := r.FindByIDForUser(ec, assetID, userID)
-	if err != nil {
-		return model.Asset{}, model.Vulnerability{}, err
-	}
-
-	var vulnerability model.Vulnerability
-	err = r.dbForContext(ec).WithContext(ec.RequestContext()).
-		Where("user_id = ? AND id = ?", userID, vulnerabilityID).
-		First(&vulnerability).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.Asset{}, model.Vulnerability{}, ErrRecordNotFound
-	}
-	if err != nil {
-		return model.Asset{}, model.Vulnerability{}, fmt.Errorf("%w: read vulnerability: %w", ErrPersistenceFailure, err)
-	}
-
-	return asset, vulnerability, nil
-}
-
-// loadActiveVulnerabilitiesForAsset loads active vulnerability assignments for an asset.
-func (r *AssetRepository) loadActiveVulnerabilitiesForAsset(ec *appcontext.GinContext, asset *model.Asset, userID string) error {
-	var vulnerabilities []model.Vulnerability
-	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
-		Model(&model.Vulnerability{}).
-		Joins("JOIN asset_vulnerabilities av ON av.vulnerability_id = vulnerabilities.id AND av.deleted_at IS NULL").
-		Where("av.asset_id = ? AND vulnerabilities.user_id = ?", asset.ID, userID).
-		Order("vulnerabilities.id").
-		Find(&vulnerabilities).Error
-	if err != nil {
-		return fmt.Errorf("%w: load asset vulnerabilities: %w", ErrPersistenceFailure, err)
-	}
-	asset.Vulnerabilities = vulnerabilities
-	return nil
-}
-
-// deleteOrphanedVulnerability removes a vulnerability when no assets still reference it.
-func deleteOrphanedVulnerability(tx *gorm.DB, vulnerability model.Vulnerability) error {
-	var count int64
-	if err := tx.Model(&model.AssetVulnerability{}).
-		Where("vulnerability_id = ? AND deleted_at IS NULL", vulnerability.ID).
-		Count(&count).Error; err != nil {
-		return err
-	}
-	if count > 0 {
-		return nil
-	}
-	return tx.Delete(&vulnerability).Error
-}
-
-// createAssetAssessmentWithRandomID persists an asset assessment with a random public identifier.
-func createAssetAssessmentWithRandomID(tx *gorm.DB, assessment *model.AssetAssessment) error {
-	for attempt := 0; attempt < 3; attempt++ {
-		if err := assignRandomAssetAssessmentID(assessment); err != nil {
-			return err
-		}
-
-		err := tx.Create(assessment).Error
-		if err == nil {
-			return nil
-		}
-
-		databaseErr := platformdb.TranslateDatabaseError(err)
-		if errors.Is(databaseErr, platformdb.ErrUniqueViolation) && platformdb.IsPrimaryKeyViolation(err) {
-			continue
-		}
-		return err
-	}
-
-	return fmt.Errorf("exhausted random id retries for asset assessment")
-}
-
-// assignRandomAssetAssessmentID sets a non-zero arbitrary public identifier on the assessment.
-func assignRandomAssetAssessmentID(assessment *model.AssetAssessment) error {
-	identifier, err := commonid.New()
-	if err != nil {
-		return err
-	}
-
-	assessment.ID = identifier
-	return nil
-}
-
-// setUpdatedBy records the authenticated user as the last updater when available.
-func setUpdatedBy(ec *appcontext.GinContext, target *model.Model) {
-	if ec == nil || target == nil {
-		return
-	}
-
-	userID, err := ec.UserID()
-	if err != nil {
-		return
-	}
-
-	target.UpdatedByID = &userID
-}
-
-// optionalAssetString returns the pointed string value or an empty string.
-func optionalAssetString(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
-}
-
-// RefreshAssetRisk recalculates and persists the risk level for a single asset.
-func RefreshAssetRisk(tx *gorm.DB, assetID string, userID string) error {
-	var asset model.Asset
-	if err := tx.Where("user_id = ? AND id = ?", userID, assetID).
-		First(&asset).Error; err != nil {
-		return err
-	}
-
-	var vulnerabilities []model.Vulnerability
-	if err := tx.Model(&model.Vulnerability{}).
-		Joins("JOIN asset_vulnerabilities av ON av.vulnerability_id = vulnerabilities.id AND av.deleted_at IS NULL").
-		Where("av.asset_id = ? AND vulnerabilities.user_id = ?", assetID, userID).
-		Find(&vulnerabilities).Error; err != nil {
-		return err
-	}
-
-	return tx.Model(&model.Asset{}).
-		Where("id = ? AND user_id = ?", assetID, userID).
-		Update("risk_level", commonrisk.PointerFromVulnerabilities(vulnerabilities)).Error
 }

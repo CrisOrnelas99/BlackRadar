@@ -14,6 +14,5 @@ var (
 	ErrForeignKeyViolation      = &AssetRepositoryError{Message: "foreign key violation"}
 	ErrNotNullViolation         = &AssetRepositoryError{Message: "not null violation"}
 	ErrCheckConstraintViolation = &AssetRepositoryError{Message: "check constraint violation"}
-	ErrDuplicateRelationship    = &AssetRepositoryError{Message: "duplicate relationship"}
 	ErrPersistenceFailure       = &AssetRepositoryError{Message: "persistence failure"}
 )

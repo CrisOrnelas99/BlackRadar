@@ -62,9 +62,9 @@ func translateUserRepositoryError(err error) error {
 	}
 }
 
-// saveRefreshSession stores a refresh token session for later rotation or logout.
-func (s *userServiceImpl) saveRefreshSession(ec *appcontext.GinContext, userID string, tokenID string, expiresAt time.Time) error {
-	return translateUserRepositoryError(s.refreshSessionRepository.Save(ec, model.RefreshSession{
+// createRefreshSession stores a refresh token session for later rotation or logout.
+func (s *userServiceImpl) createRefreshSession(ec *appcontext.GinContext, userID string, tokenID string, expiresAt time.Time) error {
+	return translateUserRepositoryError(s.refreshSessionRepository.CreateRefreshSession(ec, model.RefreshSession{
 		TokenID:    tokenID,
 		UserID:     userID,
 		DeviceName: requestDeviceName(ec),
@@ -85,7 +85,7 @@ func (s *userServiceImpl) rotateRefreshSession(ec *appcontext.GinContext, sessio
 		if err := s.refreshSessionRepository.RevokeByTokenIDForUser(ec, session.TokenID, session.UserID); err != nil {
 			return translateUserRepositoryError(err)
 		}
-		return translateUserRepositoryError(s.refreshSessionRepository.Save(ec, newSession))
+		return translateUserRepositoryError(s.refreshSessionRepository.CreateRefreshSession(ec, newSession))
 	}
 
 	transactionDatabase := ec.Database()
@@ -96,7 +96,7 @@ func (s *userServiceImpl) rotateRefreshSession(ec *appcontext.GinContext, sessio
 		if err := s.refreshSessionRepository.RevokeByTokenIDForUser(&txContext, session.TokenID, session.UserID); err != nil {
 			return translateUserRepositoryError(err)
 		}
-		if err := s.refreshSessionRepository.Save(&txContext, newSession); err != nil {
+		if err := s.refreshSessionRepository.CreateRefreshSession(&txContext, newSession); err != nil {
 			return translateUserRepositoryError(err)
 		}
 		return nil

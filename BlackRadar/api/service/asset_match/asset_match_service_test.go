@@ -17,7 +17,8 @@ import (
 	nvdcveclient "blackradar/api/external/nvd_cve"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
-	assetrepo "blackradar/api/repository/asset"
+	assetmatchrepo "blackradar/api/repository/asset_match"
+	assetvulnerabilityrepo "blackradar/api/repository/asset_vulnerability"
 	vulnrepo "blackradar/api/repository/vulnerability"
 	assetservice "blackradar/api/service/asset"
 	textgenerationservice "blackradar/api/service/text_generation"
@@ -498,7 +499,7 @@ func TestAnalyzeAndPersistAssetMatchStoresResult(t *testing.T) {
 	asset.Version = ptrString("1.2")
 	repo := &fakeAssetRepository{asset: asset}
 	svc := &assetMatchServiceImpl{
-		assetRepository: repo,
+		assetMatchRepository: repo,
 		cpeSearcher: &fakeCPECandidateSearcher{
 			candidates: []nvdcpeclient.CPECandidate{
 				{CPEName: "cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*", Title: "Dell Latitude 7420"},
@@ -543,9 +544,10 @@ func TestAnalyzePersistAndAttachVulnerabilitiesStoresNVDResults(t *testing.T) {
 		},
 	}
 	svc := &assetMatchServiceImpl{
-		assetRepository: repo,
-		vulnRepository:  vulnRepo,
-		cveSearcher:     cveSearcher,
+		assetMatchRepository:         repo,
+		assetVulnerabilityRepository: repo,
+		vulnRepository:               vulnRepo,
+		cveSearcher:                  cveSearcher,
 		cpeSearcher: &fakeCPECandidateSearcher{
 			candidates: []nvdcpeclient.CPECandidate{
 				{CPEName: "cpe:2.3:a:tukaani:xz:5.6.1:*:*:*:*:*:*:*", Title: "Tukaani XZ 5.6.1"},
@@ -595,10 +597,11 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesNVDValidatedFallbackCPE(t *te
 		},
 	}
 	svc := &assetMatchServiceImpl{
-		assetRepository: repo,
-		vulnRepository:  vulnRepo,
-		cveSearcher:     cveSearcher,
-		cpeSearcher:     &fakeCPECandidateSearcher{err: errors.New("nvd cpe unavailable")},
+		assetMatchRepository:         repo,
+		assetVulnerabilityRepository: repo,
+		vulnRepository:               vulnRepo,
+		cveSearcher:                  cveSearcher,
+		cpeSearcher:                  &fakeCPECandidateSearcher{err: errors.New("nvd cpe unavailable")},
 		textAI: &fakeTextGenerationService{
 			response: textgenerationservice.TextGenerationResponse{
 				Text: `{"vendor":"Tukaani","product":"xz utils","version":"5.6.1","operatingSystem":"Linux","deviceModel":null,"confidence":"High","reviewNotes":"normalized"}`,
@@ -648,9 +651,10 @@ func TestAnalyzePersistAndAttachVulnerabilitiesFallsBackToFirmwareCPEWhenAIUnava
 		},
 	}
 	svc := &assetMatchServiceImpl{
-		assetRepository: repo,
-		vulnRepository:  vulnRepo,
-		cveSearcher:     cveSearcher,
+		assetMatchRepository:         repo,
+		assetVulnerabilityRepository: repo,
+		vulnRepository:               vulnRepo,
+		cveSearcher:                  cveSearcher,
 		cpeSearcher: &fakeCPECandidateSearcher{
 			candidates: []nvdcpeclient.CPECandidate{
 				{CPEName: "cpe:2.3:o:amazon:ring_video_doorbell_firmware:3.4.7:*:*:*:*:*:*:*", Title: "Amazon Ring Video Doorbell Firmware 3.4.7"},
@@ -705,10 +709,11 @@ func TestAnalyzePersistAndAttachVulnerabilitiesTriesFirmwareAliasFromOperatingSy
 		},
 	}
 	svc := &assetMatchServiceImpl{
-		assetRepository: repo,
-		vulnRepository:  vulnRepo,
-		cveSearcher:     cveSearcher,
-		cpeSearcher:     searcher,
+		assetMatchRepository:         repo,
+		assetVulnerabilityRepository: repo,
+		vulnRepository:               vulnRepo,
+		cveSearcher:                  cveSearcher,
+		cpeSearcher:                  searcher,
 		textAI: &fakeTextGenerationService{
 			response: textgenerationservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:o:amazon:ring_video_doorbell_firmware:3.4.7:*:*:*:*:*:*:*","confidence":0.5,"reviewNotes":"selected cpe version mismatch","rankedCpes":["cpe:2.3:o:amazon:ring_video_doorbell_firmware:3.4.7:*:*:*:*:*:*:*"]}`,
@@ -766,10 +771,11 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesKeywordFallbackAndAIRanking(t
 		},
 	}
 	svc := &assetMatchServiceImpl{
-		assetRepository: repo,
-		vulnRepository:  vulnRepo,
-		cveSearcher:     cveSearcher,
-		cpeSearcher:     &fakeCPECandidateSearcher{candidates: []nvdcpeclient.CPECandidate{}},
+		assetMatchRepository:         repo,
+		assetVulnerabilityRepository: repo,
+		vulnRepository:               vulnRepo,
+		cveSearcher:                  cveSearcher,
+		cpeSearcher:                  &fakeCPECandidateSearcher{candidates: []nvdcpeclient.CPECandidate{}},
 		textAI: &fakeTextGenerationService{
 			responses: []textgenerationservice.TextGenerationResponse{
 				{
@@ -837,9 +843,10 @@ func TestAnalyzePersistAndAttachVulnerabilitiesFallsThroughToAIKeywordFallbackWh
 		},
 	}
 	svc := &assetMatchServiceImpl{
-		assetRepository: repo,
-		vulnRepository:  vulnRepo,
-		cveSearcher:     cveSearcher,
+		assetMatchRepository:         repo,
+		assetVulnerabilityRepository: repo,
+		vulnRepository:               vulnRepo,
+		cveSearcher:                  cveSearcher,
 		cpeSearcher: &fakeCPECandidateSearcher{
 			candidates: []nvdcpeclient.CPECandidate{
 				{CPEName: "cpe:2.3:a:ui:unifi:2.3.6:*:*:*:*:*:*:*", Title: "UI UniFi 2.3.6"},
@@ -909,9 +916,10 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesAIKeywordFallbackWhenExactCPE
 		},
 	}
 	svc := &assetMatchServiceImpl{
-		assetRepository: repo,
-		vulnRepository:  vulnRepo,
-		cveSearcher:     cveSearcher,
+		assetMatchRepository:         repo,
+		assetVulnerabilityRepository: repo,
+		vulnRepository:               vulnRepo,
+		cveSearcher:                  cveSearcher,
 		cpeSearcher: &fakeCPECandidateSearcher{
 			candidates: []nvdcpeclient.CPECandidate{
 				{CPEName: "cpe:2.3:a:ui:unifi_controller:2.4.4:*:*:*:*:*:*:*", Title: "UI UniFi Controller 2.4.4"},
@@ -987,10 +995,11 @@ func TestAnalyzePersistAndAttachVulnerabilitiesAggregatesAIKeywordSearchesBefore
 		},
 	}
 	svc := &assetMatchServiceImpl{
-		assetRepository: repo,
-		vulnRepository:  vulnRepo,
-		cveSearcher:     cveSearcher,
-		cpeSearcher:     &fakeCPECandidateSearcher{candidates: []nvdcpeclient.CPECandidate{}},
+		assetMatchRepository:         repo,
+		assetVulnerabilityRepository: repo,
+		vulnRepository:               vulnRepo,
+		cveSearcher:                  cveSearcher,
+		cpeSearcher:                  &fakeCPECandidateSearcher{candidates: []nvdcpeclient.CPECandidate{}},
 		textAI: &fakeTextGenerationService{
 			responses: []textgenerationservice.TextGenerationResponse{
 				{
@@ -1031,11 +1040,12 @@ func TestAnalyzePersistAndAttachVulnerabilitiesStopsKeywordFallbackOnNVDUnavaila
 	vulnRepo := &fakeVulnerabilityRepository{findErr: vulnrepo.ErrRecordNotFound}
 	cveSearcher := &fakeCVEByCPESearcher{err: errors.New("nvd unavailable: status 503")}
 	svc := &assetMatchServiceImpl{
-		assetRepository: repo,
-		vulnRepository:  vulnRepo,
-		cveSearcher:     cveSearcher,
-		cpeSearcher:     &fakeCPECandidateSearcher{candidates: []nvdcpeclient.CPECandidate{}},
-		now:             time.Now,
+		assetMatchRepository:         repo,
+		assetVulnerabilityRepository: repo,
+		vulnRepository:               vulnRepo,
+		cveSearcher:                  cveSearcher,
+		cpeSearcher:                  &fakeCPECandidateSearcher{candidates: []nvdcpeclient.CPECandidate{}},
+		now:                          time.Now,
 	}
 	ctx := contextForTest(t)
 	ctx.SetUserRole(model.RoleAdmin)
@@ -1131,8 +1141,8 @@ func TestSortCVECandidatesByPublishedAtDesc(t *testing.T) {
 }
 
 func TestAnalyzeAndPersistAssetMatchReturnsReviewOnRepositoryError(t *testing.T) {
-	repo := &fakeAssetRepository{asset: sampleMatchedAsset(), findErr: assetrepo.ErrRecordNotFound}
-	svc := &assetMatchServiceImpl{assetRepository: repo, now: time.Now}
+	repo := &fakeAssetRepository{asset: sampleMatchedAsset(), findErr: assetmatchrepo.ErrRecordNotFound}
+	svc := &assetMatchServiceImpl{assetMatchRepository: repo, now: time.Now}
 
 	_, err := svc.AnalyzeAndPersistAssetMatch(contextForTest(t), "00000000-0000-4000-8000-000000000001")
 	if !errors.Is(err, assetservice.ErrAssetNotFound) {
@@ -1235,17 +1245,10 @@ func TestAssetMatchServiceErrorsExposeCategories(t *testing.T) {
 
 type fakeAssetRepository struct {
 	asset            model.Asset
-	assets           []model.Asset
 	findErr          error
-	signatureExists  bool
-	saved            model.Asset
 	assigned         bool
 	updateMatchCalls int
-	matchUpdate      assetrepo.AssetMatchUpdate
-}
-
-func (f *fakeAssetRepository) FindAllByUser(ec *appcontext.GinContext, userID string) ([]model.Asset, error) {
-	return f.assets, nil
+	matchUpdate      assetmatchrepo.AssetMatchUpdate
 }
 
 func (f *fakeAssetRepository) FindByIDForUser(ec *appcontext.GinContext, id string, userID string) (model.Asset, error) {
@@ -1255,31 +1258,9 @@ func (f *fakeAssetRepository) FindByIDForUser(ec *appcontext.GinContext, id stri
 	return f.asset, nil
 }
 
-func (f *fakeAssetRepository) ExistsBySignatureForUser(ec *appcontext.GinContext, asset model.Asset, userID string) (bool, error) {
-	return f.signatureExists, nil
-}
-
-func (f *fakeAssetRepository) Save(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
-	if f.asset.ID != "" {
-		asset.ID = f.asset.ID
-	}
-	f.saved = asset
-	return asset, nil
-}
-
-func (f *fakeAssetRepository) UpdateForUser(ec *appcontext.GinContext, id string, userID string, asset model.Asset) (model.Asset, error) {
-	return asset, nil
-}
-
-func (f *fakeAssetRepository) UpdateMatchAnalysisForUser(ec *appcontext.GinContext, id string, userID string, analysis any) (model.Asset, error) {
+func (f *fakeAssetRepository) UpdateMatchAnalysisForUser(ec *appcontext.GinContext, id string, userID string, analysis assetmatchrepo.AssetMatchUpdate) (model.Asset, error) {
 	f.updateMatchCalls++
-	if typed, ok := analysis.(assetrepo.AssetMatchUpdate); ok {
-		f.matchUpdate = typed
-	}
-	return f.asset, nil
-}
-
-func (f *fakeAssetRepository) DeleteForUser(ec *appcontext.GinContext, id string, userID string) (model.Asset, error) {
+	f.matchUpdate = analysis
 	return f.asset, nil
 }
 
@@ -1292,7 +1273,8 @@ func (f *fakeAssetRepository) RemoveVulnerabilityForUser(ec *appcontext.GinConte
 	return f.asset, nil
 }
 
-var _ assetrepo.AssetRepositoryInterface = (*fakeAssetRepository)(nil)
+var _ assetmatchrepo.AssetMatchRepositoryInterface = (*fakeAssetRepository)(nil)
+var _ assetvulnerabilityrepo.AssetVulnerabilityRepositoryInterface = (*fakeAssetRepository)(nil)
 
 type fakeVulnerabilityRepository struct {
 	findErr error
@@ -1323,9 +1305,10 @@ func (f *fakeVulnerabilityRepository) FindByCVEIDForUser(ec *appcontext.GinConte
 	return f.saved, nil
 }
 
-func (f *fakeVulnerabilityRepository) Save(ec *appcontext.GinContext, vulnerability model.Vulnerability) (model.Vulnerability, error) {
+func (f *fakeVulnerabilityRepository) CreateForUser(ec *appcontext.GinContext, userID string, vulnerability model.Vulnerability) (model.Vulnerability, error) {
 	f.saved = vulnerability
 	f.saved.ID = "00000000-0000-4000-8000-000000000099"
+	f.saved.UserID = userID
 	return f.saved, nil
 }
 
@@ -1359,6 +1342,10 @@ func (f *fakeCVEByCPESearcher) SearchCVEsByCPE(ctx context.Context, cpeName stri
 		return f.resultsByCPE[cpeName], f.err
 	}
 	return f.results, f.err
+}
+
+func (f *fakeCVEByCPESearcher) LookupCVE(ctx context.Context, cveID string) (nvdcveclient.CVELookupResponse, error) {
+	return nvdcveclient.CVELookupResponse{}, nil
 }
 
 func (f *fakeCVEByCPESearcher) SearchCVEsByKeyword(ctx context.Context, keywordSearch string, limit int) ([]nvdcveclient.CVELookupResponse, error) {
@@ -1415,6 +1402,14 @@ func (f *fakeCVELookupClient) LookupCVE(ctx context.Context, cveID string) (nvdc
 	f.called = true
 	f.cveID = cveID
 	return f.response, f.err
+}
+
+func (f *fakeCVELookupClient) SearchCVEsByCPE(ctx context.Context, cpeName string, limit int) ([]nvdcveclient.CVELookupResponse, error) {
+	return nil, nil
+}
+
+func (f *fakeCVELookupClient) SearchCVEsByKeyword(ctx context.Context, keywordSearch string, limit int) ([]nvdcveclient.CVELookupResponse, error) {
+	return nil, nil
 }
 
 func sampleMatchedAsset() model.Asset {

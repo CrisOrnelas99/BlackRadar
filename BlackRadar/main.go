@@ -34,6 +34,8 @@ import (
 	"blackradar/api/platform/config"
 	platformdb "blackradar/api/platform/db"
 	repositoryasset "blackradar/api/repository/asset"
+	repositoryassetmatch "blackradar/api/repository/asset_match"
+	repositoryassetvulnerability "blackradar/api/repository/asset_vulnerability"
 	repositoryuser "blackradar/api/repository/user"
 	repositoryvulnerability "blackradar/api/repository/vulnerability"
 	serviceasset "blackradar/api/service/asset"
@@ -80,6 +82,8 @@ func main() {
 
 	userRepository := repositoryuser.NewUserRepository(gormDB)
 	assetRepository := repositoryasset.NewAssetRepository(gormDB)
+	assetMatchRepository := repositoryassetmatch.NewAssetMatchRepository(gormDB)
+	assetVulnerabilityRepository := repositoryassetvulnerability.NewAssetVulnerabilityRepository(gormDB)
 	refreshSessionRepository := repositoryuser.NewRefreshSessionRepository(gormDB)
 	vulnerabilityRepository := repositoryvulnerability.NewVulnerabilityRepository(gormDB)
 	userService := serviceuser.NewUserService(jwtManager, userRepository, refreshSessionRepository)
@@ -96,9 +100,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("openai client configuration failed: %v", err)
 	}
-	assetMatchService := serviceassetmatch.NewAssetMatchService(assetRepository, vulnerabilityRepository, cpeClient, nvdClient, openAIClient)
+	assetMatchService := serviceassetmatch.NewAssetMatchService(assetMatchRepository, assetVulnerabilityRepository, vulnerabilityRepository, cpeClient, nvdClient, openAIClient)
 	assetService := serviceasset.NewAssetService(assetRepository, openAIClient)
-	assetVulnerabilityService := serviceassetvulnerability.NewAssetVulnerabilityService(assetRepository, vulnerabilityRepository, nvdLookupService)
+	assetVulnerabilityService := serviceassetvulnerability.NewAssetVulnerabilityService(assetVulnerabilityRepository, vulnerabilityRepository, nvdLookupService)
 	vulnerabilityService := servicevulnerability.NewVulnerabilityService(vulnerabilityRepository)
 
 	userController := controlleruser.NewUserController(userService)

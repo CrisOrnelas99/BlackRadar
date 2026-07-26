@@ -16,7 +16,8 @@ import (
 	nvdcveclient "blackradar/api/external/nvd_cve"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
-	assetrepo "blackradar/api/repository/asset"
+	assetmatchrepo "blackradar/api/repository/asset_match"
+	assetvulnerabilityrepo "blackradar/api/repository/asset_vulnerability"
 	vulnerabilityrepo "blackradar/api/repository/vulnerability"
 	assetservice "blackradar/api/service/asset"
 	assetvulnerabilityservice "blackradar/api/service/asset_vulnerability"
@@ -290,14 +291,18 @@ func translateMatchRepositoryError(err error) error {
 	switch {
 	case err == nil:
 		return nil
-	case errors.Is(err, assetrepo.ErrRecordNotFound):
+	case errors.Is(err, assetmatchrepo.ErrRecordNotFound):
 		return fmt.Errorf("%w: %w", assetservice.ErrAssetNotFound, err)
 	case errors.Is(err, vulnerabilityrepo.ErrRecordNotFound):
 		return fmt.Errorf("%w: %w", assetvulnerabilityservice.ErrAssetVulnerabilityNotFound, err)
-	case errors.Is(err, assetrepo.ErrDuplicateRelationship):
+	case errors.Is(err, assetvulnerabilityrepo.ErrRecordNotFound):
+		return fmt.Errorf("%w: %w", assetvulnerabilityservice.ErrAssetVulnerabilityNotFound, err)
+	case errors.Is(err, assetvulnerabilityrepo.ErrDuplicateRelationship):
 		return fmt.Errorf("%w: %w", assetvulnerabilityservice.ErrDuplicateAssetVulnerability, err)
-	case errors.Is(err, assetrepo.ErrNotNullViolation),
-		errors.Is(err, assetrepo.ErrForeignKeyViolation),
+	case errors.Is(err, assetmatchrepo.ErrNotNullViolation),
+		errors.Is(err, assetmatchrepo.ErrForeignKeyViolation),
+		errors.Is(err, assetvulnerabilityrepo.ErrNotNullViolation),
+		errors.Is(err, assetvulnerabilityrepo.ErrForeignKeyViolation),
 		errors.Is(err, vulnerabilityrepo.ErrNotNullViolation),
 		errors.Is(err, vulnerabilityrepo.ErrForeignKeyViolation):
 		return fmt.Errorf("%w: %w", assetservice.ErrInvalidAssetData, err)

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	shared "blackradar/api/controller/shared"
+	openaiexternal "blackradar/api/external/openai"
 	appcontext "blackradar/api/platform/requestcontext"
 	textgenerationservice "blackradar/api/service/text_generation"
 )
@@ -14,11 +15,11 @@ const maxTemporaryAIMessageLength = 1000
 
 // AIController handles backend-only AI diagnostic HTTP requests.
 type AIController struct {
-	textAI textgenerationservice.TextGenerationService
+	textAI openaiexternal.OpenAIClientInterface
 }
 
 // NewAIController creates a new AIController.
-func NewAIController(textAI textgenerationservice.TextGenerationService) *AIController {
+func NewAIController(textAI openaiexternal.OpenAIClientInterface) *AIController {
 	return &AIController{textAI: textAI}
 }
 

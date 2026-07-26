@@ -9,7 +9,6 @@ import (
 	"unicode/utf8"
 
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 
 	commonjwt "blackradar/api/common/jwt"
 	commontoken "blackradar/api/common/token"
@@ -81,7 +80,7 @@ func (s *userServiceImpl) Register(ec *appcontext.GinContext, request RegisterIn
 		return model.User{}, fmt.Errorf("%w: hash password: %w", ErrUserInternal, err)
 	}
 
-	user, err := s.userRepository.Save(ec, model.User{
+	user, err := s.userRepository.CreateUser(ec, model.User{
 		Username:     request.Username,
 		Email:        request.Email,
 		Role:         model.RoleUser,
@@ -113,7 +112,7 @@ func (s *userServiceImpl) Login(ec *appcontext.GinContext, request LoginInput) (
 		user, err = s.userRepository.FindByUsername(ec, request.UserOrEmail)
 	}
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, userrepository.ErrRecordNotFound) {
 			return LoginResult{}, ErrInvalidLoginCredentials
 		}
 		return LoginResult{}, translateUserRepositoryError(err)
@@ -142,7 +141,7 @@ func (s *userServiceImpl) Login(ec *appcontext.GinContext, request LoginInput) (
 	if err != nil {
 		return LoginResult{}, fmt.Errorf("%w: generate refresh token: %w", ErrUserInternal, err)
 	}
-	if err := s.saveRefreshSession(ec, user.ID, refreshTokenID, refreshExpiresAt); err != nil {
+	if err := s.createRefreshSession(ec, user.ID, refreshTokenID, refreshExpiresAt); err != nil {
 		return LoginResult{}, err
 	}
 
@@ -173,7 +172,7 @@ func (s *userServiceImpl) Refresh(ec *appcontext.GinContext, request RefreshInpu
 
 	user, err := s.userRepository.FindByID(ec, claims.Subject)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, userrepository.ErrRecordNotFound) {
 			return LoginResult{}, ErrInvalidRefreshToken
 		}
 		return LoginResult{}, translateUserRepositoryError(err)
@@ -237,7 +236,7 @@ func (s *userServiceImpl) Logout(ec *appcontext.GinContext, request RefreshInput
 
 	user, err := s.userRepository.FindByID(ec, claims.Subject)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, userrepository.ErrRecordNotFound) {
 			return ErrInvalidRefreshToken
 		}
 		return translateUserRepositoryError(err)
