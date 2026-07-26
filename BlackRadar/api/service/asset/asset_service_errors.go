@@ -49,16 +49,12 @@ func (e InternalError) Error() string {
 }
 
 var (
-	ErrInvalidAssetData              = &ValidationError{Message: "invalid asset data"}
-	ErrInvalidAssetText              = &ValidationError{Message: "invalid asset text"}
-	ErrInvalidAssetCVEID             = &ValidationError{Message: "invalid CVE ID"}
-	ErrDuplicateAsset                = &ConflictError{Message: "asset already exists"}
-	ErrDuplicateAssetVulnerability   = &ConflictError{Message: "asset vulnerability assignment already exists"}
-	ErrAssetPermissionDenied         = &ForbiddenError{Message: "asset permission denied"}
-	ErrVulnerabilityManagementDenied = &ForbiddenError{Message: "vulnerability management permission denied"}
-	ErrAssetNotFound                 = &NotFoundError{Message: "asset not found"}
-	ErrAssetVulnerabilityNotFound    = &NotFoundError{Message: "vulnerability not found"}
-	ErrAssetDependency               = &DependencyError{Message: "asset dependency unavailable"}
-	ErrAssetExternalService          = &DependencyError{Message: "external service unavailable"}
-	ErrAssetInternal                 = &InternalError{Message: "asset service error"}
+	ErrInvalidAssetData      = &ValidationError{Message: "invalid asset data"}
+	ErrInvalidAssetText      = &ValidationError{Message: "invalid asset text"}
+	ErrDuplicateAsset        = &ConflictError{Message: "asset already exists"}
+	ErrAssetPermissionDenied = &ForbiddenError{Message: "asset permission denied"}
+	ErrAssetNotFound         = &NotFoundError{Message: "asset not found"}
+	ErrAssetDependency       = &DependencyError{Message: "asset dependency unavailable"}
+	ErrAssetExternalService  = &DependencyError{Message: "external service unavailable"}
+	ErrAssetInternal         = &InternalError{Message: "asset service error"}
 )

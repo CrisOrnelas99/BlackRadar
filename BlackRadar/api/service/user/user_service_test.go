@@ -75,6 +75,9 @@ func TestUserServiceHelpers(t *testing.T) {
 	if err := validateRegisterInput(RegisterInput{Username: "ab", Email: "bad", Password: "short"}); !errors.Is(err, ErrInvalidRegisterRequest) {
 		t.Fatalf("expected invalid request data, got %v", err)
 	}
+	if err := validateRegisterInput(RegisterInput{Username: "analyst", Email: "Analyst <analyst@example.com>", Password: "Password1!"}); !errors.Is(err, ErrInvalidRegisterRequest) {
+		t.Fatalf("expected display-name email to be rejected, got %v", err)
+	}
 }
 
 // TestUserServiceValidationAndTranslation verifies validation and error mapping.
@@ -190,6 +193,25 @@ func TestUserServiceLoginTranslatesSessionSaveFailure(t *testing.T) {
 
 	if _, err := svc.Login(ctx, LoginInput{UserOrEmail: "analyst", Password: "Password1!"}); !errors.Is(err, ErrUserDependency) {
 		t.Fatalf("expected dependency service error for session save failure, got %v", err)
+	}
+}
+
+func TestUserServiceMissingJWTManagerReturnsInternalError(t *testing.T) {
+	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
+	repo := &fakeUserRepository{
+		user: model.User{Model: model.Model{ID: testUserID}, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
+	}
+	svc := NewUserService(nil, repo, &fakeRefreshSessionRepository{})
+	ctx := newUserServiceContext(t)
+
+	if _, err := svc.Login(ctx, LoginInput{UserOrEmail: "analyst", Password: "Password1!"}); !errors.Is(err, ErrUserInternal) {
+		t.Fatalf("expected login without jwt manager to return internal error, got %v", err)
+	}
+	if _, err := svc.Refresh(ctx, RefreshInput{RefreshToken: "refresh"}); !errors.Is(err, ErrUserInternal) {
+		t.Fatalf("expected refresh without jwt manager to return internal error, got %v", err)
+	}
+	if err := svc.Logout(ctx, RefreshInput{RefreshToken: "refresh"}); !errors.Is(err, ErrUserInternal) {
+		t.Fatalf("expected logout without jwt manager to return internal error, got %v", err)
 	}
 }
 

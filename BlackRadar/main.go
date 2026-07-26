@@ -37,6 +37,7 @@ import (
 	repositoryuser "blackradar/api/repository/user"
 	repositoryvulnerability "blackradar/api/repository/vulnerability"
 	serviceasset "blackradar/api/service/asset"
+	serviceassetvulnerability "blackradar/api/service/asset_vulnerability"
 	servicematch "blackradar/api/service/match"
 	serviceuser "blackradar/api/service/user"
 	servicevulnerability "blackradar/api/service/vulnerability"
@@ -96,12 +97,13 @@ func main() {
 		log.Fatalf("openai client configuration failed: %v", err)
 	}
 	assetMatchService := servicematch.NewAssetMatchService(assetRepository, vulnerabilityRepository, cpeClient, nvdClient, openAIClient)
-	assetService := serviceasset.NewAssetService(assetRepository, vulnerabilityRepository, nvdLookupService, openAIClient)
+	assetService := serviceasset.NewAssetService(assetRepository, openAIClient)
+	assetVulnerabilityService := serviceassetvulnerability.NewAssetVulnerabilityService(assetRepository, vulnerabilityRepository, nvdLookupService)
 	vulnerabilityService := servicevulnerability.NewVulnerabilityService(vulnerabilityRepository)
 
 	userController := controlleruser.NewUserController(userService)
 	aiController := controllerai.NewAIController(openAIClient)
-	assetController := controllerasset.NewAssetController(assetService, assetMatchService)
+	assetController := controllerasset.NewAssetController(assetService, assetVulnerabilityService, assetMatchService)
 	vulnerabilityController := controllervulnerability.NewVulnerabilityController(vulnerabilityService)
 	nvdController := controllernvd.NewNVDController(nvdLookupService)
 

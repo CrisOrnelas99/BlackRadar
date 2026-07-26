@@ -17,13 +17,15 @@ import (
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetservice "blackradar/api/service/asset"
+	assetvulnerabilityservice "blackradar/api/service/asset_vulnerability"
 	matchservice "blackradar/api/service/match"
 )
 
 // TestAssetControllerHandlers verifies the asset controller request flow.
 func TestAssetControllerHandlers(t *testing.T) {
 	svc := &fakeAssetService{asset: sampleAsset(), assets: []model.Asset{sampleAsset()}}
-	controller := NewAssetController(svc, &fakeAssetMatchService{asset: sampleAsset()})
+	assetVulnerabilitySvc := &fakeAssetVulnerabilityService{asset: sampleAsset()}
+	controller := NewAssetController(svc, assetVulnerabilitySvc, &fakeAssetMatchService{asset: sampleAsset()})
 
 	t.Run("get assets", func(t *testing.T) {
 		ec, _ := newAssetContext(t, http.MethodGet, "/assets", "")
@@ -60,7 +62,7 @@ func TestAssetControllerHandlers(t *testing.T) {
 
 	t.Run("create asset with raw text does not auto-match vulnerabilities", func(t *testing.T) {
 		svc := &fakeAssetService{asset: sampleAsset()}
-		controller := NewAssetController(svc, &fakeAssetMatchService{asset: sampleAsset()})
+		controller := NewAssetController(svc, assetVulnerabilitySvc, &fakeAssetMatchService{asset: sampleAsset()})
 		ec, _ := newAssetContext(t, http.MethodPost, "/assets", `{"name":"Asset 1","type":"Server","owner":"IT","criticality":"High","rawText":"Vendor: Tukaani\nProduct: xz\nVersion: 5.6.1"}`)
 		ec.Request.Header.Set("Content-Type", "application/json")
 		controller.CreateAsset(ec)
@@ -80,7 +82,7 @@ func TestAssetControllerHandlers(t *testing.T) {
 
 	t.Run("match asset cpe and attach vulnerabilities", func(t *testing.T) {
 		matchSvc := &fakeAssetMatchService{asset: sampleAsset()}
-		controller := NewAssetController(svc, matchSvc)
+		controller := NewAssetController(svc, assetVulnerabilitySvc, matchSvc)
 		ec, recorder := newAssetContext(t, http.MethodPost, "/assets/00000000-0000-4000-8000-000000000001/match-cpe/vulnerabilities", "")
 		ec.AddParam("id", "00000000-0000-4000-8000-000000000001")
 		controller.MatchAssetCPEAndAttachVulnerabilities(ec)
@@ -103,8 +105,9 @@ func TestAssetControllerHandlers(t *testing.T) {
 
 func TestRegisterRoutes(t *testing.T) {
 	service := &fakeAssetService{asset: sampleAsset(), assets: []model.Asset{sampleAsset()}}
+	assetVulnerabilityService := &fakeAssetVulnerabilityService{asset: sampleAsset()}
 	matchService := &fakeAssetMatchService{asset: sampleAsset()}
-	controller := NewAssetController(service, matchService)
+	controller := NewAssetController(service, assetVulnerabilityService, matchService)
 	engine := gin.New()
 	engine.Use(contextmiddleware.RequestContext(nil))
 	group := engine.Group("/api")
@@ -271,6 +274,11 @@ type fakeAssetService struct {
 	createFromAICalls int
 }
 
+type fakeAssetVulnerabilityService struct {
+	asset model.Asset
+	err   error
+}
+
 type fakeAssetMatchService struct {
 	asset       model.Asset
 	err         error
@@ -309,17 +317,19 @@ func (f *fakeAssetService) UpdateAsset(ec *appcontext.GinContext, id string, ass
 func (f *fakeAssetService) DeleteAsset(ec *appcontext.GinContext, id string) (model.Asset, error) {
 	return f.asset, f.err
 }
-func (f *fakeAssetService) AssignVulnerability(ec *appcontext.GinContext, assetID string, vulnerabilityID string) (model.Asset, error) {
+
+func (f *fakeAssetVulnerabilityService) AssignVulnerability(ec *appcontext.GinContext, assetID string, vulnerabilityID string) (model.Asset, error) {
 	return f.asset, f.err
 }
-func (f *fakeAssetService) AssignVulnerabilityByCVE(ec *appcontext.GinContext, assetID string, cveID string) (model.Asset, error) {
+func (f *fakeAssetVulnerabilityService) AssignVulnerabilityByCVE(ec *appcontext.GinContext, assetID string, cveID string) (model.Asset, error) {
 	return f.asset, f.err
 }
-func (f *fakeAssetService) RemoveVulnerability(ec *appcontext.GinContext, assetID string, vulnerabilityID string) (model.Asset, error) {
+func (f *fakeAssetVulnerabilityService) RemoveVulnerability(ec *appcontext.GinContext, assetID string, vulnerabilityID string) (model.Asset, error) {
 	return f.asset, f.err
 }
 
 var _ assetservice.AssetService = (*fakeAssetService)(nil)
+var _ assetvulnerabilityservice.AssetVulnerabilityService = (*fakeAssetVulnerabilityService)(nil)
 var _ matchservice.AssetMatchService = (*fakeAssetMatchService)(nil)
 
 // newAssetContext creates a test Gin context for asset controller tests.

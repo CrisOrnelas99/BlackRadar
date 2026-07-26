@@ -8,18 +8,24 @@ import (
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetservice "blackradar/api/service/asset"
+	assetvulnerabilityservice "blackradar/api/service/asset_vulnerability"
 	matchservice "blackradar/api/service/match"
 )
 
 // AssetController handles asset-related HTTP requests.
 type AssetController struct {
-	assetService      assetservice.AssetService
-	assetMatchService matchservice.AssetMatchService
+	assetService              assetservice.AssetService
+	assetVulnerabilityService assetvulnerabilityservice.AssetVulnerabilityService
+	assetMatchService         matchservice.AssetMatchService
 }
 
 // NewAssetController creates a new AssetController.
-func NewAssetController(assetService assetservice.AssetService, assetMatchService matchservice.AssetMatchService) *AssetController {
-	return &AssetController{assetService: assetService, assetMatchService: assetMatchService}
+func NewAssetController(assetService assetservice.AssetService, assetVulnerabilityService assetvulnerabilityservice.AssetVulnerabilityService, assetMatchService matchservice.AssetMatchService) *AssetController {
+	return &AssetController{
+		assetService:              assetService,
+		assetVulnerabilityService: assetVulnerabilityService,
+		assetMatchService:         assetMatchService,
+	}
 }
 
 // GetAssets returns all assets for the authenticated user.
@@ -134,7 +140,7 @@ func (c *AssetController) AssignVulnerability(ec *appcontext.GinContext) {
 		return
 	}
 
-	asset, err := c.assetService.AssignVulnerability(ec, assetID, vulnerabilityID)
+	asset, err := c.assetVulnerabilityService.AssignVulnerability(ec, assetID, vulnerabilityID)
 	if err != nil {
 		if handleAssetServiceError(ec, err) {
 			return
@@ -153,7 +159,7 @@ func (c *AssetController) AssignVulnerabilityByCVE(ec *appcontext.GinContext) {
 		return
 	}
 
-	asset, err := c.assetService.AssignVulnerabilityByCVE(ec, assetID, ec.Param("cveId"))
+	asset, err := c.assetVulnerabilityService.AssignVulnerabilityByCVE(ec, assetID, ec.Param("cveId"))
 	if err != nil {
 		if handleAssetServiceError(ec, err) {
 			return
@@ -173,7 +179,7 @@ func (c *AssetController) RemoveVulnerability(ec *appcontext.GinContext) {
 		return
 	}
 
-	asset, err := c.assetService.RemoveVulnerability(ec, assetID, vulnerabilityID)
+	asset, err := c.assetVulnerabilityService.RemoveVulnerability(ec, assetID, vulnerabilityID)
 	if err != nil {
 		if handleAssetServiceError(ec, err) {
 			return
