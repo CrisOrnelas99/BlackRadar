@@ -93,6 +93,36 @@ func TestClientGenerateTextUsesOutputTextShortcut(t *testing.T) {
 	}
 }
 
+func TestClientGenerateTextSkipsUnsupportedRoles(t *testing.T) {
+	var receivedRequest openAIResponsesRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&receivedRequest); err != nil {
+			t.Fatalf("failed to decode request body: %v", err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"completed","output_text":"ok"}`))
+	}))
+	defer server.Close()
+
+	client, err := NewClientWithHTTPClient(server.URL+openAIResponsesPath, "test-key", "gpt-4.1-mini", server.Client(), nil)
+	if err != nil {
+		t.Fatalf("expected client creation to succeed, got %v", err)
+	}
+
+	_, err = client.GenerateText(context.Background(), dto.TextGenerationRequest{
+		Messages: []dto.TextGenerationMessage{
+			{Role: "tool", Content: "ignored"},
+			{Role: "user", Content: "kept"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected generate text to succeed, got %v", err)
+	}
+	if len(receivedRequest.Input) != 1 || receivedRequest.Input[0].Role != "user" || receivedRequest.Input[0].Content[0].Text != "kept" {
+		t.Fatalf("expected only supported user message, got %#v", receivedRequest.Input)
+	}
+}
+
 func TestClientGenerateTextReturnsRateLimitedWhenLimiterBlocks(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

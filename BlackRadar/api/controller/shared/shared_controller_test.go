@@ -1,4 +1,4 @@
-// Package shared_test verifies shared controller helpers.
+// Package shared_test verifies shared controller support.
 package shared_test
 
 import (
@@ -24,7 +24,7 @@ type bindJSONRequest struct {
 	Criticality string `json:"criticality"`
 }
 
-func TestControllerHelper(t *testing.T) {
+func TestControllerSupport(t *testing.T) {
 	t.Run("parse id", func(t *testing.T) {
 		id, err := shared.ParseID("00000000-0000-4000-8000-000000000042")
 		if err != nil {

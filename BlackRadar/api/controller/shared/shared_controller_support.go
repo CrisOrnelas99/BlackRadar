@@ -1,4 +1,4 @@
-// Package shared provides shared HTTP helpers for the API.
+// Package shared provides shared HTTP support for the API.
 package shared
 
 import (

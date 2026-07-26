@@ -123,6 +123,25 @@ func TestClientSearchCVEsByCPE(t *testing.T) {
 	}
 }
 
+func TestSeverityUsesBestAvailableCVSSMetric(t *testing.T) {
+	if got := severity(metrics{
+		CVSSMetricV2: []cvssMetric{{BaseSeverity: "MEDIUM"}},
+	}); got != "MEDIUM" {
+		t.Fatalf("expected CVSS v2 severity, got %q", got)
+	}
+
+	if got := severity(metrics{
+		CVSSMetricV40: []cvssMetric{{CVSSData: cvssData{BaseSeverity: "CRITICAL"}}},
+		CVSSMetricV2:  []cvssMetric{{BaseSeverity: "MEDIUM"}},
+	}); got != "CRITICAL" {
+		t.Fatalf("expected CVSS v4 severity to take priority, got %q", got)
+	}
+
+	if got := severity(metrics{}); got != "UNKNOWN" {
+		t.Fatalf("expected unknown severity, got %q", got)
+	}
+}
+
 func TestClientSearchCVEsByKeyword(t *testing.T) {
 	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		if request.URL.Query().Get("keywordSearch") != "WP-Ultimate-Map" {

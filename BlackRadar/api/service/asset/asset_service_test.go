@@ -39,8 +39,8 @@ func TestAssetService(t *testing.T) {
 	}
 }
 
-// TestAssetServiceHelpers verifies asset service helper behavior.
-func TestAssetServiceHelpers(t *testing.T) {
+// TestAssetServiceSupport verifies asset service support behavior.
+func TestAssetServiceSupport(t *testing.T) {
 	if err := validateAsset(sampleAsset()); err != nil {
 		t.Fatalf("expected valid asset, got %v", err)
 	}

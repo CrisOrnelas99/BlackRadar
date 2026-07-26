@@ -59,8 +59,8 @@ func TestUserService(t *testing.T) {
 	}
 }
 
-// TestUserServiceHelpers verifies user helper behavior.
-func TestUserServiceHelpers(t *testing.T) {
+// TestUserServiceSupport verifies user service support behavior.
+func TestUserServiceSupport(t *testing.T) {
 	normalized := normalizeRegisterInput(RegisterInput{
 		Username: " analyst ",
 		Email:    " ANALYST@EXAMPLE.COM ",
