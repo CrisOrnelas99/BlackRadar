@@ -1,0 +1,81 @@
+// Package service provides asset risk calculation application services.
+package service
+
+import (
+	"context"
+
+	"blackradar/api/model"
+	appcontext "blackradar/api/platform/requestcontext"
+	assetriskrepository "blackradar/api/repository/asset_risk"
+)
+
+// assetRiskServiceImpl implements asset risk calculation workflows.
+type assetRiskServiceImpl struct {
+	repository assetriskrepository.AssetRiskRepositoryInterface
+}
+
+// NewAssetRiskService creates an asset risk service backed by the supplied repository.
+func NewAssetRiskService(repository assetriskrepository.AssetRiskRepositoryInterface) *assetRiskServiceImpl {
+	return &assetRiskServiceImpl{repository: repository}
+}
+
+// RefreshAssetRisk recalculates and persists one authenticated user's asset risk level.
+func (s *assetRiskServiceImpl) RefreshAssetRisk(ec *appcontext.GinContext, assetID string) error {
+	if ec == nil || s.repository == nil {
+		return ErrAssetRiskDependency
+	}
+
+	userID, err := ec.UserID()
+	if err != nil {
+		return err
+	}
+
+	vulnerabilities, err := s.repository.FindActiveVulnerabilitiesForUser(ec, assetID, userID)
+	if err != nil {
+		return translateAssetRiskRepositoryError(err)
+	}
+
+	return translateAssetRiskRepositoryError(s.repository.UpdateRiskLevelForUser(
+		ec,
+		assetID,
+		userID,
+		CalculateRiskLevel(vulnerabilities),
+	))
+}
+
+// RefreshRisksForVulnerability recalculates risk for every asset assigned to a vulnerability.
+func (s *assetRiskServiceImpl) RefreshRisksForVulnerability(ec *appcontext.GinContext, vulnerabilityID string) error {
+	if ec == nil || s.repository == nil {
+		return ErrAssetRiskDependency
+	}
+
+	userID, err := ec.UserID()
+	if err != nil {
+		return err
+	}
+
+	assetIDs, err := s.repository.FindAssignedAssetIDsForVulnerability(ec, vulnerabilityID, userID)
+	if err != nil {
+		return translateAssetRiskRepositoryError(err)
+	}
+	for _, assetID := range assetIDs {
+		if err := s.RefreshAssetRisk(ec, assetID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// BackfillAssetRiskLevels recalculates stored risk levels for all existing assets.
+func (s *assetRiskServiceImpl) BackfillAssetRiskLevels(ctx context.Context) error {
+	if s.repository == nil {
+		return ErrAssetRiskDependency
+	}
+
+	return translateAssetRiskRepositoryError(s.repository.BackfillAssetRiskLevels(ctx, CalculateRiskLevel))
+}
+
+// CalculateRiskLevel returns the highest risk level implied by active vulnerabilities.
+func (s *assetRiskServiceImpl) CalculateRiskLevel(vulnerabilities []model.Vulnerability) *string {
+	return CalculateRiskLevel(vulnerabilities)
+}

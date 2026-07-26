@@ -17,6 +17,7 @@ import (
 	assetmatchrepo "blackradar/api/repository/asset_match"
 	assetvulnerabilityrepo "blackradar/api/repository/asset_vulnerability"
 	vulnerabilityrepo "blackradar/api/repository/vulnerability"
+	assetriskservice "blackradar/api/service/asset_risk"
 	assetvulnerabilityservice "blackradar/api/service/asset_vulnerability"
 	textgenerationservice "blackradar/api/service/text_generation"
 )
@@ -62,12 +63,13 @@ type assetMatchServiceImpl struct {
 	cveSearcher                  nvdcveclient.CVEClientInterface
 	textAI                       openaiexternal.OpenAIClientInterface
 	textGeneration               textgenerationservice.TextGenerationService
+	assetRiskService             assetriskservice.AssetRiskService
 	now                          func() time.Time
 }
 
 // NewAssetMatchService creates a backend-only asset matching service.
-func NewAssetMatchService(assetMatchRepository assetmatchrepo.AssetMatchRepositoryInterface, assetVulnerabilityRepository assetvulnerabilityrepo.AssetVulnerabilityRepositoryInterface, vulnRepository vulnerabilityrepo.VulnerabilityRepositoryInterface, cpeSearcher nvdcpeclient.CPEClientInterface, cveSearcher nvdcveclient.CVEClientInterface, textAI openaiexternal.OpenAIClientInterface) *assetMatchServiceImpl {
-	return &assetMatchServiceImpl{
+func NewAssetMatchService(assetMatchRepository assetmatchrepo.AssetMatchRepositoryInterface, assetVulnerabilityRepository assetvulnerabilityrepo.AssetVulnerabilityRepositoryInterface, vulnRepository vulnerabilityrepo.VulnerabilityRepositoryInterface, cpeSearcher nvdcpeclient.CPEClientInterface, cveSearcher nvdcveclient.CVEClientInterface, textAI openaiexternal.OpenAIClientInterface, riskServices ...assetriskservice.AssetRiskService) *assetMatchServiceImpl {
+	service := &assetMatchServiceImpl{
 		assetMatchRepository:         assetMatchRepository,
 		assetVulnerabilityRepository: assetVulnerabilityRepository,
 		vulnRepository:               vulnRepository,
@@ -77,6 +79,10 @@ func NewAssetMatchService(assetMatchRepository assetmatchrepo.AssetMatchReposito
 		textGeneration:               textgenerationservice.NewTextGenerationService(),
 		now:                          time.Now,
 	}
+	if len(riskServices) > 0 {
+		service.assetRiskService = riskServices[0]
+	}
+	return service
 }
 
 // nvdLookupServiceImpl adapts the NVD CVE client for controller lookups.
@@ -322,19 +328,28 @@ func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appco
 		return model.Asset{}, err
 	}
 
-	for _, cve := range matchResult.CVEs {
-		vulnerability, err := s.findOrCreateNVDVulnerability(ec, userID, cve)
-		if err != nil {
-			return model.Asset{}, err
-		}
-		assigned, err := s.assetVulnerabilityRepository.AssignVulnerabilityForUser(ec, updated.ID, userID, vulnerability.ID)
-		if err != nil {
-			if errors.Is(err, assetvulnerabilityrepo.ErrDuplicateRelationship) {
-				continue
+	err = runAssetMatchTransaction(ec, func(txContext *appcontext.GinContext) error {
+		for _, cve := range matchResult.CVEs {
+			vulnerability, err := s.findOrCreateNVDVulnerability(txContext, userID, cve)
+			if err != nil {
+				return err
 			}
-			return model.Asset{}, translateMatchRepositoryError(err)
+			assigned, err := s.assetVulnerabilityRepository.AssignVulnerabilityForUser(txContext, updated.ID, userID, vulnerability.ID)
+			if err != nil {
+				if errors.Is(err, assetvulnerabilityrepo.ErrDuplicateRelationship) {
+					continue
+				}
+				return translateMatchRepositoryError(err)
+			}
+			updated = assigned
 		}
-		updated = assigned
+		if s.assetRiskService != nil {
+			return s.assetRiskService.RefreshAssetRisk(txContext, assetID)
+		}
+		return nil
+	})
+	if err != nil {
+		return model.Asset{}, err
 	}
 
 	asset, err = s.assetMatchRepository.FindByIDForUser(ec, assetID, userID)

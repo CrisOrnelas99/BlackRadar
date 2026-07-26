@@ -23,7 +23,21 @@ import (
 	assetservice "blackradar/api/service/asset"
 	assetvulnerabilityservice "blackradar/api/service/asset_vulnerability"
 	textgenerationservice "blackradar/api/service/text_generation"
+	"gorm.io/gorm"
 )
+
+// runAssetMatchTransaction keeps automatic vulnerability attachment and risk refresh atomic.
+func runAssetMatchTransaction(ec *appcontext.GinContext, operation func(*appcontext.GinContext) error) error {
+	if ec == nil || ec.Database() == nil {
+		return operation(ec)
+	}
+
+	return ec.Database().WithContext(ec.RequestContext()).Transaction(func(tx *gorm.DB) error {
+		txContext := *ec
+		txContext.SetDatabase(tx)
+		return operation(&txContext)
+	})
+}
 
 // fingerprintHints stores product identity extracted from free-form asset text.
 type fingerprintHints struct {

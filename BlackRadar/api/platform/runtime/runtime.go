@@ -15,7 +15,6 @@ import (
 	"gorm.io/gorm"
 
 	commonjwt "blackradar/api/common/jwt"
-	commonrisk "blackradar/api/common/risk"
 	controllerai "blackradar/api/controller/ai"
 	controllerasset "blackradar/api/controller/asset"
 	controllerhealth "blackradar/api/controller/health"
@@ -37,11 +36,13 @@ import (
 	platformdb "blackradar/api/platform/db"
 	repositoryasset "blackradar/api/repository/asset"
 	repositoryassetmatch "blackradar/api/repository/asset_match"
+	repositoryassetrisk "blackradar/api/repository/asset_risk"
 	repositoryassetvulnerability "blackradar/api/repository/asset_vulnerability"
 	repositoryuser "blackradar/api/repository/user"
 	repositoryvulnerability "blackradar/api/repository/vulnerability"
 	serviceasset "blackradar/api/service/asset"
 	serviceassetmatch "blackradar/api/service/asset_match"
+	serviceassetrisk "blackradar/api/service/asset_risk"
 	serviceassetvulnerability "blackradar/api/service/asset_vulnerability"
 	serviceuser "blackradar/api/service/user"
 	servicevulnerability "blackradar/api/service/vulnerability"
@@ -89,7 +90,8 @@ func RunWithConfig(ctx context.Context, cfg config.Config) error {
 	if err := platformdb.RunMigrations(ctx, gormDB); err != nil {
 		return fmt.Errorf("database migration failed: %w", err)
 	}
-	if err := commonrisk.BackfillAssetRiskLevels(ctx, gormDB); err != nil {
+	assetRiskService := serviceassetrisk.NewAssetRiskService(repositoryassetrisk.NewAssetRiskRepository(gormDB))
+	if err := assetRiskService.BackfillAssetRiskLevels(ctx); err != nil {
 		return fmt.Errorf("asset risk level backfill failed: %w", err)
 	}
 	if err := bootstrap.Run(ctx, gormDB, cfg); err != nil {
@@ -123,6 +125,7 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 	assetRepository := repositoryasset.NewAssetRepository(gormDB)
 	assetMatchRepository := repositoryassetmatch.NewAssetMatchRepository(gormDB)
 	assetVulnerabilityRepository := repositoryassetvulnerability.NewAssetVulnerabilityRepository(gormDB)
+	assetRiskRepository := repositoryassetrisk.NewAssetRiskRepository(gormDB)
 	refreshSessionRepository := repositoryuser.NewRefreshSessionRepository(gormDB)
 	vulnerabilityRepository := repositoryvulnerability.NewVulnerabilityRepository(gormDB)
 
@@ -141,10 +144,11 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 		return nil, fmt.Errorf("openai client configuration failed: %w", err)
 	}
 
-	assetMatchService := serviceassetmatch.NewAssetMatchService(assetMatchRepository, assetVulnerabilityRepository, vulnerabilityRepository, cpeClient, nvdClient, openAIClient)
+	assetRiskService := serviceassetrisk.NewAssetRiskService(assetRiskRepository)
+	assetMatchService := serviceassetmatch.NewAssetMatchService(assetMatchRepository, assetVulnerabilityRepository, vulnerabilityRepository, cpeClient, nvdClient, openAIClient, assetRiskService)
 	assetService := serviceasset.NewAssetService(assetRepository, openAIClient)
-	assetVulnerabilityService := serviceassetvulnerability.NewAssetVulnerabilityService(assetVulnerabilityRepository, vulnerabilityRepository, nvdLookupService)
-	vulnerabilityService := servicevulnerability.NewVulnerabilityService(vulnerabilityRepository)
+	assetVulnerabilityService := serviceassetvulnerability.NewAssetVulnerabilityService(assetVulnerabilityRepository, vulnerabilityRepository, nvdLookupService, assetRiskService)
+	vulnerabilityService := servicevulnerability.NewVulnerabilityService(vulnerabilityRepository, assetRiskService)
 
 	userController := controlleruser.NewUserController(userService)
 	aiController := controllerai.NewAIController(openAIClient)

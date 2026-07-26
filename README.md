@@ -47,7 +47,7 @@ See `.agents/skills/architecture/SKILL.md` for the technical layout and `.agents
 - Angular frontend: UI, authentication, asset and vulnerability workflows, chat UX.
 - Go Gin/GORM backend: API, authentication, business logic, data orchestration, NVD/AI integration.
 - PostgreSQL: persistent storage for users, assets, vulnerabilities, and future workflow state.
-- Focused services: planned narrow services for alerting and CVE refresh.
+- Focused services: asset, vulnerability, asset-vulnerability assignment, asset-risk, and AI matching services, with alerting and CVE refresh services planned.
 - Backend request logging and rate limiting are applied to sensitive endpoints.
 
 ### High-level architecture
@@ -91,7 +91,7 @@ The repository currently contains these working foundations:
 - vulnerability CRUD API and models
 - asset-to-vulnerability assignment endpoints
 - CVE lookup through the backend NVD integration
-- asset-to-vulnerability assignment by CVE ID
+- backend asset-risk calculation and startup backfill
 - NVD CPE candidate search support
 - backend OpenAI provider configuration and text-generation boundary
 - AI-assisted asset creation from raw text through the backend
@@ -192,7 +192,7 @@ BlackRadar/
 - Model files are grouped by domain: `asset.go` owns asset, assessment, and asset-vulnerability persistence models; `user.go` owns user and refresh-session persistence models.
 - `platform/runtime` owns application wiring and server startup; `main.go` delegates to runtime and stays small.
 - `platform` owns runtime infrastructure such as configuration, local bootstrap seed data, database setup/migrations, request context, and startup composition.
-- `common` stays narrow: secure ID/token helpers, JWT primitives, and shared risk calculation/backfill helpers.
+- `common` stays narrow: secure ID/token helpers and JWT primitives. Asset-risk calculation and backfill live in `api/service/asset_risk` and `api/repository/asset_risk`.
 - Repository, service, external, and controller packages own their layer-specific error contracts where those boundaries need stable errors.
 - Repository, service, and external packages expose component-local interfaces only when they are real layer boundaries or useful test seams.
 - API collection files live under `BlackRadar/tests/`.
@@ -439,6 +439,9 @@ AI-specific guidance:
 ## Documentation
 
 - `README.md`: product overview and setup guidance
+- `BlackRadar/docs/`: feature documentation covering what, why, how, ownership, security, and current limitations
+- `BlackRadar/docs/infrastructure.md`: current Docker Compose, container, network, and persistence topology
+- `BlackRadar/docs/asset-risk.md`: backend risk calculation and refresh workflow
 - `.agents/skills/architecture/SKILL.md`: technical architecture and implementation direction
 - `.agents/skills/clean-code/SKILL.md`: naming, structure, and implementation conventions
 - `.agents/skills/roadmap/SKILL.md`: product roadmap, planned features, and sequencing notes

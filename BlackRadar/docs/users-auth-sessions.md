@@ -1,0 +1,68 @@
+# 🔐 Users, Authentication, And Sessions
+
+## 🧭 Overview
+
+Authentication establishes who is making a request. Authorization determines what that identity may do. Session state makes access revocation possible after login.
+
+BlackRadar uses user records, short-lived JWT access tokens, and server-side refresh sessions.
+
+## 🔌 Current API
+
+```text
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/refresh
+POST /api/auth/logout
+```
+
+Protected application routes require a valid access token and an active corresponding refresh-session record.
+
+## 🔄 Session Lifecycle
+
+1. Registration validates identity and password fields, hashes the password, and assigns the default role.
+2. Login accepts username or email plus password and returns access/session material only after credential verification.
+3. The access JWT is short-lived and contains scoped claims.
+4. The refresh token identifies server-side session state.
+5. Refresh rotates the session and revokes the previous session.
+6. Logout revokes the session so paired access requests fail session validation.
+
+## 🧱 Layer Responsibilities
+
+The user service owns credential workflow, token orchestration, and session lifecycle. Repositories own user and refresh-session persistence. JWT primitives validate signatures and claims. Middleware establishes the authenticated principal for protected requests.
+
+The browser may store session material according to the current frontend implementation, but storage is a security tradeoff and does not replace backend revocation.
+
+## 🛡️ Security Invariants
+
+- Passwords are stored as bcrypt hashes, never plaintext.
+- JWT secrets must satisfy minimum configuration requirements.
+- Access and refresh tokens have distinct scopes and uses.
+- Refresh sessions are server-side and revocable.
+- Roles are not client-controlled registration fields.
+- Invalid login responses remain generic.
+- Protected routes require backend middleware; Angular guards are UX only.
+
+See [security-boundaries.md](security-boundaries.md) and [api-error-handling.md](api-error-handling.md).
+
+## 🎭 Walkthrough: Alice Logs In
+
+- **Who:** Alice has a registered account; Bob is another user with separate session state.
+- **What:** Alice exchanges valid credentials for an access token and refresh session.
+- **When:** The login request reaches the authentication controller.
+- **Where:** The service validates credentials, the repository reads user/session data, and middleware later validates tokens on protected routes.
+- **Why:** Requests need a server-verifiable identity without trusting user IDs or permissions supplied by the browser.
+- **How:** The server verifies the password, issues short-lived access credentials, stores revocable refresh state, and returns generic failures when authentication is invalid.
+
+## 🚧 Current Limitations
+
+- Organization membership is not part of the current authentication contract.
+- Frontend storage remains a tradeoff that should be hardened for production deployment.
+- Device/session management UI and audit history are future work.
+
+## 🔑 Key Terms
+
+- **Authentication:** Establishing the identity behind a request.
+- **Authorization:** Deciding whether an authenticated identity may perform an action.
+- **Access token:** Short-lived JWT used for API authorization.
+- **Refresh session:** Server-side revocable state associated with refresh capability.
+- **Rotation:** Replacing a refresh session while revoking the prior one.
