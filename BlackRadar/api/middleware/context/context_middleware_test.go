@@ -44,32 +44,3 @@ func TestRequestContextStoresGinContextAndContinues(t *testing.T) {
 		t.Fatal("expected request ID response header to be set")
 	}
 }
-
-func TestClientRequestIDValidatesHeader(t *testing.T) {
-	tests := []struct {
-		name     string
-		header   string
-		expected string
-	}{
-		{name: "missing"},
-		{name: "valid", header: "request_123.ABC-xyz", expected: "request_123.ABC-xyz"},
-		{name: "too long", header: string(make([]byte, 129))},
-		{name: "newline", header: "request\n123"},
-		{name: "space", header: "request 123"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
-			ctx.Request = httptest.NewRequest(http.MethodGet, "/resource", nil)
-			if tt.header != "" {
-				ctx.Request.Header.Set(requestIDHeader, tt.header)
-			}
-
-			actual := ClientRequestID(ctx)
-			if actual != tt.expected {
-				t.Fatalf("expected %q, got %q", tt.expected, actual)
-			}
-		})
-	}
-}

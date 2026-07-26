@@ -5,7 +5,7 @@ info:
 
 http:
   method: GET
-  url: http://localhost:8080/api/assets/7700000000000000002
+  url: http://localhost:8080/api/assets/{{assetId}}
   auth: inherit
 
 settings:
@@ -13,4 +13,4 @@ settings:
   timeout: 0
   followRedirects: true
   maxRedirects: 5
-​
+

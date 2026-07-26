@@ -5,7 +5,6 @@ package contextmiddleware
 import (
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -13,8 +12,6 @@ import (
 	commonid "blackradar/api/common/id"
 	requestcontext "blackradar/api/platform/requestcontext"
 )
-
-const requestIDHeader = "X-Request-ID"
 
 // RequestContext initializes request metadata, logging, and the request-scoped
 // GinContext wrapper.
@@ -36,11 +33,7 @@ func RequestContext(logger *slog.Logger) gin.HandlerFunc {
 			return
 		}
 
-		requestLogger := logger.With(
-			slog.String("request_id", requestID),
-			slog.String("method", ctx.Request.Method),
-			slog.String("path", ctx.Request.URL.Path),
-		)
+		requestLogger := newRequestLogger(logger, ctx, requestID)
 
 		requestcontext.SetGinContext(
 			ctx,
@@ -53,43 +46,4 @@ func RequestContext(logger *slog.Logger) gin.HandlerFunc {
 
 		ctx.Next()
 	}
-}
-
-// ClientRequestID returns a validated client-provided request ID.
-//
-// Internally generated IDs remain the primary correlation identifiers.
-func ClientRequestID(ctx *gin.Context) string {
-	value := strings.TrimSpace(ctx.GetHeader(requestIDHeader))
-	if len(value) == 0 || len(value) > 128 {
-		return ""
-	}
-
-	for _, character := range value {
-		switch {
-		case character >= 'a' && character <= 'z':
-		case character >= 'A' && character <= 'Z':
-		case character >= '0' && character <= '9':
-		case character == '-':
-		case character == '_':
-		case character == '.':
-		default:
-			return ""
-		}
-	}
-
-	return value
-}
-
-// logRequestCompletion records bounded request metadata after downstream
-// handlers finish or unwind because of a panic.
-func logRequestCompletion(ctx *gin.Context, logger *slog.Logger, startedAt time.Time) {
-	duration := time.Since(startedAt)
-	logger.Info(
-		"request completed",
-		slog.Int("status", ctx.Writer.Status()),
-		slog.Int("response_size", ctx.Writer.Size()),
-		slog.Int64("duration_ms", duration.Milliseconds()),
-		slog.Bool("aborted", ctx.IsAborted()),
-		slog.Int("error_count", len(ctx.Errors)),
-	)
 }

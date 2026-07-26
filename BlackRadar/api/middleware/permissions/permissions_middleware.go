@@ -4,18 +4,11 @@ package permissions
 import (
 	"errors"
 	"log/slog"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"blackradar/api/model"
 	requestcontext "blackradar/api/platform/requestcontext"
-)
-
-var (
-	ErrForbidden      = errors.New("forbidden")
-	ErrUnauthorized   = errors.New("Unauthorized")
-	ErrInternalServer = errors.New("internal server error")
 )
 
 // RequireAdmin allows only authenticated users with the administrator role.
@@ -61,29 +54,4 @@ func RequireAdmin() gin.HandlerFunc {
 
 		ctx.Next()
 	}
-}
-
-// abortUnauthorized returns a generic authentication-required response.
-func abortUnauthorized(ctx *gin.Context) {
-	ctx.Header("WWW-Authenticate", "Bearer")
-	ctx.AbortWithStatusJSON(
-		http.StatusUnauthorized,
-		gin.H{"error": ErrUnauthorized.Error()},
-	)
-}
-
-// abortForbidden returns a generic authorization failure response.
-func abortForbidden(ctx *gin.Context) {
-	ctx.AbortWithStatusJSON(
-		http.StatusForbidden,
-		gin.H{"error": ErrForbidden.Error()},
-	)
-}
-
-// abortInternalError returns a generic internal authorization failure response.
-func abortInternalError(ctx *gin.Context) {
-	ctx.AbortWithStatusJSON(
-		http.StatusInternalServerError,
-		gin.H{"error": ErrInternalServer.Error()},
-	)
 }

@@ -5,7 +5,7 @@ info:
 
 http:
   method: POST
-  url: http://localhost:8080/api/assets/7700000000000000002/match-cpe/vulnerabilities
+  url: http://localhost:8080/api/assets/{{assetId}}/match-cpe/vulnerabilities
   auth: inherit
 
 settings:
