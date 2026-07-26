@@ -16,7 +16,7 @@ import (
 	appcontext "blackradar/api/platform/requestcontext"
 	assetrepo "blackradar/api/repository/asset"
 	vulnrepo "blackradar/api/repository/vulnerability"
-	promptservice "blackradar/api/service/prompt"
+	textgenerationservice "blackradar/api/service/text_generation"
 )
 
 // TestAssetService verifies the happy-path asset service flow.
@@ -163,7 +163,7 @@ func TestAssetServiceCreateAssetFromAI(t *testing.T) {
 	createdAsset.ID = "00000000-0000-4000-8000-000000000088"
 	repo := &fakeAssetRepository{asset: createdAsset}
 	ai := &fakeTextGenerationService{
-		response: promptservice.TextGenerationResponse{
+		response: textgenerationservice.TextGenerationResponse{
 			Text: `{"name":"Ring Video Doorbell","type":"IoT Camera","operatingSystem":"Ring Firmware","vendor":"Amazon","product":"Ring Video Doorbell Firmware","version":"3.4.6","deviceModel":"Ring Video Doorbell","owner":"","criticality":"","confidence":0.91,"reviewNotes":"single asset extracted"}`,
 		},
 	}
@@ -194,7 +194,7 @@ func TestAssetServiceCreateAssetFromAIAllowsNoNetworkAddressField(t *testing.T) 
 	createdAsset.ID = "00000000-0000-4000-8000-000000000089"
 	repo := &fakeAssetRepository{asset: createdAsset}
 	ai := &fakeTextGenerationService{
-		response: promptservice.TextGenerationResponse{
+		response: textgenerationservice.TextGenerationResponse{
 			Text: `{"name":"WP-Ultimate-Map WordPress Plugin","type":"Web Application","operatingSystem":"WordPress","vendor":"","product":"WP-Ultimate-Map","version":"1.1","deviceModel":"","owner":"","criticality":"","confidence":0.86,"reviewNotes":"single asset extracted"}`,
 		},
 	}
@@ -344,14 +344,14 @@ func (f *fakeVulnerabilityRepository) DeleteForUser(ec *appcontext.GinContext, i
 var _ vulnrepo.VulnerabilityRepositoryInterface = (*fakeVulnerabilityRepository)(nil)
 
 type fakeTextGenerationService struct {
-	response    promptservice.TextGenerationResponse
-	responses   []promptservice.TextGenerationResponse
+	response    textgenerationservice.TextGenerationResponse
+	responses   []textgenerationservice.TextGenerationResponse
 	err         error
-	lastRequest promptservice.TextGenerationRequest
-	requests    []promptservice.TextGenerationRequest
+	lastRequest textgenerationservice.TextGenerationRequest
+	requests    []textgenerationservice.TextGenerationRequest
 }
 
-func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request promptservice.TextGenerationRequest) (promptservice.TextGenerationResponse, error) {
+func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request textgenerationservice.TextGenerationRequest) (textgenerationservice.TextGenerationResponse, error) {
 	f.lastRequest = request
 	f.requests = append(f.requests, request)
 	if len(f.responses) > 0 {
@@ -362,7 +362,7 @@ func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request pr
 	return f.response, f.err
 }
 
-var _ promptservice.TextGenerationService = (*fakeTextGenerationService)(nil)
+var _ textgenerationservice.TextGenerationService = (*fakeTextGenerationService)(nil)
 
 // newServiceContext creates a request context with an authenticated user ID.
 func newServiceContext(t *testing.T, userID string, organizationID string) *appcontext.GinContext {

@@ -6,15 +6,15 @@ import (
 
 	shared "blackradar/api/controller/shared"
 	appcontext "blackradar/api/platform/requestcontext"
-	matchservice "blackradar/api/service/match"
+	assetmatchservice "blackradar/api/service/asset_match"
 )
 
 // handleNVDLookupServiceError maps service error categories to HTTP responses.
 func handleNVDLookupServiceError(ec *appcontext.GinContext, err error) bool {
-	var validationErr *matchservice.ValidationError
-	var notFoundErr *matchservice.NotFoundError
-	var dependencyErr *matchservice.DependencyError
-	var internalErr *matchservice.InternalError
+	var validationErr *assetmatchservice.ValidationError
+	var notFoundErr *assetmatchservice.NotFoundError
+	var dependencyErr *assetmatchservice.DependencyError
+	var internalErr *assetmatchservice.InternalError
 
 	switch {
 	case errors.As(err, &validationErr):

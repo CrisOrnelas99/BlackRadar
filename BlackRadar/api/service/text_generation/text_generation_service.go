@@ -1,5 +1,5 @@
-// Package service provides locked AI prompt builders used by the backend.
-package service
+// Package text_generation provides locked AI text-generation request builders used by the backend.
+package text_generation
 
 import (
 	cpeclient "blackradar/api/external/nvd_cpe"

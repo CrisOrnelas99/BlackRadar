@@ -1,5 +1,5 @@
-// Package match verifies asset match analysis and persistence behavior.
-package match
+// Package asset_match verifies asset match analysis and persistence behavior.
+package asset_match
 
 import (
 	"context"
@@ -20,12 +20,12 @@ import (
 	assetrepo "blackradar/api/repository/asset"
 	vulnrepo "blackradar/api/repository/vulnerability"
 	assetservice "blackradar/api/service/asset"
-	promptservice "blackradar/api/service/prompt"
+	textgenerationservice "blackradar/api/service/text_generation"
 )
 
 func TestAnalyzeAssetMatchAcceptsStrongCandidate(t *testing.T) {
 	ai := &fakeTextGenerationService{
-		response: promptservice.TextGenerationResponse{
+		response: textgenerationservice.TextGenerationResponse{
 			Text: `{"selectedCpe":"cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*","confidence":0.92,"reviewNotes":"strong match","rankedCpes":["cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*"]}`,
 		},
 	}
@@ -199,7 +199,7 @@ func TestAnalyzeAssetMatchUsesBroadSearchBeforeSpecificSearch(t *testing.T) {
 	svc := &assetMatchServiceImpl{
 		cpeSearcher: searcher,
 		textAI: &fakeTextGenerationService{
-			response: promptservice.TextGenerationResponse{
+			response: textgenerationservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:a:apache:log4j:*:*:*:*:*:*:*:*","confidence":0.91,"reviewNotes":"strong match","rankedCpes":["cpe:2.3:a:apache:log4j:*:*:*:*:*:*:*:*"]}`,
 			},
 		},
@@ -231,7 +231,7 @@ func TestAnalyzeAssetMatchUsesStructuredAssetProductFields(t *testing.T) {
 	svc := &assetMatchServiceImpl{
 		cpeSearcher: searcher,
 		textAI: &fakeTextGenerationService{
-			response: promptservice.TextGenerationResponse{
+			response: textgenerationservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:o:amazon:ring_video_doorbell_firmware:3.4.6:*:*:*:*:*:*:*","confidence":0.91,"reviewNotes":"strong structured match","rankedCpes":["cpe:2.3:o:amazon:ring_video_doorbell_firmware:3.4.6:*:*:*:*:*:*:*"]}`,
 			},
 		},
@@ -265,7 +265,7 @@ func TestAnalyzeAssetMatchAllowsExactVersionCPEWhenAssetVersionMissing(t *testin
 	svc := &assetMatchServiceImpl{
 		cpeSearcher: searcher,
 		textAI: &fakeTextGenerationService{
-			response: promptservice.TextGenerationResponse{
+			response: textgenerationservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:a:ui:unifi_controller:2.4.4:*:*:*:*:*:*:*","confidence":0.95,"reviewNotes":"possible match","rankedCpes":["cpe:2.3:a:ui:unifi_controller:2.4.4:*:*:*:*:*:*:*"]}`,
 			},
 		},
@@ -299,7 +299,7 @@ func TestAnalyzeAssetMatchUsesAIExtractionForMessyInput(t *testing.T) {
 		},
 	}
 	ai := &fakeTextGenerationService{
-		responses: []promptservice.TextGenerationResponse{
+		responses: []textgenerationservice.TextGenerationResponse{
 			{Text: `{"vendor":"Apache","product":"Log4j","version":"2.14.1","operatingSystem":"Linux","deviceModel":null,"confidence":"High","reviewNotes":"messy text normalized"}`},
 			{Text: `{"selectedCpe":"cpe:2.3:a:apache:log4j:*:*:*:*:*:*:*:*","confidence":0.91,"reviewNotes":"strong nvd candidate match","rankedCpes":["cpe:2.3:a:apache:log4j:*:*:*:*:*:*:*:*"]}`},
 		},
@@ -333,7 +333,7 @@ func TestAnalyzeAssetMatchUsesPlainTextAIExtraction(t *testing.T) {
 		},
 	}
 	ai := &fakeTextGenerationService{
-		responses: []promptservice.TextGenerationResponse{
+		responses: []textgenerationservice.TextGenerationResponse{
 			{Text: "Vendor: Tukaani project\nProduct: XZ Utils\nVersion: 5.6.1"},
 			{Text: `{"selectedCpe":"cpe:2.3:a:tukaani:xz:5.6.1:*:*:*:*:*:*:*","confidence":0.91,"reviewNotes":"strong nvd candidate match","rankedCpes":["cpe:2.3:a:tukaani:xz:5.6.1:*:*:*:*:*:*:*"]}`},
 		},
@@ -363,7 +363,7 @@ func TestAnalyzeAssetMatchKeepsLowConfidenceInReview(t *testing.T) {
 			},
 		},
 		textAI: &fakeTextGenerationService{
-			response: promptservice.TextGenerationResponse{
+			response: textgenerationservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*","confidence":0.5,"reviewNotes":"uncertain","rankedCpes":["cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*"]}`,
 			},
 		},
@@ -386,7 +386,7 @@ func TestAnalyzeAssetMatchRejectsCandidateOutsideNVDSet(t *testing.T) {
 			},
 		},
 		textAI: &fakeTextGenerationService{
-			response: promptservice.TextGenerationResponse{
+			response: textgenerationservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:a:other:product:*:*:*:*:*:*:*:*","confidence":0.99,"reviewNotes":"invalid candidate","rankedCpes":["cpe:2.3:a:other:product:*:*:*:*:*:*:*:*"]}`,
 			},
 		},
@@ -412,7 +412,7 @@ func TestAnalyzeAssetMatchAllowsMismatchedSelectedCPEVersion(t *testing.T) {
 			},
 		},
 		textAI: &fakeTextGenerationService{
-			response: promptservice.TextGenerationResponse{
+			response: textgenerationservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:a:tukaani:xz:5.0.8:*:*:*:*:*:*:*","confidence":0.99,"reviewNotes":"version mismatch","rankedCpes":["cpe:2.3:a:tukaani:xz:5.0.8:*:*:*:*:*:*:*"]}`,
 			},
 		},
@@ -438,7 +438,7 @@ func TestAnalyzeAssetMatchHandlesMalformedRankingResponse(t *testing.T) {
 			},
 		},
 		textAI: &fakeTextGenerationService{
-			response: promptservice.TextGenerationResponse{Text: `not-json`},
+			response: textgenerationservice.TextGenerationResponse{Text: `not-json`},
 		},
 	}
 
@@ -505,7 +505,7 @@ func TestAnalyzeAndPersistAssetMatchStoresResult(t *testing.T) {
 			},
 		},
 		textAI: &fakeTextGenerationService{
-			response: promptservice.TextGenerationResponse{
+			response: textgenerationservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*","confidence":0.91,"reviewNotes":"strong match","rankedCpes":["cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*"]}`,
 			},
 		},
@@ -552,7 +552,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesStoresNVDResults(t *testing.T) {
 			},
 		},
 		textAI: &fakeTextGenerationService{
-			response: promptservice.TextGenerationResponse{
+			response: textgenerationservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:a:tukaani:xz:5.6.1:*:*:*:*:*:*:*","confidence":0.91,"reviewNotes":"strong match","rankedCpes":["cpe:2.3:a:tukaani:xz:5.6.1:*:*:*:*:*:*:*"]}`,
 			},
 		},
@@ -600,7 +600,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesNVDValidatedFallbackCPE(t *te
 		cveSearcher:     cveSearcher,
 		cpeSearcher:     &fakeCPECandidateSearcher{err: errors.New("nvd cpe unavailable")},
 		textAI: &fakeTextGenerationService{
-			response: promptservice.TextGenerationResponse{
+			response: textgenerationservice.TextGenerationResponse{
 				Text: `{"vendor":"Tukaani","product":"xz utils","version":"5.6.1","operatingSystem":"Linux","deviceModel":null,"confidence":"High","reviewNotes":"normalized"}`,
 			},
 		},
@@ -710,7 +710,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesTriesFirmwareAliasFromOperatingSy
 		cveSearcher:     cveSearcher,
 		cpeSearcher:     searcher,
 		textAI: &fakeTextGenerationService{
-			response: promptservice.TextGenerationResponse{
+			response: textgenerationservice.TextGenerationResponse{
 				Text: `{"selectedCpe":"cpe:2.3:o:amazon:ring_video_doorbell_firmware:3.4.7:*:*:*:*:*:*:*","confidence":0.5,"reviewNotes":"selected cpe version mismatch","rankedCpes":["cpe:2.3:o:amazon:ring_video_doorbell_firmware:3.4.7:*:*:*:*:*:*:*"]}`,
 			},
 		},
@@ -771,7 +771,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesKeywordFallbackAndAIRanking(t
 		cveSearcher:     cveSearcher,
 		cpeSearcher:     &fakeCPECandidateSearcher{candidates: []nvdcpeclient.CPECandidate{}},
 		textAI: &fakeTextGenerationService{
-			responses: []promptservice.TextGenerationResponse{
+			responses: []textgenerationservice.TextGenerationResponse{
 				{
 					Text: `{"keywordSearches":["wp ultimate map"],"reviewNotes":"normalized plugin name"}`,
 				},
@@ -846,7 +846,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesFallsThroughToAIKeywordFallbackWh
 			},
 		},
 		textAI: &fakeTextGenerationService{
-			responses: []promptservice.TextGenerationResponse{
+			responses: []textgenerationservice.TextGenerationResponse{
 				{
 					Text: `{"selectedCpe":"cpe:2.3:a:ui:unifi:2.3.6:*:*:*:*:*:*:*","confidence":0.8,"reviewNotes":"possible UniFi match","rankedCpes":["cpe:2.3:a:ui:unifi:2.3.6:*:*:*:*:*:*:*"]}`,
 				},
@@ -918,7 +918,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesAIKeywordFallbackWhenExactCPE
 			},
 		},
 		textAI: &fakeTextGenerationService{
-			responses: []promptservice.TextGenerationResponse{
+			responses: []textgenerationservice.TextGenerationResponse{
 				{
 					Text: `{"selectedCpe":"cpe:2.3:a:ui:unifi_controller:2.4.4:*:*:*:*:*:*:*","confidence":0.95,"reviewNotes":"possible UniFi match","rankedCpes":["cpe:2.3:a:ui:unifi_controller:2.4.4:*:*:*:*:*:*:*"]}`,
 				},
@@ -992,7 +992,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesAggregatesAIKeywordSearchesBefore
 		cveSearcher:     cveSearcher,
 		cpeSearcher:     &fakeCPECandidateSearcher{candidates: []nvdcpeclient.CPECandidate{}},
 		textAI: &fakeTextGenerationService{
-			responses: []promptservice.TextGenerationResponse{
+			responses: []textgenerationservice.TextGenerationResponse{
 				{
 					Text: `{"keywordSearches":["ubiquiti unifi network device","ubiquiti unifi network application"],"reviewNotes":"try device and application wording"}`,
 				},
@@ -1208,7 +1208,7 @@ func TestNVDLookupServiceErrorMapping(t *testing.T) {
 	}
 }
 
-func TestMatchServiceErrorsExposeCategories(t *testing.T) {
+func TestAssetMatchServiceErrorsExposeCategories(t *testing.T) {
 	var validationErr *ValidationError
 	if !errors.As(ErrInvalidCVEID, &validationErr) {
 		t.Fatal("expected invalid CVE ID to be a match validation error")
@@ -1386,14 +1386,14 @@ func (f *fakeCPECandidateSearcher) SearchCandidates(ctx context.Context, request
 }
 
 type fakeTextGenerationService struct {
-	response    promptservice.TextGenerationResponse
-	responses   []promptservice.TextGenerationResponse
+	response    textgenerationservice.TextGenerationResponse
+	responses   []textgenerationservice.TextGenerationResponse
 	err         error
-	lastRequest promptservice.TextGenerationRequest
-	requests    []promptservice.TextGenerationRequest
+	lastRequest textgenerationservice.TextGenerationRequest
+	requests    []textgenerationservice.TextGenerationRequest
 }
 
-func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request promptservice.TextGenerationRequest) (promptservice.TextGenerationResponse, error) {
+func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request textgenerationservice.TextGenerationRequest) (textgenerationservice.TextGenerationResponse, error) {
 	f.lastRequest = request
 	f.requests = append(f.requests, request)
 	if len(f.responses) > 0 {

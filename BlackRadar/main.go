@@ -37,8 +37,8 @@ import (
 	repositoryuser "blackradar/api/repository/user"
 	repositoryvulnerability "blackradar/api/repository/vulnerability"
 	serviceasset "blackradar/api/service/asset"
+	serviceassetmatch "blackradar/api/service/asset_match"
 	serviceassetvulnerability "blackradar/api/service/asset_vulnerability"
-	servicematch "blackradar/api/service/match"
 	serviceuser "blackradar/api/service/user"
 	servicevulnerability "blackradar/api/service/vulnerability"
 )
@@ -87,7 +87,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("nvd client configuration failed: %v", err)
 	}
-	nvdLookupService := servicematch.NewNVDLookupService(nvdClient)
+	nvdLookupService := serviceassetmatch.NewNVDLookupService(nvdClient)
 	cpeClient, err := nvdcpeclient.NewCPEClient(cfg.NVDCPEAPIBaseURL, cfg.NVDAPIKey)
 	if err != nil {
 		log.Fatalf("nvd cpe client configuration failed: %v", err)
@@ -96,7 +96,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("openai client configuration failed: %v", err)
 	}
-	assetMatchService := servicematch.NewAssetMatchService(assetRepository, vulnerabilityRepository, cpeClient, nvdClient, openAIClient)
+	assetMatchService := serviceassetmatch.NewAssetMatchService(assetRepository, vulnerabilityRepository, cpeClient, nvdClient, openAIClient)
 	assetService := serviceasset.NewAssetService(assetRepository, openAIClient)
 	assetVulnerabilityService := serviceassetvulnerability.NewAssetVulnerabilityService(assetRepository, vulnerabilityRepository, nvdLookupService)
 	vulnerabilityService := servicevulnerability.NewVulnerabilityService(vulnerabilityRepository)

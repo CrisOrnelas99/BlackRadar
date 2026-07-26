@@ -1,4 +1,4 @@
-package match
+package asset_match
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	nvdcveclient "blackradar/api/external/nvd_cve"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
-	promptservice "blackradar/api/service/prompt"
+	textgenerationservice "blackradar/api/service/text_generation"
 )
 
 type AssetMatchService interface {
@@ -20,7 +20,7 @@ type NVDLookupService interface {
 }
 
 type textGenerationService interface {
-	GenerateText(ctx context.Context, request promptservice.TextGenerationRequest) (promptservice.TextGenerationResponse, error)
+	GenerateText(ctx context.Context, request textgenerationservice.TextGenerationRequest) (textgenerationservice.TextGenerationResponse, error)
 }
 
 // CPECandidateSearcher looks up NVD CPE candidates for a normalized search request.

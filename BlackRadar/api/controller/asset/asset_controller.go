@@ -8,19 +8,19 @@ import (
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetservice "blackradar/api/service/asset"
+	assetmatchservice "blackradar/api/service/asset_match"
 	assetvulnerabilityservice "blackradar/api/service/asset_vulnerability"
-	matchservice "blackradar/api/service/match"
 )
 
 // AssetController handles asset-related HTTP requests.
 type AssetController struct {
 	assetService              assetservice.AssetService
 	assetVulnerabilityService assetvulnerabilityservice.AssetVulnerabilityService
-	assetMatchService         matchservice.AssetMatchService
+	assetMatchService         assetmatchservice.AssetMatchService
 }
 
 // NewAssetController creates a new AssetController.
-func NewAssetController(assetService assetservice.AssetService, assetVulnerabilityService assetvulnerabilityservice.AssetVulnerabilityService, assetMatchService matchservice.AssetMatchService) *AssetController {
+func NewAssetController(assetService assetservice.AssetService, assetVulnerabilityService assetvulnerabilityservice.AssetVulnerabilityService, assetMatchService assetmatchservice.AssetMatchService) *AssetController {
 	return &AssetController{
 		assetService:              assetService,
 		assetVulnerabilityService: assetVulnerabilityService,

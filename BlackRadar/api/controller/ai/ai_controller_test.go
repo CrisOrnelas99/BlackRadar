@@ -17,12 +17,12 @@ import (
 	shared "blackradar/api/controller/shared"
 	contextmiddleware "blackradar/api/middleware/context"
 	appcontext "blackradar/api/platform/requestcontext"
-	promptservice "blackradar/api/service/prompt"
+	textgenerationservice "blackradar/api/service/text_generation"
 )
 
 func TestAIControllerTestProvider(t *testing.T) {
 	controller := NewAIController(&fakeTextGenerationService{
-		response: promptservice.TextGenerationResponse{Text: `{"ok":true,"message":"ai provider reachable"}`, FinishReason: "stop"},
+		response: textgenerationservice.TextGenerationResponse{Text: `{"ok":true,"message":"ai provider reachable"}`, FinishReason: "stop"},
 	})
 	ec, recorder := newAIControllerContext(t)
 
@@ -77,7 +77,7 @@ func TestAIControllerTestProviderRejectsMissingProvider(t *testing.T) {
 
 func TestAIControllerSendMessage(t *testing.T) {
 	controller := NewAIController(&fakeTextGenerationService{
-		response: promptservice.TextGenerationResponse{Text: "Hello from OpenAI.", FinishReason: "completed"},
+		response: textgenerationservice.TextGenerationResponse{Text: "Hello from OpenAI.", FinishReason: "completed"},
 	})
 	ec, recorder := newAIMessageControllerContext(t, `{"message":"Say hello."}`)
 
@@ -110,7 +110,7 @@ func TestAIControllerSendMessageRejectsBlankMessage(t *testing.T) {
 }
 
 func TestRegisterRoutes(t *testing.T) {
-	controller := NewAIController(&fakeTextGenerationService{response: promptservice.TextGenerationResponse{Text: `{"ok":true}`, FinishReason: "stop"}})
+	controller := NewAIController(&fakeTextGenerationService{response: textgenerationservice.TextGenerationResponse{Text: `{"ok":true}`, FinishReason: "stop"}})
 	engine := gin.New()
 	engine.Use(contextmiddleware.RequestContext(nil))
 	RegisterRoutes(engine.Group("/api"), controller)
@@ -124,18 +124,18 @@ func TestRegisterRoutes(t *testing.T) {
 }
 
 type fakeTextGenerationService struct {
-	response promptservice.TextGenerationResponse
+	response textgenerationservice.TextGenerationResponse
 	err      error
 }
 
-func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request promptservice.TextGenerationRequest) (promptservice.TextGenerationResponse, error) {
+func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request textgenerationservice.TextGenerationRequest) (textgenerationservice.TextGenerationResponse, error) {
 	if f.err != nil {
-		return promptservice.TextGenerationResponse{}, f.err
+		return textgenerationservice.TextGenerationResponse{}, f.err
 	}
 	return f.response, nil
 }
 
-var _ promptservice.TextGenerationService = (*fakeTextGenerationService)(nil)
+var _ textgenerationservice.TextGenerationService = (*fakeTextGenerationService)(nil)
 
 func newAIControllerContext(t *testing.T) (*appcontext.GinContext, *httptest.ResponseRecorder) {
 	t.Helper()

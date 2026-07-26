@@ -14,7 +14,7 @@ import (
 	"time"
 
 	externalratelimiter "blackradar/api/external/rate_limiter"
-	dto "blackradar/api/service/prompt"
+	dto "blackradar/api/service/text_generation"
 )
 
 const openAIResponsesPath = "/v1/responses"

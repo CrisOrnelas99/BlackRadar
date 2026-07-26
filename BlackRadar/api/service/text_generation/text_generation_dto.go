@@ -1,4 +1,4 @@
-package service
+package text_generation
 
 // TextGenerationMessage represents a single message passed to the AI provider boundary.
 type TextGenerationMessage struct {

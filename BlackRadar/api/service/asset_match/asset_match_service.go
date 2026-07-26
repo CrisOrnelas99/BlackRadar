@@ -1,5 +1,5 @@
-// Package match provides asset CPE and CVE matching services.
-package match
+// Package asset_match provides asset CPE and CVE matching services.
+package asset_match
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	assetrepo "blackradar/api/repository/asset"
 	vulnerabilityrepo "blackradar/api/repository/vulnerability"
 	assetvulnerabilityservice "blackradar/api/service/asset_vulnerability"
-	promptservice "blackradar/api/service/prompt"
+	textgenerationservice "blackradar/api/service/text_generation"
 )
 
 const (
@@ -574,7 +574,7 @@ func (s *assetMatchServiceImpl) normalizeFingerprintWithAI(ctx context.Context, 
 		return AssetFingerprint{}, false
 	}
 
-	response, err := s.textAI.GenerateText(ctx, promptservice.BuildAssetFingerprintExtractionRequest(
+	response, err := s.textAI.GenerateText(ctx, textgenerationservice.BuildAssetFingerprintExtractionRequest(
 		rawText,
 		deterministic.Canonical,
 		asset.Name,
@@ -608,7 +608,7 @@ func (s *assetMatchServiceImpl) normalizeFingerprintWithAI(ctx context.Context, 
 
 // rankCandidates asks AI to rank bounded NVD CPE candidates for one fingerprint.
 func (s *assetMatchServiceImpl) rankCandidates(ctx context.Context, fingerprint AssetFingerprint, keywordSearch string, candidates []nvdcpeclient.CPECandidate) (assetMatchRankingResponse, error) {
-	request := promptservice.BuildAssetMatchRankingRequest(fingerprint.Canonical, keywordSearch, candidates)
+	request := textgenerationservice.BuildAssetMatchRankingRequest(fingerprint.Canonical, keywordSearch, candidates)
 	response, err := s.textAI.GenerateText(ctx, request)
 	if err != nil {
 		return assetMatchRankingResponse{}, err
@@ -628,7 +628,7 @@ func (s *assetMatchServiceImpl) rankKeywordCVEs(ctx context.Context, fingerprint
 		return assetCVERankingResponse{}, ErrMatchExternalService
 	}
 
-	request := promptservice.BuildAssetCVERankingRequest(fingerprint, keywordSearches, candidates)
+	request := textgenerationservice.BuildAssetCVERankingRequest(fingerprint, keywordSearches, candidates)
 	response, err := s.textAI.GenerateText(ctx, request)
 	if err != nil {
 		return assetCVERankingResponse{}, err
@@ -648,7 +648,7 @@ func (s *assetMatchServiceImpl) expandCVEKeywordSearchesWithAI(ctx context.Conte
 		return deterministicSearches
 	}
 
-	request := promptservice.BuildAssetCVEKeywordSearchRequest(fingerprint, deterministicSearches)
+	request := textgenerationservice.BuildAssetCVEKeywordSearchRequest(fingerprint, deterministicSearches)
 	response, err := s.textAI.GenerateText(ctx, request)
 	if err != nil {
 		logAssetMatchDebug(logger, "asset ai cve keyword search generation unavailable", "error", err.Error())

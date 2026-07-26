@@ -7,18 +7,18 @@ import (
 
 	shared "blackradar/api/controller/shared"
 	appcontext "blackradar/api/platform/requestcontext"
-	promptservice "blackradar/api/service/prompt"
+	textgenerationservice "blackradar/api/service/text_generation"
 )
 
 const maxTemporaryAIMessageLength = 1000
 
 // AIController handles backend-only AI diagnostic HTTP requests.
 type AIController struct {
-	textAI promptservice.TextGenerationService
+	textAI textgenerationservice.TextGenerationService
 }
 
 // NewAIController creates a new AIController.
-func NewAIController(textAI promptservice.TextGenerationService) *AIController {
+func NewAIController(textAI textgenerationservice.TextGenerationService) *AIController {
 	return &AIController{textAI: textAI}
 }
 
@@ -29,7 +29,7 @@ func (c *AIController) TestProvider(ec *appcontext.GinContext) {
 		return
 	}
 
-	response, err := c.textAI.GenerateText(ec.RequestContext(), promptservice.BuildDiagnosticRequest())
+	response, err := c.textAI.GenerateText(ec.RequestContext(), textgenerationservice.BuildDiagnosticRequest())
 	if err != nil {
 		shared.HandleError(ec, http.StatusBadGateway, err, "AI provider test failed")
 		return
@@ -61,7 +61,7 @@ func (c *AIController) SendMessage(ec *appcontext.GinContext) {
 		return
 	}
 
-	response, err := c.textAI.GenerateText(ec.RequestContext(), promptservice.BuildTemporaryMessageRequest(message))
+	response, err := c.textAI.GenerateText(ec.RequestContext(), textgenerationservice.BuildTemporaryMessageRequest(message))
 	if err != nil {
 		shared.HandleError(ec, http.StatusBadGateway, err, "AI message request failed")
 		return

@@ -1,4 +1,4 @@
-package service
+package text_generation
 
 import (
 	"encoding/json"

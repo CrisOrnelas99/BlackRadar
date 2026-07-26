@@ -17,8 +17,8 @@ import (
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetservice "blackradar/api/service/asset"
+	assetmatchservice "blackradar/api/service/asset_match"
 	assetvulnerabilityservice "blackradar/api/service/asset_vulnerability"
-	matchservice "blackradar/api/service/match"
 )
 
 // TestAssetControllerHandlers verifies the asset controller request flow.
@@ -106,8 +106,8 @@ func TestAssetControllerHandlers(t *testing.T) {
 func TestRegisterRoutes(t *testing.T) {
 	service := &fakeAssetService{asset: sampleAsset(), assets: []model.Asset{sampleAsset()}}
 	assetVulnerabilityService := &fakeAssetVulnerabilityService{asset: sampleAsset()}
-	matchService := &fakeAssetMatchService{asset: sampleAsset()}
-	controller := NewAssetController(service, assetVulnerabilityService, matchService)
+	assetMatchService := &fakeAssetMatchService{asset: sampleAsset()}
+	controller := NewAssetController(service, assetVulnerabilityService, assetMatchService)
 	engine := gin.New()
 	engine.Use(contextmiddleware.RequestContext(nil))
 	group := engine.Group("/api")
@@ -129,8 +129,8 @@ func TestRegisterRoutes(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected match status %d, got %d", http.StatusOK, recorder.Code)
 	}
-	if matchService.attachCalls != 1 {
-		t.Fatalf("expected AnalyzePersistAndAttachVulnerabilities to be called once, got %d", matchService.attachCalls)
+	if assetMatchService.attachCalls != 1 {
+		t.Fatalf("expected AnalyzePersistAndAttachVulnerabilities to be called once, got %d", assetMatchService.attachCalls)
 	}
 }
 
@@ -330,7 +330,7 @@ func (f *fakeAssetVulnerabilityService) RemoveVulnerability(ec *appcontext.GinCo
 
 var _ assetservice.AssetService = (*fakeAssetService)(nil)
 var _ assetvulnerabilityservice.AssetVulnerabilityService = (*fakeAssetVulnerabilityService)(nil)
-var _ matchservice.AssetMatchService = (*fakeAssetMatchService)(nil)
+var _ assetmatchservice.AssetMatchService = (*fakeAssetMatchService)(nil)
 
 // newAssetContext creates a test Gin context for asset controller tests.
 func newAssetContext(t *testing.T, method string, target string, body string) (*appcontext.GinContext, *httptest.ResponseRecorder) {

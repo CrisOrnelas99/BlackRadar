@@ -11,7 +11,7 @@ import (
 	"time"
 
 	externalratelimiter "blackradar/api/external/rate_limiter"
-	dto "blackradar/api/service/prompt"
+	dto "blackradar/api/service/text_generation"
 )
 
 func TestClientGenerateText(t *testing.T) {

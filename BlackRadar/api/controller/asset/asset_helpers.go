@@ -7,8 +7,8 @@ import (
 	shared "blackradar/api/controller/shared"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetservice "blackradar/api/service/asset"
+	assetmatchservice "blackradar/api/service/asset_match"
 	assetvulnerabilityservice "blackradar/api/service/asset_vulnerability"
-	matchservice "blackradar/api/service/match"
 )
 
 // handleAssetServiceError maps service error categories to HTTP responses.
@@ -24,9 +24,9 @@ func handleAssetServiceError(ec *appcontext.GinContext, err error) bool {
 	var assetVulnerabilityNotFoundErr *assetvulnerabilityservice.NotFoundError
 	var assetVulnerabilityDependencyErr *assetvulnerabilityservice.DependencyError
 	var assetVulnerabilityInternalErr *assetvulnerabilityservice.InternalError
-	var matchDependencyErr *matchservice.DependencyError
+	var matchDependencyErr *assetmatchservice.DependencyError
 	var assetInternalErr *assetservice.InternalError
-	var matchInternalErr *matchservice.InternalError
+	var matchInternalErr *assetmatchservice.InternalError
 
 	switch {
 	case errors.As(err, &validationErr), errors.As(err, &assetVulnerabilityValidationErr):

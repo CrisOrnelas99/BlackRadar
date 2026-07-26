@@ -1,4 +1,4 @@
-package match
+package asset_match
 
 import (
 	"bytes"

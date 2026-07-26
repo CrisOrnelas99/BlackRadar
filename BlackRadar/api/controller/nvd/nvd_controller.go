@@ -6,16 +6,16 @@ import (
 
 	shared "blackradar/api/controller/shared"
 	appcontext "blackradar/api/platform/requestcontext"
-	matchservice "blackradar/api/service/match"
+	assetmatchservice "blackradar/api/service/asset_match"
 )
 
 // NVDController handles read-only NVD lookup HTTP requests.
 type NVDController struct {
-	nvdLookupService matchservice.NVDLookupService
+	nvdLookupService assetmatchservice.NVDLookupService
 }
 
 // NewNVDController creates a new NVDController.
-func NewNVDController(nvdLookupService matchservice.NVDLookupService) *NVDController {
+func NewNVDController(nvdLookupService assetmatchservice.NVDLookupService) *NVDController {
 	return &NVDController{nvdLookupService: nvdLookupService}
 }
 

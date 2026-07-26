@@ -15,7 +15,7 @@ import (
 	nvdcveclient "blackradar/api/external/nvd_cve"
 	contextmiddleware "blackradar/api/middleware/context"
 	appcontext "blackradar/api/platform/requestcontext"
-	matchservice "blackradar/api/service/match"
+	assetmatchservice "blackradar/api/service/asset_match"
 )
 
 // TestNVDControllerLookupCVE verifies the successful CVE lookup response.
@@ -45,10 +45,10 @@ func TestNVDControllerErrorMapping(t *testing.T) {
 		wantStatus int
 		wantCode   string
 	}{
-		{name: "invalid cve", err: matchservice.ErrInvalidCVEID, wantStatus: http.StatusBadRequest, wantCode: "VALIDATION_ERROR"},
-		{name: "not found", err: matchservice.ErrCVENotFound, wantStatus: http.StatusNotFound, wantCode: "NOT_FOUND"},
-		{name: "rate limited", err: matchservice.ErrNVDLookupRateLimited, wantStatus: http.StatusBadGateway, wantCode: "UPSTREAM_ERROR"},
-		{name: "upstream", err: matchservice.ErrMatchExternalService, wantStatus: http.StatusBadGateway, wantCode: "UPSTREAM_ERROR"},
+		{name: "invalid cve", err: assetmatchservice.ErrInvalidCVEID, wantStatus: http.StatusBadRequest, wantCode: "VALIDATION_ERROR"},
+		{name: "not found", err: assetmatchservice.ErrCVENotFound, wantStatus: http.StatusNotFound, wantCode: "NOT_FOUND"},
+		{name: "rate limited", err: assetmatchservice.ErrNVDLookupRateLimited, wantStatus: http.StatusBadGateway, wantCode: "UPSTREAM_ERROR"},
+		{name: "upstream", err: assetmatchservice.ErrMatchExternalService, wantStatus: http.StatusBadGateway, wantCode: "UPSTREAM_ERROR"},
 	}
 
 	for _, tc := range cases {
@@ -99,7 +99,7 @@ func (f *fakeNVDLookupService) LookupCVE(ec *appcontext.GinContext, cveID string
 	return f.response, nil
 }
 
-var _ matchservice.NVDLookupService = (*fakeNVDLookupService)(nil)
+var _ assetmatchservice.NVDLookupService = (*fakeNVDLookupService)(nil)
 
 func newNVDControllerContext(t *testing.T, cveID string) (*appcontext.GinContext, *httptest.ResponseRecorder) {
 	t.Helper()

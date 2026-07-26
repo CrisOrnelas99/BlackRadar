@@ -7,16 +7,16 @@ import (
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetrepository "blackradar/api/repository/asset"
-	promptservice "blackradar/api/service/prompt"
+	textgenerationservice "blackradar/api/service/text_generation"
 )
 
 type assetServiceImpl struct {
 	assetRepository assetrepository.AssetRepositoryInterface
-	textAI          promptservice.TextGenerationService
+	textAI          textgenerationservice.TextGenerationService
 }
 
 // NewAssetService creates an asset service backed by the supplied repository.
-func NewAssetService(assetRepository assetrepository.AssetRepositoryInterface, textAI promptservice.TextGenerationService) *assetServiceImpl {
+func NewAssetService(assetRepository assetrepository.AssetRepositoryInterface, textAI textgenerationservice.TextGenerationService) *assetServiceImpl {
 	return &assetServiceImpl{
 		assetRepository: assetRepository,
 		textAI:          textAI,
@@ -80,7 +80,7 @@ func (s *assetServiceImpl) CreateAssetFromAI(ec *appcontext.GinContext, rawText 
 		return model.Asset{}, ErrInvalidAssetText
 	}
 
-	response, err := s.textAI.GenerateText(ec.RequestContext(), promptservice.BuildAssetCreationExtractionRequest(sanitizedText))
+	response, err := s.textAI.GenerateText(ec.RequestContext(), textgenerationservice.BuildAssetCreationExtractionRequest(sanitizedText))
 	if err != nil {
 		return model.Asset{}, fmt.Errorf("%w: asset AI extraction failed: %w", ErrAssetExternalService, err)
 	}
