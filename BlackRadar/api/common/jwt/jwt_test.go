@@ -25,12 +25,12 @@ func TestManagerGenerateAccessTokenAndExtractSubject(t *testing.T) {
 		t.Fatal("expected generated token to be non-empty")
 	}
 
-	subject, err := manager.ExtractAccessSubject(token)
+	claims, err := manager.ExtractAccessClaims(token)
 	if err != nil {
-		t.Fatalf("expected subject extraction to succeed: %v", err)
+		t.Fatalf("expected claims extraction to succeed: %v", err)
 	}
-	if subject != testUserID {
-		t.Fatalf("expected subject %q, got %q", testUserID, subject)
+	if claims.Subject != testUserID {
+		t.Fatalf("expected subject %q, got %q", testUserID, claims.Subject)
 	}
 	if manager.AccessExpiration() != time.Hour {
 		t.Fatalf("expected access expiration %s, got %s", time.Hour, manager.AccessExpiration())
@@ -278,9 +278,9 @@ func TestManagerRejectsInvalidTokens(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			subject, err := manager.ExtractAccessSubject(tt.token)
+			claims, err := manager.ExtractAccessClaims(tt.token)
 			if !errors.Is(err, ErrInvalidToken) {
-				t.Fatalf("expected ErrInvalidToken, got subject=%q err=%v", subject, err)
+				t.Fatalf("expected ErrInvalidToken, got claims=%#v err=%v", claims, err)
 			}
 		})
 	}
@@ -343,9 +343,9 @@ func TestManagerRejectsInvalidApplicationClaims(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			token := signToken(t, testSecret, tt.claims)
 
-			subject, err := manager.ExtractAccessSubject(token)
+			claims, err := manager.ExtractAccessClaims(token)
 			if !errors.Is(err, tt.expectErr) {
-				t.Fatalf("expected %v, got subject=%q err=%v", tt.expectErr, subject, err)
+				t.Fatalf("expected %v, got claims=%#v err=%v", tt.expectErr, claims, err)
 			}
 		})
 	}
@@ -377,7 +377,7 @@ func TestManagerGeneratesAndValidatesRefreshTokens(t *testing.T) {
 func TestInvalidTokenWrapsParserDetailsWithoutExposingJwtErrorMatching(t *testing.T) {
 	manager := newTestManager(t)
 
-	_, err := manager.ExtractAccessSubject("not-a-token")
+	_, err := manager.ExtractAccessClaims("not-a-token")
 	if !errors.Is(err, ErrInvalidToken) {
 		t.Fatalf("expected invalid token sentinel, got %v", err)
 	}

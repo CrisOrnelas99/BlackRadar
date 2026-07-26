@@ -140,24 +140,6 @@ func (manager *Manager) ExtractRefreshClaims(tokenString string) (Claims, error)
 	return manager.extractClaims(tokenString, refreshScope, tokenUseRefresh)
 }
 
-// ExtractAccessSubject validates an access token and returns its user ID.
-func (manager *Manager) ExtractAccessSubject(tokenString string) (string, error) {
-	claims, err := manager.ExtractAccessClaims(tokenString)
-	if err != nil {
-		return "", err
-	}
-	return claims.Subject, nil
-}
-
-// ExtractRefreshSubject validates a refresh token and returns its user ID.
-func (manager *Manager) ExtractRefreshSubject(tokenString string) (string, error) {
-	claims, err := manager.ExtractRefreshClaims(tokenString)
-	if err != nil {
-		return "", err
-	}
-	return claims.Subject, nil
-}
-
 // generateToken creates a signed JWT with a restricted token purpose.
 func (manager *Manager) generateToken(
 	userID string,

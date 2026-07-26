@@ -23,8 +23,22 @@ type assetRow struct {
 	UserID string `gorm:"column:user_id"`
 }
 
+type backfillOperations struct {
+	loadAssets       func(ctx context.Context, database *gorm.DB) ([]assetRow, error)
+	runTransaction   func(ctx context.Context, database *gorm.DB, fn func(tx *gorm.DB) error) error
+	refreshAssetRisk func(tx *gorm.DB, assetID string, userID string) error
+}
+
+func defaultBackfillOperations() backfillOperations {
+	return backfillOperations{
+		loadAssets:       loadAssetRows,
+		runTransaction:   runBackfillTransaction,
+		refreshAssetRisk: refreshAssetRisk,
+	}
+}
+
 // loadAssetRows loads the assets that need risk recalculation.
-var loadAssetRows = func(ctx context.Context, database *gorm.DB) ([]assetRow, error) {
+func loadAssetRows(ctx context.Context, database *gorm.DB) ([]assetRow, error) {
 	var assets []assetRow
 	if err := database.WithContext(ctx).Table("assets").Select("id, user_id").Order("id").Find(&assets).Error; err != nil {
 		return nil, err
@@ -33,12 +47,12 @@ var loadAssetRows = func(ctx context.Context, database *gorm.DB) ([]assetRow, er
 }
 
 // runBackfillTransaction runs the risk backfill inside one database transaction.
-var runBackfillTransaction = func(ctx context.Context, database *gorm.DB, fn func(tx *gorm.DB) error) error {
+func runBackfillTransaction(ctx context.Context, database *gorm.DB, fn func(tx *gorm.DB) error) error {
 	return database.WithContext(ctx).Transaction(fn)
 }
 
 // refreshAssetRisk recalculates and persists one asset's risk level.
-var refreshAssetRisk = func(tx *gorm.DB, assetID string, userID string) error {
+func refreshAssetRisk(tx *gorm.DB, assetID string, userID string) error {
 	var asset model.Asset
 	if err := tx.Where("user_id = ? AND id = ?", userID, assetID).
 		First(&asset).Error; err != nil {
@@ -99,18 +113,22 @@ func PointerFromVulnerabilities(vulnerabilities []model.Vulnerability) *string {
 // This is a startup data fix for rows created before risk became nullable
 // and derived from attached vulnerabilities.
 func BackfillAssetRiskLevels(ctx context.Context, database *gorm.DB) error {
+	return backfillAssetRiskLevels(ctx, database, defaultBackfillOperations())
+}
+
+func backfillAssetRiskLevels(ctx context.Context, database *gorm.DB, operations backfillOperations) error {
 	if database == nil {
 		return ErrDatabaseRequired
 	}
 
-	assets, err := loadAssetRows(ctx, database)
+	assets, err := operations.loadAssets(ctx, database)
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrLoadAssetsFailed, err)
 	}
 
-	return runBackfillTransaction(ctx, database, func(tx *gorm.DB) error {
+	return operations.runTransaction(ctx, database, func(tx *gorm.DB) error {
 		for _, asset := range assets {
-			if err := refreshAssetRisk(tx, asset.ID, asset.UserID); err != nil {
+			if err := operations.refreshAssetRisk(tx, asset.ID, asset.UserID); err != nil {
 				return fmt.Errorf(
 					"%w: asset %s: %w",
 					ErrRefreshFailed,
