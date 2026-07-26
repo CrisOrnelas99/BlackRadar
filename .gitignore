@@ -20,3 +20,4 @@ BlackRadar/bin/
 
 # Local project guidance docs
 .agents/
+.codex/
