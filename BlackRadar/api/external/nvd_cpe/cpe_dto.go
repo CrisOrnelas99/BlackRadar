@@ -1,3 +1,4 @@
+// Package cpeclient dto defines CPE request and response contracts used by services.
 package cpeclient
 
 // CPEMatchRequest describes the normalized search terms used for NVD CPE lookup.

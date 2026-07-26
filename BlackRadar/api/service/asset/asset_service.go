@@ -11,9 +11,11 @@ import (
 	textgenerationservice "blackradar/api/service/text_generation"
 )
 
+// assetServiceImpl implements asset business workflows.
 type assetServiceImpl struct {
 	assetRepository assetrepository.AssetRepositoryInterface
 	textAI          openaiexternal.OpenAIClientInterface
+	textGeneration  textgenerationservice.TextGenerationService
 }
 
 // NewAssetService creates an asset service backed by the supplied repository.
@@ -21,6 +23,7 @@ func NewAssetService(assetRepository assetrepository.AssetRepositoryInterface, t
 	return &assetServiceImpl{
 		assetRepository: assetRepository,
 		textAI:          textAI,
+		textGeneration:  textgenerationservice.NewTextGenerationService(),
 	}
 }
 
@@ -79,7 +82,7 @@ func (s *assetServiceImpl) CreateAssetFromAI(ec *appcontext.GinContext, rawText 
 		return model.Asset{}, ErrInvalidAssetText
 	}
 
-	response, err := s.textAI.GenerateText(ec.RequestContext(), textgenerationservice.BuildAssetCreationExtractionRequest(sanitizedText))
+	response, err := s.textAI.GenerateText(ec.RequestContext(), s.textGeneration.BuildAssetCreationExtractionRequest(sanitizedText))
 	if err != nil {
 		return model.Asset{}, fmt.Errorf("%w: asset AI extraction failed: %w", ErrAssetExternalService, err)
 	}

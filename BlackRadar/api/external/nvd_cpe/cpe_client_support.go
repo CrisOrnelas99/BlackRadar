@@ -1,3 +1,5 @@
+// Package cpeclient support handles NVD CPE request construction, validation,
+// and response mapping.
 package cpeclient
 
 import (

@@ -1,9 +1,12 @@
+// Package cveclient errors defines sentinel errors returned by the NVD CVE client.
 package cveclient
 
+// CVEClientError identifies an NVD CVE client failure category.
 type CVEClientError struct {
 	Message string
 }
 
+// Error returns the NVD CVE client error message.
 func (e CVEClientError) Error() string {
 	return e.Message
 }

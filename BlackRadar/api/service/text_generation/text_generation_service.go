@@ -6,6 +6,21 @@ import (
 	cveclient "blackradar/api/external/nvd_cve"
 )
 
+// textGenerationServiceImpl implements safe text-generation request builders.
+type textGenerationServiceImpl struct{}
+
+var _ TextGenerationService = textGenerationServiceImpl{}
+
+// NewTextGenerationService creates a text-generation request builder service.
+func NewTextGenerationService() TextGenerationService {
+	return textGenerationServiceImpl{}
+}
+
+// BuildDiagnosticRequest constructs a fixed prompt used only for provider connectivity testing.
+func (textGenerationServiceImpl) BuildDiagnosticRequest() TextGenerationRequest {
+	return BuildDiagnosticRequest()
+}
+
 // BuildDiagnosticRequest constructs a fixed prompt used only for provider connectivity testing.
 func BuildDiagnosticRequest() TextGenerationRequest {
 	return TextGenerationRequest{
@@ -23,6 +38,11 @@ func BuildDiagnosticRequest() TextGenerationRequest {
 }
 
 // BuildTemporaryMessageRequest constructs a temporary admin-only diagnostic prompt.
+func (textGenerationServiceImpl) BuildTemporaryMessageRequest(message string) TextGenerationRequest {
+	return BuildTemporaryMessageRequest(message)
+}
+
+// BuildTemporaryMessageRequest constructs a temporary admin-only diagnostic prompt.
 func BuildTemporaryMessageRequest(message string) TextGenerationRequest {
 	return TextGenerationRequest{
 		Messages: []TextGenerationMessage{
@@ -36,6 +56,11 @@ func BuildTemporaryMessageRequest(message string) TextGenerationRequest {
 			},
 		},
 	}
+}
+
+// BuildAssetFingerprintExtractionRequest asks the model to normalize messy product text.
+func (textGenerationServiceImpl) BuildAssetFingerprintExtractionRequest(rawText string, deterministicFingerprint string, assetName string, assetType string, assetOperatingSystem string) TextGenerationRequest {
+	return BuildAssetFingerprintExtractionRequest(rawText, deterministicFingerprint, assetName, assetType, assetOperatingSystem)
 }
 
 // BuildAssetFingerprintExtractionRequest asks the model to normalize messy product text.
@@ -58,6 +83,11 @@ func BuildAssetFingerprintExtractionRequest(rawText string, deterministicFingerp
 }
 
 // BuildAssetCreationExtractionRequest asks the model to convert messy text into an asset draft.
+func (textGenerationServiceImpl) BuildAssetCreationExtractionRequest(rawText string) TextGenerationRequest {
+	return BuildAssetCreationExtractionRequest(rawText)
+}
+
+// BuildAssetCreationExtractionRequest asks the model to convert messy text into an asset draft.
 func BuildAssetCreationExtractionRequest(rawText string) TextGenerationRequest {
 	payload := struct {
 		RawText string `json:"rawText"`
@@ -66,6 +96,11 @@ func BuildAssetCreationExtractionRequest(rawText string) TextGenerationRequest {
 	}
 
 	return buildPromptRequest(assetCreationExtractionSystemPrompt, payload)
+}
+
+// BuildAssetMatchRankingRequest constructs the locked prompt envelope used for asset matching.
+func (textGenerationServiceImpl) BuildAssetMatchRankingRequest(fingerprint string, keywordSearch string, candidates []cpeclient.CPECandidate) TextGenerationRequest {
+	return BuildAssetMatchRankingRequest(fingerprint, keywordSearch, candidates)
 }
 
 // BuildAssetMatchRankingRequest constructs the locked prompt envelope used for asset matching.
@@ -85,6 +120,11 @@ func BuildAssetMatchRankingRequest(fingerprint string, keywordSearch string, can
 }
 
 // BuildAssetCVERankingRequest constructs the locked prompt envelope used for NVD CVE keyword fallback ranking.
+func (textGenerationServiceImpl) BuildAssetCVERankingRequest(fingerprint string, keywordSearches []string, candidates []cveclient.CVELookupResponse) TextGenerationRequest {
+	return BuildAssetCVERankingRequest(fingerprint, keywordSearches, candidates)
+}
+
+// BuildAssetCVERankingRequest constructs the locked prompt envelope used for NVD CVE keyword fallback ranking.
 func BuildAssetCVERankingRequest(fingerprint string, keywordSearches []string, candidates []cveclient.CVELookupResponse) TextGenerationRequest {
 	limitedCandidates := limitAssetCVECandidates(candidates)
 	payload := struct {
@@ -98,6 +138,11 @@ func BuildAssetCVERankingRequest(fingerprint string, keywordSearches []string, c
 	}
 
 	return buildPromptRequest(assetCVERankingSystemPrompt, payload)
+}
+
+// BuildAssetCVEKeywordSearchRequest asks the model for bounded NVD keyword search phrases.
+func (textGenerationServiceImpl) BuildAssetCVEKeywordSearchRequest(fingerprint string, deterministicSearches []string) TextGenerationRequest {
+	return BuildAssetCVEKeywordSearchRequest(fingerprint, deterministicSearches)
 }
 
 // BuildAssetCVEKeywordSearchRequest asks the model for bounded NVD keyword search phrases.

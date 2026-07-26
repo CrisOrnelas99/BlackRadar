@@ -1,3 +1,4 @@
+// Package repository support contains shared helpers for asset persistence.
 package repository
 
 import (

@@ -53,6 +53,7 @@ type AssetFingerprint struct {
 	Canonical       string
 }
 
+// assetMatchServiceImpl implements asset-to-CPE and CVE matching workflows.
 type assetMatchServiceImpl struct {
 	assetMatchRepository         assetmatchrepo.AssetMatchRepositoryInterface
 	assetVulnerabilityRepository assetvulnerabilityrepo.AssetVulnerabilityRepositoryInterface
@@ -60,6 +61,7 @@ type assetMatchServiceImpl struct {
 	cpeSearcher                  nvdcpeclient.CPEClientInterface
 	cveSearcher                  nvdcveclient.CVEClientInterface
 	textAI                       openaiexternal.OpenAIClientInterface
+	textGeneration               textgenerationservice.TextGenerationService
 	now                          func() time.Time
 }
 
@@ -72,10 +74,12 @@ func NewAssetMatchService(assetMatchRepository assetmatchrepo.AssetMatchReposito
 		cpeSearcher:                  cpeSearcher,
 		cveSearcher:                  cveSearcher,
 		textAI:                       textAI,
+		textGeneration:               textgenerationservice.NewTextGenerationService(),
 		now:                          time.Now,
 	}
 }
 
+// nvdLookupServiceImpl adapts the NVD CVE client for controller lookups.
 type nvdLookupServiceImpl struct {
 	client nvdcveclient.CVEClientInterface
 }
@@ -572,12 +576,13 @@ func (s *assetMatchServiceImpl) persistMatchAnalysis(ec *appcontext.GinContext, 
 	return updated, nil
 }
 
+// normalizeFingerprintWithAI asks AI to improve a weak deterministic asset fingerprint.
 func (s *assetMatchServiceImpl) normalizeFingerprintWithAI(ctx context.Context, asset model.Asset, rawText string, deterministic AssetFingerprint) (AssetFingerprint, bool) {
 	if s.textAI == nil {
 		return AssetFingerprint{}, false
 	}
 
-	response, err := s.textAI.GenerateText(ctx, textgenerationservice.BuildAssetFingerprintExtractionRequest(
+	response, err := s.textAI.GenerateText(ctx, s.textGenerationBuilder().BuildAssetFingerprintExtractionRequest(
 		rawText,
 		deterministic.Canonical,
 		asset.Name,
@@ -611,7 +616,7 @@ func (s *assetMatchServiceImpl) normalizeFingerprintWithAI(ctx context.Context, 
 
 // rankCandidates asks AI to rank bounded NVD CPE candidates for one fingerprint.
 func (s *assetMatchServiceImpl) rankCandidates(ctx context.Context, fingerprint AssetFingerprint, keywordSearch string, candidates []nvdcpeclient.CPECandidate) (assetMatchRankingResponse, error) {
-	request := textgenerationservice.BuildAssetMatchRankingRequest(fingerprint.Canonical, keywordSearch, candidates)
+	request := s.textGenerationBuilder().BuildAssetMatchRankingRequest(fingerprint.Canonical, keywordSearch, candidates)
 	response, err := s.textAI.GenerateText(ctx, request)
 	if err != nil {
 		return assetMatchRankingResponse{}, err
@@ -631,7 +636,7 @@ func (s *assetMatchServiceImpl) rankKeywordCVEs(ctx context.Context, fingerprint
 		return assetCVERankingResponse{}, ErrMatchExternalService
 	}
 
-	request := textgenerationservice.BuildAssetCVERankingRequest(fingerprint, keywordSearches, candidates)
+	request := s.textGenerationBuilder().BuildAssetCVERankingRequest(fingerprint, keywordSearches, candidates)
 	response, err := s.textAI.GenerateText(ctx, request)
 	if err != nil {
 		return assetCVERankingResponse{}, err
@@ -651,7 +656,7 @@ func (s *assetMatchServiceImpl) expandCVEKeywordSearchesWithAI(ctx context.Conte
 		return deterministicSearches
 	}
 
-	request := textgenerationservice.BuildAssetCVEKeywordSearchRequest(fingerprint, deterministicSearches)
+	request := s.textGenerationBuilder().BuildAssetCVEKeywordSearchRequest(fingerprint, deterministicSearches)
 	response, err := s.textAI.GenerateText(ctx, request)
 	if err != nil {
 		logAssetMatchDebug(logger, "asset ai cve keyword search generation unavailable", "error", err.Error())

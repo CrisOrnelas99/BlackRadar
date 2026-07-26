@@ -1,9 +1,12 @@
+// Package openai errors defines sentinel errors returned by the OpenAI client.
 package openai
 
+// OpenAIClientError identifies an OpenAI client failure category.
 type OpenAIClientError struct {
 	Message string
 }
 
+// Error returns the OpenAI client error message.
 func (e OpenAIClientError) Error() string {
 	return e.Message
 }

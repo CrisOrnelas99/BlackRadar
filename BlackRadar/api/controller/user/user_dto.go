@@ -1,3 +1,4 @@
+// Package controller dto defines user authentication request and response contracts.
 package controller
 
 import (
@@ -41,6 +42,7 @@ type LoginResponse struct {
 	RefreshTokenExpiresAt time.Time    `json:"refreshTokenExpiresAt"`
 }
 
+// ToServiceInput converts a registration request into service input.
 func (r RegisterRequest) ToServiceInput() userservice.RegisterInput {
 	return userservice.RegisterInput{
 		Username: r.Username,
@@ -49,6 +51,7 @@ func (r RegisterRequest) ToServiceInput() userservice.RegisterInput {
 	}
 }
 
+// ToServiceInput converts a login request into service input.
 func (r LoginRequest) ToServiceInput() userservice.LoginInput {
 	return userservice.LoginInput{
 		UserOrEmail: r.UserOrEmail,
@@ -56,6 +59,7 @@ func (r LoginRequest) ToServiceInput() userservice.LoginInput {
 	}
 }
 
+// ToServiceInput converts a refresh-token request into service input.
 func (r RefreshRequest) ToServiceInput() userservice.RefreshInput {
 	return userservice.RefreshInput{RefreshToken: r.RefreshToken}
 }
@@ -69,6 +73,7 @@ func ToUserResponse(user model.User) UserResponse {
 	}
 }
 
+// ToLoginResponse converts a login result into a safe response DTO.
 func ToLoginResponse(result userservice.LoginResult) LoginResponse {
 	return LoginResponse{
 		User:                  ToUserResponse(result.User),

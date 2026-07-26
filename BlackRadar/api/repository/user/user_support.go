@@ -1,3 +1,4 @@
+// Package repository support contains shared helpers for user persistence.
 package repository
 
 import (
@@ -17,6 +18,7 @@ func (r *UserRepository) dbForContext(ec *appcontext.GinContext) *gorm.DB {
 	return r.db
 }
 
+// dbForContext returns the request-scoped database when present, otherwise the repository database.
 func (r *RefreshSessionRepository) dbForContext(ec *appcontext.GinContext) *gorm.DB {
 	if ec != nil && ec.Database() != nil {
 		return ec.Database()
@@ -48,6 +50,7 @@ func RequireAdmin(ec *appcontext.GinContext, db *gorm.DB) error {
 	return nil
 }
 
+// activeRefreshSessionQuery scopes a query to an unrevoked, unexpired refresh session.
 func activeRefreshSessionQuery(db *gorm.DB, tokenID string, userID string, now time.Time) *gorm.DB {
 	return db.Where(
 		"token_id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?",

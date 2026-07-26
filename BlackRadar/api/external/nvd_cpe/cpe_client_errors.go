@@ -1,9 +1,12 @@
+// Package cpeclient errors defines sentinel errors returned by the NVD CPE client.
 package cpeclient
 
+// CPEClientError identifies an NVD CPE client failure category.
 type CPEClientError struct {
 	Message string
 }
 
+// Error returns the NVD CPE client error message.
 func (e CPEClientError) Error() string {
 	return e.Message
 }

@@ -52,6 +52,7 @@ const (
 	databaseConnectDelay    = 2 * time.Second
 )
 
+// ErrDatabaseRequired indicates router startup was attempted without a database.
 var ErrDatabaseRequired = errors.New("runtime requires a database connection")
 
 // Run loads configuration, prepares dependencies, and starts the API server.
@@ -196,7 +197,11 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 	return engine, nil
 }
 
-func connectDatabaseWithRetry(ctx context.Context, cfg config.Config) (*gorm.DB, error) {
+// connectDatabaseWithRetry opens the database, retrying during dependent service startup.
+func connectDatabaseWithRetry(
+	ctx context.Context,
+	cfg config.Config,
+) (*gorm.DB, error) {
 	var lastErr error
 
 	for attempt := 1; attempt <= databaseConnectAttempts; attempt++ {
@@ -219,6 +224,7 @@ func connectDatabaseWithRetry(ctx context.Context, cfg config.Config) (*gorm.DB,
 	return nil, fmt.Errorf("connect database after %d attempts: %w", databaseConnectAttempts, lastErr)
 }
 
+// serverAddress returns the TCP listen address for the configured API port.
 func serverAddress(cfg config.Config) string {
 	return ":" + cfg.Port
 }

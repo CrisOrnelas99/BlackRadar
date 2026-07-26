@@ -1,3 +1,4 @@
+// Package cveclient dto defines the safe CVE response contract exposed by the backend.
 package cveclient
 
 // CVELookupResponse exposes the safe NVD CVE details returned by the backend.

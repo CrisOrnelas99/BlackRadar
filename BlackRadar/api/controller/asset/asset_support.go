@@ -1,3 +1,4 @@
+// Package controller support maps asset service errors to HTTP responses.
 package controller
 
 import (

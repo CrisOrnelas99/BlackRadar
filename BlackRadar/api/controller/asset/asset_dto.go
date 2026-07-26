@@ -1,3 +1,4 @@
+// Package controller dto defines asset request and response contracts.
 package controller
 
 import (
@@ -160,6 +161,7 @@ func ToAssetMatchResponseDTO(asset model.Asset) AssetMatchResponse {
 	}
 }
 
+// trimOptionalString trims optional request text and preserves nil for empty values.
 func trimOptionalString(value *string) *string {
 	if value == nil {
 		return nil

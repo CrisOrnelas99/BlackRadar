@@ -1,9 +1,12 @@
+// Package repository errors defines asset persistence sentinel errors.
 package repository
 
+// AssetRepositoryError identifies an asset repository failure category.
 type AssetRepositoryError struct {
 	Message string
 }
 
+// Error returns the asset repository error message.
 func (e AssetRepositoryError) Error() string {
 	return e.Message
 }

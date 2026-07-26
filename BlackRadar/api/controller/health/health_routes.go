@@ -1,3 +1,4 @@
+// Package health routes registers health and readiness HTTP endpoints.
 package health
 
 import (

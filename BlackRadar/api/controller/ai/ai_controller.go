@@ -15,12 +15,16 @@ const maxTemporaryAIMessageLength = 1000
 
 // AIController handles backend-only AI diagnostic HTTP requests.
 type AIController struct {
-	textAI openaiexternal.OpenAIClientInterface
+	textAI         openaiexternal.OpenAIClientInterface
+	textGeneration textgenerationservice.TextGenerationService
 }
 
 // NewAIController creates a new AIController.
 func NewAIController(textAI openaiexternal.OpenAIClientInterface) *AIController {
-	return &AIController{textAI: textAI}
+	return &AIController{
+		textAI:         textAI,
+		textGeneration: textgenerationservice.NewTextGenerationService(),
+	}
 }
 
 // TestProvider sends a fixed prompt to the configured AI provider.
@@ -30,7 +34,7 @@ func (c *AIController) TestProvider(ec *appcontext.GinContext) {
 		return
 	}
 
-	response, err := c.textAI.GenerateText(ec.RequestContext(), textgenerationservice.BuildDiagnosticRequest())
+	response, err := c.textAI.GenerateText(ec.RequestContext(), c.textGeneration.BuildDiagnosticRequest())
 	if err != nil {
 		shared.HandleError(ec, http.StatusBadGateway, err, "AI provider test failed")
 		return
@@ -62,7 +66,7 @@ func (c *AIController) SendMessage(ec *appcontext.GinContext) {
 		return
 	}
 
-	response, err := c.textAI.GenerateText(ec.RequestContext(), textgenerationservice.BuildTemporaryMessageRequest(message))
+	response, err := c.textAI.GenerateText(ec.RequestContext(), c.textGeneration.BuildTemporaryMessageRequest(message))
 	if err != nil {
 		shared.HandleError(ec, http.StatusBadGateway, err, "AI message request failed")
 		return

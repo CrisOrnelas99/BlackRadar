@@ -1,3 +1,4 @@
+// Package controller dto defines AI request and response contracts.
 package controller
 
 // AITestResponse exposes a safe AI provider connectivity test result.

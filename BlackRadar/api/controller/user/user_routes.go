@@ -1,3 +1,4 @@
+// Package controller routes registers user authentication HTTP endpoints.
 package controller
 
 import (

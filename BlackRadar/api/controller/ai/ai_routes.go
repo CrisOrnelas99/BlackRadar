@@ -1,3 +1,4 @@
+// Package controller routes registers AI HTTP endpoints.
 package controller
 
 import (

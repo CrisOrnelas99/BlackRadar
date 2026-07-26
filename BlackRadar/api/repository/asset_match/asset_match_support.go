@@ -1,3 +1,4 @@
+// Package repository support contains shared helpers for asset match persistence.
 package repository
 
 import (
@@ -12,6 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// dbForContext returns the request-scoped database when present, otherwise the repository database.
 func (r *AssetMatchRepository) dbForContext(ec *appcontext.GinContext) *gorm.DB {
 	if ec != nil && ec.Database() != nil {
 		return ec.Database()
@@ -19,6 +21,7 @@ func (r *AssetMatchRepository) dbForContext(ec *appcontext.GinContext) *gorm.DB 
 	return r.db
 }
 
+// loadActiveVulnerabilitiesForAsset loads active vulnerability assignments for an asset.
 func (r *AssetMatchRepository) loadActiveVulnerabilitiesForAsset(ec *appcontext.GinContext, asset *model.Asset, userID string) error {
 	var vulnerabilities []model.Vulnerability
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
@@ -34,6 +37,7 @@ func (r *AssetMatchRepository) loadActiveVulnerabilitiesForAsset(ec *appcontext.
 	return nil
 }
 
+// createAssetAssessmentWithRandomID persists an asset assessment with a random public identifier.
 func createAssetAssessmentWithRandomID(tx *gorm.DB, assessment *model.AssetAssessment) error {
 	for attempt := 0; attempt < 3; attempt++ {
 		identifier, err := commonid.New()
@@ -57,6 +61,7 @@ func createAssetAssessmentWithRandomID(tx *gorm.DB, assessment *model.AssetAsses
 	return fmt.Errorf("exhausted random id retries for asset assessment")
 }
 
+// setUpdatedBy records the authenticated user as the last updater when available.
 func setUpdatedBy(ec *appcontext.GinContext, target *model.Model) {
 	if ec == nil || target == nil {
 		return

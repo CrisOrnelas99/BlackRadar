@@ -1,3 +1,4 @@
+// Package shared errors defines common controller-layer sentinel errors.
 package shared
 
 // ControllerError represents an HTTP-layer error that occurs before service logic runs.

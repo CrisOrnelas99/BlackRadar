@@ -1,3 +1,4 @@
+// Package shared dto defines common API response contracts.
 package shared
 
 // ErrorResponse is the safe error envelope returned to API clients.

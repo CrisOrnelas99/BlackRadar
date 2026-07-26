@@ -1,3 +1,4 @@
+// Package controller routes registers NVD HTTP endpoints.
 package controller
 
 import (

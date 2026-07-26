@@ -1,3 +1,4 @@
+// Package controller routes registers asset HTTP endpoints.
 package controller
 
 import (

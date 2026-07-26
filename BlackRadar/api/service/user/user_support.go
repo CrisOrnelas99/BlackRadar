@@ -1,3 +1,4 @@
+// Package service support contains validation, normalization, and refresh-session helpers for users.
 package service
 
 import (
@@ -15,6 +16,7 @@ import (
 	userrepository "blackradar/api/repository/user"
 )
 
+// normalizeRegisterInput trims and lowercases registration fields before validation.
 func normalizeRegisterInput(request RegisterInput) RegisterInput {
 	request.Username = strings.TrimSpace(request.Username)
 	request.Email = strings.ToLower(strings.TrimSpace(request.Email))

@@ -1,3 +1,4 @@
+// Package service support contains validation, normalization, and AI parsing helpers for assets.
 package service
 
 import (
@@ -46,6 +47,7 @@ var displayAcronyms = map[string]string{
 	"vm":    "VM",
 }
 
+// assetCreationExtractionResponse represents the constrained AI asset extraction response.
 type assetCreationExtractionResponse struct {
 	Name            string  `json:"name"`
 	Type            string  `json:"type"`

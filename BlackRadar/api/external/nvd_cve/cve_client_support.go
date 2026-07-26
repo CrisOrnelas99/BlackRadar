@@ -1,3 +1,5 @@
+// Package cveclient support handles NVD CVE request construction, validation,
+// retry behavior, and response mapping.
 package cveclient
 
 import (
@@ -279,6 +281,7 @@ func severity(metrics metrics) string {
 	return "UNKNOWN"
 }
 
+// firstSeverity returns the first populated severity from a CVSS metric list.
 func firstSeverity(metrics []cvssMetric) string {
 	if len(metrics) == 0 {
 		return ""

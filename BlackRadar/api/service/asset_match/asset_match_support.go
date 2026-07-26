@@ -1,3 +1,4 @@
+// Package asset_match support contains normalization, ranking, and matching helpers.
 package asset_match
 
 import (
@@ -21,8 +22,10 @@ import (
 	vulnerabilityrepo "blackradar/api/repository/vulnerability"
 	assetservice "blackradar/api/service/asset"
 	assetvulnerabilityservice "blackradar/api/service/asset_vulnerability"
+	textgenerationservice "blackradar/api/service/text_generation"
 )
 
+// fingerprintHints stores product identity extracted from free-form asset text.
 type fingerprintHints struct {
 	vendor          string
 	product         string
@@ -44,6 +47,14 @@ const (
 	aiIngestionMaxBytes = 8192
 	aiIngestionMaxRunes = 4000
 )
+
+// textGenerationBuilder returns the configured text-generation builder or the default one.
+func (s *assetMatchServiceImpl) textGenerationBuilder() textgenerationservice.TextGenerationService {
+	if s.textGeneration != nil {
+		return s.textGeneration
+	}
+	return textgenerationservice.NewTextGenerationService()
+}
 
 // BuildAssetFingerprint turns an asset and optional pasted text into a normalized fingerprint.
 func BuildAssetFingerprint(asset model.Asset, rawText string) AssetFingerprint {
@@ -287,6 +298,7 @@ func composeAssetFingerprint(fingerprint AssetFingerprint) string {
 	return strings.Join(parts, ";")
 }
 
+// translateMatchRepositoryError maps repository errors to asset match service errors.
 func translateMatchRepositoryError(err error) error {
 	switch {
 	case err == nil:
@@ -311,6 +323,7 @@ func translateMatchRepositoryError(err error) error {
 	}
 }
 
+// assetMatchRankingResponse represents the constrained AI CPE ranking response.
 type assetMatchRankingResponse struct {
 	SelectedCPE string   `json:"selectedCpe"`
 	Confidence  float64  `json:"confidence"`
@@ -318,17 +331,20 @@ type assetMatchRankingResponse struct {
 	RankedCPEs  []string `json:"rankedCpes"`
 }
 
+// assetCVERankingResponse represents the constrained AI CVE ranking response.
 type assetCVERankingResponse struct {
 	SelectedCVEIDs []string `json:"selectedCveIds"`
 	Confidence     float64  `json:"confidence"`
 	ReviewNotes    string   `json:"reviewNotes"`
 }
 
+// assetCVEKeywordSearchResponse represents AI-generated CVE keyword searches.
 type assetCVEKeywordSearchResponse struct {
 	KeywordSearches []string `json:"keywordSearches"`
 	ReviewNotes     string   `json:"reviewNotes"`
 }
 
+// cveMatchResult stores CVE candidates and the search source that produced them.
 type cveMatchResult struct {
 	CVEs            []nvdcveclient.CVELookupResponse
 	CPEName         string
@@ -338,6 +354,7 @@ type cveMatchResult struct {
 	KeywordFallback bool
 }
 
+// assetFingerprintExtractionResponse represents the constrained AI fingerprint response.
 type assetFingerprintExtractionResponse struct {
 	Vendor          any `json:"vendor"`
 	Product         any `json:"product"`

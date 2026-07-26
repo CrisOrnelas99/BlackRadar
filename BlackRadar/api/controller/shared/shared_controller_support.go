@@ -44,6 +44,7 @@ func BindJSON(ec *appcontext.GinContext, destination any) bool {
 	return false
 }
 
+// isJSONContentType reports whether the request content type is JSON.
 func isJSONContentType(contentType string) bool {
 	mediaType, _, err := mime.ParseMediaType(contentType)
 	if err != nil {

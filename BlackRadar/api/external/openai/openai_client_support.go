@@ -1,3 +1,5 @@
+// Package openai support maps application text-generation requests to OpenAI
+// API contracts and validates outbound endpoint configuration.
 package openai
 
 import (

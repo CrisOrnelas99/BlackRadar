@@ -18,21 +18,25 @@ import (
 	userrepository "blackradar/api/repository/user"
 )
 
+// RegisterInput contains the fields required to create a user account.
 type RegisterInput struct {
 	Username string
 	Email    string
 	Password string
 }
 
+// LoginInput contains the credentials used to authenticate a user.
 type LoginInput struct {
 	UserOrEmail string
 	Password    string
 }
 
+// RefreshInput contains the refresh token used for token rotation or logout.
 type RefreshInput struct {
 	RefreshToken string
 }
 
+// LoginResult contains issued credentials and the authenticated user.
 type LoginResult struct {
 	User                  model.User
 	Token                 string
@@ -41,6 +45,7 @@ type LoginResult struct {
 	RefreshTokenExpiresAt time.Time
 }
 
+// userServiceImpl implements user authentication workflows.
 type userServiceImpl struct {
 	jwtManager               *commonjwt.Manager
 	userRepository           userrepository.UserRepositoryInterface
