@@ -2,7 +2,7 @@
 
 BlackRadar Security Platform is a focused cybersecurity asset risk platform. It combines asset inventory, vulnerability intelligence, and AI-assisted workflows to help users understand risk across applications, home networks, and imported asset inventories.
 
-For implementation details and agent rules, use `ARCHITECTURE.md`, `CLEANCODE.md`, and `SECURITY.md` together. `README.md` stays at the product and setup level.
+For implementation details and agent research notes, use `.agents/skills/architecture/SKILL.md`, `.agents/skills/clean-code/SKILL.md`, `.agents/skills/security/SKILL.md`, and `.agents/skills/roadmap/SKILL.md` together. `README.md` stays at the product and setup level.
 
 ## Table of Contents
 
@@ -42,7 +42,7 @@ The platform supports multiple inventory contexts, including applications, home 
 
 BlackRadar Security Platform is intentionally designed with clear component separation.
 The backend is the primary security boundary and owner of authorization, persistence, external integration, and AI orchestration.
-See `ARCHITECTURE.md` for the technical layout and `CLEANCODE.md` for code-structure rules that keep the implementation consistent with that layout.
+See `.agents/skills/architecture/SKILL.md` for the technical layout and `.agents/skills/clean-code/SKILL.md` for code-structure rules that keep the implementation consistent with that layout.
 
 - Angular frontend: UI, authentication, asset and vulnerability workflows, chat UX.
 - Go Gin/GORM backend: API, authentication, business logic, data orchestration, NVD/AI integration.
@@ -113,7 +113,7 @@ The repository currently contains these working foundations:
 
 ## Planned Extensions
 
-Future work documented in `ARCHITECTURE.md` includes:
+Future work documented in `.agents/skills/architecture/SKILL.md` includes:
 
 - future organization listing and active organization switching
 - future application-aware scoping on top of a server-side ownership boundary
@@ -138,6 +138,7 @@ Future work documented in `ARCHITECTURE.md` includes:
 AssetManagementRisk/
 |-- BlackRadar/
 |   |-- api/
+|   |-- tests/
 |   |-- ui/
 |   |-- Dockerfile
 |   |-- go.mod
@@ -146,9 +147,16 @@ AssetManagementRisk/
 |-- docker-compose.yml
 |-- .env
 |-- README.md
-|-- CLEANCODE.md
-|-- ARCHITECTURE.md
-|-- SECURITY.md
+|-- .agents/
+|   `-- skills/
+|       |-- architecture/
+|       |   `-- SKILL.md
+|       |-- clean-code/
+|       |   `-- SKILL.md
+|       |-- roadmap/
+|       |   `-- SKILL.md
+|       `-- security/
+|           `-- SKILL.md
 `-- AGENTS.md
 ```
 
@@ -164,11 +172,11 @@ BlackRadar/
 |   |-- model/
 |   |-- platform/
 |   |-- repository/
-|   |-- service/
-|   `-- tests/
+|   `-- service/
 |-- Dockerfile
 |-- go.mod
 |-- go.sum
+|-- tests/
 |-- ui/
 `-- main.go
 ```
@@ -178,12 +186,16 @@ BlackRadar/
 - Controllers handle HTTP binding and response formatting.
 - Services handle business validation, authorization, and use-case orchestration.
 - Repositories handle GORM/database access only.
-- DTOs are separated from domain models.
+- DTOs are separated from domain models and live with the controller component that owns the HTTP contract, with only shared response/error DTOs in `api/controller/shared`.
+- Controller route registration lives in component `*_routes.go` files.
+- Non-entrypoint support code lives in component `*_support.go` files so primary controller, service, repository, middleware, and external client files stay focused.
 - Model files are grouped by domain: `asset.go` owns asset, assessment, and asset-vulnerability persistence models; `user.go` owns user and refresh-session persistence models.
-- `platform` owns runtime infrastructure such as configuration, startup bootstrap, database setup/migrations, and request context.
+- `platform/runtime` owns application wiring and server startup; `main.go` delegates to runtime and stays small.
+- `platform` owns runtime infrastructure such as configuration, local bootstrap seed data, database setup/migrations, request context, and startup composition.
 - `common` stays narrow: secure ID/token helpers, JWT primitives, and shared risk calculation/backfill helpers.
-- Repository, service, and controller packages own their layer-specific error contracts; small helper packages keep simple sentinel errors inline.
-- API collection files live under `BlackRadar/api/tests/`.
+- Repository, service, external, and controller packages own their layer-specific error contracts where those boundaries need stable errors.
+- Repository, service, and external packages expose component-local interfaces only when they are real layer boundaries or useful test seams.
+- API collection files live under `BlackRadar/tests/`.
 - Admin permissions must not be exposed through client-controlled registration.
 
 ## Getting Started
@@ -420,14 +432,15 @@ AI-specific guidance:
 
 ## Security Guidance for Coding Agents
 
-`SECURITY.md` is the mandatory security reference for humans and coding agents working in this repository. Read it before making changes that affect authentication, authorization, validation, secrets, dependencies, Docker, PostgreSQL, external integrations, Angular rendering, Go/Gin/GORM behavior, or AI-assisted workflows.
+`.agents/skills/security/SKILL.md` is the mandatory security reference for humans and coding agents working in this repository. Read it before making changes that affect authentication, authorization, validation, secrets, dependencies, Docker, PostgreSQL, external integrations, Angular rendering, Go/Gin/GORM behavior, or AI-assisted workflows.
 
-`ARCHITECTURE.md` defines the system layout and trust boundaries. `CLEANCODE.md` defines naming, structure, and implementation conventions. `README.md` should not override either of those files.
+`.agents/skills/architecture/SKILL.md` defines the system layout and trust boundaries. `.agents/skills/clean-code/SKILL.md` defines naming, structure, and implementation conventions. `README.md` should not override either of those files.
 
 ## Documentation
 
 - `README.md`: product overview and setup guidance
-- `ARCHITECTURE.md`: technical architecture and implementation direction
-- `CLEANCODE.md`: naming, structure, and implementation conventions
-- `SECURITY.md`: mandatory security policy and secure-coding rules for this repository
+- `.agents/skills/architecture/SKILL.md`: technical architecture and implementation direction
+- `.agents/skills/clean-code/SKILL.md`: naming, structure, and implementation conventions
+- `.agents/skills/roadmap/SKILL.md`: product roadmap, planned features, and sequencing notes
+- `.agents/skills/security/SKILL.md`: mandatory security policy and secure-coding rules for this repository
 - `AGENTS.md`: repository-specific assistant instructions - Creator only
