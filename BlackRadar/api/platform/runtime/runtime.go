@@ -181,7 +181,7 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 	engine.Use(corsMiddleware)
 	engine.Use(filter.RequestFilter())
 
-	controllerhealth.RegisterRoutes(engine, gormDB)
+	controllerhealth.RegisterRoutes(engine, platformdb.NewReadinessChecker(gormDB))
 	controlleruser.RegisterRoutes(engine.Group("/api/auth"), userController)
 
 	authenticationMiddleware, err := jwtmiddleware.Authentication(jwtManager, userRepository, refreshSessionRepository)

@@ -16,27 +16,23 @@ import (
 	nvdcpeclient "blackradar/api/external/nvd_cpe"
 	nvdcveclient "blackradar/api/external/nvd_cve"
 	"blackradar/api/model"
+	platformdb "blackradar/api/platform/db"
 	appcontext "blackradar/api/platform/requestcontext"
+	transactionboundary "blackradar/api/platform/transaction"
 	assetmatchrepo "blackradar/api/repository/asset_match"
 	assetvulnerabilityrepo "blackradar/api/repository/asset_vulnerability"
 	vulnerabilityrepo "blackradar/api/repository/vulnerability"
 	assetservice "blackradar/api/service/asset"
 	assetvulnerabilityservice "blackradar/api/service/asset_vulnerability"
 	textgenerationservice "blackradar/api/service/text_generation"
-	"gorm.io/gorm"
 )
 
 // runAssetMatchTransaction keeps automatic vulnerability attachment and risk refresh atomic.
-func runAssetMatchTransaction(ec *appcontext.GinContext, operation func(*appcontext.GinContext) error) error {
-	if ec == nil || ec.Database() == nil {
-		return operation(ec)
+func runAssetMatchTransaction(runner transactionboundary.Runner, ec *appcontext.GinContext, operation func(*appcontext.GinContext) error) error {
+	if runner == nil {
+		return platformdb.WithinRequestTransaction(ec, operation)
 	}
-
-	return ec.Database().WithContext(ec.RequestContext()).Transaction(func(tx *gorm.DB) error {
-		txContext := *ec
-		txContext.SetDatabase(tx)
-		return operation(&txContext)
-	})
+	return runner.Run(ec, operation)
 }
 
 // fingerprintHints stores product identity extracted from free-form asset text.

@@ -61,15 +61,13 @@ func (r *UserRepository) CreateUser(ec *appcontext.GinContext, user model.User) 
 	}
 
 	for attempt := 0; attempt < 3; attempt++ {
-		if user.ID == "" || attempt > 0 {
-			identifier, err := commonid.New()
-			if err != nil {
-				return model.User{}, fmt.Errorf("%w: generate user id: %w", ErrPersistenceFailure, err)
-			}
-			user.ID = identifier
+		identifier, err := commonid.New()
+		if err != nil {
+			return model.User{}, fmt.Errorf("%w: generate user id: %w", ErrPersistenceFailure, err)
 		}
+		user.ID = identifier
 
-		err := r.dbForContext(ec).WithContext(ec.RequestContext()).Create(&user).Error
+		err = r.dbForContext(ec).WithContext(ec.RequestContext()).Create(&user).Error
 		if err == nil {
 			return user, nil
 		}

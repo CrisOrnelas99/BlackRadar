@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 
 	"blackradar/api/model"
 	requestcontext "blackradar/api/platform/requestcontext"
@@ -59,8 +58,7 @@ func bearerToken(header string) (string, bool) {
 // isAuthenticationNotFound reports whether an authentication lookup failed
 // because the user or session does not exist.
 func isAuthenticationNotFound(err error) bool {
-	return errors.Is(err, gorm.ErrRecordNotFound) ||
-		errors.Is(err, userrepository.ErrRecordNotFound)
+	return errors.Is(err, userrepository.ErrRecordNotFound)
 }
 
 // abortUnauthorized returns a generic bearer authentication failure.

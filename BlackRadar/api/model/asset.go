@@ -17,7 +17,7 @@ const (
 // Asset represents a user-scoped asset stored in PostgreSQL.
 type Asset struct {
 	Model
-	UserID            string           `gorm:"type:uuid;column:user_id;index" json:"-"`
+	UserID            string           `gorm:"type:uuid;column:user_id;index;not null" json:"-"`
 	AssetAssessmentID *string          `gorm:"type:uuid;column:asset_assessment_id;not null;uniqueIndex" json:"-"`
 	Name              string           `gorm:"not null" json:"name"`
 	Type              string           `gorm:"not null" json:"type"`

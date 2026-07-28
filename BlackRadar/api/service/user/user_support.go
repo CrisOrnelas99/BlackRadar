@@ -9,9 +9,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"gorm.io/gorm"
-
 	"blackradar/api/model"
+	platformdb "blackradar/api/platform/db"
 	appcontext "blackradar/api/platform/requestcontext"
 	userrepository "blackradar/api/repository/user"
 )
@@ -83,22 +82,15 @@ func (s *userServiceImpl) rotateRefreshSession(ec *appcontext.GinContext, sessio
 		ExpiresAt:  expiresAt,
 	}
 
-	if ec == nil || ec.Database() == nil {
-		if err := s.refreshSessionRepository.RevokeByTokenIDForUser(ec, session.TokenID, session.UserID); err != nil {
-			return translateUserRepositoryError(err)
-		}
-		return translateUserRepositoryError(s.refreshSessionRepository.CreateRefreshSession(ec, newSession))
+	runner := s.transactionRunner
+	if runner == nil {
+		runner = platformdb.RequestTransactionRunner{}
 	}
-
-	transactionDatabase := ec.Database()
-	return transactionDatabase.WithContext(ec.RequestContext()).Transaction(func(tx *gorm.DB) error {
-		txContext := *ec
-		txContext.SetDatabase(tx)
-
-		if err := s.refreshSessionRepository.RevokeByTokenIDForUser(&txContext, session.TokenID, session.UserID); err != nil {
+	return runner.Run(ec, func(txContext *appcontext.GinContext) error {
+		if err := s.refreshSessionRepository.RevokeByTokenIDForUser(txContext, session.TokenID, session.UserID); err != nil {
 			return translateUserRepositoryError(err)
 		}
-		if err := s.refreshSessionRepository.CreateRefreshSession(&txContext, newSession); err != nil {
+		if err := s.refreshSessionRepository.CreateRefreshSession(txContext, newSession); err != nil {
 			return translateUserRepositoryError(err)
 		}
 		return nil

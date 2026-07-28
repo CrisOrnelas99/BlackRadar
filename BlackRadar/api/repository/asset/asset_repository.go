@@ -112,19 +112,17 @@ func (r *AssetRepository) CreateForUser(ec *appcontext.GinContext, userID string
 	asset.UserID = userID
 
 	for attempt := 0; attempt < 3; attempt++ {
-		if asset.ID == "" || attempt > 0 {
-			identifier, err := commonid.New()
-			if err != nil {
-				return model.Asset{}, fmt.Errorf("%w: generate asset id: %w", ErrPersistenceFailure, err)
-			}
-			asset.ID = identifier
+		identifier, err := commonid.New()
+		if err != nil {
+			return model.Asset{}, fmt.Errorf("%w: generate asset id: %w", ErrPersistenceFailure, err)
 		}
+		asset.ID = identifier
 
 		assessment := model.AssetAssessment{
 			CPEReviewStatus: model.AssetCPEReviewStatusNeedsReview,
 		}
 
-		err := r.dbForContext(ec).WithContext(ec.RequestContext()).Transaction(func(tx *gorm.DB) error {
+		err = r.dbForContext(ec).WithContext(ec.RequestContext()).Transaction(func(tx *gorm.DB) error {
 			if err := createAssetAssessmentWithRandomID(tx, &assessment); err != nil {
 				return err
 			}
@@ -179,7 +177,10 @@ func (r *AssetRepository) UpdateForUser(ec *appcontext.GinContext, id string, us
 	asset.Criticality = updates.Criticality
 	setUpdatedBy(ec, &asset.Model)
 
-	err = r.dbForContext(ec).WithContext(ec.RequestContext()).Save(&asset).Error
+	result := r.dbForContext(ec).WithContext(ec.RequestContext()).
+		Where("id = ? AND user_id = ?", asset.ID, userID).
+		Save(&asset)
+	err = result.Error
 	if err != nil {
 		databaseErr := platformdb.TranslateDatabaseError(err)
 		if errors.Is(databaseErr, platformdb.ErrForeignKeyViolation) {
@@ -189,6 +190,9 @@ func (r *AssetRepository) UpdateForUser(ec *appcontext.GinContext, id string, us
 			return model.Asset{}, fmt.Errorf("%w: %w", ErrCheckConstraintViolation, databaseErr)
 		}
 		return model.Asset{}, fmt.Errorf("%w: update asset: %w", ErrPersistenceFailure, databaseErr)
+	}
+	if result.RowsAffected == 0 {
+		return model.Asset{}, ErrRecordNotFound
 	}
 	return r.FindByIDForUser(ec, id, userID)
 }
@@ -206,8 +210,12 @@ func (r *AssetRepository) DeleteForUser(ec *appcontext.GinContext, id string, us
 			Update("deleted_at", gorm.Expr("NOW()")).Error; err != nil {
 			return err
 		}
-		if err := tx.Delete(&asset).Error; err != nil {
-			return err
+		result := tx.Where("id = ? AND user_id = ?", asset.ID, userID).Delete(&model.Asset{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return ErrRecordNotFound
 		}
 		if asset.AssetAssessmentID != nil {
 			if err := tx.Delete(&model.AssetAssessment{}, *asset.AssetAssessmentID).Error; err != nil {

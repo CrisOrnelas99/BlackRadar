@@ -13,6 +13,8 @@ import (
 	"gorm.io/gorm/logger"
 
 	"blackradar/api/platform/config"
+	appcontext "blackradar/api/platform/requestcontext"
+	transactionboundary "blackradar/api/platform/transaction"
 )
 
 const (
@@ -33,7 +35,13 @@ var (
 	ErrPermissionDenied         = errors.New("permission denied")
 	ErrMissingObject            = errors.New("missing database object")
 	ErrQueryError               = errors.New("query error")
+	ErrTransactionRequired      = errors.New("database transaction is required")
 )
+
+// RequestTransactionRunner executes request-scoped transactions through the database layer.
+type RequestTransactionRunner struct{}
+
+var _ transactionboundary.Runner = RequestTransactionRunner{}
 
 // Connect opens and verifies the application database connection.
 func Connect(ctx context.Context, cfg config.Config) (*gorm.DB, error) {
@@ -164,6 +172,34 @@ func WithinTransaction(ctx context.Context, database *gorm.DB, operation func(tx
 	}
 
 	return nil
+}
+
+// WithinRequestTransaction executes an operation with a request-scoped database transaction.
+//
+// The operation receives a copied request context containing the transaction. Returning an
+// error rolls the transaction back; returning nil commits it. A missing request database
+// fails closed so required multi-step writes cannot continue without atomicity.
+func WithinRequestTransaction(ec *appcontext.GinContext, operation func(*appcontext.GinContext) error) error {
+	if ec == nil {
+		return fmt.Errorf("%w: request context is required", ErrTransactionRequired)
+	}
+	if ec.Database() == nil {
+		return fmt.Errorf("%w: request database is required", ErrTransactionRequired)
+	}
+	if operation == nil {
+		return fmt.Errorf("%w: operation is required", ErrTransactionRequired)
+	}
+
+	return ec.Database().WithContext(ec.RequestContext()).Transaction(func(tx *gorm.DB) error {
+		txContext := *ec
+		txContext.SetDatabase(tx)
+		return operation(&txContext)
+	})
+}
+
+// Run executes a request-scoped transaction through the transaction boundary.
+func (RequestTransactionRunner) Run(ec *appcontext.GinContext, operation func(*appcontext.GinContext) error) error {
+	return WithinRequestTransaction(ec, operation)
 }
 
 // isPostgresError reports whether err is a pgx error with the expected SQLSTATE code.

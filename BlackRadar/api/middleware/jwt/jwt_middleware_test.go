@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 
 	commonjwt "blackradar/api/common/jwt"
 	contextmiddleware "blackradar/api/middleware/context"
@@ -102,7 +101,7 @@ func TestAuthenticationRejectsInvalidCredentials(t *testing.T) {
 		{
 			name:     "unknown user",
 			header:   "Bearer " + mustGenerateToken(t, jwtManager, userID, "analyst", sessionID),
-			users:    &fakeUserLookup{findErr: gorm.ErrRecordNotFound},
+			users:    &fakeUserLookup{findErr: userrepository.ErrRecordNotFound},
 			sessions: &fakeRefreshSessionLookup{session: activeSession},
 		},
 		{

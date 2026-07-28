@@ -547,6 +547,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesStoresNVDResults(t *testing.T) {
 		assetMatchRepository:         repo,
 		assetVulnerabilityRepository: repo,
 		vulnRepository:               vulnRepo,
+		transactionRunner:            testTransactionRunner{},
 		cveSearcher:                  cveSearcher,
 		cpeSearcher: &fakeCPECandidateSearcher{
 			candidates: []nvdcpeclient.CPECandidate{
@@ -600,6 +601,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesNVDValidatedFallbackCPE(t *te
 		assetMatchRepository:         repo,
 		assetVulnerabilityRepository: repo,
 		vulnRepository:               vulnRepo,
+		transactionRunner:            testTransactionRunner{},
 		cveSearcher:                  cveSearcher,
 		cpeSearcher:                  &fakeCPECandidateSearcher{err: errors.New("nvd cpe unavailable")},
 		textAI: &fakeTextGenerationService{
@@ -654,6 +656,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesFallsBackToFirmwareCPEWhenAIUnava
 		assetMatchRepository:         repo,
 		assetVulnerabilityRepository: repo,
 		vulnRepository:               vulnRepo,
+		transactionRunner:            testTransactionRunner{},
 		cveSearcher:                  cveSearcher,
 		cpeSearcher: &fakeCPECandidateSearcher{
 			candidates: []nvdcpeclient.CPECandidate{
@@ -712,6 +715,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesTriesFirmwareAliasFromOperatingSy
 		assetMatchRepository:         repo,
 		assetVulnerabilityRepository: repo,
 		vulnRepository:               vulnRepo,
+		transactionRunner:            testTransactionRunner{},
 		cveSearcher:                  cveSearcher,
 		cpeSearcher:                  searcher,
 		textAI: &fakeTextGenerationService{
@@ -774,6 +778,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesKeywordFallbackAndAIRanking(t
 		assetMatchRepository:         repo,
 		assetVulnerabilityRepository: repo,
 		vulnRepository:               vulnRepo,
+		transactionRunner:            testTransactionRunner{},
 		cveSearcher:                  cveSearcher,
 		cpeSearcher:                  &fakeCPECandidateSearcher{candidates: []nvdcpeclient.CPECandidate{}},
 		textAI: &fakeTextGenerationService{
@@ -846,6 +851,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesFallsThroughToAIKeywordFallbackWh
 		assetMatchRepository:         repo,
 		assetVulnerabilityRepository: repo,
 		vulnRepository:               vulnRepo,
+		transactionRunner:            testTransactionRunner{},
 		cveSearcher:                  cveSearcher,
 		cpeSearcher: &fakeCPECandidateSearcher{
 			candidates: []nvdcpeclient.CPECandidate{
@@ -919,6 +925,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesAIKeywordFallbackWhenExactCPE
 		assetMatchRepository:         repo,
 		assetVulnerabilityRepository: repo,
 		vulnRepository:               vulnRepo,
+		transactionRunner:            testTransactionRunner{},
 		cveSearcher:                  cveSearcher,
 		cpeSearcher: &fakeCPECandidateSearcher{
 			candidates: []nvdcpeclient.CPECandidate{
@@ -998,6 +1005,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesAggregatesAIKeywordSearchesBefore
 		assetMatchRepository:         repo,
 		assetVulnerabilityRepository: repo,
 		vulnRepository:               vulnRepo,
+		transactionRunner:            testTransactionRunner{},
 		cveSearcher:                  cveSearcher,
 		cpeSearcher:                  &fakeCPECandidateSearcher{candidates: []nvdcpeclient.CPECandidate{}},
 		textAI: &fakeTextGenerationService{
@@ -1043,6 +1051,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesStopsKeywordFallbackOnNVDUnavaila
 		assetMatchRepository:         repo,
 		assetVulnerabilityRepository: repo,
 		vulnRepository:               vulnRepo,
+		transactionRunner:            testTransactionRunner{},
 		cveSearcher:                  cveSearcher,
 		cpeSearcher:                  &fakeCPECandidateSearcher{candidates: []nvdcpeclient.CPECandidate{}},
 		now:                          time.Now,
@@ -1275,6 +1284,14 @@ func (f *fakeAssetRepository) RemoveVulnerabilityForUser(ec *appcontext.GinConte
 
 var _ assetmatchrepo.AssetMatchRepositoryInterface = (*fakeAssetRepository)(nil)
 var _ assetvulnerabilityrepo.AssetVulnerabilityRepositoryInterface = (*fakeAssetRepository)(nil)
+
+// testTransactionRunner keeps service tests focused on orchestration without requiring a database.
+type testTransactionRunner struct{}
+
+// Run executes the test operation directly because fake repositories do not persist data.
+func (testTransactionRunner) Run(ec *appcontext.GinContext, operation func(*appcontext.GinContext) error) error {
+	return operation(ec)
+}
 
 type fakeVulnerabilityRepository struct {
 	findErr error

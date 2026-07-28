@@ -15,6 +15,7 @@ import (
 	"gorm.io/gorm"
 
 	"blackradar/api/platform/config"
+	appcontext "blackradar/api/platform/requestcontext"
 )
 
 func init() {
@@ -35,6 +36,34 @@ func TestConnectRejectsMissingDatabaseURL(t *testing.T) {
 func TestCloseAcceptsNilDatabase(t *testing.T) {
 	if err := Close(nil); err != nil {
 		t.Fatalf("expected nil database close to succeed, got %v", err)
+	}
+}
+
+// TestWithinRequestTransactionRejectsMissingRequestDatabase verifies required writes fail closed.
+func TestWithinRequestTransactionRejectsMissingRequestDatabase(t *testing.T) {
+	operationCalled := false
+	err := WithinRequestTransaction(&appcontext.GinContext{}, func(*appcontext.GinContext) error {
+		operationCalled = true
+		return nil
+	})
+
+	if !errors.Is(err, ErrTransactionRequired) {
+		t.Fatalf("expected transaction-required error, got %v", err)
+	}
+	if operationCalled {
+		t.Fatal("expected transaction operation not to run without a request database")
+	}
+}
+
+// TestWithinRequestTransactionRejectsNilRequestContext verifies missing request context fails closed.
+func TestWithinRequestTransactionRejectsNilRequestContext(t *testing.T) {
+	err := WithinRequestTransaction(nil, func(*appcontext.GinContext) error {
+		t.Fatal("transaction operation should not run without a request context")
+		return nil
+	})
+
+	if !errors.Is(err, ErrTransactionRequired) {
+		t.Fatalf("expected transaction-required error, got %v", err)
 	}
 }
 

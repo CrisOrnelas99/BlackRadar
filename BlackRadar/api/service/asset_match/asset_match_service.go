@@ -13,7 +13,9 @@ import (
 	nvdcveclient "blackradar/api/external/nvd_cve"
 	openaiexternal "blackradar/api/external/openai"
 	"blackradar/api/model"
+	platformdb "blackradar/api/platform/db"
 	appcontext "blackradar/api/platform/requestcontext"
+	transactionboundary "blackradar/api/platform/transaction"
 	assetmatchrepo "blackradar/api/repository/asset_match"
 	assetvulnerabilityrepo "blackradar/api/repository/asset_vulnerability"
 	vulnerabilityrepo "blackradar/api/repository/vulnerability"
@@ -64,6 +66,7 @@ type assetMatchServiceImpl struct {
 	textAI                       openaiexternal.OpenAIClientInterface
 	textGeneration               textgenerationservice.TextGenerationService
 	assetRiskService             assetriskservice.AssetRiskService
+	transactionRunner            transactionboundary.Runner
 	now                          func() time.Time
 }
 
@@ -77,6 +80,7 @@ func NewAssetMatchService(assetMatchRepository assetmatchrepo.AssetMatchReposito
 		cveSearcher:                  cveSearcher,
 		textAI:                       textAI,
 		textGeneration:               textgenerationservice.NewTextGenerationService(),
+		transactionRunner:            platformdb.RequestTransactionRunner{},
 		now:                          time.Now,
 	}
 	if len(riskServices) > 0 {
@@ -323,12 +327,13 @@ func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appco
 		analysis.ReviewNotes = "NVD returned CVEs for a backend-built CPE candidate; review recommended"
 	}
 
-	updated, err := s.persistMatchAnalysis(ec, assetID, userID, analysis)
-	if err != nil {
-		return model.Asset{}, err
-	}
+	var updated model.Asset
+	err = runAssetMatchTransaction(s.transactionRunner, ec, func(txContext *appcontext.GinContext) error {
+		updated, err = s.persistMatchAnalysis(txContext, assetID, userID, analysis)
+		if err != nil {
+			return err
+		}
 
-	err = runAssetMatchTransaction(ec, func(txContext *appcontext.GinContext) error {
 		for _, cve := range matchResult.CVEs {
 			vulnerability, err := s.findOrCreateNVDVulnerability(txContext, userID, cve)
 			if err != nil {

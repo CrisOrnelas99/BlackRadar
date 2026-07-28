@@ -14,7 +14,9 @@ import (
 	commontoken "blackradar/api/common/token"
 	"blackradar/api/model"
 	"blackradar/api/platform/config"
+	platformdb "blackradar/api/platform/db"
 	appcontext "blackradar/api/platform/requestcontext"
+	transactionboundary "blackradar/api/platform/transaction"
 	userrepository "blackradar/api/repository/user"
 )
 
@@ -50,11 +52,17 @@ type userServiceImpl struct {
 	jwtManager               *commonjwt.Manager
 	userRepository           userrepository.UserRepositoryInterface
 	refreshSessionRepository userrepository.RefreshSessionRepositoryInterface
+	transactionRunner        transactionboundary.Runner
 }
 
 // NewUserService creates a user service backed by the supplied dependencies.
 func NewUserService(jwtManager *commonjwt.Manager, userRepository userrepository.UserRepositoryInterface, refreshSessionRepository userrepository.RefreshSessionRepositoryInterface) *userServiceImpl {
-	return &userServiceImpl{jwtManager: jwtManager, userRepository: userRepository, refreshSessionRepository: refreshSessionRepository}
+	return &userServiceImpl{
+		jwtManager:               jwtManager,
+		userRepository:           userRepository,
+		refreshSessionRepository: refreshSessionRepository,
+		transactionRunner:        platformdb.RequestTransactionRunner{},
+	}
 }
 
 // Register validates and creates a new user account.

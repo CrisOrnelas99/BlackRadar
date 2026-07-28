@@ -2,11 +2,20 @@
 package health
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
 )
+
+// ReadinessChecker reports whether the application dependencies are ready.
+type ReadinessChecker interface {
+	/*
+		Ping checks the backing dependency using the request context and returns
+		an error when the application is not ready to serve requests.
+	*/
+	Ping(context.Context) error
+}
 
 // Health returns a basic status response for health checks.
 func Health(c *gin.Context) {
@@ -14,20 +23,14 @@ func Health(c *gin.Context) {
 }
 
 // Ready returns readiness based on database connectivity.
-func Ready(database *gorm.DB) gin.HandlerFunc {
+func Ready(database ReadinessChecker) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if database == nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable"})
 			return
 		}
 
-		sqlDB, err := database.DB()
-		if err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable"})
-			return
-		}
-
-		if err := sqlDB.PingContext(c.Request.Context()); err != nil {
+		if err := database.Ping(c.Request.Context()); err != nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unavailable"})
 			return
 		}
