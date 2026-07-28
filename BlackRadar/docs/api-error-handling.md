@@ -36,7 +36,7 @@ The client receives a safe response containing a stable error code, a user-facin
 
 ## 🔄 Transaction Behavior
 
-A transaction-owning service returns the error that should trigger rollback. Multi-step workflows, such as relationship assignment plus risk refresh, use the same request-scoped database session so a partial success cannot be committed.
+A transaction-owning service returns the error that should trigger rollback. Services request the transaction through `platform/transaction`, while `platform/db` implements it with GORM. Multi-step workflows, such as relationship assignment plus risk refresh, use the same request-scoped database session so a partial success cannot be committed.
 
 ## 🧪 Testing Expectations
 

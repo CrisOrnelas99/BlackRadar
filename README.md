@@ -31,7 +31,7 @@ Key capabilities include:
 - backend-enforced authorization and security controls
 - backend rate limiting on auth and NVD lookup endpoints
 - short-lived access tokens with server-side refresh-token sessions
-- request-scoped GORM database sessions with explicit transactions for atomic writes
+- request-scoped GORM database sessions with service transaction boundaries through `platform/transaction`
 - backend OpenAI-assisted asset creation, CPE matching, and NVD vulnerability attachment
 - planned certificate-based authentication for privileged internal service calls
 - planned workflow, alerting, frontend AI flows, organization support, and chatbot features listed below
@@ -47,7 +47,7 @@ See `.agents/skills/architecture/SKILL.md` for the technical layout and `.agents
 - Angular frontend: UI, authentication, asset and vulnerability workflows, chat UX.
 - Go Gin/GORM backend: API, authentication, business logic, data orchestration, NVD/AI integration.
 - PostgreSQL: persistent storage for users, assets, vulnerabilities, and future workflow state.
-- Focused services: asset, vulnerability, asset-vulnerability assignment, asset-risk, and AI matching services, with alerting and CVE refresh services planned.
+- Focused services: asset, AI diagnostics, vulnerability, asset-vulnerability assignment, asset-risk, and AI matching services, with alerting and CVE refresh services planned.
 - Backend request logging and rate limiting are applied to sensitive endpoints.
 
 ### High-level architecture
@@ -75,7 +75,7 @@ Go Gin/GORM backend
 - Backend is the main security and trust boundary.
 - Frontend never calls NVD, AI providers, or internal services directly.
 - Backend enforces validation, authorization, and DTO mapping.
-- Backend write workflows use explicit service-level GORM transactions so partial database updates are rolled back when the operation fails.
+- Backend write workflows request transactions through `platform/transaction`; `platform/db` owns the GORM transaction implementation so partial database updates roll back when the operation fails.
 - Privileged internal service calls should use backend-issued service certificates rather than browser JWTs or shared static secrets.
 - Controller → service → repository captures request flow.
 - Local persistence of imported CVE data is preferred over live UI lookups.
@@ -101,10 +101,12 @@ The repository currently contains these working foundations:
 - admin-only AI diagnostic endpoints
 - user-owned assets and vulnerabilities
 - PostgreSQL UUID primary keys through embedded model metadata
-- request-scoped GORM database sessions with explicit service-owned transactions for atomic writes
+- request-scoped GORM database sessions with service-owned transaction boundaries implemented through the platform transaction runner
 - GORM soft-delete support for audit-relevant records and active-row uniqueness
 - `updated_by_id` audit metadata on mutable model records
 - repository-level database revalidation for privileged mutations
+- ownership predicates on user-owned writes and database-required `user_id` values
+- server-generated UUIDs for persisted records; client request DTOs cannot choose record IDs
 - layered repository/service/controller error handling with safe JSON responses
 - controller → service → repository layering
 - GORM AutoMigrate provisioning
@@ -185,7 +187,9 @@ BlackRadar/
 
 - Controllers handle HTTP binding and response formatting.
 - Services handle business validation, authorization, and use-case orchestration.
+- Services coordinate external providers; the AI diagnostic provider and prompt workflow lives in `api/service/ai`.
 - Repositories handle GORM/database access only.
+- Services request atomic transactions through `api/platform/transaction`; GORM transaction mechanics remain in `api/platform/db`.
 - DTOs are separated from domain models and live with the controller component that owns the HTTP contract, with only shared response/error DTOs in `api/controller/shared`.
 - Controller route registration lives in component `*_routes.go` files.
 - Non-entrypoint support code lives in component `*_support.go` files so primary controller, service, repository, middleware, and external client files stay focused.
@@ -413,7 +417,7 @@ Security principles:
 - server-side authorization enforcement
 - admin permissions enforced in middleware
 - DTO-based request and response handling
-- explicit service-level GORM transactions for atomic database writes
+- service-owned transaction boundaries implemented through the platform transaction runner
 - planned backend-issued service certificates for privileged internal service authentication
 - backend-only AI and external service keys
 - local persistence of vulnerability data over live UI lookups

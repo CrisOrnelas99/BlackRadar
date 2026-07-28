@@ -17,6 +17,8 @@ The primary tables are:
 
 The relationship table is the source of active assignment state. It contains `asset_id`, `vulnerability_id`, `created_at`, and `deleted_at`.
 
+Assets and vulnerabilities require a server-owned `user_id`. Repository validation and database `NOT NULL` constraints work together so an owned record cannot be persisted without an ownership boundary. Record IDs are generated server-side; create request data cannot choose them.
+
 ## 🧬 Model Boundaries
 
 Persistence models live in `api/model`. The asset model owns core inventory fields, the linked assessment, and the many-to-many vulnerability relationship. DTOs remain in controller packages so browser contracts are not treated as database contracts.
@@ -29,7 +31,7 @@ Relationship queries must explicitly include `deleted_at IS NULL` where the join
 
 ## 🔄 Transaction Model
 
-Services own multi-step transaction boundaries. Repositories execute against the request-scoped database handle, including a transaction when one is present.
+Services request multi-step transaction boundaries through `platform/transaction`. `platform/db` supplies the GORM implementation, and repositories execute against the request-scoped database handle, including a transaction when one is present.
 
 Assignment, removal, vulnerability changes, and risk refreshes use one transaction context where consistency requires it. An error rolls the operation back; a nil result commits it.
 
@@ -39,7 +41,7 @@ Startup currently runs GORM `AutoMigrate` and guarded SQL statements from `api/p
 
 ## 🔐 Data Safety
 
-Queries must use parameterized values and ownership predicates. `Unscoped` access is reserved for explicit cleanup, recovery, retention, or test paths. Database constraints reinforce invariants but do not replace authorization checks.
+Queries must use parameterized values and ownership predicates. Update and delete statements must repeat the ownership predicate in the actual write, not rely only on an earlier read. `Unscoped` access is reserved for explicit cleanup, recovery, retention, or test paths. Database constraints reinforce invariants but do not replace authorization checks.
 
 See [security-boundaries.md](security-boundaries.md) for the application trust model and [api-error-handling.md](api-error-handling.md) for persistence error translation.
 

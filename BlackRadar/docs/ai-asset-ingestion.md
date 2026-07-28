@@ -27,6 +27,8 @@ The request selects AI mode and supplies `rawText`. The browser does not call Op
 - The model is required to return JSON matching the backend-owned shape.
 - The resulting draft passes through ordinary asset validation and ownership assignment.
 
+Asset ingestion remains owned by the asset service. The separate `service/ai` package is used for admin diagnostic prompts, not for asset persistence or matching decisions.
+
 AI output cannot set user ID, role, risk state, assessment ownership, or arbitrary database fields.
 
 ## 🔄 Workflow

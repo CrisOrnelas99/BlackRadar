@@ -29,7 +29,7 @@ The root `docker-compose.yml` defines three current services:
 - **Backend:** Builds from `BlackRadar/Dockerfile`, waits for PostgreSQL's health check, exposes port `8080`, and receives the Compose database hostname `postgres` through its environment.
 - **Frontend:** Uses `node:22-alpine`, mounts `BlackRadar/ui`, keeps dependencies in the `frontend_node_modules` volume, and runs Angular's development server on port `4200`.
 
-The frontend depends on the backend for startup ordering. This does not replace request-level readiness checks; the frontend and backend still need their own error handling when a dependency is unavailable.
+The frontend depends on the backend for startup ordering. The backend exposes `/api/health` for a basic process check and `/api/ready` for database readiness. These checks do not replace request-level error handling when a dependency is unavailable.
 
 ## 🔄 Startup Flow
 
