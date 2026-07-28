@@ -2,39 +2,32 @@
 package controller
 
 import (
+	"errors"
 	"net/http"
-	"strings"
 
 	shared "blackradar/api/controller/shared"
-	openaiexternal "blackradar/api/external/openai"
 	appcontext "blackradar/api/platform/requestcontext"
-	textgenerationservice "blackradar/api/service/text_generation"
+	aiservice "blackradar/api/service/ai"
 )
-
-const maxTemporaryAIMessageLength = 1000
 
 // AIController handles backend-only AI diagnostic HTTP requests.
 type AIController struct {
-	textAI         openaiexternal.OpenAIClientInterface
-	textGeneration textgenerationservice.TextGenerationService
+	aiService aiservice.AIService
 }
 
 // NewAIController creates a new AIController.
-func NewAIController(textAI openaiexternal.OpenAIClientInterface) *AIController {
-	return &AIController{
-		textAI:         textAI,
-		textGeneration: textgenerationservice.NewTextGenerationService(),
-	}
+func NewAIController(aiService aiservice.AIService) *AIController {
+	return &AIController{aiService: aiService}
 }
 
 // TestProvider sends a fixed prompt to the configured AI provider.
 func (c *AIController) TestProvider(ec *appcontext.GinContext) {
-	if c.textAI == nil {
+	if c.aiService == nil {
 		shared.HandleError(ec, http.StatusBadGateway, shared.ErrUpstreamUnavailable, "AI provider test failed")
 		return
 	}
 
-	response, err := c.textAI.GenerateText(ec.RequestContext(), c.textGeneration.BuildDiagnosticRequest())
+	response, err := c.aiService.TestProvider(ec.RequestContext())
 	if err != nil {
 		shared.HandleError(ec, http.StatusBadGateway, err, "AI provider test failed")
 		return
@@ -50,24 +43,21 @@ func (c *AIController) TestProvider(ec *appcontext.GinContext) {
 
 // SendMessage sends a temporary admin-only diagnostic message to the configured AI provider.
 func (c *AIController) SendMessage(ec *appcontext.GinContext) {
-	if c.textAI == nil {
-		shared.HandleError(ec, http.StatusBadGateway, shared.ErrUpstreamUnavailable, "AI message request failed")
-		return
-	}
-
 	var request AIMessageRequest
 	if handled := shared.BindJSON(ec, &request); handled {
 		return
 	}
-
-	message := strings.TrimSpace(request.Message)
-	if message == "" || len(message) > maxTemporaryAIMessageLength {
-		shared.HandleError(ec, http.StatusBadRequest, shared.ErrInvalidRequestBody, "Message must be between 1 and 1000 characters")
+	if c.aiService == nil {
+		shared.HandleError(ec, http.StatusBadGateway, shared.ErrUpstreamUnavailable, "AI message request failed")
 		return
 	}
 
-	response, err := c.textAI.GenerateText(ec.RequestContext(), c.textGeneration.BuildTemporaryMessageRequest(message))
+	response, err := c.aiService.SendMessage(ec.RequestContext(), request.Message)
 	if err != nil {
+		if errors.Is(err, aiservice.ErrInvalidAIMessage) {
+			shared.HandleError(ec, http.StatusBadRequest, err, err.Error())
+			return
+		}
 		shared.HandleError(ec, http.StatusBadGateway, err, "AI message request failed")
 		return
 	}

@@ -18,13 +18,14 @@ import (
 	openaiexternal "blackradar/api/external/openai"
 	contextmiddleware "blackradar/api/middleware/context"
 	appcontext "blackradar/api/platform/requestcontext"
+	aiservice "blackradar/api/service/ai"
 	textgenerationservice "blackradar/api/service/text_generation"
 )
 
 func TestAIControllerTestProvider(t *testing.T) {
-	controller := NewAIController(&fakeTextGenerationService{
+	controller := NewAIController(aiservice.NewAIService(&fakeTextGenerationService{
 		response: textgenerationservice.TextGenerationResponse{Text: `{"ok":true,"message":"ai provider reachable"}`, FinishReason: "stop"},
-	})
+	}))
 	ec, recorder := newAIControllerContext(t)
 
 	controller.TestProvider(ec)
@@ -48,7 +49,7 @@ func TestAIControllerTestProvider(t *testing.T) {
 }
 
 func TestAIControllerTestProviderMapsProviderError(t *testing.T) {
-	controller := NewAIController(&fakeTextGenerationService{err: errors.New("provider unavailable")})
+	controller := NewAIController(aiservice.NewAIService(&fakeTextGenerationService{err: errors.New("provider unavailable")}))
 	ec, recorder := newAIControllerContext(t)
 
 	controller.TestProvider(ec)
@@ -77,9 +78,9 @@ func TestAIControllerTestProviderRejectsMissingProvider(t *testing.T) {
 }
 
 func TestAIControllerSendMessage(t *testing.T) {
-	controller := NewAIController(&fakeTextGenerationService{
+	controller := NewAIController(aiservice.NewAIService(&fakeTextGenerationService{
 		response: textgenerationservice.TextGenerationResponse{Text: "Hello from OpenAI.", FinishReason: "completed"},
-	})
+	}))
 	ec, recorder := newAIMessageControllerContext(t, `{"message":"Say hello."}`)
 
 	controller.SendMessage(ec)
@@ -100,7 +101,7 @@ func TestAIControllerSendMessage(t *testing.T) {
 }
 
 func TestAIControllerSendMessageRejectsBlankMessage(t *testing.T) {
-	controller := NewAIController(&fakeTextGenerationService{})
+	controller := NewAIController(aiservice.NewAIService(&fakeTextGenerationService{}))
 	ec, recorder := newAIMessageControllerContext(t, `{"message":"  "}`)
 
 	controller.SendMessage(ec)
@@ -111,7 +112,7 @@ func TestAIControllerSendMessageRejectsBlankMessage(t *testing.T) {
 }
 
 func TestRegisterRoutes(t *testing.T) {
-	controller := NewAIController(&fakeTextGenerationService{response: textgenerationservice.TextGenerationResponse{Text: `{"ok":true}`, FinishReason: "stop"}})
+	controller := NewAIController(aiservice.NewAIService(&fakeTextGenerationService{response: textgenerationservice.TextGenerationResponse{Text: `{"ok":true}`, FinishReason: "stop"}}))
 	engine := gin.New()
 	engine.Use(contextmiddleware.RequestContext(nil))
 	RegisterRoutes(engine.Group("/api"), controller)
