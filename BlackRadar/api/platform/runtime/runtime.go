@@ -38,6 +38,7 @@ import (
 	repositoryassetmatch "blackradar/api/repository/asset_match"
 	repositoryassetrisk "blackradar/api/repository/asset_risk"
 	repositoryassetvulnerability "blackradar/api/repository/asset_vulnerability"
+	repositoryproviderusage "blackradar/api/repository/provider_usage"
 	repositoryuser "blackradar/api/repository/user"
 	repositoryvulnerability "blackradar/api/repository/vulnerability"
 	serviceai "blackradar/api/service/ai"
@@ -129,18 +130,19 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 	assetRiskRepository := repositoryassetrisk.NewAssetRiskRepository(gormDB)
 	refreshSessionRepository := repositoryuser.NewRefreshSessionRepository(gormDB)
 	vulnerabilityRepository := repositoryvulnerability.NewVulnerabilityRepository(gormDB)
+	var providerQuota repositoryproviderusage.RepositoryInterface = repositoryproviderusage.NewRepository(gormDB)
 
 	userService := serviceuser.NewUserService(jwtManager, userRepository, refreshSessionRepository)
-	nvdClient, err := nvdcveclient.NewClient(cfg.NVDAPIBaseURL, cfg.NVDAPIKey)
+	nvdClient, err := nvdcveclient.NewClientWithQuota(cfg.NVDAPIBaseURL, cfg.NVDAPIKey, providerQuota)
 	if err != nil {
 		return nil, fmt.Errorf("nvd client configuration failed: %w", err)
 	}
 	nvdLookupService := serviceassetmatch.NewNVDLookupService(nvdClient)
-	cpeClient, err := nvdcpeclient.NewCPEClient(cfg.NVDCPEAPIBaseURL, cfg.NVDAPIKey)
+	cpeClient, err := nvdcpeclient.NewCPEClientWithQuota(cfg.NVDCPEAPIBaseURL, cfg.NVDAPIKey, providerQuota)
 	if err != nil {
 		return nil, fmt.Errorf("nvd cpe client configuration failed: %w", err)
 	}
-	openAIClient, err := openaiexternal.NewClientWithHTTPClient(cfg.OpenAIAPIEndpoint, cfg.OpenAIAPIKey, cfg.OpenAIModel, &http.Client{Timeout: cfg.OpenAITimeout}, nil)
+	openAIClient, err := openaiexternal.NewClientWithHTTPClientAndQuota(cfg.OpenAIAPIEndpoint, cfg.OpenAIAPIKey, cfg.OpenAIModel, &http.Client{Timeout: cfg.OpenAITimeout}, nil, providerQuota)
 	if err != nil {
 		return nil, fmt.Errorf("openai client configuration failed: %w", err)
 	}

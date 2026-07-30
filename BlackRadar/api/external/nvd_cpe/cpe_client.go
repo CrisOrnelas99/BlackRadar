@@ -4,12 +4,14 @@ package cpeclient
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	providerquota "blackradar/api/external/provider_quota"
 	externalratelimiter "blackradar/api/external/rate_limiter"
 )
 
@@ -21,6 +23,7 @@ type CPEClient struct {
 	apiKey     string
 	httpClient *http.Client
 	limiter    *externalratelimiter.RateLimiter
+	quota      providerquota.Reserver
 }
 
 // NewCPEClient creates a CPE client with host allowlist, timeouts, and rate limits.
@@ -32,8 +35,19 @@ func NewCPEClient(baseURL string, apiKey string) (*CPEClient, error) {
 	return NewCPEClientWithHTTPClient(baseURL, apiKey, newHTTPClient(), externalratelimiter.NewRateLimiter(limit, 30*time.Second))
 }
 
+// NewCPEClientWithQuota creates a production CPE client with durable quota enforcement.
+func NewCPEClientWithQuota(baseURL string, apiKey string, quota providerquota.Reserver) (*CPEClient, error) {
+	limit := nvdQuotaLimit(apiKey)
+	return NewCPEClientWithHTTPClientAndQuota(baseURL, apiKey, newHTTPClient(), externalratelimiter.NewRateLimiter(limit, 30*time.Second), quota)
+}
+
 // NewCPEClientWithHTTPClient creates a CPE client for tests or controlled wiring.
 func NewCPEClientWithHTTPClient(baseURL string, apiKey string, httpClient *http.Client, limiter *externalratelimiter.RateLimiter) (*CPEClient, error) {
+	return NewCPEClientWithHTTPClientAndQuota(baseURL, apiKey, httpClient, limiter, nil)
+}
+
+// NewCPEClientWithHTTPClientAndQuota creates a CPE client with local and durable request limits.
+func NewCPEClientWithHTTPClientAndQuota(baseURL string, apiKey string, httpClient *http.Client, limiter *externalratelimiter.RateLimiter, quota providerquota.Reserver) (*CPEClient, error) {
 	normalizedBaseURL, err := validateCPEBaseURL(baseURL)
 	if err != nil {
 		return nil, err
@@ -49,6 +63,7 @@ func NewCPEClientWithHTTPClient(baseURL string, apiKey string, httpClient *http.
 		apiKey:     strings.TrimSpace(apiKey),
 		httpClient: httpClient,
 		limiter:    limiter,
+		quota:      quota,
 	}, nil
 }
 
@@ -60,6 +75,14 @@ func (c *CPEClient) SearchCandidates(ctx context.Context, request CPEMatchReques
 	}
 	if !c.limiter.Allow(time.Now()) {
 		return nil, ErrNVDRateLimited
+	}
+	if c.quota != nil {
+		if err := c.quota.Reserve(ctx, providerquota.NVD, time.Now(), nvdQuotaLimit(c.apiKey), 30*time.Second); err != nil {
+			if errors.Is(err, providerquota.ErrExceeded) {
+				return nil, ErrNVDRateLimited
+			}
+			return nil, ErrNVDUnavailable
+		}
 	}
 
 	requestURL, err := c.searchURL(keywordSearch)
@@ -117,4 +140,11 @@ func (c *CPEClient) SearchCandidates(ctx context.Context, request CPEMatchReques
 	}
 
 	return candidates, nil
+}
+
+func nvdQuotaLimit(apiKey string) int {
+	if strings.TrimSpace(apiKey) != "" {
+		return 50
+	}
+	return 5
 }

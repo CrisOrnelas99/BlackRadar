@@ -43,6 +43,8 @@ Organization tenancy is planned and must not be implied by the current implement
 
 NVD and OpenAI are backend-only integrations. The browser cannot supply provider credentials, call providers directly, or override provider validation. Before a structured AI prompt leaves the backend, the payload is minimized and redacted for common secrets and direct identifiers. External results are still treated as untrusted data and converted to bounded internal values before persistence.
 
+Outbound OpenAI and NVD requests pass through a local burst limiter and a durable PostgreSQL-backed provider quota. The durable reservation is atomic and shared across backend instances; if quota enforcement cannot be read or updated, the provider call is rejected.
+
 For AI-assisted asset matching, the backend returns a preview response first and only writes vulnerabilities after an administrator submits the approved CPE. The preview output is advisory, while the apply step is the explicit write boundary.
 
 ## Failure Containment

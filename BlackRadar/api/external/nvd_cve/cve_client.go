@@ -4,12 +4,14 @@ package cveclient
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	providerquota "blackradar/api/external/provider_quota"
 	externalratelimiter "blackradar/api/external/rate_limiter"
 )
 
@@ -24,6 +26,7 @@ type Client struct {
 	apiKey     string
 	httpClient *http.Client
 	limiter    *externalratelimiter.RateLimiter
+	quota      providerquota.Reserver
 	retryDelay time.Duration
 	sleep      func(context.Context, time.Duration) error
 }
@@ -37,8 +40,19 @@ func NewClient(baseURL string, apiKey string) (*Client, error) {
 	return NewClientWithHTTPClient(baseURL, apiKey, newHTTPClient(), externalratelimiter.NewRateLimiter(limit, 30*time.Second))
 }
 
+// NewClientWithQuota creates a production CVE client with durable quota enforcement.
+func NewClientWithQuota(baseURL string, apiKey string, quota providerquota.Reserver) (*Client, error) {
+	limit := nvdQuotaLimit(apiKey)
+	return NewClientWithHTTPClientAndQuota(baseURL, apiKey, newHTTPClient(), externalratelimiter.NewRateLimiter(limit, 30*time.Second), quota)
+}
+
 // NewClientWithHTTPClient creates an NVD client for tests or controlled wiring.
 func NewClientWithHTTPClient(baseURL string, apiKey string, httpClient *http.Client, limiter *externalratelimiter.RateLimiter) (*Client, error) {
+	return NewClientWithHTTPClientAndQuota(baseURL, apiKey, httpClient, limiter, nil)
+}
+
+// NewClientWithHTTPClientAndQuota creates a CVE client with local and durable request limits.
+func NewClientWithHTTPClientAndQuota(baseURL string, apiKey string, httpClient *http.Client, limiter *externalratelimiter.RateLimiter, quota providerquota.Reserver) (*Client, error) {
 	normalizedBaseURL, err := validateBaseURL(baseURL)
 	if err != nil {
 		return nil, err
@@ -54,6 +68,7 @@ func NewClientWithHTTPClient(baseURL string, apiKey string, httpClient *http.Cli
 		apiKey:     strings.TrimSpace(apiKey),
 		httpClient: httpClient,
 		limiter:    limiter,
+		quota:      quota,
 		retryDelay: nvdRetryDelay,
 		sleep:      sleepWithContext,
 	}, nil
@@ -67,6 +82,9 @@ func (c *Client) LookupCVE(ctx context.Context, cveID string) (CVELookupResponse
 	}
 	if !c.limiter.Allow(time.Now()) {
 		return CVELookupResponse{}, ErrNVDRateLimited
+	}
+	if err := c.reserveQuota(ctx); err != nil {
+		return CVELookupResponse{}, err
 	}
 
 	requestURL, err := c.lookupURL(normalizedCVEID)
@@ -122,6 +140,9 @@ func (c *Client) SearchCVEsByCPE(ctx context.Context, cpeName string, limit int)
 	}
 	if !c.limiter.Allow(time.Now()) {
 		return nil, ErrNVDRateLimited
+	}
+	if err := c.reserveQuota(ctx); err != nil {
+		return nil, err
 	}
 
 	requestURL, err := c.cpeSearchURL(cpeName, limit)
@@ -185,6 +206,9 @@ func (c *Client) SearchCVEsByKeyword(ctx context.Context, keywordSearch string, 
 	if !c.limiter.Allow(time.Now()) {
 		return nil, ErrNVDRateLimited
 	}
+	if err := c.reserveQuota(ctx); err != nil {
+		return nil, err
+	}
 
 	requestURL, err := c.keywordSearchURL(keywordSearch, limit)
 	if err != nil {
@@ -230,4 +254,24 @@ func (c *Client) SearchCVEsByKeyword(ctx context.Context, keywordSearch string, 
 	}
 
 	return results, nil
+}
+
+func (c *Client) reserveQuota(ctx context.Context) error {
+	if c.quota == nil {
+		return nil
+	}
+	if err := c.quota.Reserve(ctx, providerquota.NVD, time.Now(), nvdQuotaLimit(c.apiKey), 30*time.Second); err != nil {
+		if errors.Is(err, providerquota.ErrExceeded) {
+			return ErrNVDRateLimited
+		}
+		return ErrNVDUnavailable
+	}
+	return nil
+}
+
+func nvdQuotaLimit(apiKey string) int {
+	if strings.TrimSpace(apiKey) != "" {
+		return 50
+	}
+	return 5
 }

@@ -5,12 +5,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	providerquota "blackradar/api/external/provider_quota"
 	externalratelimiter "blackradar/api/external/rate_limiter"
 	dto "blackradar/api/service/text_generation"
 )
@@ -26,6 +28,7 @@ type Client struct {
 	model      string
 	httpClient *http.Client
 	limiter    *externalratelimiter.RateLimiter
+	quota      providerquota.Reserver
 }
 
 // NewClient creates a client with safe defaults for backend-only use.
@@ -35,6 +38,11 @@ func NewClient(baseURL string, apiKey string, model string) (*Client, error) {
 
 // NewClientWithHTTPClient creates a client for tests or controlled wiring.
 func NewClientWithHTTPClient(baseURL string, apiKey string, model string, httpClient *http.Client, limiter *externalratelimiter.RateLimiter) (*Client, error) {
+	return NewClientWithHTTPClientAndQuota(baseURL, apiKey, model, httpClient, limiter, nil)
+}
+
+// NewClientWithHTTPClientAndQuota creates a client with local and durable request limits.
+func NewClientWithHTTPClientAndQuota(baseURL string, apiKey string, model string, httpClient *http.Client, limiter *externalratelimiter.RateLimiter, quota providerquota.Reserver) (*Client, error) {
 	normalizedBaseURL, err := validateBaseURL(baseURL)
 	if err != nil {
 		return nil, err
@@ -55,6 +63,7 @@ func NewClientWithHTTPClient(baseURL string, apiKey string, model string, httpCl
 		model:      normalizedModel,
 		httpClient: httpClient,
 		limiter:    limiter,
+		quota:      quota,
 	}, nil
 }
 
@@ -72,6 +81,14 @@ func (c *Client) GenerateText(ctx context.Context, request dto.TextGenerationReq
 	}
 	if c.limiter != nil && !c.limiter.Allow(time.Now()) {
 		return dto.TextGenerationResponse{}, ErrOpenAIRateLimited
+	}
+	if c.quota != nil {
+		if err := c.quota.Reserve(ctx, providerquota.OpenAI, time.Now(), 30, defaultOpenAIRateLimitWindow); err != nil {
+			if errors.Is(err, providerquota.ErrExceeded) {
+				return dto.TextGenerationResponse{}, ErrOpenAIRateLimited
+			}
+			return dto.TextGenerationResponse{}, ErrOpenAIUnavailable
+		}
 	}
 
 	payload, err := json.Marshal(toResponsesRequest(request))

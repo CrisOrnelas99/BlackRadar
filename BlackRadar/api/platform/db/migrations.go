@@ -73,6 +73,7 @@ func autoMigrateSchema(ctx context.Context, database *gorm.DB) error {
 		&model.AssetVulnerability{},
 		&model.Asset{},
 		&model.RefreshSession{},
+		&model.ProviderUsageBucket{},
 	); err != nil {
 		return fmt.Errorf("auto migrate schema: %w", err)
 	}

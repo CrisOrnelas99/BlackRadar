@@ -2,7 +2,6 @@
 package cveclient
 
 import (
-	externalratelimiter "blackradar/api/external/rate_limiter"
 	"context"
 	"errors"
 	"io"
@@ -10,6 +9,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	providerquota "blackradar/api/external/provider_quota"
+	externalratelimiter "blackradar/api/external/rate_limiter"
 )
 
 // TestClientLookupCVE verifies request construction and safe DTO mapping.
@@ -410,6 +412,40 @@ func TestClientRejectsMismatchedCVEID(t *testing.T) {
 	if !errors.Is(err, ErrInvalidNVDResponse) {
 		t.Fatalf("expected invalid NVD response, got %v", err)
 	}
+}
+
+func TestClientLookupCVEFailsBeforeProviderCallWhenDurableQuotaIsExhausted(t *testing.T) {
+	providerCalled := false
+	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		providerCalled = true
+		return nil, errors.New("provider should not be called")
+	})
+	client, err := NewClientWithHTTPClientAndQuota(
+		"https://services.nvd.nist.gov/rest/json/cves/2.0",
+		"server-side-key",
+		&http.Client{Transport: transport},
+		externalratelimiter.NewRateLimiter(10, time.Second),
+		fakeQuota{err: providerquota.ErrExceeded},
+	)
+	if err != nil {
+		t.Fatalf("expected client to build, got %v", err)
+	}
+
+	_, err = client.LookupCVE(context.Background(), "CVE-2021-44228")
+	if !errors.Is(err, ErrNVDRateLimited) {
+		t.Fatalf("expected durable quota exhaustion to rate limit request, got %v", err)
+	}
+	if providerCalled {
+		t.Fatal("expected durable quota exhaustion to prevent provider call")
+	}
+}
+
+type fakeQuota struct {
+	err error
+}
+
+func (f fakeQuota) Reserve(context.Context, string, time.Time, int, time.Duration) error {
+	return f.err
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

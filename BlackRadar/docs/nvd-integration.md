@@ -28,7 +28,7 @@ The browser never supplies a provider URL, API key, unrestricted query, or autho
 
 ## ⏱️ Reliability Controls
 
-The current client uses bounded request timeouts, a response body cap, constrained retries for selected transient failures, and process-local rate limiting. Deployments with multiple backend instances require a shared rate-limit mechanism for global enforcement.
+The current client uses bounded request timeouts, a response body cap, constrained retries for selected transient failures, and two layers of request control. The process-local limiter stops bursts inside one instance. A PostgreSQL-backed provider usage bucket atomically reserves requests in a shared UTC window for all backend instances, covering both CPE and CVE calls. If durable quota enforcement is unavailable, the client fails closed before contacting NVD.
 
 ## 🛡️ Security And Errors
 
@@ -47,7 +47,8 @@ See [security-boundaries.md](security-boundaries.md) and [api-error-handling.md]
 
 ## 🚧 Current Limitations
 
-- NVD availability and rate limits remain external dependencies.
+- NVD availability and provider-side rate limits remain external dependencies.
+- Durable usage buckets bound application-originated NVD requests, but do not replace provider-side limits or operational monitoring.
 - Local records are not a complete historical synchronization system.
 - CPE matching is advisory and may require review.
 - Background refresh and organization-wide synchronization are planned.
@@ -59,3 +60,4 @@ See [security-boundaries.md](security-boundaries.md) and [api-error-handling.md]
 - **CPE:** A standardized product/platform identifier.
 - **Provider boundary:** The adapter that isolates external protocol behavior from application services.
 - **Rate limit:** A server-enforced bound on provider requests.
+- **Durable quota:** A PostgreSQL-backed atomic request budget shared by backend instances.

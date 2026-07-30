@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	providerquota "blackradar/api/external/provider_quota"
 	externalratelimiter "blackradar/api/external/rate_limiter"
 	dto "blackradar/api/service/text_generation"
 )
@@ -156,4 +157,42 @@ func TestClientRejectsUnsafeOpenAIBaseURL(t *testing.T) {
 	if !errors.Is(err, ErrInvalidOpenAIBaseURL) {
 		t.Fatalf("expected invalid OpenAI base URL error, got %v", err)
 	}
+}
+
+func TestClientGenerateTextFailsBeforeProviderCallWhenDurableQuotaIsExhausted(t *testing.T) {
+	providerCalled := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		providerCalled = true
+	}))
+	defer server.Close()
+
+	client, err := NewClientWithHTTPClientAndQuota(
+		server.URL+openAIResponsesPath,
+		"test-key",
+		"gpt-4.1-mini",
+		server.Client(),
+		externalratelimiter.NewRateLimiter(10, time.Minute),
+		fakeQuota{err: providerquota.ErrExceeded},
+	)
+	if err != nil {
+		t.Fatalf("expected client creation to succeed, got %v", err)
+	}
+
+	_, err = client.GenerateText(context.Background(), dto.TextGenerationRequest{
+		Messages: []dto.TextGenerationMessage{{Role: "user", Content: "hello"}},
+	})
+	if !errors.Is(err, ErrOpenAIRateLimited) {
+		t.Fatalf("expected durable quota exhaustion to rate limit request, got %v", err)
+	}
+	if providerCalled {
+		t.Fatal("expected durable quota exhaustion to prevent provider call")
+	}
+}
+
+type fakeQuota struct {
+	err error
+}
+
+func (f fakeQuota) Reserve(context.Context, string, time.Time, int, time.Duration) error {
+	return f.err
 }
