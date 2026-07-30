@@ -3,9 +3,24 @@ package text_generation
 
 import (
 	"encoding/json"
+	"regexp"
 
 	cpeclient "blackradar/api/external/nvd_cpe"
 	cveclient "blackradar/api/external/nvd_cve"
+)
+
+const redactedPromptValue = "[REDACTED]"
+
+var (
+	aiPromptEmailPattern         = regexp.MustCompile(`(?i)\b[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}\b`)
+	aiPromptPhonePattern         = regexp.MustCompile(`\b(?:\+?\d{1,3}[ .-]?)?(?:\(?\d{3}\)?[ .-]?)\d{3}[ .-]\d{4}\b`)
+	aiPromptIPv4Pattern          = regexp.MustCompile(`\b(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}\b`)
+	aiPromptMACAddressPattern    = regexp.MustCompile(`(?i)\b(?:[0-9a-f]{2}:){5}[0-9a-f]{2}\b`)
+	aiPromptPrivateKeyPattern    = regexp.MustCompile(`(?s)-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?-----END [A-Z0-9 ]*PRIVATE KEY-----`)
+	aiPromptBearerTokenPattern   = regexp.MustCompile(`(?i)\bbearer[ \t]+[a-z0-9._~+/-]+=*`)
+	aiPromptJWTTokenPattern      = regexp.MustCompile(`\beyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\b`)
+	aiPromptCredentialPattern    = regexp.MustCompile(`(?i)\b(password|passwd|pwd|secret|token|api[_-]?key|access[_-]?token|refresh[_-]?token|authorization|cookie|session(?:[_-]?id)?)\b(\s*[:=]\s*)(?:"(?:\\.|[^"\\])*"|[^\s,;}\]]+)`)
+	aiPromptURLCredentialPattern = regexp.MustCompile(`(?i)\b([a-z][a-z0-9+.-]*://)([^/\s:@]+):([^@/\s]+)@`)
 )
 
 // TextGenerationMessage represents a single message passed to the AI provider boundary.
@@ -150,6 +165,7 @@ func buildPromptRequest(systemPrompt string, payload any) TextGenerationRequest 
 	if err != nil {
 		body = []byte(`{}`)
 	}
+	body = []byte(redactSensitivePromptContent(string(body)))
 
 	return TextGenerationRequest{
 		Messages: []TextGenerationMessage{
@@ -163,6 +179,19 @@ func buildPromptRequest(systemPrompt string, payload any) TextGenerationRequest 
 			},
 		},
 	}
+}
+
+// redactSensitivePromptContent removes common secrets and direct identifiers before provider transmission.
+func redactSensitivePromptContent(content string) string {
+	redacted := aiPromptPrivateKeyPattern.ReplaceAllString(content, redactedPromptValue)
+	redacted = aiPromptURLCredentialPattern.ReplaceAllString(redacted, "${1}${2}:"+redactedPromptValue+"@")
+	redacted = aiPromptBearerTokenPattern.ReplaceAllString(redacted, "Bearer "+redactedPromptValue)
+	redacted = aiPromptJWTTokenPattern.ReplaceAllString(redacted, redactedPromptValue)
+	redacted = aiPromptCredentialPattern.ReplaceAllString(redacted, "${1}${2}"+redactedPromptValue)
+	redacted = aiPromptEmailPattern.ReplaceAllString(redacted, redactedPromptValue)
+	redacted = aiPromptPhonePattern.ReplaceAllString(redacted, redactedPromptValue)
+	redacted = aiPromptIPv4Pattern.ReplaceAllString(redacted, redactedPromptValue)
+	return aiPromptMACAddressPattern.ReplaceAllString(redacted, redactedPromptValue)
 }
 
 // limitAssetMatchCandidates bounds CPE candidates sent to the text-generation provider.

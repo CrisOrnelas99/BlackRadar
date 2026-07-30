@@ -98,6 +98,37 @@ func TestBuildAssetCreationExtractionRequestUsesLockedSystemPrompt(t *testing.T)
 	}
 }
 
+func TestAssetPromptBuildersRedactSensitiveProviderPayloadData(t *testing.T) {
+	creationRequest := BuildAssetCreationExtractionRequest("Contact alice@example.com at 212-555-0198. Host 10.0.0.25 has password=correct-horse-battery-staple.")
+	fingerprintRequest := BuildAssetFingerprintExtractionRequest(
+		"Authorization: Bearer secret-provider-token",
+		"vendor=acme;product=router;token=top-secret-token",
+		"Alice workstation 00:11:22:33:44:55",
+		"Server",
+		"Linux",
+	)
+
+	for _, request := range []TextGenerationRequest{creationRequest, fingerprintRequest} {
+		content := request.Messages[1].Content
+		for _, sensitiveValue := range []string{
+			"alice@example.com",
+			"212-555-0198",
+			"10.0.0.25",
+			"correct-horse-battery-staple",
+			"secret-provider-token",
+			"top-secret-token",
+			"00:11:22:33:44:55",
+		} {
+			if strings.Contains(content, sensitiveValue) {
+				t.Fatalf("expected provider payload to redact %q, got %q", sensitiveValue, content)
+			}
+		}
+		if !strings.Contains(content, redactedPromptValue) {
+			t.Fatalf("expected redacted provider payload, got %q", content)
+		}
+	}
+}
+
 func TestBuildAssetMatchRankingRequestCapsCandidates(t *testing.T) {
 	candidates := make([]cpeclient.CPECandidate, 12)
 	for i := range candidates {
