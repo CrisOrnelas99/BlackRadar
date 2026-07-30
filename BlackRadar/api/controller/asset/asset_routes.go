@@ -17,6 +17,7 @@ func RegisterRoutes(protected *gin.RouterGroup, adminOnly *gin.RouterGroup, cont
 	protected.DELETE("/assets/:id", appcontext.Wrap(controller.DeleteAsset))
 
 	adminOnly.POST("/assets/:id/vulnerabilities/:vulnerabilityId", appcontext.Wrap(controller.AssignVulnerability))
-	adminOnly.POST("/assets/:id/match-cpe/vulnerabilities", ratelimit.AIRateLimit(), appcontext.Wrap(controller.MatchAssetCPEAndAttachVulnerabilities))
+	adminOnly.POST("/assets/:id/match-cpe/preview", ratelimit.AIRateLimit(), appcontext.Wrap(controller.PreviewAssetCPEMatch))
+	adminOnly.POST("/assets/:id/match-cpe/vulnerabilities/apply", ratelimit.AIRateLimit(), appcontext.Wrap(controller.ApplyAssetCPEMatch))
 	adminOnly.DELETE("/assets/:id/vulnerabilities/:vulnerabilityId", appcontext.Wrap(controller.RemoveVulnerability))
 }

@@ -6,7 +6,9 @@ import (
 	"time"
 
 	vulnerabilitycontroller "blackradar/api/controller/vulnerability"
+	nvdcpeclient "blackradar/api/external/nvd_cpe"
 	"blackradar/api/model"
+	assetmatchservice "blackradar/api/service/asset_match"
 )
 
 // AssetRequest describes the writable asset fields accepted by the API.
@@ -86,6 +88,28 @@ type AssetMatchResponse struct {
 	AssetAssessment AssetAssessmentResponse          `json:"assetAssessment"`
 }
 
+// AssetMatchPreviewResponse exposes a non-persistent, AI-assisted CPE proposal for review.
+type AssetMatchPreviewResponse struct {
+	ProductFingerprint string                 `json:"productFingerprint"`
+	SelectedCPE        string                 `json:"selectedCpe,omitempty"`
+	Confidence         float64                `json:"confidence,omitempty"`
+	ReviewStatus       string                 `json:"reviewStatus"`
+	ReviewNotes        string                 `json:"reviewNotes,omitempty"`
+	CandidateCount     int                    `json:"candidateCount"`
+	Candidates         []CPECandidateResponse `json:"candidates"`
+}
+
+// CPECandidateResponse exposes one NVD CPE candidate that an administrator can approve.
+type CPECandidateResponse struct {
+	CPEName string `json:"cpeName"`
+	Title   string `json:"title"`
+}
+
+// ApplyAssetMatchRequest identifies the NVD CPE explicitly approved for persistence.
+type ApplyAssetMatchRequest struct {
+	SelectedCPE string `json:"selectedCpe"`
+}
+
 // ToAssetResponseDTO converts an asset model into its response DTO.
 func ToAssetResponseDTO(asset model.Asset) AssetResponse {
 	return AssetResponse{
@@ -159,6 +183,27 @@ func ToAssetMatchResponseDTO(asset model.Asset) AssetMatchResponse {
 		Asset:           ToAssetWithVulnerabilitiesResponseDTO(asset),
 		AssetAssessment: ToAssetAssessmentResponseDTO(asset),
 	}
+}
+
+// ToAssetMatchPreviewResponseDTO converts a non-persistent analysis into its HTTP response.
+func ToAssetMatchPreviewResponseDTO(analysis assetmatchservice.AssetMatchAnalysis) AssetMatchPreviewResponse {
+	return AssetMatchPreviewResponse{
+		ProductFingerprint: analysis.ProductFingerprint,
+		SelectedCPE:        analysis.SelectedCPE,
+		Confidence:         analysis.Confidence,
+		ReviewStatus:       analysis.ReviewStatus,
+		ReviewNotes:        analysis.ReviewNotes,
+		CandidateCount:     analysis.CandidateCount,
+		Candidates:         toCPECandidateResponseDTOs(analysis.Candidates),
+	}
+}
+
+func toCPECandidateResponseDTOs(candidates []nvdcpeclient.CPECandidate) []CPECandidateResponse {
+	response := make([]CPECandidateResponse, 0, len(candidates))
+	for _, candidate := range candidates {
+		response = append(response, CPECandidateResponse{CPEName: candidate.CPEName, Title: candidate.Title})
+	}
+	return response
 }
 
 // trimOptionalString trims optional request text and preserves nil for empty values.

@@ -222,47 +222,43 @@ func (s *assetMatchServiceImpl) AnalyzeAssetMatch(ctx context.Context, asset mod
 	}, nil
 }
 
-// AnalyzeAndPersistAssetMatch analyzes an asset and stores the result on the asset record.
-func (s *assetMatchServiceImpl) AnalyzeAndPersistAssetMatch(ec *appcontext.GinContext, assetID string) (model.Asset, error) {
+// PreviewAssetMatch returns a non-persistent CPE proposal for an asset.
+func (s *assetMatchServiceImpl) PreviewAssetMatch(ec *appcontext.GinContext, assetID string) (AssetMatchAnalysis, error) {
+	role, err := authenticatedRole(ec)
+	if err != nil {
+		return AssetMatchAnalysis{}, assetvulnerabilityservice.ErrAssetPermissionDenied
+	}
+	if !canManageVulnerabilities(role) {
+		return AssetMatchAnalysis{}, assetvulnerabilityservice.ErrVulnerabilityManagementDenied
+	}
+
 	userID, err := authenticatedUserID(ec)
 	if err != nil {
-		return model.Asset{}, err
+		return AssetMatchAnalysis{}, err
 	}
 
 	asset, err := s.assetMatchRepository.FindByIDForUser(ec, assetID, userID)
 	if err != nil {
-		return model.Asset{}, translateMatchRepositoryError(err)
+		return AssetMatchAnalysis{}, translateMatchRepositoryError(err)
 	}
 
 	analysis, err := s.AnalyzeAssetMatch(ec.RequestContext(), asset, "")
 	if err != nil {
-		return model.Asset{}, err
+		return AssetMatchAnalysis{}, err
 	}
-
-	matchedAt := s.now().UTC()
-	reviewStatus := analysis.ReviewStatus
-	if reviewStatus != model.AssetCPEReviewStatusAccepted {
-		reviewStatus = model.AssetCPEReviewStatusNeedsReview
-	}
-
-	updated, err := s.assetMatchRepository.UpdateMatchAnalysisForUser(ec, assetID, userID, assetmatchrepo.AssetMatchUpdate{
-		ProductFingerprint: stringPtrOrNil(analysis.ProductFingerprint),
-		SelectedCPE:        stringPtrOrNil(analysis.SelectedCPE),
-		CPEConfidence:      floatPtrOrNil(analysis.Confidence),
-		CPEReviewStatus:    reviewStatus,
-		CPEReviewNotes:     stringPtrOrNil(analysis.ReviewNotes),
-		CPECandidateCount:  analysis.CandidateCount,
-		CPEMatchedAt:       &matchedAt,
-	})
-	if err != nil {
-		return model.Asset{}, translateMatchRepositoryError(err)
-	}
-
-	return updated, nil
+	ec.Logger().Info("asset cpe match analysis",
+		"asset_id", assetID,
+		"product_fingerprint", analysis.ProductFingerprint,
+		"nvd_cpe_keyword_search", analysis.KeywordSearch,
+		"nvd_cpe_candidate_count", analysis.CandidateCount,
+		"selected_cpe", analysis.SelectedCPE,
+		"review_status", analysis.ReviewStatus,
+	)
+	return analysis, nil
 }
 
-// AnalyzePersistAndAttachVulnerabilities matches a CPE, fetches NVD CVEs for it, and attaches them to the asset.
-func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appcontext.GinContext, assetID string) (model.Asset, error) {
+// ApplyApprovedCPEMatch attaches NVD vulnerabilities for an administrator-selected CPE.
+func (s *assetMatchServiceImpl) ApplyApprovedCPEMatch(ec *appcontext.GinContext, assetID string, selectedCPE string) (model.Asset, error) {
 	role, err := authenticatedRole(ec)
 	if err != nil {
 		return model.Asset{}, assetvulnerabilityservice.ErrAssetPermissionDenied
@@ -274,57 +270,33 @@ func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appco
 		return model.Asset{}, ErrMatchExternalService
 	}
 
+	selectedCPE = normalizeCPEName(selectedCPE)
+	if !strings.HasPrefix(selectedCPE, "cpe:2.3:") {
+		return model.Asset{}, ErrMatchExternalService
+	}
+
 	userID, err := authenticatedUserID(ec)
 	if err != nil {
 		return model.Asset{}, err
 	}
-
 	asset, err := s.assetMatchRepository.FindByIDForUser(ec, assetID, userID)
 	if err != nil {
 		return model.Asset{}, translateMatchRepositoryError(err)
 	}
 
-	analysis, err := s.AnalyzeAssetMatch(ec.RequestContext(), asset, "")
+	cves, err := s.cveSearcher.SearchCVEsByCPE(ec.RequestContext(), selectedCPE, maxAutoAttachedCVEs)
 	if err != nil {
-		return model.Asset{}, err
+		return model.Asset{}, fmt.Errorf("%w: %v", ErrMatchExternalService, err)
 	}
-	ec.Logger().Info("asset cpe match analysis",
-		"asset_id", assetID,
-		"product_fingerprint", analysis.ProductFingerprint,
-		"nvd_cpe_keyword_search", analysis.KeywordSearch,
-		"nvd_cpe_candidate_count", analysis.CandidateCount,
-		"selected_cpe", analysis.SelectedCPE,
-		"review_status", analysis.ReviewStatus,
-	)
+	if len(cves) == 0 {
+		return model.Asset{}, ValidationError{Message: "selected CPE has no NVD vulnerabilities"}
+	}
 
-	matchResult, err := s.findCVEsForAnalysis(ec.RequestContext(), analysis, ec.Logger())
-	if err != nil {
-		analysis.ReviewStatus = model.AssetCPEReviewStatusNeedsReview
-		analysis.ReviewNotes = "nvd cve search failed"
-		return s.persistMatchAnalysis(ec, assetID, userID, analysis)
-	}
-	if len(matchResult.CVEs) == 0 {
-		analysis.ReviewStatus = model.AssetCPEReviewStatusNeedsReview
-		analysis.ReviewNotes = firstNonEmptyString(matchResult.ReviewNotes, analysis.ReviewNotes, "no NVD CVEs returned for selected CPE")
-		return s.persistMatchAnalysis(ec, assetID, userID, analysis)
-	}
-	if matchResult.KeywordFallback {
-		ec.Logger().Info("asset cve keyword fallback selected",
-			"asset_id", assetID,
-			"nvd_keyword_searches", matchResult.KeywordSearches,
-			"selected_cve_ids", cveIDs(matchResult.CVEs),
-			"ai_confidence", matchResult.Confidence,
-			"ai_review_notes", matchResult.ReviewNotes,
-		)
-		analysis.SelectedCPE = ""
-		analysis.Confidence = matchResult.Confidence
-		analysis.ReviewStatus = model.AssetCPEReviewStatusNeedsReview
-		analysis.ReviewNotes = firstNonEmptyString(matchResult.ReviewNotes, "NVD keyword fallback returned AI-selected CVEs; review required")
-	} else if strings.TrimSpace(analysis.SelectedCPE) == "" {
-		analysis.SelectedCPE = matchResult.CPEName
-		analysis.Confidence = 0.8
-		analysis.ReviewStatus = model.AssetCPEReviewStatusNeedsReview
-		analysis.ReviewNotes = "NVD returned CVEs for a backend-built CPE candidate; review recommended"
+	analysis := AssetMatchAnalysis{
+		ProductFingerprint: BuildAssetFingerprint(asset, "").Canonical,
+		SelectedCPE:        selectedCPE,
+		ReviewStatus:       model.AssetCPEReviewStatusAccepted,
+		ReviewNotes:        "CPE and NVD vulnerabilities approved by an administrator",
 	}
 
 	var updated model.Asset
@@ -334,7 +306,7 @@ func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appco
 			return err
 		}
 
-		for _, cve := range matchResult.CVEs {
+		for _, cve := range cves {
 			vulnerability, err := s.findOrCreateNVDVulnerability(txContext, userID, cve)
 			if err != nil {
 				return err

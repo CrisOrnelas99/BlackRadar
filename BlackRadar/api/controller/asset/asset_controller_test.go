@@ -80,14 +80,15 @@ func TestAssetControllerHandlers(t *testing.T) {
 		}
 	})
 
-	t.Run("match asset cpe and attach vulnerabilities", func(t *testing.T) {
+	t.Run("apply approved asset cpe match", func(t *testing.T) {
 		matchSvc := &fakeAssetMatchService{asset: sampleAsset()}
 		controller := NewAssetController(svc, assetVulnerabilitySvc, matchSvc)
-		ec, recorder := newAssetContext(t, http.MethodPost, "/assets/00000000-0000-4000-8000-000000000001/match-cpe/vulnerabilities", "")
+		ec, recorder := newAssetContext(t, http.MethodPost, "/assets/00000000-0000-4000-8000-000000000001/match-cpe/vulnerabilities/apply", `{"selectedCpe":"cpe:2.3:a:tukaani:xz:5.6.1:*:*:*:*:*:*:*"}`)
 		ec.AddParam("id", "00000000-0000-4000-8000-000000000001")
-		controller.MatchAssetCPEAndAttachVulnerabilities(ec)
-		if matchSvc.attachCalls != 1 {
-			t.Fatalf("expected AnalyzePersistAndAttachVulnerabilities to be called once, got %d", matchSvc.attachCalls)
+		ec.Request.Header.Set("Content-Type", "application/json")
+		controller.ApplyAssetCPEMatch(ec)
+		if matchSvc.applyCalls != 1 {
+			t.Fatalf("expected ApplyApprovedCPEMatch to be called once, got %d", matchSvc.applyCalls)
 		}
 		var response map[string]any
 		if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
@@ -124,13 +125,14 @@ func TestRegisterRoutes(t *testing.T) {
 	}
 
 	recorder = httptest.NewRecorder()
-	request = httptest.NewRequest(http.MethodPost, "/api/assets/00000000-0000-4000-8000-000000000001/match-cpe/vulnerabilities", nil)
+	request = httptest.NewRequest(http.MethodPost, "/api/assets/00000000-0000-4000-8000-000000000001/match-cpe/vulnerabilities/apply", strings.NewReader(`{"selectedCpe":"cpe:2.3:a:tukaani:xz:5.6.1:*:*:*:*:*:*:*"}`))
+	request.Header.Set("Content-Type", "application/json")
 	engine.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected match status %d, got %d", http.StatusOK, recorder.Code)
 	}
-	if assetMatchService.attachCalls != 1 {
-		t.Fatalf("expected AnalyzePersistAndAttachVulnerabilities to be called once, got %d", assetMatchService.attachCalls)
+	if assetMatchService.applyCalls != 1 {
+		t.Fatalf("expected ApplyApprovedCPEMatch to be called once, got %d", assetMatchService.applyCalls)
 	}
 }
 
@@ -280,19 +282,20 @@ type fakeAssetVulnerabilityService struct {
 }
 
 type fakeAssetMatchService struct {
-	asset       model.Asset
-	err         error
-	calls       int
-	attachCalls int
+	asset        model.Asset
+	err          error
+	calls        int
+	previewCalls int
+	applyCalls   int
 }
 
-func (f *fakeAssetMatchService) AnalyzeAndPersistAssetMatch(ec *appcontext.GinContext, assetID string) (model.Asset, error) {
-	f.calls++
-	return f.asset, f.err
+func (f *fakeAssetMatchService) PreviewAssetMatch(ec *appcontext.GinContext, assetID string) (assetmatchservice.AssetMatchAnalysis, error) {
+	f.previewCalls++
+	return assetmatchservice.AssetMatchAnalysis{}, f.err
 }
 
-func (f *fakeAssetMatchService) AnalyzePersistAndAttachVulnerabilities(ec *appcontext.GinContext, assetID string) (model.Asset, error) {
-	f.attachCalls++
+func (f *fakeAssetMatchService) ApplyApprovedCPEMatch(ec *appcontext.GinContext, assetID string, selectedCPE string) (model.Asset, error) {
+	f.applyCalls++
 	return f.asset, f.err
 }
 

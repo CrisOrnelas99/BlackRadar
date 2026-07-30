@@ -12,25 +12,22 @@ import (
 
 type AssetMatchService interface {
 	/*
-		AnalyzeAndPersistAssetMatch analyzes one authenticated user's asset and
-		stores the selected CPE match metadata.
+		PreviewAssetMatch analyzes one authenticated user's asset and returns a
+		non-persistent CPE proposal.
 
-		Implementations should validate the asset id, enforce user ownership,
-		call the text-generation and NVD dependencies needed for matching, and
-		translate repository or external failures into service-layer errors.
+		Implementations must enforce asset ownership and must not persist asset,
+		vulnerability, assignment, or risk changes from the AI analysis.
 	*/
-	AnalyzeAndPersistAssetMatch(ec *appcontext.GinContext, assetID string) (model.Asset, error)
+	PreviewAssetMatch(ec *appcontext.GinContext, assetID string) (AssetMatchAnalysis, error)
 
 	/*
-		AnalyzePersistAndAttachVulnerabilities analyzes one authenticated user's
-		asset, persists CPE match metadata, and attaches matching CVEs.
+		ApplyApprovedCPEMatch attaches NVD vulnerabilities for an administrator-
+		selected CPE and refreshes the affected asset's risk.
 
-		Implementations should keep the matching and relationship updates
-		consistent through the repository layer, enforce ownership, and return
-		service dependency, validation, not-found, or conflict errors when the
-		workflow cannot complete.
+		Implementations must enforce authorization and ownership, validate the
+		selected CPE through NVD before persistence, and keep all writes atomic.
 	*/
-	AnalyzePersistAndAttachVulnerabilities(ec *appcontext.GinContext, assetID string) (model.Asset, error)
+	ApplyApprovedCPEMatch(ec *appcontext.GinContext, assetID string, selectedCPE string) (model.Asset, error)
 }
 
 /*

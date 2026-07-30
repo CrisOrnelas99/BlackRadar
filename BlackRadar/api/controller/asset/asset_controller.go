@@ -191,38 +191,43 @@ func (c *AssetController) RemoveVulnerability(ec *appcontext.GinContext) {
 	ec.JSON(http.StatusOK, ToAssetResponseDTO(asset))
 }
 
-// MatchAssetCPE normalizes saved asset fields, ranks NVD candidates, and stores the selected match metadata.
-func (c *AssetController) MatchAssetCPE(ec *appcontext.GinContext) {
+// PreviewAssetCPEMatch normalizes saved asset fields and returns ranked NVD candidates without persistence.
+func (c *AssetController) PreviewAssetCPEMatch(ec *appcontext.GinContext) {
 	id, err := shared.ParseID(ec.Param("id"))
 	if shared.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid UUID") {
 		return
 	}
 
-	asset, err := c.assetMatchService.AnalyzeAndPersistAssetMatch(ec, id)
+	analysis, err := c.assetMatchService.PreviewAssetMatch(ec, id)
 	if err != nil {
 		if handleAssetServiceError(ec, err) {
 			return
 		}
-		shared.HandleError(ec, http.StatusInternalServerError, err, "Error matching asset CPE")
+		shared.HandleError(ec, http.StatusInternalServerError, err, "Error previewing asset CPE match")
 		return
 	}
 
-	ec.JSON(http.StatusOK, ToAssetMatchResponseDTO(asset))
+	ec.JSON(http.StatusOK, ToAssetMatchPreviewResponseDTO(analysis))
 }
 
-// MatchAssetCPEAndAttachVulnerabilities matches a CPE, fetches NVD CVEs, and attaches them to the asset.
-func (c *AssetController) MatchAssetCPEAndAttachVulnerabilities(ec *appcontext.GinContext) {
+// ApplyAssetCPEMatch attaches NVD vulnerabilities after an administrator approves a CPE in the request body.
+func (c *AssetController) ApplyAssetCPEMatch(ec *appcontext.GinContext) {
 	id, err := shared.ParseID(ec.Param("id"))
 	if shared.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid UUID") {
 		return
 	}
 
-	asset, err := c.assetMatchService.AnalyzePersistAndAttachVulnerabilities(ec, id)
+	var request ApplyAssetMatchRequest
+	if shared.BindJSON(ec, &request) {
+		return
+	}
+
+	asset, err := c.assetMatchService.ApplyApprovedCPEMatch(ec, id, request.SelectedCPE)
 	if err != nil {
 		if handleAssetServiceError(ec, err) {
 			return
 		}
-		shared.HandleError(ec, http.StatusInternalServerError, err, "Error matching asset and assigning vulnerabilities")
+		shared.HandleError(ec, http.StatusInternalServerError, err, "Error applying approved asset CPE match")
 		return
 	}
 

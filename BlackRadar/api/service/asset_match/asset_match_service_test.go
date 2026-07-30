@@ -491,8 +491,7 @@ func TestAnalyzeAssetMatchRejectsUnsafeInput(t *testing.T) {
 	}
 }
 
-func TestAnalyzeAndPersistAssetMatchStoresResult(t *testing.T) {
-	fixedNow := time.Date(2026, time.June, 28, 12, 0, 0, 0, time.UTC)
+func TestPreviewAssetMatchDoesNotPersistResult(t *testing.T) {
 	asset := sampleMatchedAsset()
 	asset.Vendor = ptrString("Dell")
 	asset.Product = ptrString("Latitude 7420")
@@ -510,24 +509,19 @@ func TestAnalyzeAndPersistAssetMatchStoresResult(t *testing.T) {
 				Text: `{"selectedCpe":"cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*","confidence":0.91,"reviewNotes":"strong match","rankedCpes":["cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*"]}`,
 			},
 		},
-		now: func() time.Time { return fixedNow },
 	}
+	ctx := contextForTest(t)
+	ctx.SetUserRole(model.RoleAdmin)
 
-	updated, err := svc.AnalyzeAndPersistAssetMatch(contextForTest(t), "00000000-0000-4000-8000-000000000001")
+	analysis, err := svc.PreviewAssetMatch(ctx, "00000000-0000-4000-8000-000000000001")
 	if err != nil {
-		t.Fatalf("expected persist to succeed, got %v", err)
+		t.Fatalf("expected preview to succeed, got %v", err)
 	}
-	if repo.updateMatchCalls != 1 {
-		t.Fatalf("expected one match update, got %d", repo.updateMatchCalls)
+	if repo.updateMatchCalls != 0 {
+		t.Fatalf("expected preview not to persist a match, got %d updates", repo.updateMatchCalls)
 	}
-	if repo.matchUpdate.CPEReviewStatus != model.AssetCPEReviewStatusAccepted {
-		t.Fatalf("expected accepted status, got %q", repo.matchUpdate.CPEReviewStatus)
-	}
-	if repo.matchUpdate.CPEMatchedAt == nil || !repo.matchUpdate.CPEMatchedAt.Equal(fixedNow) {
-		t.Fatalf("expected matched at %v, got %#v", fixedNow, repo.matchUpdate.CPEMatchedAt)
-	}
-	if updated.ID != repo.asset.ID {
-		t.Fatalf("expected stored asset to be returned, got %s", updated.ID)
+	if analysis.SelectedCPE != "cpe:2.3:a:dell:latitude_7420:*:*:*:*:*:*:*:*" {
+		t.Fatalf("expected previewed CPE, got %q", analysis.SelectedCPE)
 	}
 }
 
@@ -564,12 +558,12 @@ func TestAnalyzePersistAndAttachVulnerabilitiesStoresNVDResults(t *testing.T) {
 	ctx := contextForTest(t)
 	ctx.SetUserRole(model.RoleAdmin)
 
-	_, err := svc.AnalyzePersistAndAttachVulnerabilities(ctx, "00000000-0000-4000-8000-000000000001")
+	_, err := svc.ApplyApprovedCPEMatch(ctx, "00000000-0000-4000-8000-000000000001", "cpe:2.3:a:tukaani:xz:5.6.1:*:*:*:*:*:*:*")
 	if err != nil {
 		t.Fatalf("expected combined match to succeed, got %v", err)
 	}
 	if repo.updateMatchCalls != 1 {
-		t.Fatalf("expected match analysis to be stored once, got %d", repo.updateMatchCalls)
+		t.Fatalf("expected approved match to be stored once, got %d", repo.updateMatchCalls)
 	}
 	if cveSearcher.cpeName != "cpe:2.3:a:tukaani:xz:5.6.1:*:*:*:*:*:*:*" {
 		t.Fatalf("expected selected CPE to be searched, got %q", cveSearcher.cpeName)
@@ -583,6 +577,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesStoresNVDResults(t *testing.T) {
 }
 
 func TestAnalyzePersistAndAttachVulnerabilitiesUsesNVDValidatedFallbackCPE(t *testing.T) {
+	t.Skip("keyword and fallback auto-attachment was removed; approval now requires an explicit CPE")
 	asset := sampleMatchedAsset()
 	asset.OperatingSystem = ptrString("Linux")
 	asset.Vendor = ptrString("Tukaani")
@@ -633,6 +628,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesNVDValidatedFallbackCPE(t *te
 }
 
 func TestAnalyzePersistAndAttachVulnerabilitiesFallsBackToFirmwareCPEWhenAIUnavailable(t *testing.T) {
+	t.Skip("automatic attachment was removed; approval now requires an explicit CPE")
 	asset := sampleMatchedAsset()
 	asset.Name = "Amazon Ring Video Doorbell camera"
 	asset.Type = "IoT Camera"
@@ -688,6 +684,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesFallsBackToFirmwareCPEWhenAIUnava
 }
 
 func TestAnalyzePersistAndAttachVulnerabilitiesTriesFirmwareAliasFromOperatingSystem(t *testing.T) {
+	t.Skip("automatic attachment was removed; approval now requires an explicit CPE")
 	asset := sampleMatchedAsset()
 	asset.Name = "Amazon Ring Video Doorbell camera"
 	asset.Type = "IoT Camera"
@@ -747,6 +744,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesTriesFirmwareAliasFromOperatingSy
 }
 
 func TestAnalyzePersistAndAttachVulnerabilitiesUsesKeywordFallbackAndAIRanking(t *testing.T) {
+	t.Skip("AI-ranked CVEs are advisory and are no longer auto-attached")
 	asset := sampleMatchedAsset()
 	asset.Name = "WP-Ultimate-Map Plugin"
 	asset.Type = "software"
@@ -821,6 +819,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesKeywordFallbackAndAIRanking(t
 }
 
 func TestAnalyzePersistAndAttachVulnerabilitiesFallsThroughToAIKeywordFallbackWhenSelectedCPEReturnsNoCVEs(t *testing.T) {
+	t.Skip("AI-ranked CVEs are advisory and are no longer auto-attached")
 	asset := sampleMatchedAsset()
 	asset.Name = "Unifi Network"
 	asset.Type = "network device"
@@ -898,6 +897,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesFallsThroughToAIKeywordFallbackWh
 }
 
 func TestAnalyzePersistAndAttachVulnerabilitiesUsesAIKeywordFallbackWhenExactCPEVersionIsRejected(t *testing.T) {
+	t.Skip("AI-ranked CVEs are advisory and are no longer auto-attached")
 	asset := sampleMatchedAsset()
 	asset.Name = "Unifi Network"
 	asset.Type = "network device"
@@ -969,6 +969,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesUsesAIKeywordFallbackWhenExactCPE
 }
 
 func TestAnalyzePersistAndAttachVulnerabilitiesAggregatesAIKeywordSearchesBeforeRanking(t *testing.T) {
+	t.Skip("AI-ranked CVEs are advisory and are no longer auto-attached")
 	asset := sampleMatchedAsset()
 	asset.Name = "Unifi Network Device"
 	asset.Type = "network device"
@@ -1037,6 +1038,7 @@ func TestAnalyzePersistAndAttachVulnerabilitiesAggregatesAIKeywordSearchesBefore
 }
 
 func TestAnalyzePersistAndAttachVulnerabilitiesStopsKeywordFallbackOnNVDUnavailable(t *testing.T) {
+	t.Skip("automatic attachment was removed; approval now requires an explicit CPE")
 	asset := sampleMatchedAsset()
 	asset.Name = "WP-Ultimate-Map Plugin"
 	asset.Type = "software"
@@ -1149,14 +1151,23 @@ func TestSortCVECandidatesByPublishedAtDesc(t *testing.T) {
 	}
 }
 
-func TestAnalyzeAndPersistAssetMatchReturnsReviewOnRepositoryError(t *testing.T) {
+func TestPreviewAssetMatchReturnsReviewOnRepositoryError(t *testing.T) {
 	repo := &fakeAssetRepository{asset: sampleMatchedAsset(), findErr: assetmatchrepo.ErrRecordNotFound}
 	svc := &assetMatchServiceImpl{assetMatchRepository: repo, now: time.Now}
+	ctx := contextForTest(t)
+	ctx.SetUserRole(model.RoleAdmin)
 
-	_, err := svc.AnalyzeAndPersistAssetMatch(contextForTest(t), "00000000-0000-4000-8000-000000000001")
+	_, err := svc.PreviewAssetMatch(ctx, "00000000-0000-4000-8000-000000000001")
 	if !errors.Is(err, assetservice.ErrAssetNotFound) {
 		t.Fatalf("expected not found error, got %v", err)
 	}
+}
+
+// AnalyzePersistAndAttachVulnerabilities remains only as a test-build shim so
+// skipped legacy auto-attachment tests can compile while their cases are
+// replaced by explicit-approval tests.
+func (s *assetMatchServiceImpl) AnalyzePersistAndAttachVulnerabilities(ec *appcontext.GinContext, assetID string) (model.Asset, error) {
+	return model.Asset{}, ErrMatchInternal
 }
 
 // TestNVDLookupService verifies validation and successful lookup behavior.
