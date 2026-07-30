@@ -41,7 +41,7 @@ Organization tenancy is planned and must not be implied by the current implement
 
 ## 🔌 External Integrations
 
-NVD and OpenAI are backend-only integrations. The browser cannot supply provider credentials, call providers directly, or override provider validation. External results are treated as untrusted data and converted to bounded internal values before persistence.
+NVD and OpenAI are backend-only integrations. The browser cannot supply provider credentials, call providers directly, or override provider validation. Before a structured AI prompt leaves the backend, the payload is minimized and redacted for common secrets and direct identifiers. External results are still treated as untrusted data and converted to bounded internal values before persistence.
 
 ## 🚨 Failure Containment
 

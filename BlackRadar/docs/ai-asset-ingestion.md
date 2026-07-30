@@ -24,6 +24,7 @@ The request selects AI mode and supplies `rawText`. The browser does not call Op
 
 - The backend owns the prompt, model configuration, provider credentials, output schema, limits, and validation.
 - Raw text is treated as untrusted input and is bounded, normalized, and checked for unsafe instruction-like content.
+- Before the structured prompt leaves the backend, common secrets and direct identifiers are redacted from the payload. This is defense in depth, not a guarantee that every piece of PII is removed.
 - The model is required to return JSON matching the backend-owned shape.
 - The resulting draft passes through ordinary asset validation and ownership assignment.
 

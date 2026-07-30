@@ -431,6 +431,7 @@ AI-specific guidance:
 - keep OpenAI API keys server-side
 - use AI as an assist layer, not a source of truth
 - validate JSON model output before using it
+- minimize outbound prompt payloads and redact common secrets and direct identifiers before provider calls
 - require review for ambiguous or low-confidence matches
 - ground chatbot answers in local data
 
