@@ -61,6 +61,18 @@ func TestUserControllerHandlers(t *testing.T) {
 		}
 	})
 
+	t.Run("login uses a secure refresh cookie in production", func(t *testing.T) {
+		secureController := NewUserController(svc, true)
+		ec, recorder := newUserContext(t, http.MethodPost, "/auth/login", `{"userOrEmail":"analyst","password":"Password1!"}`)
+		ec.Request.Header.Set("Content-Type", "application/json")
+		secureController.Login(ec)
+
+		cookie := recorder.Result().Cookies()[0]
+		if !cookie.HttpOnly || !cookie.Secure || cookie.SameSite != http.SameSiteLaxMode || cookie.Path != refreshTokenCookiePath {
+			t.Fatalf("unexpected refresh cookie attributes: %#v", cookie)
+		}
+	})
+
 	t.Run("refresh", func(t *testing.T) {
 		ec, _ := newUserContext(t, http.MethodPost, "/auth/refresh", "")
 		ec.Request.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh"})
@@ -70,6 +82,17 @@ func TestUserControllerHandlers(t *testing.T) {
 		}
 		if svc.refreshToken != "refresh" {
 			t.Fatalf("expected refresh token from cookie, got %q", svc.refreshToken)
+		}
+	})
+
+	t.Run("refresh without a cookie does not call the service", func(t *testing.T) {
+		ec, recorder := newUserContext(t, http.MethodPost, "/auth/refresh", "")
+		controller.Refresh(ec)
+		if svc.refreshCalls != 1 {
+			t.Fatalf("expected Refresh call count to remain unchanged, got %d", svc.refreshCalls)
+		}
+		if recorder.Code != http.StatusUnauthorized {
+			t.Fatalf("expected refresh without cookie status %d, got %d", http.StatusUnauthorized, recorder.Code)
 		}
 	})
 

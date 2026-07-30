@@ -12,10 +12,10 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   user: {
-    id: number;
+    id: string;
     username: string;
     email: string;
-    organization: string;
+    organization?: string;
   };
   token: string;
   tokenExpiresAt: string;

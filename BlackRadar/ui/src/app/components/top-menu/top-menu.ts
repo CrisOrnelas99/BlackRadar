@@ -34,7 +34,7 @@ export class TopMenuComponent {
 
   // Returns the organization label for the profile box with a safe fallback.
   get organizationName(): string {
-    return this.session().user.organization || 'Organization unavailable';
+    return this.session().user.organization ?? 'Organization unavailable';
   }
 
   // Toggles the page-navigation dropdown and closes the profile panel when needed.
