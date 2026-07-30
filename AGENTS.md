@@ -143,6 +143,31 @@ cd BlackRadar
 go test ./...
 ```
 
+- For Go dependency and update checks, run from `BlackRadar/`:
+
+```powershell
+cd BlackRadar
+go list -m -u all
+go get -u ./...
+go get -u=patch ./...
+govulncheck -show verbose ./...
+govulncheck -show traces ./...
+```
+
+- For npm dependency and update checks, run from `BlackRadar/ui/` where `package.json` and `package-lock.json` live:
+
+```powershell
+cd BlackRadar\ui
+npm outdated
+npm outdated --all
+npm update
+npm audit
+npm audit --loglevel silly
+```
+
+- `npm audit` requires a lockfile. If it reports `ENOLOCK`, the command is being run in the wrong directory or the lockfile is missing.
+- If the npm CLI itself needs to be updated, `npm install -g npm@latest` may fail on older Node versions; prefer a compatible major such as `npm install -g npm@11` only after confirming the installed Node version supports it.
+
 - Do not document machine-specific paths in this file. If the local environment needs a custom Go cache path, set it locally in the shell.
 
 - If only one package changed, run that package first, then broaden if needed.
