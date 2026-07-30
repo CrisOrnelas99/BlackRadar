@@ -1,12 +1,20 @@
 // Route guard that blocks protected screens until client auth is available.
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
+import { catchError, map, of } from 'rxjs';
 import { AuthService } from './auth';
 
-// Returns the dashboard when authenticated or redirects back to login otherwise.
+// Restores a cookie-backed session when possible before redirecting to login.
 export const authGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
-  return auth.isAuthenticated() ? true : router.createUrlTree(['/login']);
+  if (auth.isAuthenticated()) {
+    return true;
+  }
+
+  return auth.refreshSession().pipe(
+    map(() => true),
+    catchError(() => of(router.createUrlTree(['/login']))),
+  );
 };

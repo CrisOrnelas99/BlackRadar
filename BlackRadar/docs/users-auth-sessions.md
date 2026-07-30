@@ -20,9 +20,9 @@ Protected application routes require a valid access token and an active correspo
 ## 🔄 Session Lifecycle
 
 1. Registration validates identity and password fields, hashes the password, and assigns the default role.
-2. Login accepts username or email plus password and returns access/session material only after credential verification.
+2. Login accepts username or email plus password and returns access material only after credential verification.
 3. The access JWT is short-lived and contains scoped claims.
-4. The refresh token identifies server-side session state.
+4. The refresh token identifies server-side session state and is sent to the browser only as an HttpOnly cookie.
 5. Refresh rotates the session and revokes the previous session.
 6. Logout revokes the session so paired access requests fail session validation.
 
@@ -30,7 +30,7 @@ Protected application routes require a valid access token and an active correspo
 
 The user service owns credential workflow, token orchestration, and session lifecycle. Repositories own user and refresh-session persistence. JWT primitives validate signatures and claims. Middleware establishes the authenticated principal for protected requests.
 
-The browser may store session material according to the current frontend implementation, but storage is a security tradeoff and does not replace backend revocation.
+The browser keeps the access token in memory. The refresh token is stored in an HttpOnly cookie so JavaScript cannot read it, and backend revocation remains authoritative.
 
 ## 🛡️ Security Invariants
 
@@ -56,7 +56,7 @@ See [security-boundaries.md](security-boundaries.md) and [api-error-handling.md]
 ## 🚧 Current Limitations
 
 - Organization membership is not part of the current authentication contract.
-- Frontend storage remains a tradeoff that should be hardened for production deployment.
+- Production deployments must keep refresh cookies `Secure`, use restrictive CORS origins, and add CSRF protection before relaxing same-site cookie behavior.
 - Device/session management UI and audit history are future work.
 
 ## 🔑 Key Terms

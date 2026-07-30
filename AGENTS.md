@@ -32,6 +32,14 @@ If the request is security-sensitive, architecture-sensitive, or broad, read all
 - Follow current code examples in nearby files unless they are clearly wrong.
 - If existing code is inconsistent, confusing, unsafe, or overengineered, bring it up with reasoning before changing it.
 
+## Context Hygiene
+
+- Prefer source files, tests, and nearby docs when gathering context.
+- Do not open generated files, build output, caches, logs, or dependency trees unless they are directly relevant to the task.
+- Treat local environment overrides and secrets as low priority unless the request is specifically about them.
+- Use `.gitignore` for Git noise, but rely on this file for Codex workflow guidance.
+- If a low-value path is worth checking for a task, check only the smallest relevant slice instead of browsing the whole tree.
+
 ## Planning Rules
 
 - For non-trivial work, explain the plan before making broad changes.

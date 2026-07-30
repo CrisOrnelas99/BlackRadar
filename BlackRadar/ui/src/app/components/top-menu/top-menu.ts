@@ -2,6 +2,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, HostListener, ViewEncapsulation, input, inject } from '@angular/core';
 import { Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 
 import { BannerService } from '../../services/banner/banner';
 import { AuthService, LoginResponse } from '../../services/auth/auth';
@@ -65,9 +66,13 @@ export class TopMenuComponent {
   // Clears the session, announces the logout, and returns the user to the login page.
   async signOut(): Promise<void> {
     this.closeMenus();
-    this.authService.logout();
-    this.bannerService.show('Signed out successfully.', 'success');
-    await this.router.navigateByUrl('/login');
+    try {
+      await firstValueFrom(this.authService.logout());
+      this.bannerService.show('Signed out successfully.', 'success');
+      await this.router.navigateByUrl('/login');
+    } catch {
+      this.bannerService.show('Unable to confirm sign-out. Try again.', 'error');
+    }
   }
 
   // Closes open panels when the user clicks outside the menu host.

@@ -151,7 +151,7 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 	assetVulnerabilityService := serviceassetvulnerability.NewAssetVulnerabilityService(assetVulnerabilityRepository, vulnerabilityRepository, nvdLookupService, assetRiskService)
 	vulnerabilityService := servicevulnerability.NewVulnerabilityService(vulnerabilityRepository, assetRiskService)
 
-	userController := controlleruser.NewUserController(userService)
+	userController := controlleruser.NewUserController(userService, cfg.IsProduction())
 	aiController := controllerai.NewAIController(serviceai.NewAIService(openAIClient))
 	assetController := controllerasset.NewAssetController(assetService, assetVulnerabilityService, assetMatchService)
 	vulnerabilityController := controllervulnerability.NewVulnerabilityController(vulnerabilityService)
@@ -173,7 +173,7 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 		AllowedMethods:   []string{http.MethodDelete, http.MethodGet, http.MethodOptions, http.MethodPatch, http.MethodPost, http.MethodPut},
 		AllowedHeaders:   []string{"Authorization", "Content-Type"},
 		ExposedHeaders:   []string{"X-Request-ID"},
-		AllowCredentials: false,
+		AllowCredentials: true,
 		MaxAge:           10 * time.Minute,
 	})
 	if err != nil {

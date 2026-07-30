@@ -38,7 +38,7 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
           ),
         ),
         catchError((refreshError: unknown) => {
-          authService.logout();
+          authService.clearSession();
           return throwError(() => refreshError);
         }),
       );

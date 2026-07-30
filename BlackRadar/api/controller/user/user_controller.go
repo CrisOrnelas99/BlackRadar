@@ -2,6 +2,7 @@
 package controller
 
 import (
+	"errors"
 	"net/http"
 
 	shared "blackradar/api/controller/shared"
@@ -11,12 +12,16 @@ import (
 
 // UserController handles authentication requests.
 type UserController struct {
-	userService userservice.UserService
+	userService         userservice.UserService
+	secureRefreshCookie bool
 }
 
 // NewUserController creates a new UserController instance.
-func NewUserController(userService userservice.UserService) *UserController {
-	return &UserController{userService: userService}
+func NewUserController(userService userservice.UserService, secureRefreshCookie bool) *UserController {
+	return &UserController{
+		userService:         userService,
+		secureRefreshCookie: secureRefreshCookie,
+	}
 }
 
 // Register handles new user registration requests.
@@ -54,17 +59,19 @@ func (c *UserController) Login(ec *appcontext.GinContext) {
 		return
 	}
 
+	setRefreshTokenCookie(ec, loginResponse, c.secureRefreshCookie)
 	ec.JSON(http.StatusOK, ToLoginResponse(loginResponse))
 }
 
 // Refresh exchanges a refresh token for fresh credentials.
 func (c *UserController) Refresh(ec *appcontext.GinContext) {
-	var request RefreshRequest
-	if shared.BindJSON(ec, &request) {
+	refreshToken, err := refreshTokenFromCookie(ec)
+	if err != nil {
+		handleUserServiceError(ec, err)
 		return
 	}
 
-	refreshResponse, err := c.userService.Refresh(ec, request.ToServiceInput())
+	refreshResponse, err := c.userService.Refresh(ec, userservice.RefreshInput{RefreshToken: refreshToken})
 	if err != nil {
 		if handleUserServiceError(ec, err) {
 			return
@@ -73,17 +80,25 @@ func (c *UserController) Refresh(ec *appcontext.GinContext) {
 		return
 	}
 
+	setRefreshTokenCookie(ec, refreshResponse, c.secureRefreshCookie)
 	ec.JSON(http.StatusOK, ToLoginResponse(refreshResponse))
 }
 
 // Logout revokes the current refresh token session.
 func (c *UserController) Logout(ec *appcontext.GinContext) {
-	var request RefreshRequest
-	if shared.BindJSON(ec, &request) {
+	refreshToken, err := refreshTokenFromCookie(ec)
+	if err != nil {
+		clearRefreshTokenCookie(ec, c.secureRefreshCookie)
+		ec.Status(http.StatusOK)
 		return
 	}
 
-	if err := c.userService.Logout(ec, request.ToServiceInput()); err != nil {
+	if err := c.userService.Logout(ec, userservice.RefreshInput{RefreshToken: refreshToken}); err != nil {
+		clearRefreshTokenCookie(ec, c.secureRefreshCookie)
+		if errors.Is(err, userservice.ErrInvalidRefreshToken) {
+			ec.Status(http.StatusOK)
+			return
+		}
 		if handleUserServiceError(ec, err) {
 			return
 		}
@@ -91,5 +106,6 @@ func (c *UserController) Logout(ec *appcontext.GinContext) {
 		return
 	}
 
+	clearRefreshTokenCookie(ec, c.secureRefreshCookie)
 	ec.Status(http.StatusOK)
 }

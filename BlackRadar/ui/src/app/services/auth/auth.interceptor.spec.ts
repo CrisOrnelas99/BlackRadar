@@ -4,37 +4,32 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import { environment } from '../../../environments/environment';
-import { authStorageKey } from './auth';
+import { AuthService } from './auth';
 import { authInterceptor } from './auth.interceptor';
 
 describe('authInterceptor', () => {
   let httpClient: HttpClient;
   let httpTestingController: HttpTestingController;
+  let authService: AuthService;
 
   beforeEach(() => {
-    localStorage.clear();
-    localStorage.setItem(
-      authStorageKey,
-      JSON.stringify({
-        user: { id: 1, username: 'analyst', email: 'analyst@example.com' },
-        token: 'token-123',
-        tokenExpiresAt: new Date().toISOString(),
-        refreshToken: 'refresh-123',
-        refreshTokenExpiresAt: new Date().toISOString(),
-      }),
-    );
-
     TestBed.configureTestingModule({
       providers: [provideHttpClient(withInterceptors([authInterceptor])), provideHttpClientTesting()],
     });
 
     httpClient = TestBed.inject(HttpClient);
     httpTestingController = TestBed.inject(HttpTestingController);
+    authService = TestBed.inject(AuthService);
+    authService.session.set({
+      user: { id: 1, username: 'analyst', email: 'analyst@example.com', organization: 'Security' },
+      token: 'token-123',
+      tokenExpiresAt: new Date().toISOString(),
+      refreshTokenExpiresAt: new Date().toISOString(),
+    });
   });
 
   afterEach(() => {
     httpTestingController.verify();
-    localStorage.clear();
   });
 
   it('should attach bearer token to api requests', () => {
@@ -53,12 +48,12 @@ describe('authInterceptor', () => {
     initialRequest.flush({ error: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
 
     const refreshRequest = httpTestingController.expectOne(`${environment.apiUrl}/auth/refresh`);
-    expect(refreshRequest.request.body).toEqual({ refreshToken: 'refresh-123' });
+    expect(refreshRequest.request.body).toEqual({});
+    expect(refreshRequest.request.withCredentials).toBe(true);
     refreshRequest.flush({
       user: { id: 1, username: 'analyst', email: 'analyst@example.com' },
       token: 'token-456',
       tokenExpiresAt: new Date().toISOString(),
-      refreshToken: 'refresh-456',
       refreshTokenExpiresAt: new Date().toISOString(),
     });
 

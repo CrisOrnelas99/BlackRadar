@@ -21,11 +21,6 @@ type LoginRequest struct {
 	Password    string `json:"password"`
 }
 
-// RefreshRequest contains the refresh token used to exchange for a new access token.
-type RefreshRequest struct {
-	RefreshToken string `json:"refreshToken"`
-}
-
 // UserResponse exposes the user fields safe for API responses.
 type UserResponse struct {
 	ID       string `json:"id"`
@@ -38,7 +33,6 @@ type LoginResponse struct {
 	User                  UserResponse `json:"user"`
 	Token                 string       `json:"token"`
 	TokenExpiresAt        time.Time    `json:"tokenExpiresAt"`
-	RefreshToken          string       `json:"refreshToken"`
 	RefreshTokenExpiresAt time.Time    `json:"refreshTokenExpiresAt"`
 }
 
@@ -59,11 +53,6 @@ func (r LoginRequest) ToServiceInput() userservice.LoginInput {
 	}
 }
 
-// ToServiceInput converts a refresh-token request into service input.
-func (r RefreshRequest) ToServiceInput() userservice.RefreshInput {
-	return userservice.RefreshInput{RefreshToken: r.RefreshToken}
-}
-
 // ToUserResponse converts the persistence user model into a response DTO.
 func ToUserResponse(user model.User) UserResponse {
 	return UserResponse{
@@ -79,7 +68,6 @@ func ToLoginResponse(result userservice.LoginResult) LoginResponse {
 		User:                  ToUserResponse(result.User),
 		Token:                 result.Token,
 		TokenExpiresAt:        result.TokenExpiresAt,
-		RefreshToken:          result.RefreshToken,
 		RefreshTokenExpiresAt: result.RefreshTokenExpiresAt,
 	}
 }

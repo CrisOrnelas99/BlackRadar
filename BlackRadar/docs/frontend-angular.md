@@ -12,7 +12,7 @@ The frontend communicates with the Go backend through feature API services. NVD,
 
 ## 🔐 Authentication UX
 
-The UI stores the current session presentation, attaches access tokens to API requests, and attempts one refresh after an unauthorized response. A failed refresh clears the session and returns the user to login.
+The UI keeps the current session presentation in memory, attaches access tokens to API requests, and attempts one cookie-backed refresh after an unauthorized response. A failed refresh clears the session and returns the user to login.
 
 Route guards redirect unauthenticated users for usability. A guarded page is not a protected resource; every backend route must independently enforce authentication and authorization.
 
@@ -41,7 +41,7 @@ See [security-boundaries.md](security-boundaries.md), [users-auth-sessions.md](u
 - **When:** Angular evaluates navigation before rendering the protected screen.
 - **Where:** Route guards and auth services handle the UI flow; the backend middleware still authorizes every API request.
 - **Why:** The guard improves navigation, but only the server can protect data and actions.
-- **How:** The frontend attaches the access token through its API pipeline, refreshes or clears session state as appropriate, and renders server results without making authorization decisions itself.
+- **How:** The frontend attaches the in-memory access token through its API pipeline, refreshes through the HttpOnly refresh cookie when needed, clears session state as appropriate, and renders server results without making authorization decisions itself.
 
 ## 🔑 Key Terms
 
