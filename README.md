@@ -220,13 +220,13 @@ The current `docker-compose.yml` includes:
 
 Start the full Compose stack with:
 
-Before starting Compose, set `BOOTSTRAP_DEV_PASSWORD` in the root `.env` file because the backend container enables local bootstrap data.
-
 ```bash
+docker compose run --rm frontend npm ci
 docker compose up --build
 ```
 
-The backend container sets `BOOTSTRAP_DEV_DATA=true`, so Compose startup also requires `BOOTSTRAP_DEV_PASSWORD` in the root `.env` file.
+The frontend dependencies are installed explicitly into the named Docker volume once; the frontend service does not install packages during every startup.
+Compose does not enable development bootstrap data by default. To opt in for a local database, set `BOOTSTRAP_DEV_DATA=true` and `BOOTSTRAP_DEV_PASSWORD` in the root `.env` file.
 When that password is supplied, the seeded `system_admin` test account is available after a fresh compose start.
 
 Default endpoints:
@@ -288,6 +288,7 @@ Stop-Process -Id <PID> -Force
 
 The Angular UI lives in `BlackRadar/ui/` and is wired into Docker Compose as the `frontend` service.
 It should be treated as active local-development UI, not as a production deployment example.
+The backend container runs as the unprivileged `blackradar` user with a read-only root filesystem, dropped Linux capabilities, and `no-new-privileges`. Production deployments still need separately managed image digest pinning, TLS, secrets, networking, and runtime policy.
 
 ### Environment configuration
 

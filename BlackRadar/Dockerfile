@@ -11,7 +11,9 @@ FROM alpine:3.21
 
 WORKDIR /app
 RUN apk add --no-cache ca-certificates && update-ca-certificates
+RUN addgroup -S blackradar && adduser -S -G blackradar blackradar
 COPY --from=build /app/blackradar /app/blackradar
+USER blackradar
 
 EXPOSE 8080
 CMD ["/app/blackradar"]
