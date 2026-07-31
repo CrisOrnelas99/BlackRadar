@@ -143,28 +143,53 @@ cd BlackRadar
 go test ./...
 ```
 
-- For Go dependency and update checks, run from `BlackRadar/`:
+- When the user asks to check for or update dependency vulnerabilities, outdated packages, or framework updates, stay inside the relevant module root and update only the dependency tree unless the user asks for more:
 
 ```powershell
-cd BlackRadar
+# Go: run from BlackRadar/
 go list -m -u all
 go get -u ./...
 go get -u=patch ./...
+go get -u -t ./...
+go mod tidy
 govulncheck -show verbose ./...
 govulncheck -show traces ./...
-```
 
-- For npm dependency and update checks, run from `BlackRadar/ui/` where `package.json` and `package-lock.json` live:
-
-```powershell
-cd BlackRadar\ui
+# npm / Angular: run from BlackRadar/ui/
 npm outdated
 npm outdated --all
 npm update
 npm audit
 npm audit --loglevel silly
+npm audit fix
+npm audit fix --dry-run
+npx ng update @angular/cli@^21 @angular/core@^21 --allow-dirty
+npx ng update @angular/cli@^22 @angular/core@^22 --allow-dirty
 ```
 
+- Use `go list -m -u all` and `go get -u ./...` for Go update checks and updates. Use `govulncheck` for vulnerability scanning only; it does not update packages.
+- Use `npm outdated`, `npm update`, and `npm audit` for npm dependency checks. Use `npm audit fix` only for automatic remediation that npm can resolve safely.
+- Use `ng update` for Angular framework and migration updates. If `ng update` is blocked by the local Node version, report the blocker instead of forcing the update.
+- For Angular, Tailwind, PostCSS, TypeScript, Vitest, jsdom, and other frontend npm packages, run the update from `BlackRadar/ui/` where `package.json` and `package-lock.json` live, and verify with `npm install`, `npm audit`, and the relevant build/tests after the update.
+- Treat Tailwind and PostCSS as normal UI npm dependencies in this repo. Update them with the same npm commands as the rest of the frontend stack unless the user explicitly asks for a framework migration.
+- Keep dependency-only work scoped to the package/module that owns the lockfile or module file. Do not broaden into unrelated refactors while the request is only about dependency health.
+
+- For cleanup and dependency hygiene, run these from the module roots:
+
+```powershell
+cd BlackRadar
+go mod tidy
+go mod download
+
+cd BlackRadar\ui
+npm prune
+npm dedupe
+```
+
+- `go mod tidy` cleans `go.mod` and `go.sum`; it does not update every dependency to the newest available release.
+- `govulncheck` does not update dependencies. Use `go list -m -u all` and `go get -u ./...` or `go get -u=patch ./...` when you actually want to move versions.
+- `npm audit` does not update packages. Use `npm audit fix` for automatic remediation, and review `npm audit fix --dry-run` before applying it.
+- `npm update` respects the semver ranges already declared in `package.json`; it is not the same as forcing everything to the latest major release.
 - `npm audit` requires a lockfile. If it reports `ENOLOCK`, the command is being run in the wrong directory or the lockfile is missing.
 - If the npm CLI itself needs to be updated, `npm install -g npm@latest` may fail on older Node versions; prefer a compatible major such as `npm install -g npm@11` only after confirming the installed Node version supports it.
 
