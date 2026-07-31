@@ -18,6 +18,7 @@ func TestTableNamesRemainStable(t *testing.T) {
 		{name: "asset assessment", table: AssetAssessment{}.TableName(), expected: "asset_assessments"},
 		{name: "asset vulnerability", table: AssetVulnerability{}.TableName(), expected: "asset_vulnerabilities"},
 		{name: "refresh session", table: RefreshSession{}.TableName(), expected: "refresh_sessions"},
+		{name: "audit event", table: AuditEvent{}.TableName(), expected: "audit_events"},
 		{name: "user", table: User{}.TableName(), expected: "users"},
 		{name: "vulnerability", table: Vulnerability{}.TableName(), expected: "vulnerabilities"},
 	}

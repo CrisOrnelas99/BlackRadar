@@ -13,6 +13,7 @@ import (
 	platformdb "blackradar/api/platform/db"
 	appcontext "blackradar/api/platform/requestcontext"
 	userrepository "blackradar/api/repository/user"
+	auditservice "blackradar/api/service/audit"
 )
 
 // normalizeRegisterInput trims and lowercases registration fields before validation.
@@ -65,12 +66,19 @@ func translateUserRepositoryError(err error) error {
 
 // createRefreshSession stores a refresh token session for later rotation or logout.
 func (s *userServiceImpl) createRefreshSession(ec *appcontext.GinContext, userID string, tokenID string, expiresAt time.Time) error {
-	return translateUserRepositoryError(s.refreshSessionRepository.CreateRefreshSession(ec, model.RefreshSession{
-		TokenID:    tokenID,
-		UserID:     userID,
-		DeviceName: requestDeviceName(ec),
-		ExpiresAt:  expiresAt,
-	}))
+	if s.auditService == nil {
+		return translateUserRepositoryError(s.refreshSessionRepository.CreateRefreshSession(ec, model.RefreshSession{TokenID: tokenID, UserID: userID, DeviceName: requestDeviceName(ec), ExpiresAt: expiresAt}))
+	}
+	runner := s.transactionRunner
+	if runner == nil {
+		runner = platformdb.RequestTransactionRunner{}
+	}
+	return runner.Run(ec, func(txContext *appcontext.GinContext) error {
+		if err := s.refreshSessionRepository.CreateRefreshSession(txContext, model.RefreshSession{TokenID: tokenID, UserID: userID, DeviceName: requestDeviceName(txContext), ExpiresAt: expiresAt}); err != nil {
+			return translateUserRepositoryError(err)
+		}
+		return s.recordAudit(txContext, auditservice.EventInput{ActorUserID: &userID, Action: "auth.login", ResourceType: "user", ResourceID: &userID, Result: auditservice.ResultSucceeded})
+	})
 }
 
 // rotateRefreshSession revokes the old refresh token session and stores the replacement.
@@ -82,6 +90,12 @@ func (s *userServiceImpl) rotateRefreshSession(ec *appcontext.GinContext, sessio
 		ExpiresAt:  expiresAt,
 	}
 
+	if s.auditService == nil {
+		if err := s.refreshSessionRepository.RevokeByTokenIDForUser(ec, session.TokenID, session.UserID); err != nil {
+			return translateUserRepositoryError(err)
+		}
+		return translateUserRepositoryError(s.refreshSessionRepository.CreateRefreshSession(ec, newSession))
+	}
 	runner := s.transactionRunner
 	if runner == nil {
 		runner = platformdb.RequestTransactionRunner{}
@@ -93,8 +107,16 @@ func (s *userServiceImpl) rotateRefreshSession(ec *appcontext.GinContext, sessio
 		if err := s.refreshSessionRepository.CreateRefreshSession(txContext, newSession); err != nil {
 			return translateUserRepositoryError(err)
 		}
-		return nil
+		return s.recordAudit(txContext, auditservice.EventInput{ActorUserID: &session.UserID, Action: "auth.refresh.rotate", ResourceType: "refresh_session", Result: auditservice.ResultSucceeded})
 	})
+}
+
+// recordAudit records an event when the caller has enabled durable auditing.
+func (s *userServiceImpl) recordAudit(ec *appcontext.GinContext, input auditservice.EventInput) error {
+	if s.auditService == nil {
+		return nil
+	}
+	return s.auditService.Record(ec, input)
 }
 
 // requestDeviceName returns a bounded device label from the request user agent.

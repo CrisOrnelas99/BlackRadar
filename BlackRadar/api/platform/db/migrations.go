@@ -74,6 +74,7 @@ func autoMigrateSchema(ctx context.Context, database *gorm.DB) error {
 		&model.Asset{},
 		&model.RefreshSession{},
 		&model.ProviderUsageBucket{},
+		&model.AuditEvent{},
 	); err != nil {
 		return fmt.Errorf("auto migrate schema: %w", err)
 	}
@@ -121,6 +122,8 @@ func schemaStatements() []string {
 		`ALTER TABLE vulnerabilities ALTER COLUMN user_id SET NOT NULL`,
 		`DROP INDEX IF EXISTS idx_vulnerabilities_organization_id`,
 		`CREATE INDEX IF NOT EXISTS idx_refresh_sessions_user_id ON refresh_sessions (user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_audit_events_actor_occurred_at ON audit_events (actor_user_id, occurred_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_audit_events_resource_occurred_at ON audit_events (resource_type, resource_id, occurred_at DESC)`,
 		`DROP INDEX IF EXISTS idx_vulnerabilities_cve_id`,
 		`DROP INDEX IF EXISTS idx_vulnerabilities_org_cve_id`,
 		`DROP INDEX IF EXISTS idx_vulnerabilities_user_cve_id`,

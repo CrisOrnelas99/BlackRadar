@@ -21,6 +21,7 @@ import (
 	vulnerabilityrepo "blackradar/api/repository/vulnerability"
 	assetriskservice "blackradar/api/service/asset_risk"
 	assetvulnerabilityservice "blackradar/api/service/asset_vulnerability"
+	auditservice "blackradar/api/service/audit"
 	textgenerationservice "blackradar/api/service/text_generation"
 )
 
@@ -68,6 +69,13 @@ type assetMatchServiceImpl struct {
 	assetRiskService             assetriskservice.AssetRiskService
 	transactionRunner            transactionboundary.Runner
 	now                          func() time.Time
+	auditService                 auditservice.Service
+}
+
+// WithAuditService enables durable audit events for approved AI-assisted persistence.
+func (s *assetMatchServiceImpl) WithAuditService(auditService auditservice.Service) *assetMatchServiceImpl {
+	s.auditService = auditService
+	return s
 }
 
 // NewAssetMatchService creates a backend-only asset matching service.
@@ -321,9 +329,14 @@ func (s *assetMatchServiceImpl) ApplyApprovedCPEMatch(ec *appcontext.GinContext,
 			updated = assigned
 		}
 		if s.assetRiskService != nil {
-			return s.assetRiskService.RefreshAssetRisk(txContext, assetID)
+			if err := s.assetRiskService.RefreshAssetRisk(txContext, assetID); err != nil {
+				return err
+			}
 		}
-		return nil
+		if s.auditService == nil {
+			return nil
+		}
+		return s.auditService.Record(txContext, auditservice.EventInput{ActorUserID: &userID, Action: "asset_match.apply.ai_persistence", ResourceType: "asset", ResourceID: &updated.ID, Result: auditservice.ResultSucceeded, Details: "source=approved_cpe"})
 	})
 	if err != nil {
 		return model.Asset{}, err

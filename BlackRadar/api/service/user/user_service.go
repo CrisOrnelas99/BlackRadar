@@ -18,6 +18,7 @@ import (
 	appcontext "blackradar/api/platform/requestcontext"
 	transactionboundary "blackradar/api/platform/transaction"
 	userrepository "blackradar/api/repository/user"
+	auditservice "blackradar/api/service/audit"
 )
 
 // RegisterInput contains the fields required to create a user account.
@@ -53,16 +54,21 @@ type userServiceImpl struct {
 	userRepository           userrepository.UserRepositoryInterface
 	refreshSessionRepository userrepository.RefreshSessionRepositoryInterface
 	transactionRunner        transactionboundary.Runner
+	auditService             auditservice.Service
 }
 
 // NewUserService creates a user service backed by the supplied dependencies.
-func NewUserService(jwtManager *commonjwt.Manager, userRepository userrepository.UserRepositoryInterface, refreshSessionRepository userrepository.RefreshSessionRepositoryInterface) *userServiceImpl {
-	return &userServiceImpl{
+func NewUserService(jwtManager *commonjwt.Manager, userRepository userrepository.UserRepositoryInterface, refreshSessionRepository userrepository.RefreshSessionRepositoryInterface, auditServices ...auditservice.Service) *userServiceImpl {
+	service := &userServiceImpl{
 		jwtManager:               jwtManager,
 		userRepository:           userRepository,
 		refreshSessionRepository: refreshSessionRepository,
 		transactionRunner:        platformdb.RequestTransactionRunner{},
 	}
+	if len(auditServices) > 0 {
+		service.auditService = auditServices[0]
+	}
+	return service
 }
 
 // Register validates and creates a new user account.
@@ -114,6 +120,9 @@ func (s *userServiceImpl) Login(ec *appcontext.GinContext, request LoginInput) (
 		request.UserOrEmail = strings.ToLower(request.UserOrEmail)
 	}
 	if request.UserOrEmail == "" || utf8.RuneCountInString(request.Password) < 8 || utf8.RuneCountInString(request.Password) > 100 {
+		if err := s.recordAudit(ec, auditservice.EventInput{Action: "auth.login", ResourceType: "user", Result: auditservice.ResultDenied}); err != nil {
+			return LoginResult{}, err
+		}
 		return LoginResult{}, ErrInvalidLoginCredentials
 	}
 
@@ -126,12 +135,18 @@ func (s *userServiceImpl) Login(ec *appcontext.GinContext, request LoginInput) (
 	}
 	if err != nil {
 		if errors.Is(err, userrepository.ErrRecordNotFound) {
+			if auditErr := s.recordAudit(ec, auditservice.EventInput{Action: "auth.login", ResourceType: "user", Result: auditservice.ResultDenied}); auditErr != nil {
+				return LoginResult{}, auditErr
+			}
 			return LoginResult{}, ErrInvalidLoginCredentials
 		}
 		return LoginResult{}, translateUserRepositoryError(err)
 	}
 
 	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(request.Password)) != nil {
+		if err := s.recordAudit(ec, auditservice.EventInput{Action: "auth.login", ResourceType: "user", Result: auditservice.ResultDenied}); err != nil {
+			return LoginResult{}, err
+		}
 		return LoginResult{}, ErrInvalidLoginCredentials
 	}
 
@@ -171,6 +186,9 @@ func (s *userServiceImpl) Login(ec *appcontext.GinContext, request LoginInput) (
 func (s *userServiceImpl) Refresh(ec *appcontext.GinContext, request RefreshInput) (LoginResult, error) {
 	refreshToken := strings.TrimSpace(request.RefreshToken)
 	if refreshToken == "" {
+		if err := s.recordAudit(ec, auditservice.EventInput{Action: "auth.refresh", ResourceType: "refresh_session", Result: auditservice.ResultDenied}); err != nil {
+			return LoginResult{}, err
+		}
 		return LoginResult{}, ErrInvalidRefreshToken
 	}
 
@@ -180,12 +198,18 @@ func (s *userServiceImpl) Refresh(ec *appcontext.GinContext, request RefreshInpu
 
 	claims, err := s.jwtManager.ExtractRefreshClaims(refreshToken)
 	if err != nil {
+		if auditErr := s.recordAudit(ec, auditservice.EventInput{Action: "auth.refresh", ResourceType: "refresh_session", Result: auditservice.ResultDenied}); auditErr != nil {
+			return LoginResult{}, auditErr
+		}
 		return LoginResult{}, ErrInvalidRefreshToken
 	}
 
 	user, err := s.userRepository.FindByID(ec, claims.Subject)
 	if err != nil {
 		if errors.Is(err, userrepository.ErrRecordNotFound) {
+			if auditErr := s.recordAudit(ec, auditservice.EventInput{ActorUserID: &claims.Subject, Action: "auth.refresh.reuse", ResourceType: "refresh_session", Result: auditservice.ResultDenied}); auditErr != nil {
+				return LoginResult{}, auditErr
+			}
 			return LoginResult{}, ErrInvalidRefreshToken
 		}
 		return LoginResult{}, translateUserRepositoryError(err)
@@ -200,6 +224,9 @@ func (s *userServiceImpl) Refresh(ec *appcontext.GinContext, request RefreshInpu
 	}
 
 	if session.UserID != user.ID {
+		if err := s.recordAudit(ec, auditservice.EventInput{ActorUserID: &user.ID, Action: "auth.refresh.reuse", ResourceType: "refresh_session", Result: auditservice.ResultDenied}); err != nil {
+			return LoginResult{}, err
+		}
 		return LoginResult{}, ErrInvalidRefreshToken
 	}
 
@@ -255,12 +282,26 @@ func (s *userServiceImpl) Logout(ec *appcontext.GinContext, request RefreshInput
 		return translateUserRepositoryError(err)
 	}
 
-	if err := s.refreshSessionRepository.RevokeByTokenIDForUser(ec, claims.ID, user.ID); err != nil {
-		if errors.Is(err, userrepository.ErrRecordNotFound) {
-			return ErrInvalidRefreshToken
+	if s.auditService == nil {
+		if err := s.refreshSessionRepository.RevokeByTokenIDForUser(ec, claims.ID, user.ID); err != nil {
+			if errors.Is(err, userrepository.ErrRecordNotFound) {
+				return ErrInvalidRefreshToken
+			}
+			return translateUserRepositoryError(err)
 		}
-		return translateUserRepositoryError(err)
+		return nil
 	}
-
-	return nil
+	runner := s.transactionRunner
+	if runner == nil {
+		runner = platformdb.RequestTransactionRunner{}
+	}
+	return runner.Run(ec, func(txContext *appcontext.GinContext) error {
+		if err := s.refreshSessionRepository.RevokeByTokenIDForUser(txContext, claims.ID, user.ID); err != nil {
+			if errors.Is(err, userrepository.ErrRecordNotFound) {
+				return ErrInvalidRefreshToken
+			}
+			return translateUserRepositoryError(err)
+		}
+		return s.recordAudit(txContext, auditservice.EventInput{ActorUserID: &user.ID, Action: "auth.logout", ResourceType: "refresh_session", Result: auditservice.ResultSucceeded})
+	})
 }

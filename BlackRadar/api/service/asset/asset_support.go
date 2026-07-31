@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"blackradar/api/model"
+	platformdb "blackradar/api/platform/db"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetrepository "blackradar/api/repository/asset"
 )
@@ -45,6 +46,10 @@ var displayAcronyms = map[string]string{
 	"ui":    "UI",
 	"url":   "URL",
 	"vm":    "VM",
+}
+
+func runAssetAuditTransaction(ec *appcontext.GinContext, operation func(*appcontext.GinContext) error) error {
+	return platformdb.WithinRequestTransaction(ec, operation)
 }
 
 // assetCreationExtractionResponse represents the constrained AI asset extraction response.

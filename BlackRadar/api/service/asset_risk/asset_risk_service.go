@@ -7,11 +7,19 @@ import (
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetriskrepository "blackradar/api/repository/asset_risk"
+	auditservice "blackradar/api/service/audit"
 )
 
 // assetRiskServiceImpl implements asset risk calculation workflows.
 type assetRiskServiceImpl struct {
-	repository assetriskrepository.AssetRiskRepositoryInterface
+	repository   assetriskrepository.AssetRiskRepositoryInterface
+	auditService auditservice.Service
+}
+
+// WithAuditService enables durable audit events for user-triggered risk recalculations.
+func (s *assetRiskServiceImpl) WithAuditService(auditService auditservice.Service) *assetRiskServiceImpl {
+	s.auditService = auditService
+	return s
 }
 
 // NewAssetRiskService creates an asset risk service backed by the supplied repository.
@@ -35,12 +43,23 @@ func (s *assetRiskServiceImpl) RefreshAssetRisk(ec *appcontext.GinContext, asset
 		return translateAssetRiskRepositoryError(err)
 	}
 
-	return translateAssetRiskRepositoryError(s.repository.UpdateRiskLevelForUser(
+	riskLevel := CalculateRiskLevel(vulnerabilities)
+	if err := translateAssetRiskRepositoryError(s.repository.UpdateRiskLevelForUser(
 		ec,
 		assetID,
 		userID,
-		CalculateRiskLevel(vulnerabilities),
-	))
+		riskLevel,
+	)); err != nil {
+		return err
+	}
+	if s.auditService == nil {
+		return nil
+	}
+	details := "risk_level=none"
+	if riskLevel != nil {
+		details = "risk_level=" + *riskLevel
+	}
+	return s.auditService.Record(ec, auditservice.EventInput{ActorUserID: &userID, Action: "asset.risk.recalculated", ResourceType: "asset", ResourceID: &assetID, Result: auditservice.ResultSucceeded, Details: details})
 }
 
 // RefreshRisksForVulnerability recalculates risk for every asset assigned to a vulnerability.

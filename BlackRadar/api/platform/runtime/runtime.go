@@ -38,6 +38,7 @@ import (
 	repositoryassetmatch "blackradar/api/repository/asset_match"
 	repositoryassetrisk "blackradar/api/repository/asset_risk"
 	repositoryassetvulnerability "blackradar/api/repository/asset_vulnerability"
+	repositoryaudit "blackradar/api/repository/audit"
 	repositoryproviderusage "blackradar/api/repository/provider_usage"
 	repositoryuser "blackradar/api/repository/user"
 	repositoryvulnerability "blackradar/api/repository/vulnerability"
@@ -46,6 +47,7 @@ import (
 	serviceassetmatch "blackradar/api/service/asset_match"
 	serviceassetrisk "blackradar/api/service/asset_risk"
 	serviceassetvulnerability "blackradar/api/service/asset_vulnerability"
+	serviceaudit "blackradar/api/service/audit"
 	serviceuser "blackradar/api/service/user"
 	servicevulnerability "blackradar/api/service/vulnerability"
 )
@@ -130,9 +132,10 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 	assetRiskRepository := repositoryassetrisk.NewAssetRiskRepository(gormDB)
 	refreshSessionRepository := repositoryuser.NewRefreshSessionRepository(gormDB)
 	vulnerabilityRepository := repositoryvulnerability.NewVulnerabilityRepository(gormDB)
+	auditService := serviceaudit.NewService(repositoryaudit.NewRepository(gormDB))
 	var providerQuota repositoryproviderusage.RepositoryInterface = repositoryproviderusage.NewRepository(gormDB)
 
-	userService := serviceuser.NewUserService(jwtManager, userRepository, refreshSessionRepository)
+	userService := serviceuser.NewUserService(jwtManager, userRepository, refreshSessionRepository, auditService)
 	nvdClient, err := nvdcveclient.NewClientWithQuota(cfg.NVDAPIBaseURL, cfg.NVDAPIKey, providerQuota)
 	if err != nil {
 		return nil, fmt.Errorf("nvd client configuration failed: %w", err)
@@ -147,11 +150,11 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 		return nil, fmt.Errorf("openai client configuration failed: %w", err)
 	}
 
-	assetRiskService := serviceassetrisk.NewAssetRiskService(assetRiskRepository)
-	assetMatchService := serviceassetmatch.NewAssetMatchService(assetMatchRepository, assetVulnerabilityRepository, vulnerabilityRepository, cpeClient, nvdClient, openAIClient, assetRiskService)
-	assetService := serviceasset.NewAssetService(assetRepository, openAIClient)
-	assetVulnerabilityService := serviceassetvulnerability.NewAssetVulnerabilityService(assetVulnerabilityRepository, vulnerabilityRepository, nvdLookupService, assetRiskService)
-	vulnerabilityService := servicevulnerability.NewVulnerabilityService(vulnerabilityRepository, assetRiskService)
+	assetRiskService := serviceassetrisk.NewAssetRiskService(assetRiskRepository).WithAuditService(auditService)
+	assetMatchService := serviceassetmatch.NewAssetMatchService(assetMatchRepository, assetVulnerabilityRepository, vulnerabilityRepository, cpeClient, nvdClient, openAIClient, assetRiskService).WithAuditService(auditService)
+	assetService := serviceasset.NewAssetService(assetRepository, openAIClient, auditService)
+	assetVulnerabilityService := serviceassetvulnerability.NewAssetVulnerabilityService(assetVulnerabilityRepository, vulnerabilityRepository, nvdLookupService, assetRiskService).WithAuditService(auditService)
+	vulnerabilityService := servicevulnerability.NewVulnerabilityService(vulnerabilityRepository, assetRiskService).WithAuditService(auditService)
 
 	userController := controlleruser.NewUserController(userService, cfg.IsProduction())
 	aiController := controllerai.NewAIController(serviceai.NewAIService(openAIClient))
