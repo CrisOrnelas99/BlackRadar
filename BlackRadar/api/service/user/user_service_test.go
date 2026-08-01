@@ -180,6 +180,31 @@ func TestUserServiceRefreshTranslatesSessionLookupFailure(t *testing.T) {
 	}
 }
 
+// TestUserServiceRefreshRevokesAllSessionsOnReuse verifies token reuse contains the whole session family.
+func TestUserServiceRefreshRevokesAllSessionsOnReuse(t *testing.T) {
+	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
+	repo := &fakeUserRepository{
+		user: model.User{Model: model.Model{ID: testUserID}, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
+	}
+	sessions := &fakeRefreshSessionRepository{}
+	svc := NewUserService(newTestJWTManager(t), repo, sessions)
+	ctx := newUserServiceContext(t)
+
+	login, err := svc.Login(ctx, LoginInput{UserOrEmail: "analyst", Password: "Password1!"})
+	if err != nil {
+		t.Fatalf("expected Login to succeed, got %v", err)
+	}
+
+	sessions.revoked = true
+
+	if _, err := svc.Refresh(ctx, RefreshInput{RefreshToken: login.RefreshToken}); !errors.Is(err, ErrInvalidRefreshToken) {
+		t.Fatalf("expected reused refresh token to be rejected, got %v", err)
+	}
+	if !sessions.revokeAllCalled {
+		t.Fatal("expected refresh token reuse to revoke all active sessions for the user")
+	}
+}
+
 // TestUserServiceLoginTranslatesSessionCreateFailure verifies login maps session persistence failures.
 func TestUserServiceLoginTranslatesSessionCreateFailure(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
@@ -309,11 +334,12 @@ func (f *fakeUserRepository) FindByEmail(ec *appcontext.GinContext, email string
 var _ userrepo.UserRepositoryInterface = (*fakeUserRepository)(nil)
 
 type fakeRefreshSessionRepository struct {
-	session   model.RefreshSession
-	revoked   bool
-	createErr error
-	findErr   error
-	revokeErr error
+	session        model.RefreshSession
+	revoked        bool
+	revokeAllCalled bool
+	createErr      error
+	findErr        error
+	revokeErr      error
 }
 
 // CreateRefreshSession stores the fake refresh session.
@@ -345,6 +371,18 @@ func (f *fakeRefreshSessionRepository) RevokeByTokenIDForUser(ec *appcontext.Gin
 		return userrepo.ErrRecordNotFound
 	}
 	f.revoked = true
+	return nil
+}
+
+// RevokeActiveSessionsForUser revokes every fake active refresh session for the user.
+func (f *fakeRefreshSessionRepository) RevokeActiveSessionsForUser(ec *appcontext.GinContext, userID string) error {
+	f.revokeAllCalled = true
+	if f.revokeErr != nil {
+		return f.revokeErr
+	}
+	if f.session.TokenID != "" && f.session.UserID == userID {
+		f.revoked = true
+	}
 	return nil
 }
 

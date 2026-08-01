@@ -218,13 +218,16 @@ func (s *userServiceImpl) Refresh(ec *appcontext.GinContext, request RefreshInpu
 	session, err := s.refreshSessionRepository.FindActiveByTokenIDForUser(ec, claims.ID, user.ID)
 	if err != nil {
 		if errors.Is(err, userrepository.ErrRecordNotFound) {
+			if revokeErr := s.revokeAllRefreshSessionsForUser(ec, user.ID); revokeErr != nil {
+				return LoginResult{}, revokeErr
+			}
 			return LoginResult{}, ErrInvalidRefreshToken
 		}
 		return LoginResult{}, translateUserRepositoryError(err)
 	}
 
 	if session.UserID != user.ID {
-		if err := s.recordAudit(ec, auditservice.EventInput{ActorUserID: &user.ID, Action: "auth.refresh.reuse", ResourceType: "refresh_session", Result: auditservice.ResultDenied}); err != nil {
+		if err := s.revokeAllRefreshSessionsForUser(ec, user.ID); err != nil {
 			return LoginResult{}, err
 		}
 		return LoginResult{}, ErrInvalidRefreshToken

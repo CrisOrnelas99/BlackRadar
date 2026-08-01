@@ -29,7 +29,7 @@ func handleUserServiceError(ec *appcontext.GinContext, err error) bool {
 	case errors.As(err, &validationErr):
 		return shared.HandleError(ec, http.StatusBadRequest, err, err.Error())
 	case errors.As(err, &conflictErr):
-		return shared.HandleError(ec, http.StatusConflict, err, err.Error())
+		return shared.HandleError(ec, http.StatusConflict, err, "Registration already exists.")
 	case errors.As(err, &unauthorizedErr):
 		return shared.HandleError(ec, http.StatusUnauthorized, err, "Invalid credentials.")
 	case errors.As(err, &dependencyErr):

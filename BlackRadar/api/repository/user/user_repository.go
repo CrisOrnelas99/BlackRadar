@@ -203,3 +203,16 @@ func (r *RefreshSessionRepository) RevokeByTokenIDForUser(ec *appcontext.GinCont
 	}
 	return nil
 }
+
+// RevokeActiveSessionsForUser marks every active refresh session for a user revoked.
+func (r *RefreshSessionRepository) RevokeActiveSessionsForUser(ec *appcontext.GinContext, userID string) error {
+	now := time.Now().UTC()
+	result := r.dbForContext(ec).WithContext(ec.RequestContext()).
+		Model(&model.RefreshSession{}).
+		Where("user_id = ? AND revoked_at IS NULL", userID).
+		Update("revoked_at", &now)
+	if result.Error != nil {
+		return fmt.Errorf("%w: revoke refresh sessions: %w", ErrPersistenceFailure, result.Error)
+	}
+	return nil
+}

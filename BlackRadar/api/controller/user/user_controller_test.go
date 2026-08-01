@@ -42,6 +42,42 @@ func TestUserControllerHandlers(t *testing.T) {
 		}
 	})
 
+	t.Run("register conflict is generic", func(t *testing.T) {
+		tests := []struct {
+			name string
+			err  error
+		}{
+			{name: "duplicate username", err: userservice.ErrUsernameAlreadyExists},
+			{name: "duplicate email", err: userservice.ErrEmailAlreadyExists},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				svc.registerErr = tt.err
+				ec, recorder := newUserContext(t, http.MethodPost, "/auth/register", `{"username":"analyst","email":"analyst@example.com","password":"Password1!"}`)
+				ec.Request.Header.Set("Content-Type", "application/json")
+
+				controller.Register(ec)
+
+				if recorder.Code != http.StatusConflict {
+					t.Fatalf("expected %d, got %d", http.StatusConflict, recorder.Code)
+				}
+
+				var response map[string]any
+				if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+					t.Fatalf("failed to decode conflict response: %v", err)
+				}
+
+				if got := response["message"]; got != "Registration already exists." {
+					t.Fatalf("expected generic registration conflict message, got %#v", got)
+				}
+				if body := recorder.Body.String(); strings.Contains(body, "username already exists") || strings.Contains(body, "email already exists") {
+					t.Fatalf("expected generic conflict response, got %s", body)
+				}
+			})
+		}
+	})
+
 	t.Run("login", func(t *testing.T) {
 		ec, recorder := newUserContext(t, http.MethodPost, "/auth/login", `{"userOrEmail":"analyst","password":"Password1!"}`)
 		ec.Request.Header.Set("Content-Type", "application/json")
@@ -159,6 +195,7 @@ func TestRegisterRoutes(t *testing.T) {
 type fakeUserService struct {
 	registerResponse model.User
 	loginResponse    userservice.LoginResult
+	registerErr      error
 	registerCalls    int
 	loginCalls       int
 	refreshCalls     int
@@ -169,6 +206,9 @@ type fakeUserService struct {
 
 func (f *fakeUserService) Register(ec *appcontext.GinContext, request userservice.RegisterInput) (model.User, error) {
 	f.registerCalls++
+	if f.registerErr != nil {
+		return model.User{}, f.registerErr
+	}
 	if f.registerResponse == (model.User{}) {
 		f.registerResponse = model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, Username: request.Username, Email: request.Email}
 	}

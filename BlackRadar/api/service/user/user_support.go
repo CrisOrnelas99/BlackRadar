@@ -111,6 +111,23 @@ func (s *userServiceImpl) rotateRefreshSession(ec *appcontext.GinContext, sessio
 	})
 }
 
+// revokeAllRefreshSessionsForUser revokes every active refresh session for a user.
+func (s *userServiceImpl) revokeAllRefreshSessionsForUser(ec *appcontext.GinContext, userID string) error {
+	if s.auditService == nil {
+		return s.refreshSessionRepository.RevokeActiveSessionsForUser(ec, userID)
+	}
+	runner := s.transactionRunner
+	if runner == nil {
+		runner = platformdb.RequestTransactionRunner{}
+	}
+	return runner.Run(ec, func(txContext *appcontext.GinContext) error {
+		if err := s.refreshSessionRepository.RevokeActiveSessionsForUser(txContext, userID); err != nil {
+			return translateUserRepositoryError(err)
+		}
+		return s.recordAudit(txContext, auditservice.EventInput{ActorUserID: &userID, Action: "auth.refresh.reuse", ResourceType: "refresh_session", Result: auditservice.ResultDenied})
+	})
+}
+
 // recordAudit records an event when the caller has enabled durable auditing.
 func (s *userServiceImpl) recordAudit(ec *appcontext.GinContext, input auditservice.EventInput) error {
 	if s.auditService == nil {

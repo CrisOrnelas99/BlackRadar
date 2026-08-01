@@ -104,4 +104,14 @@ type RefreshSessionRepositoryInterface interface {
 		active session to revoke.
 	*/
 	RevokeByTokenIDForUser(ec *appcontext.GinContext, tokenID string, userID string) error
+
+	/*
+		RevokeActiveSessionsForUser revokes every active refresh session for the
+		supplied userID.
+
+		Implementations should scope the update to unrevoked sessions for that
+		user only, use the request-scoped database when present, and return
+		repository sentinel errors for database failures.
+	*/
+	RevokeActiveSessionsForUser(ec *appcontext.GinContext, userID string) error
 }
