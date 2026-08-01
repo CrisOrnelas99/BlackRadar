@@ -91,7 +91,7 @@ The repository currently contains these working foundations:
 - vulnerability CRUD API and models
 - asset-to-vulnerability assignment endpoints
 - CVE lookup through the backend NVD integration
-- backend asset-risk calculation and startup backfill
+- backend asset-risk calculation when affected relationships or vulnerabilities change
 - NVD CPE candidate search support
 - backend OpenAI provider configuration and text-generation boundary
 - AI-assisted asset creation from raw text through the backend
@@ -196,7 +196,7 @@ BlackRadar/
 - Model files are grouped by domain: `asset.go` owns asset, assessment, and asset-vulnerability persistence models; `user.go` owns user and refresh-session persistence models.
 - `platform/runtime` owns application wiring and server startup; `main.go` delegates to runtime and stays small.
 - `platform` owns runtime infrastructure such as configuration, local bootstrap seed data, database setup/migrations, request context, and startup composition.
-- `common` stays narrow: secure ID/token helpers and JWT primitives. Asset-risk calculation and backfill live in `api/service/asset_risk` and `api/repository/asset_risk`.
+- `common` stays narrow: secure ID/token helpers and JWT primitives. Asset-risk calculation and affected-asset refreshes live in `api/service/asset_risk` and `api/repository/asset_risk`.
 - Repository, service, external, and controller packages own their layer-specific error contracts where those boundaries need stable errors.
 - Repository, service, and external packages expose component-local interfaces only when they are real layer boundaries or useful test seams.
 - API collection files live under `BlackRadar/tests/`.

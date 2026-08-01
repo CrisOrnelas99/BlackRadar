@@ -75,6 +75,101 @@ If the request is security-sensitive, architecture-sensitive, or broad, read all
 - Document exported Go symbols.
 - Document every interface method with a focused `/* */` contract comment.
 
+## BlackRadar Coding Conventions
+
+These conventions describe the current implementation and take precedence over
+generic framework examples in skills or generated templates.
+
+### Go package and file structure
+
+- Keep feature code under its existing feature directory, such as
+  `api/service/asset`, `api/repository/asset`, and `api/controller/asset`.
+- Follow the existing focused file names: `*_service.go`,
+  `*_service_interface.go`, `*_service_errors.go`, `*_repository.go`,
+  `*_repository_interface.go`, `*_controller.go`, `*_dto.go`, and
+  `*_support.go`. Do not split a small responsibility into a new file only to
+  satisfy a naming template.
+- Keep the package declaration consistent with the surrounding feature
+  directory. Use import aliases when multiple feature packages have the same
+  package name.
+- Keep concrete implementations unexported (`assetServiceImpl`, for example)
+  and expose an exported constructor such as `NewAssetService`. Export an
+  interface only when another layer or a test boundary actually consumes it.
+- Use compile-time fake assertions in tests (`var _ SomeInterface =
+  (*fakeSomeThing)(nil)`) when a fake implements a real boundary.
+- Prefer explicit names that describe ownership and intent: `CreateForUser`,
+  `FindByIDForUser`, `FindAllByUser`, `UpdateForUser`, `DeleteForUser`, and
+  `CreateRefreshSession`. Avoid vague names such as `Save`, `Get`, or
+  `Manager` when the operation has a more precise name.
+
+### Go request flow and data ownership
+
+- Controllers use the shared request helpers for strict JSON binding and ID
+  parsing, call services, map service errors, and return response DTOs. They do
+  not import repositories or contain business rules.
+- Keep HTTP request and response DTOs in the owning controller package, for
+  example `api/controller/asset/asset_dto.go`. Do not bind request JSON directly
+  into GORM models, and do not create a global models or DTOs bucket for
+  feature-specific HTTP shapes.
+- Name DTO mapping methods explicitly, such as `ToDataModel`,
+  `ToServiceInput`, `ToAssetResponseDTO`, and
+  `ToAssetResponseDTOs`. Keep server-owned fields out of create/update request
+  DTOs.
+- Services obtain the authenticated user ID from trusted request context and
+  enforce ownership and permission rules. Repositories receive the scoped
+  request context and include the ownership predicate in user-owned queries.
+  Never trust a browser-supplied user, role, organization, or tenant ID.
+- Keep transaction boundaries in services and reuse the request-scoped database
+  session. Keep external provider calls outside a database transaction when
+  practical, then persist only validated results.
+- Use the existing optional service wiring pattern for cross-cutting behavior,
+  such as `.WithAuditService(...)`, when it keeps the normal feature workflow
+  clear. Do not introduce a framework or dependency-injection layer for this.
+
+### Go errors and tests
+
+- Define stable repository, service, and controller boundary errors in the
+  component's `*_errors.go` file when that boundary has enough error behavior
+  to justify one. Follow the existing typed-pointer sentinel pattern.
+- Translate errors at layer boundaries. Repositories translate GORM and
+  database failures; services translate repository and provider failures;
+  controllers map service errors to safe HTTP responses. Wrap causes with
+  `%w`, and use `errors.Is` or `errors.As` instead of comparing messages.
+- Never return raw SQL, GORM, JWT, bcrypt, token, or provider details to an API
+  client, and never log secrets or raw sensitive payloads.
+- Put cohesive helpers in `*_support.go` and keep the primary implementation
+  file focused. Do not add compatibility shims, forwarding methods, skipped
+  legacy tests, or unused interfaces when removing a workflow; verify callers
+  first and remove the production method, interface entry, fake, and tests
+  together.
+- Test the behavior at the boundary being changed: permission and ownership
+  negatives, error translation and cause preservation, transaction behavior,
+  and the current explicit approval workflow for AI-assisted operations.
+
+### Angular and TypeScript conventions
+
+- Use standalone Angular components with the repo's simple feature file names
+  (`auth.ts`, `dashboard.ts`, `top-menu.ts`) rather than introducing generated
+  `.component.ts` or `.service.ts` suffixes into existing areas.
+- Keep feature-owned services, types, and DTOs beside the feature that uses
+  them. Do not create empty placeholder services or a central models folder
+  before a feature consumes an API contract.
+- Use Angular signals for this app's small in-memory session and UI state, and
+  RxJS observables for HTTP calls. Do not add a state-management library for
+  local state.
+- The access token is held in the AuthService session signal; the refresh token
+  is an HttpOnly cookie managed by the browser. Preserve `withCredentials` on
+  authentication requests and do not add localStorage or sessionStorage token
+  persistence.
+- Treat route guards as navigation helpers only. Backend middleware and
+  services remain the authorization boundary.
+- Keep shared styles in `ui/src/styles.css` (including Tailwind/PostCSS
+  setup), and keep component CSS only when it contains real component styles.
+  Remove empty stylesheet files and their metadata references.
+- Prefer explicit TypeScript types and narrow interfaces owned by the service
+  or component that consumes them. Avoid `any`, speculative abstractions, and
+  UI concepts removed from the current backend such as organization data.
+
 ## Security Rules
 
 - Do not expose secrets.

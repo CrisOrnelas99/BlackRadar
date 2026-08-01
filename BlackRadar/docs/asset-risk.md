@@ -12,7 +12,7 @@ The ordering is `Low < Medium < High < Critical`. An asset with no active vulner
 
 ## 🎯 Purpose
 
-The service prevents risk from becoming a client-controlled or duplicated calculation. Assignment, vulnerability changes, AI matching, and startup repair all use the same scoring rule.
+The service prevents risk from becoming a client-controlled or duplicated calculation. Assignment, vulnerability changes, and approved AI matching all use the same scoring rule.
 
 ## 🧩 Architecture
 
@@ -29,8 +29,7 @@ The service owns calculation and orchestration. The repository loads active, use
 
 - Assignment or removal refreshes the affected asset.
 - Vulnerability updates or deletes refresh every actively assigned asset.
-- AI matching refreshes after bounded CVE attachment.
-- Startup backfill repairs derived risk for existing assets.
+- Approved CPE matching refreshes risk after bounded CVE attachment.
 
 Each workflow recalculates from the complete active vulnerability set, not only the changed record.
 
@@ -64,5 +63,4 @@ When a relationship and risk update are coupled, the service transaction either 
 
 - **Risk level:** The derived Low-to-Critical classification stored on an asset.
 - **Active vulnerability:** A vulnerability linked through a non-deleted bridge row.
-- **Backfill:** A startup recalculation of derived values for existing records.
 - **Derived field:** Persisted state calculated from other accepted records.
