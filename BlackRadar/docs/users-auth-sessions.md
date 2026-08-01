@@ -26,7 +26,7 @@ Protected application routes require a valid access token and an active correspo
 5. Refresh rotates the session and revokes the previous session.
 6. Logout revokes the session so paired access requests fail session validation.
 
-## 🧱 Layer Responsibilities
+## 🧩 Layer Responsibilities
 
 The user service owns credential workflow, token orchestration, and session lifecycle. Repositories own user and refresh-session persistence. JWT primitives validate signatures and claims. Middleware establishes the authenticated principal for protected requests.
 
@@ -46,12 +46,12 @@ See [security-boundaries.md](security-boundaries.md) and [api-error-handling.md]
 
 ## 🎭 Walkthrough: Alice Logs In
 
-- **Who:** Alice has a registered account; Bob is another user with separate session state.
-- **What:** Alice exchanges valid credentials for an access token and refresh session.
-- **When:** The login request reaches the authentication controller.
-- **Where:** The service validates credentials, the repository reads user/session data, and middleware later validates tokens on protected routes.
-- **Why:** Requests need a server-verifiable identity without trusting user IDs or permissions supplied by the browser.
-- **How:** The server verifies the password, issues short-lived access credentials, stores revocable refresh state, and returns generic failures when authentication is invalid.
+1. Alice has a registered account; Bob is another user with separate session state.
+2. Alice exchanges valid credentials for an access token and refresh session.
+3. The login request reaches the authentication controller.
+4. The service validates credentials, the repository reads user/session data, and middleware later validates tokens on protected routes.
+5. Requests need a server-verifiable identity without trusting user IDs or permissions supplied by the browser.
+6. The server verifies the password, issues short-lived access credentials, stores revocable refresh state, and returns generic failures when authentication is invalid.
 
 ## 🚧 Current Limitations
 

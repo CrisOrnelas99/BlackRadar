@@ -38,12 +38,12 @@ See [security-boundaries.md](security-boundaries.md) and [api-error-handling.md]
 
 ## 🎭 Walkthrough: CVE Lookup
 
-- **Who:** Alice requests vulnerability information for an asset; Bob cannot use Alice's request to change the provider scope.
-- **What:** BlackRadar looks up a CVE or CPE through NVD.
-- **When:** A protected backend workflow needs authoritative provider data.
-- **Where:** The NVD client owns outbound HTTP behavior; services own validation and local persistence; the browser never calls NVD.
-- **Why:** Centralizing provider access protects credentials, enforces rate limits, and keeps external data behind application validation.
-- **How:** The service validates the identifier, the client sends a bounded request, the response is checked, and only accepted fields are mapped into local state or a safe service error.
+1. Alice requests vulnerability information for an asset; Bob cannot use Alice’s request to change the provider scope.
+2. BlackRadar looks up a CVE or CPE through NVD.
+3. A protected backend workflow needs authoritative provider data.
+4. The NVD client owns outbound HTTP behavior; services own validation and local persistence; the browser never calls NVD.
+5. Centralizing provider access protects credentials, enforces rate limits, and keeps external data behind application validation.
+6. The service validates the identifier, the client sends a bounded request, the response is checked, and only accepted fields are mapped into local state or a safe service error.
 
 ## 🚧 Current Limitations
 

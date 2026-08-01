@@ -2,7 +2,7 @@
 
 ## 🧭 Overview
 
-Asset risk is a backend-derived property of an asset. The current implementation calculates `riskLevel` from the highest severity among the asset's active assigned vulnerabilities.
+Asset risk is a backend-derived property of an asset. The current implementation calculates `riskLevel` from the highest severity among the asset’s active assigned vulnerabilities.
 
 ```text
 active severities -> normalized ordering -> asset risk level
@@ -12,7 +12,7 @@ The ordering is `Low < Medium < High < Critical`. An asset with no active vulner
 
 ## 🎯 Purpose
 
-The service prevents risk from becoming a client-controlled or duplicated calculation. Assignment, vulnerability changes, and approved AI matching all use the same scoring rule.
+The service keeps risk from becoming a client-controlled or duplicated calculation. Assignment, vulnerability changes, and approved AI matching all use the same scoring rule.
 
 ## 🧩 Architecture
 
@@ -41,12 +41,12 @@ When a relationship and risk update are coupled, the service transaction either 
 
 ## 🎭 Walkthrough: Risk Changes
 
-- **Who:** Alice owns an asset with one active High vulnerability; Bob owns a separate asset.
-- **What:** Alice removes the High vulnerability and the asset risk changes.
-- **When:** The relationship removal workflow completes.
-- **Where:** The asset-risk service recalculates the asset, and its repository persists `Asset.RiskLevel`.
-- **Why:** Risk is derived from the complete active relationship set, so it must change when the set changes.
-- **How:** The service loads Alice's remaining active vulnerabilities, selects the highest normalized severity, writes the result in the same transaction, and leaves Bob's asset untouched.
+1. Alice owns an asset with one active High vulnerability; Bob owns a separate asset.
+2. Alice removes the High vulnerability and the asset risk changes.
+3. The relationship removal workflow completes.
+4. The asset-risk service recalculates the asset, and its repository persists `Asset.RiskLevel`.
+5. Risk is derived from the complete active relationship set, so it must change when the set changes.
+6. The service loads Alice’s remaining active vulnerabilities, selects the highest normalized severity, writes the result in the same transaction, and leaves Bob’s asset untouched.
 
 ## 🧮 Current Data Distinction
 

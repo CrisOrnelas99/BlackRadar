@@ -2,7 +2,7 @@
 
 ## 🧭 Overview
 
-BlackRadar uses a layered error model so implementation details remain inside the backend while clients receive stable, safe responses.
+BlackRadar uses a layered error model so implementation details stay inside the backend while clients receive stable, safe responses.
 
 The contract is:
 
@@ -49,12 +49,12 @@ Feature documents describe workflow-specific failures only when they add informa
 
 ## 🎭 Walkthrough: A Missing Asset
 
-- **Who:** Alice is authenticated and requests an asset that does not belong to her.
-- **What:** The lookup produces a not-found or ownership-safe result.
-- **When:** The request reaches the repository during the service call.
-- **Where:** The repository classifies the persistence result, the service preserves the business meaning, and the controller maps it to the public response.
-- **Why:** The client needs a stable safe response without learning database details or another user's data.
-- **How:** The error is wrapped internally, classified with `errors.Is` or `errors.As`, and returned through the shared error handler with a safe code, message, and request ID.
+1. Alice is authenticated and requests an asset that does not belong to her.
+2. The lookup produces a not-found or ownership-safe result.
+3. The request reaches the repository during the service call.
+4. The repository classifies the persistence result, the service preserves the business meaning, and the controller maps it to the public response.
+5. The client needs a stable safe response without learning database details or another user’s data.
+6. The error is wrapped internally, classified with `errors.Is` or `errors.As`, and returned through the shared error handler with a safe code, message, and request ID.
 
 ## 🔑 Key Terms
 

@@ -22,28 +22,28 @@ These routes are currently admin-only and user-scoped.
 
 ## 🧱 Data Shape
 
-The record contains `cveId`, title, severity, description, status, ownership, and audit metadata. CVE IDs are normalized and validated. Duplicate CVE records are rejected within the user's scope.
+The record contains `cveId`, title, severity, description, status, ownership, and audit metadata. CVE IDs are normalized and validated. Duplicate CVE records are rejected within the user’s scope.
 
 ## 🔄 Lifecycle
 
-Creation validates and persists a local record. Reads return only records in the authenticated user's scope. Updates preserve the record identity and refresh the risk of every actively assigned asset. Deletes remove active relationships, clean up the local record, and refresh affected assets within the transaction boundary.
+Creation validates and persists a local record. Reads return only records in the authenticated user’s scope. Updates preserve the record identity and refresh the risk of every actively assigned asset. Deletes remove active relationships, clean up the local record, and refresh affected assets within the transaction boundary.
 
 The vulnerability service owns role checks, validation, duplicate rules, and orchestration. The repository owns persistence and database constraints.
 
 ## 🔗 Relationship To Risk
 
-Existence alone does not change an asset's risk. The active bridge relationship determines whether a vulnerability contributes to an asset. When severity or assignment state changes, the `asset_risk` service recalculates each affected asset.
+Existence alone does not change an asset’s risk. The active bridge relationship determines whether a vulnerability contributes to an asset. When severity or assignment state changes, the `asset_risk` service recalculates each affected asset.
 
 See [asset-vulnerability-assignment.md](asset-vulnerability-assignment.md) and [asset-risk.md](asset-risk.md) for relationship and scoring behavior.
 
 ## 🎭 Walkthrough: Alice Updates A Vulnerability
 
-- **Who:** Alice is an authorized administrator; Bob is not allowed to alter Alice's vulnerability records.
-- **What:** Alice updates the local severity or status of a vulnerability.
-- **When:** The update request reaches the protected vulnerability route.
-- **Where:** The controller binds the request, the service validates the change, and the repository persists it before affected asset risk is refreshed.
-- **Why:** Local records support application workflows, while their severity may contribute to the derived risk of linked assets.
-- **How:** The backend checks authorization and valid values, saves the update transactionally, recalculates affected assets, and returns a safe error if any step fails.
+1. Alice is an authorized administrator; Bob is not allowed to alter Alice’s vulnerability records.
+2. Alice updates the local severity or status of a vulnerability.
+3. The update request reaches the protected vulnerability route.
+4. The controller binds the request, the service validates the change, and the repository persists it before affected asset risk is refreshed.
+5. Local records support application workflows, while their severity may contribute to the derived risk of linked assets.
+6. The backend checks authorization and valid values, saves the update transactionally, recalculates affected assets, and returns a safe error if any step fails.
 
 ## 🛡️ Security Invariants
 

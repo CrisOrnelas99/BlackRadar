@@ -43,18 +43,18 @@ AI output cannot set user ID, role, risk state, assessment ownership, or arbitra
 
 Ingestion does not automatically perform CPE matching or attach CVEs. Those are separate workflows.
 
-## 🛡️ Advisory Model
+## 🎯 Advisory Model
 
 The model may extract facts present in the input, but it must not invent product identity, vulnerabilities, CPEs, or CVEs. Human review and later matching remain responsible for security conclusions.
 
 ## 🎭 Walkthrough: Alice Imports An Asset Description
 
-- **Who:** Alice submits a description of a device; Bob is not involved in the resulting draft.
-- **What:** The backend turns raw text into a structured asset draft.
-- **When:** Alice uses the AI-assisted ingestion endpoint.
-- **Where:** The controller accepts the request, the service validates bounded input, and the backend-owned provider client invokes the model.
-- **Why:** AI can reduce data-entry effort, but it must not decide ownership or create unverified security state.
-- **How:** The server-owned prompt produces a candidate, the response is validated and normalized, and Alice must still use the normal asset workflow before persistence.
+1. Alice submits a description of a device; Bob is not involved in the resulting draft.
+2. The backend turns raw text into a structured asset draft.
+3. Alice uses the AI-assisted ingestion endpoint.
+4. The controller accepts the request, the service validates bounded input, and the backend-owned provider client invokes the model.
+5. AI can reduce data-entry effort, but it must not decide ownership or create unverified security state.
+6. The server-owned prompt produces a candidate, the response is validated and normalized, and Alice must still use the normal asset workflow before persistence.
 
 ## 🚧 Current Limitations
 
@@ -69,5 +69,5 @@ See [security-boundaries.md](security-boundaries.md) and [api-error-handling.md]
 
 - **Ingestion:** Converting external or free-form input into internal application data.
 - **Draft:** A proposed structured asset before normal persistence validation.
-- **Prompt injection:** Input attempting to alter the model's assigned task or rules.
+- **Prompt injection:** Input attempting to alter the model’s assigned task or rules.
 - **Advisory AI:** AI output that informs a workflow but cannot authorize or persist itself.

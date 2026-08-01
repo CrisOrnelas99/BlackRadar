@@ -36,12 +36,12 @@ See [security-boundaries.md](security-boundaries.md), [users-auth-sessions.md](u
 
 ## 🎭 Walkthrough: Protected Navigation
 
-- **Who:** Alice has a valid session; Bob is not authenticated.
-- **What:** Alice opens a protected asset page while Bob is redirected to login.
-- **When:** Angular evaluates navigation before rendering the protected screen.
-- **Where:** Route guards and auth services handle the UI flow; the backend middleware still authorizes every API request.
-- **Why:** The guard improves navigation, but only the server can protect data and actions.
-- **How:** The frontend attaches the in-memory access token through its API pipeline, refreshes through the HttpOnly refresh cookie when needed, clears session state as appropriate, and renders server results without making authorization decisions itself.
+1. Alice has a valid session; Bob is not authenticated.
+2. Alice opens a protected asset page while Bob is redirected to login.
+3. Angular evaluates navigation before rendering the protected screen.
+4. Route guards and auth services handle the UI flow; the backend middleware still authorizes every API request.
+5. The guard improves navigation, but only the server can protect data and actions.
+6. The frontend attaches the in-memory access token through its API pipeline, refreshes through the HttpOnly refresh cookie when needed, clears session state as appropriate, and renders server results without making authorization decisions itself.
 
 ## 🔑 Key Terms
 

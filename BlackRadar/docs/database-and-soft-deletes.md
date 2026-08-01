@@ -1,4 +1,4 @@
-# 🗄️ Database And Soft Deletes
+# 🗃️ Database And Soft Deletes
 
 ## 🧭 Overview
 
@@ -47,12 +47,12 @@ See [security-boundaries.md](security-boundaries.md) for the application trust m
 
 ## 🎭 Walkthrough: Removing An Assignment
 
-- **Who:** Alice is an authorized administrator managing one of her assets.
-- **What:** Alice removes an asset-vulnerability relationship.
-- **When:** The assignment removal request is processed as a multi-step write.
-- **Where:** The service owns the transaction and business rules; repositories update the bridge row and related records.
-- **Why:** The relationship should leave an auditable inactive row while active queries stop treating it as attached.
-- **How:** The bridge row is soft-deleted, dependent cleanup and risk refresh use the same transaction context, and any error rolls the entire operation back.
+1. Alice is an authorized administrator managing one of her assets.
+2. Alice removes an asset-vulnerability relationship.
+3. The assignment removal request is processed as a multi-step write.
+4. The service owns the transaction and business rules; repositories update the bridge row and related records.
+5. The relationship should leave an auditable inactive row while active queries stop treating it as attached.
+6. The bridge row is soft-deleted, dependent cleanup and risk refresh use the same transaction context, and any error rolls the entire operation back.
 
 ## 🔑 Key Terms
 

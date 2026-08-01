@@ -6,13 +6,13 @@ An asset is a user-owned inventory record representing a device, application, se
 
 ## 🎯 Purpose
 
-The asset model provides the stable subject to which vulnerabilities, CPE matches, and future remediation workflows attach. It separates inventory facts from conclusions produced by matching and risk workflows.
+The asset model gives the rest of the system a stable record to attach vulnerabilities, CPE matches, and future remediation workflows to. It keeps inventory facts separate from the conclusions produced by matching and risk workflows.
 
 ## 🧱 Data Shape
 
-Core asset fields include name, type, vendor, product, version, operating system, device model, owner, and criticality. The asset also exposes derived `riskLevel` and a linked assessment containing risk score and CPE review metadata.
+The core asset fields are name, type, vendor, product, version, operating system, device model, owner, and criticality. The asset also exposes derived `riskLevel` and a linked assessment containing risk score and CPE review metadata.
 
-Ownership, audit fields, risk state, and assessment identifiers are backend-controlled. Clients submit allowed inventory fields only.
+Ownership, audit fields, risk state, and assessment identifiers are backend-controlled. Clients submit only the allowed inventory fields.
 
 ## 🔌 Current API
 
@@ -28,7 +28,7 @@ Relationship and matching routes are documented separately in [asset-vulnerabili
 
 ## 🔄 Lifecycle
 
-Manual creation validates and persists the submitted asset. AI-assisted creation accepts bounded raw text, asks the backend-owned prompt to extract a draft, validates the result, and then uses the normal asset creation path.
+Manual creation validates and persists the submitted asset. AI-assisted creation accepts bounded raw text, asks the backend-owned prompt to extract a draft, validates the result, and then follows the normal asset creation path.
 
 Reads and updates are scoped to the authenticated user. Deletes are transactional and clean up related assessment and relationship state according to the persistence rules.
 
@@ -49,19 +49,19 @@ The asset service owns validation, normalization, ownership, duplicate checks, a
 - Ownership comes from authenticated server state.
 - Input is validated before persistence or external processing.
 - AI output is treated as untrusted data.
-- Duplicate identity records are rejected within the user's scope.
+- Duplicate identity records are rejected within the user’s scope.
 - Browser input cannot set risk, role, user ID, or assessment ownership.
 
 Shared trust and error rules are defined in [security-boundaries.md](security-boundaries.md) and [api-error-handling.md](api-error-handling.md).
 
 ## 🎭 Walkthrough: Asset Ownership
 
-- **Who:** Alice creates an asset; Bob is a different authenticated user.
-- **What:** Alice's asset is returned to Alice but not to Bob.
-- **When:** The service handles an asset create or read request.
-- **Where:** The controller accepts the HTTP contract, the service validates ownership rules, and the repository scopes persistence by the authenticated owner.
-- **Why:** Asset identifiers must not become a way to cross user boundaries.
-- **How:** The server assigns ownership from authenticated context, rejects client-supplied ownership fields, and includes the owner predicate in reads, updates, and deletes.
+1. Alice creates an asset; Bob is a different authenticated user.
+2. Alice’s asset is returned to Alice but not to Bob.
+3. The service handles an asset create or read request.
+4. The controller accepts the HTTP contract, the service validates ownership rules, and the repository scopes persistence by the authenticated owner.
+5. Asset identifiers must not become a way to cross user boundaries.
+6. The server assigns ownership from authenticated context, rejects client-supplied ownership fields, and includes the owner predicate in reads, updates, and deletes.
 
 ## 🚧 Current Limitations
 
