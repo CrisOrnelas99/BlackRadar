@@ -3,6 +3,7 @@ package runtime
 import (
 	"errors"
 	"log/slog"
+	"net/http"
 	"testing"
 	"time"
 
@@ -28,6 +29,32 @@ func TestServerAddressUsesConfiguredPort(t *testing.T) {
 
 	if actual := serverAddress(cfg); actual != ":9090" {
 		t.Fatalf("expected :9090, got %q", actual)
+	}
+}
+
+func TestNewHTTPServerUsesTimeoutAndHeaderLimits(t *testing.T) {
+	cfg := testConfig()
+	cfg.Port = "9090"
+
+	server := newHTTPServer(http.NewServeMux(), cfg)
+
+	if server.Addr != ":9090" {
+		t.Fatalf("expected :9090, got %q", server.Addr)
+	}
+	if server.ReadHeaderTimeout != apiReadHeaderTimeout {
+		t.Fatalf("expected read header timeout %s, got %s", apiReadHeaderTimeout, server.ReadHeaderTimeout)
+	}
+	if server.ReadTimeout != apiReadTimeout {
+		t.Fatalf("expected read timeout %s, got %s", apiReadTimeout, server.ReadTimeout)
+	}
+	if server.WriteTimeout != apiWriteTimeout {
+		t.Fatalf("expected write timeout %s, got %s", apiWriteTimeout, server.WriteTimeout)
+	}
+	if server.IdleTimeout != apiIdleTimeout {
+		t.Fatalf("expected idle timeout %s, got %s", apiIdleTimeout, server.IdleTimeout)
+	}
+	if server.MaxHeaderBytes != apiMaxHeaderBytes {
+		t.Fatalf("expected max header bytes %d, got %d", apiMaxHeaderBytes, server.MaxHeaderBytes)
 	}
 }
 

@@ -55,6 +55,12 @@ import (
 const (
 	databaseConnectAttempts = 15
 	databaseConnectDelay    = 2 * time.Second
+
+	apiReadHeaderTimeout = 10 * time.Second
+	apiReadTimeout       = 30 * time.Second
+	apiWriteTimeout      = 30 * time.Second
+	apiIdleTimeout       = 120 * time.Second
+	apiMaxHeaderBytes    = 16 * 1024
 )
 
 // ErrDatabaseRequired indicates router startup was attempted without a database.
@@ -107,8 +113,42 @@ func RunWithConfig(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 
-	log.Printf("Go backend running on %s", serverAddress(cfg))
-	return engine.Run(serverAddress(cfg))
+	server := newHTTPServer(engine, cfg)
+	log.Printf("Go backend running on %s", server.Addr)
+
+	serverErr := make(chan error, 1)
+	go func() {
+		serverErr <- server.ListenAndServe()
+	}()
+
+	select {
+	case err := <-serverErr:
+		if errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
+		return fmt.Errorf("API server failed: %w", err)
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("API server shutdown failed: %w", err)
+		}
+		return nil
+	}
+}
+
+// newHTTPServer creates the API server with explicit slow-client protections.
+func newHTTPServer(handler http.Handler, cfg config.Config) *http.Server {
+	return &http.Server{
+		Addr:              serverAddress(cfg),
+		Handler:           handler,
+		ReadHeaderTimeout: apiReadHeaderTimeout,
+		ReadTimeout:       apiReadTimeout,
+		WriteTimeout:      apiWriteTimeout,
+		IdleTimeout:       apiIdleTimeout,
+		MaxHeaderBytes:    apiMaxHeaderBytes,
+	}
 }
 
 // BuildRouter wires middleware, repositories, services, controllers, and routes.

@@ -6,10 +6,17 @@ import {
   writeResponseToNodeResponse,
 } from '@angular/ssr/node';
 import express from 'express';
+import { createServer } from 'node:http';
 import { join } from 'node:path';
 
 const browserDistFolder = join(import.meta.dirname, '../browser');
 const apiOrigin = process.env['API_ORIGIN'] || 'http://localhost:8080';
+
+const ssrReadHeaderTimeout = 10_000;
+const ssrRequestTimeout = 30_000;
+const ssrSocketTimeout = 120_000;
+const ssrKeepAliveTimeout = 60_000;
+const ssrMaxHeaderSize = 16 * 1024;
 
 const app = express();
 const angularApp = new AngularNodeAppEngine();
@@ -61,12 +68,22 @@ app.use((req, res, next) => {
 // Starts the server when this module is executed directly or under PM2.
 if (isMainModule(import.meta.url) || process.env['pm_id']) {
   const port = process.env['PORT'] || 4000;
-  // Binds the Express server to the configured port.
-  app.listen(port, (error) => {
-    if (error) {
-      throw error;
-    }
+  // Keep timeout and header limits explicit at the SSR process boundary.
+  const server = createServer(
+    {
+      headersTimeout: ssrReadHeaderTimeout,
+      requestTimeout: ssrRequestTimeout,
+      maxHeaderSize: ssrMaxHeaderSize,
+    },
+    app,
+  );
+  server.setTimeout(ssrSocketTimeout);
+  server.keepAliveTimeout = ssrKeepAliveTimeout;
+  server.on('error', (error) => {
+    throw error;
+  });
 
+  server.listen(port, () => {
     console.log(`Node Express server listening on http://localhost:${port}`);
   });
 }
