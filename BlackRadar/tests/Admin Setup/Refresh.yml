@@ -6,13 +6,6 @@ info:
 http:
   method: POST
   url: http://localhost:8080/api/auth/refresh
-  auth: inherit
-  body:
-    type: json
-    data: |
-      {
-        "refreshToken": "{{refreshToken}}"
-      }
 
 settings:
   encodeUrl: true

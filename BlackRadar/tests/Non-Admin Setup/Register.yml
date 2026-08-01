@@ -12,7 +12,7 @@ http:
       {
         "username": "analyst_user",
         "email": "analyst_user@example.com",
-        "password": "Password123!"
+        "password": "{{testPassword}}"
       }
 
 settings:
