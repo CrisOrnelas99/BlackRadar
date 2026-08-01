@@ -108,25 +108,15 @@ func executeStatements(
 // required by the current runtime schema.
 func schemaStatements() []string {
 	return []string{
-		`DROP INDEX IF EXISTS idx_users_username`,
-		`DROP INDEX IF EXISTS idx_users_email`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_active ON users (username) WHERE deleted_at IS NULL`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_active ON users (email) WHERE deleted_at IS NULL`,
-		`DROP INDEX IF EXISTS idx_users_organization_id`,
-		`ALTER TABLE users DROP CONSTRAINT IF EXISTS ukr43af9ap4edm43mmtq01oddj6`,
-		`ALTER TABLE users DROP CONSTRAINT IF EXISTS uk6dotkott2kjsp8vw4d0m25fb7`,
 		`CREATE INDEX IF NOT EXISTS idx_assets_user_id ON assets (user_id)`,
 		`ALTER TABLE assets ALTER COLUMN user_id SET NOT NULL`,
-		`DROP INDEX IF EXISTS idx_assets_organization_id`,
 		`CREATE INDEX IF NOT EXISTS idx_vulnerabilities_user_id ON vulnerabilities (user_id)`,
 		`ALTER TABLE vulnerabilities ALTER COLUMN user_id SET NOT NULL`,
-		`DROP INDEX IF EXISTS idx_vulnerabilities_organization_id`,
 		`CREATE INDEX IF NOT EXISTS idx_refresh_sessions_user_id ON refresh_sessions (user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_events_actor_occurred_at ON audit_events (actor_user_id, occurred_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_events_resource_occurred_at ON audit_events (resource_type, resource_id, occurred_at DESC)`,
-		`DROP INDEX IF EXISTS idx_vulnerabilities_cve_id`,
-		`DROP INDEX IF EXISTS idx_vulnerabilities_org_cve_id`,
-		`DROP INDEX IF EXISTS idx_vulnerabilities_user_cve_id`,
 		`DO $$
 		BEGIN
 			IF NOT EXISTS (
@@ -142,8 +132,6 @@ func schemaStatements() []string {
 			"users",
 			`ALTER TABLE users ADD CONSTRAINT chk_users_role CHECK (role IN ('admin', 'user'))`,
 		),
-		`ALTER TABLE users DROP CONSTRAINT IF EXISTS fk_users_organization`,
-		`ALTER TABLE users DROP COLUMN IF EXISTS organization_id`,
 		constraintStatement(
 			"chk_vulnerabilities_severity",
 			"vulnerabilities",
@@ -159,13 +147,10 @@ func schemaStatements() []string {
 			"assets",
 			`ALTER TABLE assets ADD CONSTRAINT fk_assets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
 		),
-		`ALTER TABLE assets DROP CONSTRAINT IF EXISTS fk_assets_organization`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS vendor TEXT`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS product TEXT`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS version TEXT`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS device_model TEXT`,
-		`ALTER TABLE assets ALTER COLUMN risk_level DROP DEFAULT`,
-		`ALTER TABLE assets ALTER COLUMN risk_level DROP NOT NULL`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS asset_assessment_id UUID`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS updated_by_id UUID`,
@@ -176,32 +161,23 @@ func schemaStatements() []string {
 		`ALTER TABLE asset_vulnerabilities ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ`,
 		`ALTER TABLE asset_vulnerabilities ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
 		`UPDATE asset_vulnerabilities SET created_at = COALESCE(created_at, NOW()) WHERE created_at IS NULL`,
-		`ALTER TABLE asset_vulnerabilities DROP CONSTRAINT IF EXISTS asset_vulnerabilities_pkey`,
-		`DROP INDEX IF EXISTS idx_asset_vulnerabilities_active`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_asset_vulnerabilities_active ON asset_vulnerabilities (asset_id, vulnerability_id) WHERE deleted_at IS NULL`,
-		`ALTER TABLE assets DROP CONSTRAINT IF EXISTS fk_assets_asset_assessment`,
-		`ALTER TABLE assets DROP COLUMN IF EXISTS organization_id`,
 		constraintStatement(
 			"fk_vulnerabilities_user",
 			"vulnerabilities",
 			`ALTER TABLE vulnerabilities ADD CONSTRAINT fk_vulnerabilities_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
 		),
-		`ALTER TABLE vulnerabilities DROP CONSTRAINT IF EXISTS fk_vulnerabilities_organization`,
-		`ALTER TABLE vulnerabilities DROP COLUMN IF EXISTS organization_id`,
 		constraintStatement(
 			"fk_refresh_sessions_user",
 			"refresh_sessions",
 			`ALTER TABLE refresh_sessions ADD CONSTRAINT fk_refresh_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
 		),
-		`ALTER TABLE asset_vulnerabilities DROP CONSTRAINT IF EXISTS fkavovmmqdpqv6hacqhae27ngt1`,
-		`ALTER TABLE asset_vulnerabilities DROP CONSTRAINT IF EXISTS fkpldrve7axqj2xnyb09ojqmd02`,
-		`DROP INDEX IF EXISTS idx_organizations_name_active`,
-		`DROP TABLE IF EXISTS organizations`,
 	}
 }
 
 // assetAssessmentMigrationStatements returns the legacy asset assessment remap
-// and cleanup statements needed during startup migration.
+// statements needed during startup migration. Legacy columns are intentionally
+// left in place so startup cannot delete existing data.
 func assetAssessmentMigrationStatements() []string {
 	return []string{
 		`DO $$
@@ -278,15 +254,6 @@ func assetAssessmentMigrationStatements() []string {
 		`ALTER TABLE asset_assessments ALTER COLUMN cpe_candidate_count SET NOT NULL`,
 		`ALTER TABLE asset_assessments ALTER COLUMN risk_score SET DEFAULT 0`,
 		`ALTER TABLE asset_assessments ALTER COLUMN risk_score SET NOT NULL`,
-		`ALTER TABLE assets DROP COLUMN IF EXISTS risk_score`,
-		`ALTER TABLE assets DROP COLUMN IF EXISTS product_fingerprint`,
-		`ALTER TABLE assets DROP COLUMN IF EXISTS selected_cpe`,
-		`ALTER TABLE assets DROP COLUMN IF EXISTS cpe_confidence`,
-		`ALTER TABLE assets DROP COLUMN IF EXISTS cpe_review_status`,
-		`ALTER TABLE assets DROP COLUMN IF EXISTS cpe_review_notes`,
-		`ALTER TABLE assets DROP COLUMN IF EXISTS cpe_candidate_count`,
-		`ALTER TABLE assets DROP COLUMN IF EXISTS cpe_matched_at`,
-		`ALTER TABLE assets DROP CONSTRAINT IF EXISTS chk_assets_cpe_review_status`,
 	}
 }
 

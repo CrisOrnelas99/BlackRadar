@@ -13,6 +13,22 @@ func TestSchemaStatementsDoNotAssignFallbackTenant(t *testing.T) {
 	}
 }
 
+func TestRuntimeMigrationStatementsDoNotContainDestructiveOperations(t *testing.T) {
+	statementGroups := [][]string{
+		schemaStatements(),
+		assetAssessmentMigrationStatements(),
+		postRemapStatements(),
+	}
+
+	for _, statements := range statementGroups {
+		for _, statement := range statements {
+			if strings.Contains(strings.ToUpper(statement), "DROP ") {
+				t.Fatalf("runtime migrations must not contain destructive SQL: %q", statement)
+			}
+		}
+	}
+}
+
 func TestConstraintStatementScopesConstraintToTable(t *testing.T) {
 	statement := constraintStatement(
 		"fk_assets_user",

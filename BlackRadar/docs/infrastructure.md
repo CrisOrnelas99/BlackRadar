@@ -25,7 +25,7 @@ The browser uses the backend API at `http://localhost:8080/api` in the developme
 
 The root `docker-compose.yml` defines three current services:
 
-- **PostgreSQL:** Uses the `postgres:16` image, reads database credentials from the root `.env` file, exposes the configured host port, and stores data in the named `postgres_data` volume.
+- **PostgreSQL:** Uses the `postgres:16` image, reads database credentials from the root `.env` file, is reachable by the backend only through the private Compose network, and stores data in the named `postgres_data` volume.
 - **Backend:** Builds from `BlackRadar/Dockerfile`, runs as the unprivileged `blackradar` user, uses a read-only root filesystem with dropped Linux capabilities, waits for PostgreSQL's health check, exposes port `8080`, and receives the Compose database hostname `postgres` through its environment.
 - **Frontend:** Uses `node:22-alpine`, mounts `BlackRadar/ui`, keeps dependencies in the `frontend_node_modules` volume, and runs Angular's development server on port `4200`. Dependencies are installed explicitly with `docker compose run --rm frontend npm ci`, not during every service startup.
 
@@ -43,7 +43,7 @@ The frontend depends on the backend for startup ordering. The backend exposes `/
 
 The root `.env` file supplies local database and provider configuration to Compose and the backend. Compose does not enable bootstrap data unless `BOOTSTRAP_DEV_DATA=true` is explicitly configured. Secrets and provider credentials belong on the backend side of the boundary. They must not be placed in Angular environment files or exposed through browser responses.
 
-The Compose network allows the backend to resolve PostgreSQL as `postgres`. The browser-facing ports are host development ports, not a production security boundary. Production deployment requires an explicit network, TLS, secret-management, logging, and access-control design.
+The Compose network allows the backend to resolve PostgreSQL as `postgres`; PostgreSQL is not published to the host. The browser-facing ports are host development ports, not a production security boundary. Production deployment requires an explicit network, TLS, secret-management, logging, and access-control design.
 
 When the Go backend is placed behind a reverse proxy, set `TRUSTED_PROXY_CIDRS` to the proxy IP addresses or CIDR ranges, separated by commas. Gin only accepts `X-Forwarded-For` and related headers from those configured networks; leaving the setting empty disables forwarded-client-IP trust. This boundary is important because authentication rate limiting uses the resolved client IP. Never configure `0.0.0.0/0` or `::/0` as a convenience value.
 
