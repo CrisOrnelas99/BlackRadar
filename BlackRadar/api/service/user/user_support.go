@@ -18,6 +18,7 @@ import (
 
 // normalizeRegisterInput trims and lowercases registration fields before validation.
 func normalizeRegisterInput(request RegisterInput) RegisterInput {
+	request.FullName = strings.TrimSpace(request.FullName)
 	request.Username = strings.TrimSpace(request.Username)
 	request.Email = strings.ToLower(strings.TrimSpace(request.Email))
 	request.Password = strings.TrimSpace(request.Password)
@@ -26,6 +27,9 @@ func normalizeRegisterInput(request RegisterInput) RegisterInput {
 
 // validateRegisterInput validates the fields required to create an account.
 func validateRegisterInput(request RegisterInput) error {
+	if strings.TrimSpace(request.FullName) == "" || utf8.RuneCountInString(request.FullName) > 100 {
+		return ErrInvalidRegisterRequest
+	}
 	if strings.TrimSpace(request.Username) == "" || utf8.RuneCountInString(request.Username) < 3 || utf8.RuneCountInString(request.Username) > 50 || strings.Contains(request.Username, "@") {
 		return ErrInvalidRegisterRequest
 	}

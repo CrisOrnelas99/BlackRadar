@@ -100,7 +100,7 @@ When using local `go run .`, Go reads environment variables from the PowerShell 
 - one test device asset
 - one assigned example vulnerability: `CVE-2021-44228`
 
-Registration accepts only user identity and password fields. Organization membership is not part of the current implementation.
+Registration accepts full name, username, email, and password fields. Organization membership is not part of the current implementation.
 
 The bootstrap flag is rejected outside `local`, `development`, and `test` environments. Bootstrap also requires `BOOTSTRAP_DEV_PASSWORD` and does not keep a default password in source control.
 
@@ -372,7 +372,7 @@ Authentication
 - `POST /api/auth/refresh`
 - `POST /api/auth/logout`
 
-Registration accepts `username`, `email`, and `password`.
+Registration accepts `fullName`, `username`, `email`, and `password`. Authenticated responses return the full name with the user summary.
 
 Assets
 

@@ -108,6 +108,7 @@ func executeStatements(
 // required by the current runtime schema.
 func schemaStatements() []string {
 	return []string{
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT NOT NULL DEFAULT ''`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_active ON users (username) WHERE deleted_at IS NULL`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_active ON users (email) WHERE deleted_at IS NULL`,
 		`CREATE INDEX IF NOT EXISTS idx_assets_user_id ON assets (user_id)`,

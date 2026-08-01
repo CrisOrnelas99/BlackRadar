@@ -24,7 +24,7 @@ func TestUserControllerHandlers(t *testing.T) {
 	controller := NewUserController(svc, false)
 
 	t.Run("register", func(t *testing.T) {
-		ec, recorder := newUserContext(t, http.MethodPost, "/auth/register", `{"username":"analyst","email":"analyst@example.com","password":"Password1!"}`)
+		ec, recorder := newUserContext(t, http.MethodPost, "/auth/register", `{"fullName":"Analyst User","username":"analyst","email":"analyst@example.com","password":"Password1!"}`)
 		ec.Request.Header.Set("Content-Type", "application/json")
 		controller.Register(ec)
 		if svc.registerCalls != 1 {
@@ -37,7 +37,7 @@ func TestUserControllerHandlers(t *testing.T) {
 		if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 			t.Fatalf("failed to decode register response: %v", err)
 		}
-		if response.ID != "00000000-0000-4000-8000-000000000001" || response.Username != "analyst" || response.Email != "analyst@example.com" {
+		if response.ID != "00000000-0000-4000-8000-000000000001" || response.FullName != "Analyst User" || response.Username != "analyst" || response.Email != "analyst@example.com" {
 			t.Fatalf("unexpected register response: %#v", response)
 		}
 	})
@@ -54,7 +54,7 @@ func TestUserControllerHandlers(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				svc.registerErr = tt.err
-				ec, recorder := newUserContext(t, http.MethodPost, "/auth/register", `{"username":"analyst","email":"analyst@example.com","password":"Password1!"}`)
+				ec, recorder := newUserContext(t, http.MethodPost, "/auth/register", `{"fullName":"Analyst User","username":"analyst","email":"analyst@example.com","password":"Password1!"}`)
 				ec.Request.Header.Set("Content-Type", "application/json")
 
 				controller.Register(ec)
@@ -210,7 +210,7 @@ func (f *fakeUserService) Register(ec *appcontext.GinContext, request userservic
 		return model.User{}, f.registerErr
 	}
 	if f.registerResponse == (model.User{}) {
-		f.registerResponse = model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, Username: request.Username, Email: request.Email}
+		f.registerResponse = model.User{Model: model.Model{ID: "00000000-0000-4000-8000-000000000001"}, FullName: request.FullName, Username: request.Username, Email: request.Email}
 	}
 	return f.registerResponse, nil
 }
@@ -258,6 +258,7 @@ func testLoginResult() userservice.LoginResult {
 		RefreshTokenExpiresAt: time.Now().UTC().Add(24 * time.Hour),
 		User: model.User{
 			Model:    model.Model{ID: "00000000-0000-4000-8000-000000000001"},
+			FullName: "Analyst User",
 			Username: "analyst",
 			Email:    "analyst@example.com",
 		},

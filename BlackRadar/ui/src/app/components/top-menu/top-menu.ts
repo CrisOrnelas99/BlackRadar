@@ -28,7 +28,7 @@ export class TopMenuComponent {
 
   // Returns the person label shown in the top-right trigger.
   get displayName(): string {
-    return this.session().user.username || this.session().user.email;
+    return this.session().user.fullName || this.session().user.username || this.session().user.email;
   }
 
   // Toggles the page-navigation dropdown and closes the profile panel when needed.

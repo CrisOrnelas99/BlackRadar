@@ -10,6 +10,7 @@ import (
 
 // RegisterRequest contains the fields required to create a user account.
 type RegisterRequest struct {
+	FullName string `json:"fullName"`
 	Username string `json:"username"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
@@ -24,6 +25,7 @@ type LoginRequest struct {
 // UserResponse exposes the user fields safe for API responses.
 type UserResponse struct {
 	ID       string `json:"id"`
+	FullName string `json:"fullName"`
 	Username string `json:"username"`
 	Email    string `json:"email"`
 }
@@ -39,6 +41,7 @@ type LoginResponse struct {
 // ToServiceInput converts a registration request into service input.
 func (r RegisterRequest) ToServiceInput() userservice.RegisterInput {
 	return userservice.RegisterInput{
+		FullName: r.FullName,
 		Username: r.Username,
 		Email:    r.Email,
 		Password: r.Password,
@@ -57,6 +60,7 @@ func (r LoginRequest) ToServiceInput() userservice.LoginInput {
 func ToUserResponse(user model.User) UserResponse {
 	return UserResponse{
 		ID:       user.ID,
+		FullName: user.FullName,
 		Username: user.Username,
 		Email:    user.Email,
 	}

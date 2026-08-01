@@ -23,6 +23,7 @@ import (
 
 // RegisterInput contains the fields required to create a user account.
 type RegisterInput struct {
+	FullName string
 	Username string
 	Email    string
 	Password string
@@ -100,6 +101,7 @@ func (s *userServiceImpl) Register(ec *appcontext.GinContext, request RegisterIn
 	}
 
 	user, err := s.userRepository.CreateUser(ec, model.User{
+		FullName:     request.FullName,
 		Username:     request.Username,
 		Email:        request.Email,
 		Role:         model.RoleUser,

@@ -16,8 +16,9 @@ export class DashboardPage {
   private readonly authService = inject(AuthService);
   readonly session = this.authService.session;
 
-  // Returns the email address from the stored authenticated session.
-  get userEmail(): string {
-    return this.authService.getSession()?.user.email ?? '';
+  // Returns the username from the stored authenticated session.
+  get username(): string {
+    const user = this.authService.getSession()?.user;
+    return user?.username || user?.email || '';
   }
 }

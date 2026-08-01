@@ -12,6 +12,7 @@ const (
 // User represents an application account stored in PostgreSQL.
 type User struct {
 	Model
+	FullName     string `gorm:"column:full_name;not null;default:''" json:"fullName"`
 	Username     string `gorm:"not null;uniqueIndex:idx_users_username_active,where:deleted_at IS NULL" json:"username"`
 	Email        string `gorm:"not null;uniqueIndex:idx_users_email_active,where:deleted_at IS NULL" json:"email"`
 	Role         string `gorm:"not null;default:user" json:"role"`

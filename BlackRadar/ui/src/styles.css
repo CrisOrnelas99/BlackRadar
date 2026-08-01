@@ -29,9 +29,9 @@ app-top-menu .top-menu-link-icon{display:grid;place-items:center;width:1.85rem;h
 app-top-menu .top-menu-link-icon svg{width:1rem;height:1rem;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 @keyframes topMenuReveal{from{opacity:0;transform:translateY(-.35rem)}to{opacity:1;transform:translateY(0)}}
 @media (max-width:640px){app-top-menu .top-menu-shell{padding:.68rem .85rem}app-top-menu .top-menu-brand{font-size:1.1rem}app-top-menu .top-menu-actions{gap:.5rem}app-top-menu .top-menu-name{min-width:0;max-width:9rem;padding:.55rem .8rem}app-top-menu .top-menu-profile-panel{right:-3.2rem;width:min(13rem,88vw);min-width:min(13rem,88vw);max-width:min(13rem,88vw)}app-top-menu .top-menu-dropdown{right:-.15rem;min-width:11.5rem}app-top-menu .top-menu-profile-panel,app-top-menu .top-menu-dropdown{top:calc(100% + 1.35rem)}}
-app-login-page .login-shell{display:grid;place-items:center;min-height:100vh;padding:1.5rem;background:linear-gradient(135deg,var(--BlackRadar-color-white) 0%,#f5f7fa 100%)}
+app-login-page .login-shell{display:grid;place-items:center;min-height:100vh;padding:1.5rem;background:var(--BlackRadar-color-pure-white)}
 app-login-page .login-stage{position:relative;width:min(100%,35rem)}
-app-login-page .login-card{width:100%;padding:2rem 2rem 1.35rem;border-radius:var(--brand-radius-lg);background:linear-gradient(180deg,var(--BlackRadar-color-white) 0%,#c9cfd6 100%);border:1px solid rgba(30,41,50,.16);box-shadow:0 18px 50px rgba(30,41,50,.14);color:var(--BlackRadar-color-navy-black)}
+app-login-page .login-card{width:100%;padding:2rem 2rem 1.35rem;border-radius:var(--brand-radius-lg);background:var(--BlackRadar-color-white);border:3px solid var(--BlackRadar-color-dark-gray);box-shadow:0 18px 50px rgba(30,41,50,.14);color:var(--BlackRadar-color-navy-black)}
 app-login-page .login-header{text-align:center}
 app-login-page .login-header h1{margin:0;font-family:var(--brand-font-title);font-size:clamp(2rem,4vw,2.5rem);letter-spacing:-.05em;color:var(--brandRadar-color-blue)}
 app-login-page .login-header p{margin:.75rem 0 0;color:var(--BlackRadar-color-light-gray);line-height:1.6}
@@ -46,7 +46,7 @@ app-login-page .input-icon svg{width:100%;height:100%;stroke:currentColor;stroke
 app-login-page .field input{position:relative;z-index:0;width:100%;border:1px solid rgba(30,41,50,.18);border-radius:var(--brand-radius-md);background:#fff;color:var(--BlackRadar-color-dark-blue);padding:.95rem 1rem .95rem 2.75rem;font-size:1rem;transition:border-color 160ms ease,box-shadow 160ms ease,transform 160ms ease}
 app-login-page .field input::placeholder{color:var(--BlackRadar-color-light-gray)}
 app-login-page .field input:focus{outline:none;border-color:var(--brandRadar-color-blue);box-shadow:0 0 0 4px rgba(81,205,217,.14);transform:translateY(-1px)}
-app-login-page .login-button{margin-top:.25rem;border:0;border-radius:var(--brand-radius-md);padding:1rem 1.15rem;font-size:1rem;font-weight:800;color:var(--BlackRadar-color-white);background:linear-gradient(135deg,var(--BlackRadar-color-dark-blue) 0%,var(--BlackRadar-color-navy-black) 55%,var(--BlackRadar-color-light-gray) 100%);box-shadow:0 16px 30px rgba(30,41,50,.24);cursor:pointer;transition:transform 160ms ease,box-shadow 160ms ease,filter 160ms ease}
+app-login-page .login-button{margin-top:.25rem;border:0;border-radius:var(--brand-radius-md);padding:1rem 1.15rem;font-size:1rem;font-weight:800;color:var(--BlackRadar-color-white);background:var(--BlackRadar-color-dark-gray);box-shadow:0 16px 30px rgba(30,41,50,.24);cursor:pointer;transition:transform 160ms ease,box-shadow 160ms ease,filter 160ms ease}
 app-login-page .login-button{width:75%}
 app-login-page .login-button:hover{transform:translateY(-1px);box-shadow:0 20px 38px rgba(30,41,50,.32);filter:saturate(1.03)}
 app-login-page .login-button:focus-visible{outline:3px solid rgba(12,34,64,.25);outline-offset:3px}

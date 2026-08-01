@@ -21,6 +21,7 @@ const (
 
 	bootstrapUsername = "system_admin"
 	bootstrapEmail    = "system_admin@example.invalid"
+	bootstrapFullName = "System Admin"
 
 	bootstrapAssetName        = "Test Device"
 	bootstrapAssetType        = "Device"
@@ -150,6 +151,7 @@ func seedBootstrapUser(
 		Model: model.Model{
 			ID: bootstrapUserID,
 		},
+		FullName:     bootstrapFullName,
 		Username:     bootstrapUsername,
 		Email:        normalize(bootstrapEmail),
 		Role:         model.RoleAdmin,

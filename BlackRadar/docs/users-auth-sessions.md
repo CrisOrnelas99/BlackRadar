@@ -19,7 +19,7 @@ Protected application routes require a valid access token and an active correspo
 
 ## 🔄 Session Lifecycle
 
-1. Registration validates identity and password fields, hashes the password, and assigns the default role.
+1. Registration validates full name, identity, and password fields, hashes the password, and assigns the default role.
 2. Login accepts username or email plus password and returns access material only after credential verification.
 3. The access JWT is short-lived and contains scoped claims.
 4. The refresh token identifies server-side session state and is sent to the browser only as an HttpOnly cookie.
@@ -52,6 +52,8 @@ See [security-boundaries.md](security-boundaries.md) and [api-error-handling.md]
 4. The service validates credentials, the repository reads user/session data, and middleware later validates tokens on protected routes.
 5. Requests need a server-verifiable identity without trusting user IDs or permissions supplied by the browser.
 6. The server verifies the password, issues short-lived access credentials, stores revocable refresh state, and returns generic failures when authentication is invalid.
+
+The authenticated user summary includes the full name, username, and email. The frontend uses the full name for the dashboard and account label, then falls back to username or email when an older account has no full name.
 
 ## 🚧 Current Limitations
 

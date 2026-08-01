@@ -30,12 +30,12 @@ const (
 func TestUserService(t *testing.T) {
 	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
 	repo := &fakeUserRepository{
-		user: model.User{Model: model.Model{ID: testUserID}, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
+		user: model.User{Model: model.Model{ID: testUserID}, FullName: "Analyst User", Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
 	}
 	svc := NewUserService(newTestJWTManager(t), repo, &fakeRefreshSessionRepository{})
 	ctx := newUserServiceContext(t)
 
-	registerResponse, err := svc.Register(ctx, RegisterInput{Username: "analyst", Email: "analyst@example.com", Password: "Password1!"})
+	registerResponse, err := svc.Register(ctx, RegisterInput{FullName: "Analyst User", Username: "analyst", Email: "analyst@example.com", Password: "Password1!"})
 	if err != nil {
 		t.Fatalf("expected Register to succeed, got %v", err)
 	}
@@ -61,11 +61,12 @@ func TestUserService(t *testing.T) {
 // TestUserServiceSupport verifies user service support behavior.
 func TestUserServiceSupport(t *testing.T) {
 	normalized := normalizeRegisterInput(RegisterInput{
+		FullName: " Analyst User ",
 		Username: " analyst ",
 		Email:    " ANALYST@EXAMPLE.COM ",
 		Password: " Password1! ",
 	})
-	if normalized.Username != "analyst" || normalized.Email != "analyst@example.com" || normalized.Password != "Password1!" {
+	if normalized.FullName != "Analyst User" || normalized.Username != "analyst" || normalized.Email != "analyst@example.com" || normalized.Password != "Password1!" {
 		t.Fatalf("unexpected normalized request: %#v", normalized)
 	}
 	if err := validateRegisterInput(normalized); err != nil {
@@ -122,6 +123,7 @@ func TestUserServiceRegisterChecksEmailBeforeCreate(t *testing.T) {
 	ctx := newUserServiceContext(t)
 
 	_, err := svc.Register(ctx, RegisterInput{
+		FullName: "Analyst User",
 		Username: "analyst",
 		Email:    "analyst@example.com",
 		Password: "Password1!",
