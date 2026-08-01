@@ -15,7 +15,6 @@ export interface LoginResponse {
     id: string;
     username: string;
     email: string;
-    organization?: string;
   };
   token: string;
   tokenExpiresAt: string;

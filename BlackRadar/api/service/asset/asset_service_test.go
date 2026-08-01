@@ -24,7 +24,7 @@ import (
 func TestAssetService(t *testing.T) {
 	repo := &fakeAssetRepository{asset: sampleAsset(), assets: []model.Asset{sampleAsset()}}
 	svc := NewAssetService(repo, nil)
-	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042", "00000000-0000-4000-8000-000000000099")
+	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
 
 	if _, err := svc.GetAllAssets(ctx); err != nil {
 		t.Fatalf("expected GetAllAssets to succeed, got %v", err)
@@ -55,7 +55,7 @@ func TestAssetServiceSupport(t *testing.T) {
 		t.Fatal("expected invalid request data translation")
 	}
 
-	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000007", "00000000-0000-4000-8000-000000000099")
+	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000007")
 	if id, err := authenticatedUserID(ctx); err != nil || id != "00000000-0000-4000-8000-000000000007" {
 		t.Fatalf("expected user id UUID, got %s err=%v", id, err)
 	}
@@ -64,7 +64,7 @@ func TestAssetServiceSupport(t *testing.T) {
 // TestAssetServiceValidationAndTranslation verifies validation and error mapping.
 func TestAssetServiceValidationAndTranslation(t *testing.T) {
 	svc := NewAssetService(&fakeAssetRepository{findErr: assetrepo.ErrRecordNotFound}, nil)
-	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042", "00000000-0000-4000-8000-000000000099")
+	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
 
 	if _, err := svc.GetAsset(ctx, "00000000-0000-4000-8000-000000000001"); !errors.Is(err, ErrAssetNotFound) {
 		t.Fatalf("expected not found translation, got %v", err)
@@ -107,7 +107,7 @@ func TestAssetServiceErrorsExposeCategories(t *testing.T) {
 func TestAssetServiceCreateAssetNormalizesDisplayFields(t *testing.T) {
 	repo := &fakeAssetRepository{}
 	svc := NewAssetService(repo, nil)
-	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042", "00000000-0000-4000-8000-000000000099")
+	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
 
 	created, err := svc.CreateAsset(ctx, model.Asset{
 		Name:        "aws athena",
@@ -137,7 +137,7 @@ func TestAssetServiceCreateAssetNormalizesDisplayFields(t *testing.T) {
 func TestAssetServiceRejectsDuplicateAssetSignaturePerUser(t *testing.T) {
 	repo := &fakeAssetRepository{signatureExists: true}
 	svc := NewAssetService(repo, nil)
-	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042", "00000000-0000-4000-8000-000000000099")
+	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
 
 	_, err := svc.CreateAsset(ctx, model.Asset{
 		Name:        "Asset A",
@@ -155,7 +155,7 @@ func TestAssetServiceRejectsDuplicateAssetSignaturePerUser(t *testing.T) {
 func TestAssetServiceRejectsWrongUser(t *testing.T) {
 	repo := &fakeAssetRepository{asset: sampleAsset(), expectedUserID: "00000000-0000-4000-8000-000000000099"}
 	svc := NewAssetService(repo, nil)
-	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042", "00000000-0000-4000-8000-000000000100")
+	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
 
 	if _, err := svc.GetAsset(ctx, "00000000-0000-4000-8000-000000000001"); !errors.Is(err, ErrAssetNotFound) {
 		t.Fatalf("expected wrong user access to be hidden as not found, got %v", err)
@@ -172,7 +172,7 @@ func TestAssetServiceCreateAssetFromAI(t *testing.T) {
 		},
 	}
 	svc := NewAssetService(repo, ai)
-	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042", "00000000-0000-4000-8000-000000000099")
+	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
 	ctx.SetUserRole(model.RoleAdmin)
 
 	asset, err := svc.CreateAssetFromAI(ctx, "I have an Amazon Ring Video Doorbell running firmware 3.4.6.")
@@ -203,7 +203,7 @@ func TestAssetServiceCreateAssetFromAIAllowsNoNetworkAddressField(t *testing.T) 
 		},
 	}
 	svc := NewAssetService(repo, ai)
-	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042", "00000000-0000-4000-8000-000000000099")
+	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
 	ctx.SetUserRole(model.RoleAdmin)
 
 	asset, err := svc.CreateAssetFromAI(ctx, "We have WP-Ultimate-Map plugin Software for WordPress. The version number is 1.1")
@@ -348,7 +348,7 @@ func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request te
 var _ openaiexternal.OpenAIClientInterface = (*fakeTextGenerationService)(nil)
 
 // newServiceContext creates a request context with an authenticated user ID.
-func newServiceContext(t *testing.T, userID string, organizationID string) *appcontext.GinContext {
+func newServiceContext(t *testing.T, userID string) *appcontext.GinContext {
 	t.Helper()
 
 	recorder := httptest.NewRecorder()

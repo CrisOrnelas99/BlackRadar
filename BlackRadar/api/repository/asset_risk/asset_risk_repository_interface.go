@@ -5,8 +5,6 @@ asset-risk service.
 package repository
 
 import (
-	"context"
-
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 )
@@ -46,17 +44,4 @@ type AssetRiskRepositoryInterface interface {
 		vulnerabilities.
 	*/
 	UpdateRiskLevelForUser(ec *appcontext.GinContext, assetID string, userID string, riskLevel *string) error
-
-	/*
-		BackfillAssetRiskLevels persists derived risk levels for all existing
-		assets using the supplied application-owned calculator.
-
-		The repository owns database reads, writes, and the transaction boundary;
-		the service owns the calculation callback. Implementations must load each
-		asset's active, user-scoped vulnerabilities, pass only those values to
-		calculate, update the matching owned asset, and roll back the complete
-		backfill when any read or write fails. A nil calculator is a dependency
-		error, not a reason to silently skip the operation.
-	*/
-	BackfillAssetRiskLevels(ctx context.Context, calculate func([]model.Vulnerability) *string) error
 }

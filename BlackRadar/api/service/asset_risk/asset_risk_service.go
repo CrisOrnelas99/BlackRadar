@@ -2,9 +2,6 @@
 package service
 
 import (
-	"context"
-
-	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetriskrepository "blackradar/api/repository/asset_risk"
 	auditservice "blackradar/api/service/audit"
@@ -83,18 +80,4 @@ func (s *assetRiskServiceImpl) RefreshRisksForVulnerability(ec *appcontext.GinCo
 		}
 	}
 	return nil
-}
-
-// BackfillAssetRiskLevels recalculates stored risk levels for all existing assets.
-func (s *assetRiskServiceImpl) BackfillAssetRiskLevels(ctx context.Context) error {
-	if s.repository == nil {
-		return ErrAssetRiskDependency
-	}
-
-	return translateAssetRiskRepositoryError(s.repository.BackfillAssetRiskLevels(ctx, CalculateRiskLevel))
-}
-
-// CalculateRiskLevel returns the highest risk level implied by active vulnerabilities.
-func (s *assetRiskServiceImpl) CalculateRiskLevel(vulnerabilities []model.Vulnerability) *string {
-	return CalculateRiskLevel(vulnerabilities)
 }

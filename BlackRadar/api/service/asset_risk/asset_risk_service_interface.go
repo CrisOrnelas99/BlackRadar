@@ -4,9 +4,6 @@ Package service defines asset-risk calculation and persistence workflows.
 package service
 
 import (
-	"context"
-
-	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 )
 
@@ -39,27 +36,4 @@ type AssetRiskService interface {
 		that is not assigned to an asset must not cause an asset update.
 	*/
 	RefreshRisksForVulnerability(ec *appcontext.GinContext, vulnerabilityID string) error
-
-	/*
-		BackfillAssetRiskLevels recalculates stored risk levels for every asset.
-
-		This is a startup maintenance operation for existing rows. It must remain
-		backend-owned, use the repository's database transaction, include only
-		active relationships, and fail without partially committing a backfill.
-		The operation updates derived risk state; it does not change ownership,
-		asset fields, vulnerability records, or CPE matching metadata.
-	*/
-	BackfillAssetRiskLevels(ctx context.Context) error
-
-	/*
-		CalculateRiskLevel returns the derived asset risk level for the supplied
-		active vulnerability set.
-
-		The current rule normalizes severity case and whitespace, chooses the
-		highest value using Low < Medium < High < Critical, maps unknown severity
-		values to Low, and returns nil when the set is empty. The function is
-		deterministic and must not perform database, HTTP, logging, or request
-		context work.
-	*/
-	CalculateRiskLevel(vulnerabilities []model.Vulnerability) *string
 }

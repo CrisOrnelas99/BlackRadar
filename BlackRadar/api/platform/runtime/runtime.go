@@ -89,10 +89,6 @@ func RunWithConfig(ctx context.Context, cfg config.Config) error {
 	if err := platformdb.RunMigrations(ctx, gormDB); err != nil {
 		return fmt.Errorf("database migration failed: %w", err)
 	}
-	assetRiskService := serviceassetrisk.NewAssetRiskService(repositoryassetrisk.NewAssetRiskRepository(gormDB))
-	if err := assetRiskService.BackfillAssetRiskLevels(ctx); err != nil {
-		return fmt.Errorf("asset risk level backfill failed: %w", err)
-	}
 	if err := bootstrap.Run(ctx, gormDB, cfg); err != nil {
 		return fmt.Errorf("bootstrap failed: %w", err)
 	}
@@ -169,7 +165,7 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 	assetRiskService := serviceassetrisk.NewAssetRiskService(assetRiskRepository).WithAuditService(auditService)
 	assetMatchService := serviceassetmatch.NewAssetMatchService(assetMatchRepository, assetVulnerabilityRepository, vulnerabilityRepository, cpeClient, nvdClient, openAIClient, assetRiskService).WithAuditService(auditService)
 	assetService := serviceasset.NewAssetService(assetRepository, openAIClient, auditService)
-	assetVulnerabilityService := serviceassetvulnerability.NewAssetVulnerabilityService(assetVulnerabilityRepository, vulnerabilityRepository, nvdLookupService, assetRiskService).WithAuditService(auditService)
+	assetVulnerabilityService := serviceassetvulnerability.NewAssetVulnerabilityService(assetVulnerabilityRepository, assetRiskService).WithAuditService(auditService)
 	vulnerabilityService := servicevulnerability.NewVulnerabilityService(vulnerabilityRepository, assetRiskService).WithAuditService(auditService)
 
 	userController := controlleruser.NewUserController(userService, cfg.IsProduction())

@@ -303,11 +303,6 @@ func (f *fakeUserRepository) CreateUser(ec *appcontext.GinContext, user model.Us
 	return user, nil
 }
 
-// FindByUsernameOrEmail returns the configured fake user.
-func (f *fakeUserRepository) FindByUsernameOrEmail(ec *appcontext.GinContext, userOrEmail string) (model.User, error) {
-	return f.user, f.findErr
-}
-
 // FindByUsername returns the configured fake user.
 func (f *fakeUserRepository) FindByUsername(ec *appcontext.GinContext, username string) (model.User, error) {
 	f.usernameLookupCalled = true
@@ -334,12 +329,12 @@ func (f *fakeUserRepository) FindByEmail(ec *appcontext.GinContext, email string
 var _ userrepo.UserRepositoryInterface = (*fakeUserRepository)(nil)
 
 type fakeRefreshSessionRepository struct {
-	session        model.RefreshSession
-	revoked        bool
+	session         model.RefreshSession
+	revoked         bool
 	revokeAllCalled bool
-	createErr      error
-	findErr        error
-	revokeErr      error
+	createErr       error
+	findErr         error
+	revokeErr       error
 }
 
 // CreateRefreshSession stores the fake refresh session.

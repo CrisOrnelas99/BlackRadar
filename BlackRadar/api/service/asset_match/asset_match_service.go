@@ -528,7 +528,7 @@ func (s *assetMatchServiceImpl) findKeywordFallbackCVEs(ctx context.Context, ana
 func (s *assetMatchServiceImpl) findOrCreateNVDVulnerability(ec *appcontext.GinContext, userID string, response nvdcveclient.CVELookupResponse) (model.Vulnerability, error) {
 	normalizedCVEID := normalizeCVEID(response.CVEID)
 	if err := validateCVEID(normalizedCVEID); err != nil {
-		return model.Vulnerability{}, assetvulnerabilityservice.ErrInvalidAssetCVEID
+		return model.Vulnerability{}, ErrInvalidCVEID
 	}
 
 	existing, err := s.vulnRepository.FindByCVEIDForUser(ec, normalizedCVEID, userID)

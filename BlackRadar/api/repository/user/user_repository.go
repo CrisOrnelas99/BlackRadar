@@ -91,21 +91,6 @@ func (r *UserRepository) CreateUser(ec *appcontext.GinContext, user model.User) 
 	return model.User{}, fmt.Errorf("%w: exhausted random id retries", ErrPrimaryKeyViolation)
 }
 
-// FindByUsernameOrEmail returns a user that matches the supplied username or email.
-func (r *UserRepository) FindByUsernameOrEmail(ec *appcontext.GinContext, userOrEmail string) (model.User, error) {
-	var user model.User
-	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
-		Where("username = ? OR email = ?", strings.TrimSpace(userOrEmail), strings.ToLower(strings.TrimSpace(userOrEmail))).
-		First(&user).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return model.User{}, ErrRecordNotFound
-	}
-	if err != nil {
-		return model.User{}, fmt.Errorf("%w: read user by username or email: %w", ErrPersistenceFailure, err)
-	}
-	return user, nil
-}
-
 // FindByUsername returns a user that matches the supplied username.
 func (r *UserRepository) FindByUsername(ec *appcontext.GinContext, username string) (model.User, error) {
 	var user model.User

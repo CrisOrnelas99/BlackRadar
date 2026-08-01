@@ -12,8 +12,6 @@ func (e AssetRiskRepositoryError) Error() string {
 }
 
 var (
-	ErrDatabaseRequired   = &AssetRiskRepositoryError{Message: "database connection required"}
-	ErrCalculatorRequired = &AssetRiskRepositoryError{Message: "risk calculator required"}
 	ErrRecordNotFound     = &AssetRiskRepositoryError{Message: "record not found"}
 	ErrPersistenceFailure = &AssetRiskRepositoryError{Message: "persistence failure"}
 )

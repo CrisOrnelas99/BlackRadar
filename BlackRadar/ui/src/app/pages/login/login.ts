@@ -15,7 +15,6 @@ import { BannerService } from '../../services/banner/banner';
   standalone: true,
   imports: [CommonModule, ReactiveFormsModule],
   templateUrl: './login.html',
-  styleUrl: './login.css',
 })
 export class LoginPage {
   private static readonly invalidCredentialsMessage = 'Enter a valid email and password.';

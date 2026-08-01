@@ -12,7 +12,6 @@ import { AuthService, LoginResponse } from '../../services/auth/auth';
   standalone: true,
   imports: [CommonModule],
   templateUrl: './top-menu.html',
-  styleUrl: './top-menu.css',
   encapsulation: ViewEncapsulation.None,
 })
 export class TopMenuComponent {
@@ -30,11 +29,6 @@ export class TopMenuComponent {
   // Returns the person label shown in the top-right trigger.
   get displayName(): string {
     return this.session().user.username || this.session().user.email;
-  }
-
-  // Returns the organization label for the profile box with a safe fallback.
-  get organizationName(): string {
-    return this.session().user.organization ?? 'Organization unavailable';
   }
 
   // Toggles the page-navigation dropdown and closes the profile panel when needed.

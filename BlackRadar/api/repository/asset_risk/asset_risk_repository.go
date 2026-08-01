@@ -2,7 +2,6 @@
 package repository
 
 import (
-	"context"
 	"fmt"
 
 	"blackradar/api/model"
@@ -66,40 +65,6 @@ func (r *AssetRiskRepository) UpdateRiskLevelForUser(ec *appcontext.GinContext, 
 		return ErrRecordNotFound
 	}
 	return nil
-}
-
-// BackfillAssetRiskLevels recalculates every asset risk level in one transaction.
-func (r *AssetRiskRepository) BackfillAssetRiskLevels(ctx context.Context, calculate func([]model.Vulnerability) *string) error {
-	if r.db == nil {
-		return ErrDatabaseRequired
-	}
-	if calculate == nil {
-		return ErrCalculatorRequired
-	}
-
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var assets []model.Asset
-		if err := tx.Select("id, user_id").Order("id").Find(&assets).Error; err != nil {
-			return fmt.Errorf("%w: load assets: %w", ErrPersistenceFailure, err)
-		}
-
-		for _, asset := range assets {
-			var vulnerabilities []model.Vulnerability
-			if err := tx.Model(&model.Vulnerability{}).
-				Joins("JOIN asset_vulnerabilities av ON av.vulnerability_id = vulnerabilities.id AND av.deleted_at IS NULL").
-				Where("av.asset_id = ? AND vulnerabilities.user_id = ?", asset.ID, asset.UserID).
-				Find(&vulnerabilities).Error; err != nil {
-				return fmt.Errorf("%w: load asset %s vulnerabilities: %w", ErrPersistenceFailure, asset.ID, err)
-			}
-
-			if err := tx.Model(&model.Asset{}).
-				Where("id = ? AND user_id = ?", asset.ID, asset.UserID).
-				Update("risk_level", calculate(vulnerabilities)).Error; err != nil {
-				return fmt.Errorf("%w: update asset %s risk level: %w", ErrPersistenceFailure, asset.ID, err)
-			}
-		}
-		return nil
-	})
 }
 
 // dbForContext returns the request-scoped database when present, otherwise the repository database.

@@ -152,25 +152,6 @@ func (c *AssetController) AssignVulnerability(ec *appcontext.GinContext) {
 	ec.JSON(http.StatusOK, ToAssetResponseDTO(asset))
 }
 
-// AssignVulnerabilityByCVE looks up a CVE, stores it locally if needed, and assigns it to an asset.
-func (c *AssetController) AssignVulnerabilityByCVE(ec *appcontext.GinContext) {
-	assetID, err := shared.ParseID(ec.Param("id"))
-	if shared.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid UUID") {
-		return
-	}
-
-	asset, err := c.assetVulnerabilityService.AssignVulnerabilityByCVE(ec, assetID, ec.Param("cveId"))
-	if err != nil {
-		if handleAssetServiceError(ec, err) {
-			return
-		}
-		shared.HandleError(ec, http.StatusInternalServerError, err, "Error assigning vulnerability from CVE")
-		return
-	}
-
-	ec.JSON(http.StatusOK, ToAssetResponseDTO(asset))
-}
-
 // RemoveVulnerability removes a vulnerability association from an asset.
 func (c *AssetController) RemoveVulnerability(ec *appcontext.GinContext) {
 	assetID, vulnerabilityID, ok := shared.ParsePair(ec)
