@@ -298,6 +298,7 @@ Typical values include:
 - PostgreSQL database host, port, name, user, password
 - JWT secret of at least 32 bytes and token expiration settings
 - allowed frontend origins for backend CORS, such as `http://localhost:4200,http://localhost:4000`
+- trusted reverse-proxy IPs or CIDR ranges for forwarded client IPs, such as `10.0.0.10,10.0.1.0/24` (`TRUSTED_PROXY_CIDRS`); leave empty when the backend is directly exposed
 - frontend SSR API origin for CSP, such as `http://localhost:8080`
 - NVD API key
 - OpenAI API key

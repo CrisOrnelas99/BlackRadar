@@ -4,8 +4,11 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/gin-gonic/gin"
 
 	"blackradar/api/platform/config"
 )
@@ -55,6 +58,52 @@ func TestNewHTTPServerUsesTimeoutAndHeaderLimits(t *testing.T) {
 	}
 	if server.MaxHeaderBytes != apiMaxHeaderBytes {
 		t.Fatalf("expected max header bytes %d, got %d", apiMaxHeaderBytes, server.MaxHeaderBytes)
+	}
+}
+
+func TestBuildRouterConfiguresTrustedProxyResolution(t *testing.T) {
+	tests := []struct {
+		name           string
+		trustedProxies []string
+		remoteAddr     string
+		wantClientIP   string
+	}{
+		{
+			name:           "trusted proxy forwards client IP",
+			trustedProxies: []string{"192.0.2.10"},
+			remoteAddr:     "192.0.2.10:1234",
+			wantClientIP:   "198.51.100.20",
+		},
+		{
+			name:           "untrusted proxy cannot forward client IP",
+			trustedProxies: []string{"192.0.2.11"},
+			remoteAddr:     "192.0.2.10:1234",
+			wantClientIP:   "192.0.2.10",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			engine := gin.New()
+			cfg := testConfig()
+			cfg.TrustedProxyCIDRs = tt.trustedProxies
+			if err := configureTrustedProxies(engine, cfg); err != nil {
+				t.Fatalf("set trusted proxies: %v", err)
+			}
+			engine.GET("/client-ip", func(ctx *gin.Context) {
+				ctx.String(http.StatusOK, ctx.ClientIP())
+			})
+
+			request := httptest.NewRequest(http.MethodGet, "/client-ip", nil)
+			request.RemoteAddr = tt.remoteAddr
+			request.Header.Set("X-Forwarded-For", "198.51.100.20")
+			recorder := httptest.NewRecorder()
+			engine.ServeHTTP(recorder, request)
+
+			if recorder.Body.String() != tt.wantClientIP {
+				t.Fatalf("expected client IP %q, got %q", tt.wantClientIP, recorder.Body.String())
+			}
+		})
 	}
 }
 

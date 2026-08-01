@@ -45,6 +45,8 @@ The root `.env` file supplies local database and provider configuration to Compo
 
 The Compose network allows the backend to resolve PostgreSQL as `postgres`. The browser-facing ports are host development ports, not a production security boundary. Production deployment requires an explicit network, TLS, secret-management, logging, and access-control design.
 
+When the Go backend is placed behind a reverse proxy, set `TRUSTED_PROXY_CIDRS` to the proxy IP addresses or CIDR ranges, separated by commas. Gin only accepts `X-Forwarded-For` and related headers from those configured networks; leaving the setting empty disables forwarded-client-IP trust. This boundary is important because authentication rate limiting uses the resolved client IP. Never configure `0.0.0.0/0` or `::/0` as a convenience value.
+
 ## 💾 Persistence And Lifecycle
 
 PostgreSQL data persists in the named `postgres_data` volume across container recreation. The frontend dependency volume prevents repeated package installation from changing the source tree. Removing the database volume destroys local database state and should be treated as a destructive development operation.

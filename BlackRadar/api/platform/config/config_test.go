@@ -92,6 +92,7 @@ func TestLoadUsesConfiguredValues(t *testing.T) {
 	t.Setenv("BOOTSTRAP_DEV_DATA", "true")
 	t.Setenv("BOOTSTRAP_DEV_PASSWORD", "LocalDevelopmentPassword123!")
 	t.Setenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000, http://localhost:4200")
+	t.Setenv("TRUSTED_PROXY_CIDRS", "10.0.0.10, 10.0.0.0/24")
 
 	cfg, err := Load()
 	if err != nil {
@@ -125,6 +126,9 @@ func TestLoadUsesConfiguredValues(t *testing.T) {
 	}
 	if !cfg.BootstrapDevData {
 		t.Fatal("expected bootstrap dev data to be enabled")
+	}
+	if len(cfg.TrustedProxyCIDRs) != 2 || cfg.TrustedProxyCIDRs[0] != "10.0.0.10" || cfg.TrustedProxyCIDRs[1] != "10.0.0.0/24" {
+		t.Fatalf("unexpected trusted proxy configuration: %#v", cfg.TrustedProxyCIDRs)
 	}
 	if cfg.BootstrapDevPassword != "LocalDevelopmentPassword123!" {
 		t.Fatalf(
@@ -321,6 +325,36 @@ func TestLoadRejectsInvalidCORSOrigin(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsInvalidTrustedProxy(t *testing.T) {
+	clearConfigEnv(t)
+	t.Setenv("JWT_SECRET", strings.Repeat("a", minimumJWTSecretLength))
+	t.Setenv("TRUSTED_PROXY_CIDRS", "not-an-ip")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected invalid trusted proxy to fail")
+	}
+
+	if !strings.Contains(err.Error(), "trusted proxy") {
+		t.Fatalf("expected trusted proxy validation error, got %v", err)
+	}
+}
+
+func TestLoadRejectsAllAddressTrustedProxy(t *testing.T) {
+	clearConfigEnv(t)
+	t.Setenv("JWT_SECRET", strings.Repeat("a", minimumJWTSecretLength))
+	t.Setenv("TRUSTED_PROXY_CIDRS", "0.0.0.0/0")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected all-address trusted proxy to fail")
+	}
+
+	if !strings.Contains(err.Error(), "must not trust every address") {
+		t.Fatalf("expected all-address proxy validation error, got %v", err)
+	}
+}
+
 func clearConfigEnv(t *testing.T) {
 	t.Helper()
 
@@ -346,6 +380,7 @@ func clearConfigEnv(t *testing.T) {
 		"BOOTSTRAP_DEV_PASSWORD",
 		"CORS_ALLOWED_ORIGINS",
 		"CORS_ALLOWED_ORIGIN",
+		"TRUSTED_PROXY_CIDRS",
 	}
 
 	for _, key := range keys {
