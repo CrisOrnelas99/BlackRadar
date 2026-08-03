@@ -7,7 +7,7 @@ RUN go mod download
 COPY . .
 RUN go build -o blackradar .
 
-FROM alpine:3.21
+FROM alpine:3.24
 
 WORKDIR /app
 RUN apk add --no-cache ca-certificates && update-ca-certificates
