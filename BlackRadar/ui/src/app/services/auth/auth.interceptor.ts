@@ -13,7 +13,10 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
   const isAuthEndpoint = request.url.startsWith(`${environment.apiUrl}/auth/`);
 
   const authenticatedRequest =
-    token && request.url.startsWith(environment.apiUrl) && !isAuthEndpoint && !request.headers.has('Authorization')
+    token &&
+    request.url.startsWith(environment.apiUrl) &&
+    !isAuthEndpoint &&
+    !request.headers.has('Authorization')
       ? request.clone({
           setHeaders: {
             Authorization: `Bearer ${token}`,
@@ -23,7 +26,12 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
 
   return next(authenticatedRequest).pipe(
     catchError((error: unknown) => {
-      if (!(error instanceof HttpErrorResponse) || error.status !== 401 || !token || isAuthEndpoint) {
+      if (
+        !(error instanceof HttpErrorResponse) ||
+        error.status !== 401 ||
+        !token ||
+        isAuthEndpoint
+      ) {
         return throwError(() => error);
       }
 

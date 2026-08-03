@@ -1,3 +1,8 @@
 /* Root shell keeps the routed content isolated while the global banner floats above it. */
-.app-shell{position:relative;min-height:100vh}
-.app-route-shell{min-height:100vh}
+.app-shell {
+  position: relative;
+  min-height: 100vh;
+}
+.app-route-shell {
+  min-height: 100vh;
+}

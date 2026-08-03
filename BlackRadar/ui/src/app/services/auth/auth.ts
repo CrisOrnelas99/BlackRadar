@@ -50,12 +50,14 @@ export class AuthService {
 
   // Revokes the refresh session cookie and clears the in-memory session.
   logout(): Observable<void> {
-    return this.httpClient.post<void>(`${environment.apiUrl}/auth/logout`, {}, { withCredentials: true }).pipe(
-      timeout(15000),
-      tap(() => {
-        this.clearSession();
-      }),
-    );
+    return this.httpClient
+      .post<void>(`${environment.apiUrl}/auth/logout`, {}, { withCredentials: true })
+      .pipe(
+        timeout(15000),
+        tap(() => {
+          this.clearSession();
+        }),
+      );
   }
 
   // Clears the in-memory session without contacting the backend.

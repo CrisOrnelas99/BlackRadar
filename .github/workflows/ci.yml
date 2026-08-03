@@ -73,6 +73,10 @@ jobs:
         working-directory: BlackRadar/ui
         run: npm ci
 
+      - name: Run frontend lint
+        working-directory: BlackRadar/ui
+        run: npm run lint
+
       - name: Run frontend tests
         working-directory: BlackRadar/ui
         run: npx --no-install ng test --watch=false

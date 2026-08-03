@@ -14,14 +14,22 @@ describe('authInterceptor', () => {
 
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideHttpClient(withInterceptors([authInterceptor])), provideHttpClientTesting()],
+      providers: [
+        provideHttpClient(withInterceptors([authInterceptor])),
+        provideHttpClientTesting(),
+      ],
     });
 
     httpClient = TestBed.inject(HttpClient);
     httpTestingController = TestBed.inject(HttpTestingController);
     authService = TestBed.inject(AuthService);
     authService.session.set({
-      user: { id: '00000000-0000-4000-8000-000000000001', fullName: 'Analyst User', username: 'analyst', email: 'analyst@example.com' },
+      user: {
+        id: '00000000-0000-4000-8000-000000000001',
+        fullName: 'Analyst User',
+        username: 'analyst',
+        email: 'analyst@example.com',
+      },
       token: 'token-123',
       tokenExpiresAt: new Date().toISOString(),
       refreshTokenExpiresAt: new Date().toISOString(),
@@ -51,7 +59,12 @@ describe('authInterceptor', () => {
     expect(refreshRequest.request.body).toEqual({});
     expect(refreshRequest.request.withCredentials).toBe(true);
     refreshRequest.flush({
-      user: { id: '00000000-0000-4000-8000-000000000001', fullName: 'Analyst User', username: 'analyst', email: 'analyst@example.com' },
+      user: {
+        id: '00000000-0000-4000-8000-000000000001',
+        fullName: 'Analyst User',
+        username: 'analyst',
+        email: 'analyst@example.com',
+      },
       token: 'token-456',
       tokenExpiresAt: new Date().toISOString(),
       refreshTokenExpiresAt: new Date().toISOString(),

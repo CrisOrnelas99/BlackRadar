@@ -5,6 +5,7 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
+    "lint": "prettier --check \"src/**/*.{ts,html,css,scss}\"",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "serve:ssr:ui": "node dist/ui/server/server.mjs"
