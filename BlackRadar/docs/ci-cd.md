@@ -15,6 +15,8 @@ The pipeline gives each change the same basic checks before it is merged:
 
 The workflow is intentionally separate from Docker Compose. Compose remains the local development runtime and is not required for every CI run.
 
+For normal changes, create a feature branch and open a pull request into `master` so the checks and review requirements can run before merging.
+
 ## Current workflow
 
 The workflow is defined in `.github/workflows/ci.yml` and runs when:
