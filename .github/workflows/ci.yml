@@ -1,0 +1,157 @@
+name: BlackRadar CI
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: blackradar-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend validation
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: BlackRadar/go.mod
+          cache-dependency-path: BlackRadar/go.sum
+
+      - name: Check Go formatting
+        working-directory: BlackRadar
+        run: |
+          formatted_files="$(gofmt -l .)"
+          if [ -n "$formatted_files" ]; then
+            echo "The following Go files need formatting:"
+            echo "$formatted_files"
+            exit 1
+          fi
+
+      - name: Run go vet
+        working-directory: BlackRadar
+        run: go vet ./...
+
+      - name: Run Go tests
+        working-directory: BlackRadar
+        run: go test ./...
+
+  go-security:
+    name: Go dependency security
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: BlackRadar/go.mod
+          cache-dependency-path: BlackRadar/go.sum
+
+      - name: Run govulncheck
+        working-directory: BlackRadar
+        run: |
+          tool_dir="$RUNNER_TEMP/go-tools"
+          mkdir -p "$tool_dir"
+          GOBIN="$tool_dir" go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+          "$tool_dir/govulncheck" ./...
+
+  frontend:
+    name: Frontend validation
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: BlackRadar/ui/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: BlackRadar/ui
+        run: npm ci
+
+      - name: Audit frontend dependencies
+        working-directory: BlackRadar/ui
+        run: npm audit --audit-level=high
+
+      - name: Run frontend tests
+        working-directory: BlackRadar/ui
+        run: npx --no-install ng test --watch=false
+
+      - name: Build frontend
+        working-directory: BlackRadar/ui
+        run: npm run build
+
+  build:
+    name: Build artifacts
+    needs:
+      - backend
+      - go-security
+      - frontend
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: BlackRadar/go.mod
+          cache-dependency-path: BlackRadar/go.sum
+
+      - name: Build backend artifact
+        working-directory: BlackRadar
+        run: |
+          mkdir -p "$RUNNER_TEMP/blackradar-artifacts/backend"
+          go build -o "$RUNNER_TEMP/blackradar-artifacts/backend/blackradar" .
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: BlackRadar/ui/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: BlackRadar/ui
+        run: npm ci
+
+      - name: Build frontend artifact
+        working-directory: BlackRadar/ui
+        run: |
+          npm run build
+          mkdir -p "$RUNNER_TEMP/blackradar-artifacts/frontend"
+          cp -R dist/ui "$RUNNER_TEMP/blackradar-artifacts/frontend/dist"
+
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: blackradar-backend-${{ github.sha }}
+          path: ${{ runner.temp }}/blackradar-artifacts/backend/blackradar
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: blackradar-frontend-${{ github.sha }}
+          path: ${{ runner.temp }}/blackradar-artifacts/frontend/dist
+          if-no-files-found: error
+          retention-days: 7

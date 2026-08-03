@@ -470,6 +470,7 @@ AI-specific guidance:
 - `BlackRadar/docs/`: feature documentation covering what, why, how, ownership, security, and current limitations
 - `BlackRadar/docs/infrastructure.md`: current Docker Compose, container, network, and persistence topology
 - `BlackRadar/docs/asset-risk.md`: backend risk calculation and refresh workflow
+- `BlackRadar/docs/ci-cd.md`: current GitHub Actions validation checks and build artifacts
 - `.agents/skills/architecture/SKILL.md`: technical architecture and implementation direction
 - `.agents/skills/clean-code/SKILL.md`: naming, structure, and implementation conventions
 - `.agents/skills/roadmap/SKILL.md`: product roadmap, planned features, and sequencing notes
@@ -493,7 +494,7 @@ Future work documented in `.agents/skills/roadmap/SKILL.md` includes:
 - future data model expansions such as alerts, work orders, work order checklist items, vulnerability exceptions, remediation entries, comments, optional chat sessions and chat messages, sync history records, future organization membership and active-organization records, and audit and notification records for sensitive actions
 - HTTPS/TLS enforcement with certificate handling at the deployment boundary
 - backend-issued internal service certificates for privileged `/internal` service authentication
-- GitHub Actions CI/CD pipeline for tests, builds, and protected releases
+- protected GitHub Actions release environments and deployment
 - full Docker integration for frontend, backend, and services
 - later AWS deployment foundation using ECR, ECS/Fargate or EC2, RDS, ALB/ACM, Secrets Manager, CloudWatch, and EventBridge
 - later AWS edge controls such as WAF, ALB throttling, or CloudFront-style protection layered on top of backend limits
