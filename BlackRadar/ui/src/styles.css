@@ -19,8 +19,8 @@ app-top-menu .top-menu-name:hover,app-top-menu .top-menu-hamburger:hover{backgro
 app-top-menu .top-menu-name:focus-visible,app-top-menu .top-menu-hamburger:focus-visible,app-top-menu .top-menu-link:focus-visible,app-top-menu .top-menu-logout:focus-visible{outline:3px solid var(--menu-outline);outline-offset:3px}
 app-top-menu .top-menu-profile-panel,app-top-menu .top-menu-dropdown{position:absolute;top:calc(100% + 1.35rem);border:1px solid var(--menu-panel-line);border-radius:1.15rem;background:var(--menu-panel-bg);box-shadow:var(--menu-panel-shadow);animation:topMenuReveal .22s ease;color:var(--BlackRadar-color-navy-black)}
 app-top-menu .top-menu-profile-panel{right:-3.35rem;display:grid;gap:.35rem;width:13rem;min-width:13rem;max-width:13rem;padding:.95rem 1rem 1rem}
-app-top-menu .top-menu-panel-label{margin:0;font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--BlackRadar-color-light-gray)}
-app-top-menu .top-menu-panel-value{margin:0 0 .4rem;font-size:1rem;font-weight:700;color:var(--BlackRadar-color-dark-blue);word-break:break-word}
+app-top-menu .top-menu-panel-label{margin:0;font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--BlackRadar-color-dark-blue)}
+app-top-menu .top-menu-panel-value{margin:0 0 .4rem;font-size:.8rem;font-weight:400;line-height:1.35;color:var(--BlackRadar-color-light-gray);word-break:break-word}
 app-top-menu .top-menu-logout{margin-top:.35rem;border:0;border-radius:.9rem;padding:.7rem .95rem;font-weight:700;color:var(--BlackRadar-color-white);background:var(--BlackRadar-color-navy-black);cursor:pointer}
 app-top-menu .top-menu-dropdown{right:0;display:grid;min-width:13rem;padding:.45rem}
 app-top-menu .top-menu-link{display:flex;align-items:center;gap:.65rem;border:0;border-radius:.9rem;padding:.75rem .9rem;background:transparent;color:var(--BlackRadar-color-dark-blue);font-weight:700;text-align:left;cursor:pointer;transition:background 160ms ease,transform 160ms ease}

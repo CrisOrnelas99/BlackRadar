@@ -11,6 +11,8 @@
 
       @if (isProfileMenuOpen) {
         <section class="top-menu-profile-panel">
+          <p class="top-menu-panel-label">Username</p>
+          <p class="top-menu-panel-value">{{ session().user.username }}</p>
           <p class="top-menu-panel-label">Email</p>
           <p class="top-menu-panel-value">{{ session().user.email }}</p>
           <button type="button" class="top-menu-logout" (click)="signOut()">Log out</button>
