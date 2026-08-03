@@ -26,7 +26,7 @@ The workflow is defined in `.github/workflows/ci.yml` and runs when:
 - a change is pushed to `master`
 - a maintainer starts a manual `workflow_dispatch` run
 
-Older runs for the same workflow reference are cancelled when a newer run starts. The workflow has read-only source access plus the narrowly scoped `security-events: write` permission needed to publish Trivy SARIF findings to GitHub Code Scanning. It does not use repository secrets.
+Older runs for the same workflow reference are cancelled when a newer run starts. Each job declares its own permissions: all jobs have `contents: read`, while only the `security` and `build` jobs have the narrowly scoped `security-events: write` permission needed to publish Trivy SARIF findings to GitHub Code Scanning. The workflow does not use repository secrets.
 
 The workflow uses third-party actions pinned to immutable commit SHAs. Dependabot checks those action references monthly and opens pull requests for updates through `.github/dependabot.yml`.
 
@@ -74,9 +74,10 @@ is regenerated and verified with `npm ci` and `npm audit --audit-level=high`.
 The security job also scans the checked-out repository with Trivy for high and
 critical vulnerabilities, secrets, and misconfigurations. The build job scans
 the backend container immediately after building it, using the same thresholds.
-Medium findings are scanned separately and uploaded as advisory SARIF results;
-they do not fail the workflow. Both Trivy and SARIF upload action references
-are pinned to immutable commit SHAs.
+Medium findings are scanned separately and uploaded as advisory SARIF results
+only for trusted `push` and `workflow_dispatch` runs; pull-request runs do not
+upload SARIF. They do not fail the workflow. Both Trivy and SARIF upload action
+references are pinned to immutable commit SHAs.
 
 ### Dependency maintenance
 
@@ -113,7 +114,7 @@ Artifacts are retained for seven days. The artifact paths are created in the run
 
 ## Security boundaries
 
-- Workflow source access is read-only; `security-events: write` is limited to publishing Trivy SARIF results.
+- Each job has `contents: read`; `security-events: write` is limited to the `security` and `build` jobs for publishing Trivy SARIF results.
 - Third-party actions are pinned to immutable commit SHAs.
 - Pull-request validation does not require secrets.
 - CI does not print environment variables or credentials.
