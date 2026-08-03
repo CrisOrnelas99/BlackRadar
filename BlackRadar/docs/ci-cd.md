@@ -11,6 +11,7 @@ The pipeline gives each change the same basic checks before it is merged:
 - Go formatting and static analysis
 - Backend and frontend tests
 - Go and Angular dependency security scanning
+- Trivy filesystem and backend-container scanning for high and critical vulnerabilities, secrets, and misconfigurations
 - Backend and frontend build artifacts plus a backend container build
 
 The workflow is intentionally separate from Docker Compose. Compose remains the local development runtime and is not required for every CI run.
@@ -25,7 +26,9 @@ The workflow is defined in `.github/workflows/ci.yml` and runs when:
 - a change is pushed to `master`
 - a maintainer starts a manual `workflow_dispatch` run
 
-Older runs for the same workflow reference are cancelled when a newer run starts. The workflow has `contents: read` permissions and does not use repository secrets.
+Older runs for the same workflow reference are cancelled when a newer run starts. Each job declares its own permissions: all jobs have `contents: read`, while only the `security` and `build` jobs have the narrowly scoped `security-events: write` permission needed to publish Trivy SARIF findings to GitHub Code Scanning. The workflow does not use repository secrets.
+
+The workflow uses third-party actions pinned to immutable commit SHAs. Dependabot checks those action references monthly and opens pull requests for updates through `.github/dependabot.yml`.
 
 ## CI jobs
 
@@ -63,6 +66,32 @@ npm audit --audit-level=high
 
 against the frontend lockfile.
 
+The frontend keeps Angular on its current major version. Its `package.json` uses
+narrow npm `overrides` for patched transitive versions of `undici`,
+`@hono/node-server`, `@modelcontextprotocol/sdk`, and `fast-uri`; the lockfile
+is regenerated and verified with `npm ci` and `npm audit --audit-level=high`.
+
+The security job also scans the checked-out repository with Trivy for high and
+critical vulnerabilities, secrets, and misconfigurations. The build job scans
+the backend container immediately after building it, using the same thresholds.
+Medium findings are scanned separately and uploaded as advisory SARIF results
+only for trusted `push` and `workflow_dispatch` runs; pull-request runs do not
+upload SARIF. They do not fail the workflow. Both Trivy and SARIF upload action
+references are pinned to immutable commit SHAs.
+
+### Dependency maintenance
+
+Dependabot is configured in `.github/dependabot.yml` with monthly checks for:
+
+- Go modules in `BlackRadar/`
+- npm packages in `BlackRadar/ui/`
+- the Dockerfile in `BlackRadar/`
+- GitHub Actions in `.github/workflows/`
+
+Dependabot creates pull requests; the existing CI workflow validates those pull
+requests before they are merged. CI does not run `npm audit fix` automatically,
+especially when the proposed fix would cross an Angular major version.
+
 ### Build and container
 
 This job runs only after the format, testing, and security jobs succeed. It:
@@ -85,7 +114,7 @@ Artifacts are retained for seven days. The artifact paths are created in the run
 
 ## Security boundaries
 
-- Workflow repository permissions are read-only.
+- Each job has `contents: read`; `security-events: write` is limited to the `security` and `build` jobs for publishing Trivy SARIF results.
 - Third-party actions are pinned to immutable commit SHAs.
 - Pull-request validation does not require secrets.
 - CI does not print environment variables or credentials.

@@ -1,0 +1,21 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /BlackRadar
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: npm
+    directory: /BlackRadar/ui
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: docker
+    directory: /BlackRadar
+    schedule:
+      interval: monthly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
