@@ -1,4 +1,4 @@
-FROM golang:1.25.12-alpine AS build
+FROM golang:1.26.5-alpine AS build
 
 WORKDIR /app
 COPY go.mod go.sum ./
@@ -7,7 +7,7 @@ RUN go mod download
 COPY . .
 RUN go build -o blackradar .
 
-FROM alpine:3.21
+FROM alpine:3.24
 
 WORKDIR /app
 RUN apk add --no-cache ca-certificates && update-ca-certificates
