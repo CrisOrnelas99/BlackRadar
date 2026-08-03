@@ -5,6 +5,8 @@ contracts consumed by authentication services.
 package repository
 
 import (
+	"time"
+
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 )
@@ -68,6 +70,16 @@ type UserRepositoryInterface interface {
 		matches, and avoid leaking whether failures came from auth logic.
 	*/
 	FindByEmail(ec *appcontext.GinContext, email string) (model.User, error)
+
+	/*
+		UpdateLoginBackoff stores account-specific login failure state.
+
+		Implementations should persist the current failure count and the last
+		failure or lockout timestamps on the active user row, use the request-
+		scoped database when present, and return repository sentinel errors for
+		persistence failures.
+	*/
+	UpdateLoginBackoff(ec *appcontext.GinContext, userID string, failedCount int, lastFailedAt, lockedUntil *time.Time) error
 }
 
 /*

@@ -93,6 +93,35 @@ func TestUserServiceValidationAndTranslation(t *testing.T) {
 	}
 }
 
+func TestUserServiceLoginStoresAndResetsAccountBackoff(t *testing.T) {
+	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
+	repo := &fakeUserRepository{
+		user: model.User{Model: model.Model{ID: testUserID}, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
+	}
+	svc := NewUserService(newTestJWTManager(t), repo, &fakeRefreshSessionRepository{})
+	now := time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC)
+	svc.loginBackoff = newLoginBackoffTracker(func() time.Time { return now })
+	ctx := newUserServiceContext(t)
+	ctx.Request.RemoteAddr = "203.0.113.11:12345"
+
+	for attempt := 0; attempt < loginBackoffFreeFailures+1; attempt++ {
+		if _, err := svc.Login(ctx, LoginInput{UserOrEmail: "analyst", Password: "WrongPassword1!"}); !errors.Is(err, ErrInvalidLoginCredentials) {
+			t.Fatalf("expected invalid credentials on failure %d, got %v", attempt+1, err)
+		}
+	}
+	if repo.user.FailedLoginCount != loginBackoffFreeFailures+1 || repo.user.LockedUntil == nil {
+		t.Fatalf("expected account backoff state to be stored, got %#v", repo.user)
+	}
+
+	now = now.Add(time.Minute)
+	if _, err := svc.Login(ctx, LoginInput{UserOrEmail: "analyst", Password: "Password1!"}); err != nil {
+		t.Fatalf("expected successful login after cooldown, got %v", err)
+	}
+	if repo.user.FailedLoginCount != 0 || repo.user.LastFailedLoginAt != nil || repo.user.LockedUntil != nil {
+		t.Fatalf("expected successful login to clear account backoff state, got %#v", repo.user)
+	}
+}
+
 func TestUserServiceErrorsExposeCategories(t *testing.T) {
 	var validationErr *ValidationError
 	if !errors.As(ErrInvalidRegisterRequest, &validationErr) {
@@ -268,6 +297,52 @@ func TestUserServiceLoginResolvesUsernameAndEmailDeterministically(t *testing.T)
 	}
 }
 
+func TestUserServiceLoginBackoffUsesFibonacciCooldowns(t *testing.T) {
+	hash, _ := bcrypt.GenerateFromPassword([]byte("Password1!"), bcrypt.DefaultCost)
+	repo := &fakeUserRepository{
+		user: model.User{Model: model.Model{ID: testUserID}, Username: "analyst", Email: "analyst@example.com", PasswordHash: string(hash), Role: model.RoleUser},
+	}
+	svc := NewUserService(newTestJWTManager(t), repo, &fakeRefreshSessionRepository{})
+	now := time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC)
+	svc.loginBackoff = newLoginBackoffTracker(func() time.Time { return now })
+	ctx := newUserServiceContext(t)
+	ctx.Request.RemoteAddr = "203.0.113.10:12345"
+
+	wrongPassword := LoginInput{UserOrEmail: "analyst", Password: "WrongPassword1!"}
+
+	for attempt := 1; attempt <= 4; attempt++ {
+		if _, err := svc.Login(ctx, wrongPassword); !errors.Is(err, ErrInvalidLoginCredentials) {
+			t.Fatalf("expected invalid credentials on failure %d, got %v", attempt, err)
+		}
+	}
+
+	usernameCallsAfterFailure := repo.usernameLookupCalls
+
+	if _, err := svc.Login(ctx, wrongPassword); err == nil {
+		t.Fatal("expected backoff error after repeated failures")
+	} else {
+		if !errors.Is(err, ErrLoginBackoff) {
+			t.Fatalf("expected login backoff sentinel, got %v", err)
+		}
+	}
+	if repo.usernameLookupCalls != usernameCallsAfterFailure {
+		t.Fatal("expected blocked login to stop before repository lookup")
+	}
+
+	now = now.Add(time.Minute)
+	if _, err := svc.Login(ctx, LoginInput{UserOrEmail: "analyst", Password: "Password1!"}); err != nil {
+		t.Fatalf("expected successful login to clear backoff, got %v", err)
+	}
+	usernameCallsAfterSuccess := repo.usernameLookupCalls
+
+	if _, err := svc.Login(ctx, wrongPassword); !errors.Is(err, ErrInvalidLoginCredentials) {
+		t.Fatalf("expected backoff to reset after success, got %v", err)
+	}
+	if repo.usernameLookupCalls != usernameCallsAfterSuccess+1 {
+		t.Fatal("expected failed login after success to reach repository again")
+	}
+}
+
 type fakeUserRepository struct {
 	user                 model.User
 	findErr              error
@@ -276,7 +351,10 @@ type fakeUserRepository struct {
 	emailExists          bool
 	usernameLookupCalled bool
 	emailLookupCalled    bool
+	usernameLookupCalls  int
+	emailLookupCalls     int
 	createCalled         bool
+	updateBackoffErr     error
 }
 
 // ExistsByUsername reports whether the fake user exists.
@@ -308,6 +386,7 @@ func (f *fakeUserRepository) CreateUser(ec *appcontext.GinContext, user model.Us
 // FindByUsername returns the configured fake user.
 func (f *fakeUserRepository) FindByUsername(ec *appcontext.GinContext, username string) (model.User, error) {
 	f.usernameLookupCalled = true
+	f.usernameLookupCalls++
 	return f.user, f.findErr
 }
 
@@ -325,7 +404,19 @@ func (f *fakeUserRepository) FindByID(ec *appcontext.GinContext, id string) (mod
 // FindByEmail returns the configured fake user.
 func (f *fakeUserRepository) FindByEmail(ec *appcontext.GinContext, email string) (model.User, error) {
 	f.emailLookupCalled = true
+	f.emailLookupCalls++
 	return f.user, f.findErr
+}
+
+// UpdateLoginBackoff updates the fake account login state.
+func (f *fakeUserRepository) UpdateLoginBackoff(ec *appcontext.GinContext, userID string, failedCount int, lastFailedAt, lockedUntil *time.Time) error {
+	if f.updateBackoffErr != nil {
+		return f.updateBackoffErr
+	}
+	f.user.FailedLoginCount = failedCount
+	f.user.LastFailedLoginAt = lastFailedAt
+	f.user.LockedUntil = lockedUntil
+	return nil
 }
 
 var _ userrepo.UserRepositoryInterface = (*fakeUserRepository)(nil)

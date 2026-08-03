@@ -130,6 +130,29 @@ func (r *UserRepository) FindByEmail(ec *appcontext.GinContext, email string) (m
 	return user, nil
 }
 
+// UpdateLoginBackoff stores account-specific login failure state.
+func (r *UserRepository) UpdateLoginBackoff(ec *appcontext.GinContext, userID string, failedCount int, lastFailedAt, lockedUntil *time.Time) error {
+	if strings.TrimSpace(userID) == "" || failedCount < 0 {
+		return ErrNotNullViolation
+	}
+
+	result := r.dbForContext(ec).WithContext(ec.RequestContext()).
+		Model(&model.User{}).
+		Where("id = ?", userID).
+		Updates(map[string]any{
+			"failed_login_count":   failedCount,
+			"last_failed_login_at": lastFailedAt,
+			"locked_until":         lockedUntil,
+		})
+	if result.Error != nil {
+		return fmt.Errorf("%w: update login backoff: %w", ErrPersistenceFailure, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrRecordNotFound
+	}
+	return nil
+}
+
 // CreateRefreshSession creates a new refresh session.
 func (r *RefreshSessionRepository) CreateRefreshSession(ec *appcontext.GinContext, session model.RefreshSession) error {
 	if session.TokenID == "" || session.UserID == "" || session.DeviceName == "" || session.ExpiresAt.IsZero() {

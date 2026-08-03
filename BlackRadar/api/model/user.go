@@ -12,11 +12,14 @@ const (
 // User represents an application account stored in PostgreSQL.
 type User struct {
 	Model
-	FullName     string `gorm:"column:full_name;not null;default:''" json:"fullName"`
-	Username     string `gorm:"not null;uniqueIndex:idx_users_username_active,where:deleted_at IS NULL" json:"username"`
-	Email        string `gorm:"not null;uniqueIndex:idx_users_email_active,where:deleted_at IS NULL" json:"email"`
-	Role         string `gorm:"not null;default:user" json:"role"`
-	PasswordHash string `gorm:"column:password_hash;not null" json:"-"`
+	FullName          string     `gorm:"column:full_name;not null;default:''" json:"fullName"`
+	Username          string     `gorm:"not null;uniqueIndex:idx_users_username_active,where:deleted_at IS NULL" json:"username"`
+	Email             string     `gorm:"not null;uniqueIndex:idx_users_email_active,where:deleted_at IS NULL" json:"email"`
+	Role              string     `gorm:"not null;default:user" json:"role"`
+	PasswordHash      string     `gorm:"column:password_hash;not null" json:"-"`
+	FailedLoginCount  int        `gorm:"column:failed_login_count;not null;default:0" json:"-"`
+	LastFailedLoginAt *time.Time `gorm:"column:last_failed_login_at" json:"-"`
+	LockedUntil       *time.Time `gorm:"column:locked_until" json:"-"`
 }
 
 // TableName returns the PostgreSQL table name for User.

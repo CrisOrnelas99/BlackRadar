@@ -56,6 +56,7 @@ var (
 	ErrUsernameAlreadyExists   = &ConflictError{Message: "username already exists"}
 	ErrEmailAlreadyExists      = &ConflictError{Message: "email already exists"}
 	ErrInvalidLoginCredentials = &UnauthorizedError{Message: "invalid credentials"}
+	ErrLoginBackoff            = &UnauthorizedError{Message: "too many login attempts"}
 	ErrInvalidRefreshToken     = &UnauthorizedError{Message: "invalid refresh token"}
 	ErrUserDependency          = &DependencyError{Message: "user dependency unavailable"}
 	ErrUserInternal            = &InternalError{Message: "user service error"}

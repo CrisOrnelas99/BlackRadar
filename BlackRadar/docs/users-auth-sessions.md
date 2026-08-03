@@ -20,7 +20,7 @@ Protected application routes require a valid access token and an active correspo
 ## 🔄 Session Lifecycle
 
 1. Registration validates full name, identity, and password fields, hashes the password, and assigns the default role.
-2. Login accepts username or email plus password and returns access material only after credential verification.
+2. Login accepts username or email plus password, applies login-rate limiting, and returns access material only after credential verification.
 3. The access JWT is short-lived and contains scoped claims.
 4. The refresh token identifies server-side session state and is sent to the browser only as an HttpOnly cookie.
 5. Refresh rotates the session and revokes the previous session.
@@ -40,6 +40,9 @@ The browser keeps the access token in memory. The refresh token is stored in an 
 - Refresh sessions are server-side and revocable.
 - Roles are not client-controlled registration fields.
 - Invalid login responses remain generic.
+- Login failures consume the same bcrypt verification work before returning.
+- User records retain soft account backoff state, while a separate process-local IP-and-identifier limiter handles short-lived abuse tracking.
+- Repeated failed logins trigger a soft Fibonacci cooldown: 1, 2, 3, 5, then 8 minutes after the first three failures.
 - Protected routes require backend middleware; Angular guards are UX only.
 
 See [security-boundaries.md](security-boundaries.md) and [api-error-handling.md](api-error-handling.md).

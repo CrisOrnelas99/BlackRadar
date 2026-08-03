@@ -139,6 +139,33 @@ func TestAuthRateLimitMiddlewareReturns429WithHeaders(t *testing.T) {
 	}
 }
 
+func TestLoginRateLimitMiddlewareReturns429WithHeaders(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(LoginRateLimit())
+	router.GET("/login", func(ctx *gin.Context) {
+		ctx.Status(http.StatusOK)
+	})
+
+	for i := 0; i < 5; i++ {
+		recorder := performRequest(router, http.MethodGet, "/login")
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected request %d to be allowed, got %d", i+1, recorder.Code)
+		}
+	}
+
+	recorder := performRequest(router, http.MethodGet, "/login")
+	if recorder.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected rate-limited request to return %d, got %d", http.StatusTooManyRequests, recorder.Code)
+	}
+	if recorder.Header().Get("RateLimit-Limit") != "5" {
+		t.Fatalf("expected RateLimit-Limit 5, got %q", recorder.Header().Get("RateLimit-Limit"))
+	}
+	if recorder.Header().Get("RateLimit-Remaining") != "0" {
+		t.Fatalf("expected RateLimit-Remaining 0, got %q", recorder.Header().Get("RateLimit-Remaining"))
+	}
+}
+
 func TestAIRateLimitMiddlewareReturns429(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

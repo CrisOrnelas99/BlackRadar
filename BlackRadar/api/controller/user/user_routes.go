@@ -12,7 +12,7 @@ import (
 func RegisterRoutes(router *gin.RouterGroup, controller *UserController) {
 	router.Use(ratelimit.AuthRateLimit())
 	router.POST("/register", appcontext.Wrap(controller.Register))
-	router.POST("/login", appcontext.Wrap(controller.Login))
+	router.POST("/login", ratelimit.LoginRateLimit(), appcontext.Wrap(controller.Login))
 	router.POST("/refresh", appcontext.Wrap(controller.Refresh))
 	router.POST("/logout", appcontext.Wrap(controller.Logout))
 }

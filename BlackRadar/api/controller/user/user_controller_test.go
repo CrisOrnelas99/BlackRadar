@@ -109,6 +109,17 @@ func TestUserControllerHandlers(t *testing.T) {
 		}
 	})
 
+	t.Run("login backoff returns too many requests", func(t *testing.T) {
+		svc.loginErr = userservice.ErrLoginBackoff
+		ec, recorder := newUserContext(t, http.MethodPost, "/auth/login", `{"userOrEmail":"analyst","password":"Password1!"}`)
+		ec.Request.Header.Set("Content-Type", "application/json")
+		controller.Login(ec)
+
+		if recorder.Code != http.StatusTooManyRequests {
+			t.Fatalf("expected %d, got %d", http.StatusTooManyRequests, recorder.Code)
+		}
+	})
+
 	t.Run("refresh", func(t *testing.T) {
 		ec, _ := newUserContext(t, http.MethodPost, "/auth/refresh", "")
 		ec.Request.AddCookie(&http.Cookie{Name: refreshTokenCookieName, Value: "refresh"})
@@ -196,6 +207,7 @@ type fakeUserService struct {
 	registerResponse model.User
 	loginResponse    userservice.LoginResult
 	registerErr      error
+	loginErr         error
 	registerCalls    int
 	loginCalls       int
 	refreshCalls     int
@@ -217,6 +229,9 @@ func (f *fakeUserService) Register(ec *appcontext.GinContext, request userservic
 
 func (f *fakeUserService) Login(ec *appcontext.GinContext, request userservice.LoginInput) (userservice.LoginResult, error) {
 	f.loginCalls++
+	if f.loginErr != nil {
+		return userservice.LoginResult{}, f.loginErr
+	}
 	return f.loginResponse, nil
 }
 

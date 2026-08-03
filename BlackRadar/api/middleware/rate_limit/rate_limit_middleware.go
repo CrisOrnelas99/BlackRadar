@@ -62,6 +62,18 @@ func AuthRateLimit() gin.HandlerFunc {
 	})
 }
 
+// LoginRateLimit throttles login attempts more aggressively than the broader auth group.
+func LoginRateLimit() gin.HandlerFunc {
+	return mustNew(Config{
+		Rule: RateLimitRule{
+			Name:   "auth_login",
+			Limit:  5,
+			Window: defaultRateLimitWindow,
+		},
+		Key: ClientIPKey,
+	})
+}
+
 // NVDLookupRateLimit throttles NVD lookup requests.
 func NVDLookupRateLimit() gin.HandlerFunc {
 	return mustNew(Config{

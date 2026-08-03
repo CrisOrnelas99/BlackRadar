@@ -2,18 +2,31 @@
 package service
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net/mail"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"blackradar/api/model"
+	"blackradar/api/platform/config"
 	platformdb "blackradar/api/platform/db"
 	appcontext "blackradar/api/platform/requestcontext"
 	userrepository "blackradar/api/repository/user"
 	auditservice "blackradar/api/service/audit"
+)
+
+const loginFailureTimingPaddingSecret = "blackradar-login-failure-padding"
+
+var (
+	loginFailureTimingHashOnce sync.Once
+	loginFailureTimingHash     []byte
+	loginFailureTimingHashErr  error
 )
 
 // normalizeRegisterInput trims and lowercases registration fields before validation.
@@ -49,6 +62,31 @@ func validateRegisterInput(request RegisterInput) error {
 // isEmailLikeLoginIdentifier reports whether the login identifier should be treated as an email address.
 func isEmailLikeLoginIdentifier(value string) bool {
 	return strings.Contains(strings.TrimSpace(value), "@")
+}
+
+// consumeLoginFailureWork burns bcrypt work so login failures take comparable time.
+func consumeLoginFailureWork(password string) error {
+	hash, err := loginFailureTimingHashValue()
+	if err != nil {
+		return err
+	}
+
+	digest := sha256.Sum256([]byte(password))
+	_ = bcrypt.CompareHashAndPassword(hash, digest[:])
+	return nil
+}
+
+// loginFailureTimingHashValue returns the bcrypt hash used for failure timing padding.
+func loginFailureTimingHashValue() ([]byte, error) {
+	loginFailureTimingHashOnce.Do(func() {
+		loginFailureTimingHash, loginFailureTimingHashErr = bcrypt.GenerateFromPassword([]byte(loginFailureTimingPaddingSecret), config.PasswordCost())
+	})
+
+	if loginFailureTimingHashErr != nil {
+		return nil, fmt.Errorf("%w: prepare login timing padding: %w", ErrUserInternal, loginFailureTimingHashErr)
+	}
+
+	return loginFailureTimingHash, nil
 }
 
 // translateUserRepositoryError maps repository errors to user service sentinels.

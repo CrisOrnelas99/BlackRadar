@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -56,6 +57,139 @@ type userServiceImpl struct {
 	refreshSessionRepository userrepository.RefreshSessionRepositoryInterface
 	transactionRunner        transactionboundary.Runner
 	auditService             auditservice.Service
+	loginBackoff             *loginBackoffTracker
+}
+
+const loginBackoffFreeFailures = 3
+
+var loginBackoffSchedule = []time.Duration{
+	time.Minute,
+	2 * time.Minute,
+	3 * time.Minute,
+	5 * time.Minute,
+	8 * time.Minute,
+}
+
+type loginBackoffTracker struct {
+	mu      sync.Mutex
+	now     func() time.Time
+	entries map[string]loginBackoffEntry
+}
+
+type loginBackoffEntry struct {
+	failures     int
+	blockedUntil time.Time
+}
+
+// newLoginBackoffTracker creates the in-memory login backoff tracker.
+func newLoginBackoffTracker(now func() time.Time) *loginBackoffTracker {
+	if now == nil {
+		now = time.Now
+	}
+
+	return &loginBackoffTracker{now: now, entries: make(map[string]loginBackoffEntry)}
+}
+
+// loginBackoffState returns the service login backoff tracker.
+func (s *userServiceImpl) loginBackoffState() *loginBackoffTracker {
+	if s.loginBackoff == nil {
+		s.loginBackoff = newLoginBackoffTracker(time.Now)
+	}
+	return s.loginBackoff
+}
+
+// loginBackoffKey builds the tracker key from the client IP and login identifier.
+func loginBackoffKey(ec *appcontext.GinContext, normalizedUserOrEmail string) string {
+	identifier := strings.TrimSpace(normalizedUserOrEmail)
+	if identifier == "" {
+		identifier = "unknown"
+	}
+
+	clientIP := "unknown"
+	if ec != nil {
+		clientIP = strings.TrimSpace(ec.ClientIP())
+		if clientIP == "" {
+			clientIP = "unknown"
+		}
+	}
+
+	return clientIP + "|" + identifier
+}
+
+// Check reports whether the login key is still blocked.
+func (tracker *loginBackoffTracker) Check(key string) (time.Duration, bool) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		key = "unknown"
+	}
+
+	tracker.mu.Lock()
+	defer tracker.mu.Unlock()
+
+	now := tracker.now()
+	entry, exists := tracker.entries[key]
+	if !exists || entry.blockedUntil.IsZero() {
+		return 0, false
+	}
+	if now.Before(entry.blockedUntil) {
+		return entry.blockedUntil.Sub(now), true
+	}
+
+	entry.blockedUntil = time.Time{}
+	tracker.entries[key] = entry
+	return 0, false
+}
+
+// RecordFailure stores a failed attempt and returns the active cooldown.
+func (tracker *loginBackoffTracker) RecordFailure(key string) time.Duration {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		key = "unknown"
+	}
+
+	tracker.mu.Lock()
+	defer tracker.mu.Unlock()
+
+	now := tracker.now()
+	entry := tracker.entries[key]
+	if !entry.blockedUntil.IsZero() && now.Before(entry.blockedUntil) {
+		return entry.blockedUntil.Sub(now)
+	}
+
+	entry.failures++
+	entry.blockedUntil = time.Time{}
+	if entry.failures > loginBackoffFreeFailures {
+		delay := loginBackoffDelay(entry.failures - loginBackoffFreeFailures - 1)
+		entry.blockedUntil = now.Add(delay)
+		tracker.entries[key] = entry
+		return delay
+	}
+
+	tracker.entries[key] = entry
+	return 0
+}
+
+// Reset clears the tracker state for a login key.
+func (tracker *loginBackoffTracker) Reset(key string) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		key = "unknown"
+	}
+
+	tracker.mu.Lock()
+	defer tracker.mu.Unlock()
+	delete(tracker.entries, key)
+}
+
+// loginBackoffDelay returns the cooldown for a failure index.
+func loginBackoffDelay(index int) time.Duration {
+	if index < 0 {
+		return 0
+	}
+	if index >= len(loginBackoffSchedule) {
+		index = len(loginBackoffSchedule) - 1
+	}
+	return loginBackoffSchedule[index]
 }
 
 // NewUserService creates a user service backed by the supplied dependencies.
@@ -65,6 +199,7 @@ func NewUserService(jwtManager *commonjwt.Manager, userRepository userrepository
 		userRepository:           userRepository,
 		refreshSessionRepository: refreshSessionRepository,
 		transactionRunner:        platformdb.RequestTransactionRunner{},
+		loginBackoff:             newLoginBackoffTracker(time.Now),
 	}
 	if len(auditServices) > 0 {
 		service.auditService = auditServices[0]
@@ -121,7 +256,19 @@ func (s *userServiceImpl) Login(ec *appcontext.GinContext, request LoginInput) (
 	if isEmailLogin {
 		request.UserOrEmail = strings.ToLower(request.UserOrEmail)
 	}
+	loginKey := loginBackoffKey(ec, request.UserOrEmail)
+	loginBackoff := s.loginBackoffState()
+	if _, blocked := loginBackoff.Check(loginKey); blocked {
+		if err := s.recordAudit(ec, auditservice.EventInput{Action: "auth.login", ResourceType: "user", Result: auditservice.ResultDenied}); err != nil {
+			return LoginResult{}, err
+		}
+		return LoginResult{}, ErrLoginBackoff
+	}
 	if request.UserOrEmail == "" || utf8.RuneCountInString(request.Password) < 8 || utf8.RuneCountInString(request.Password) > 100 {
+		if err := consumeLoginFailureWork(request.Password); err != nil {
+			return LoginResult{}, err
+		}
+		s.loginBackoffState().RecordFailure(loginKey)
 		if err := s.recordAudit(ec, auditservice.EventInput{Action: "auth.login", ResourceType: "user", Result: auditservice.ResultDenied}); err != nil {
 			return LoginResult{}, err
 		}
@@ -137,6 +284,10 @@ func (s *userServiceImpl) Login(ec *appcontext.GinContext, request LoginInput) (
 	}
 	if err != nil {
 		if errors.Is(err, userrepository.ErrRecordNotFound) {
+			if timingErr := consumeLoginFailureWork(request.Password); timingErr != nil {
+				return LoginResult{}, timingErr
+			}
+			s.loginBackoffState().RecordFailure(loginKey)
 			if auditErr := s.recordAudit(ec, auditservice.EventInput{Action: "auth.login", ResourceType: "user", Result: auditservice.ResultDenied}); auditErr != nil {
 				return LoginResult{}, auditErr
 			}
@@ -145,12 +296,44 @@ func (s *userServiceImpl) Login(ec *appcontext.GinContext, request LoginInput) (
 		return LoginResult{}, translateUserRepositoryError(err)
 	}
 
+	now := loginBackoff.now().UTC()
+	if user.LockedUntil != nil && now.Before(*user.LockedUntil) {
+		if timingErr := consumeLoginFailureWork(request.Password); timingErr != nil {
+			return LoginResult{}, timingErr
+		}
+		if auditErr := s.recordAudit(ec, auditservice.EventInput{Action: "auth.login", ResourceType: "user", Result: auditservice.ResultDenied}); auditErr != nil {
+			return LoginResult{}, auditErr
+		}
+		return LoginResult{}, ErrLoginBackoff
+	}
+
 	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(request.Password)) != nil {
+		if timingErr := consumeLoginFailureWork(request.Password); timingErr != nil {
+			return LoginResult{}, timingErr
+		}
+		user.FailedLoginCount++
+		user.LastFailedLoginAt = &now
+		var lockedUntil *time.Time
+		if user.FailedLoginCount > loginBackoffFreeFailures {
+			until := now.Add(loginBackoffDelay(user.FailedLoginCount - loginBackoffFreeFailures - 1))
+			lockedUntil = &until
+		}
+		if updateErr := s.userRepository.UpdateLoginBackoff(ec, user.ID, user.FailedLoginCount, user.LastFailedLoginAt, lockedUntil); updateErr != nil {
+			return LoginResult{}, translateUserRepositoryError(updateErr)
+		}
+		loginBackoff.RecordFailure(loginKey)
 		if err := s.recordAudit(ec, auditservice.EventInput{Action: "auth.login", ResourceType: "user", Result: auditservice.ResultDenied}); err != nil {
 			return LoginResult{}, err
 		}
 		return LoginResult{}, ErrInvalidLoginCredentials
 	}
+
+	if user.FailedLoginCount > 0 || user.LastFailedLoginAt != nil || user.LockedUntil != nil {
+		if updateErr := s.userRepository.UpdateLoginBackoff(ec, user.ID, 0, nil, nil); updateErr != nil {
+			return LoginResult{}, translateUserRepositoryError(updateErr)
+		}
+	}
+	loginBackoff.Reset(loginKey)
 
 	if s.jwtManager == nil {
 		return LoginResult{}, fmt.Errorf("%w: missing jwt manager", ErrUserInternal)
@@ -160,7 +343,7 @@ func (s *userServiceImpl) Login(ec *appcontext.GinContext, request LoginInput) (
 	if err != nil {
 		return LoginResult{}, fmt.Errorf("%w: create refresh session token ID: %w", ErrUserInternal, err)
 	}
-	now := time.Now().UTC()
+	now = time.Now().UTC()
 	accessExpiresAt := now.Add(s.jwtManager.AccessExpiration())
 	refreshExpiresAt := now.Add(s.jwtManager.RefreshExpiration())
 	token, err := s.jwtManager.GenerateAccessToken(user.ID, user.Username, refreshTokenID)
