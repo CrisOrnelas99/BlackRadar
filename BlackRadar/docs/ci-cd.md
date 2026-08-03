@@ -11,6 +11,7 @@ The pipeline gives each change the same basic checks before it is merged:
 - Go formatting and static analysis
 - Backend and frontend tests
 - Go and Angular dependency security scanning
+- Trivy filesystem and backend-container scanning for high and critical vulnerabilities, secrets, and misconfigurations
 - Backend and frontend build artifacts plus a backend container build
 
 The workflow is intentionally separate from Docker Compose. Compose remains the local development runtime and is not required for every CI run.
@@ -25,7 +26,7 @@ The workflow is defined in `.github/workflows/ci.yml` and runs when:
 - a change is pushed to `master`
 - a maintainer starts a manual `workflow_dispatch` run
 
-Older runs for the same workflow reference are cancelled when a newer run starts. The workflow has `contents: read` permissions and does not use repository secrets.
+Older runs for the same workflow reference are cancelled when a newer run starts. The workflow has read-only source access plus the narrowly scoped `security-events: write` permission needed to publish Trivy SARIF findings to GitHub Code Scanning. It does not use repository secrets.
 
 ## CI jobs
 
@@ -62,6 +63,13 @@ npm audit --audit-level=high
 ```
 
 against the frontend lockfile.
+
+The security job also scans the checked-out repository with Trivy for high and
+critical vulnerabilities, secrets, and misconfigurations. The build job scans
+the backend container immediately after building it, using the same thresholds.
+Medium findings are scanned separately and uploaded as advisory SARIF results;
+they do not fail the workflow. Both Trivy and SARIF upload action references
+are pinned to immutable commit SHAs.
 
 ### Build and container
 

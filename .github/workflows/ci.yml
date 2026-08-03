@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  security-events: write
 
 concurrency:
   group: blackradar-ci-${{ github.workflow }}-${{ github.ref }}
@@ -112,6 +113,32 @@ jobs:
         working-directory: BlackRadar/ui
         run: npm audit --audit-level=high
 
+      - name: Scan repository with Trivy
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f8 # v0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+      - name: Report medium repository findings with Trivy
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f8 # v0.35.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: MEDIUM
+          format: sarif
+          output: trivy-fs-medium.sarif
+          exit-code: "0"
+
+      - name: Upload medium repository findings
+        uses: github/codeql-action/upload-sarif@f58f0d11ebf5dedd870fab2f999275f7602cfa46 # v4.37.0
+        with:
+          sarif_file: trivy-fs-medium.sarif
+          category: trivy-fs-medium
+
   build:
     name: Build and container
     needs:
@@ -156,6 +183,30 @@ jobs:
       - name: Build backend container
         working-directory: BlackRadar
         run: docker build --tag blackradar:${{ github.sha }} .
+
+      - name: Scan backend container with Trivy
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f8 # v0.35.0
+        with:
+          image-ref: blackradar:${{ github.sha }}
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+      - name: Report medium container findings with Trivy
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f8 # v0.35.0
+        with:
+          image-ref: blackradar:${{ github.sha }}
+          scanners: vuln,secret,misconfig
+          severity: MEDIUM
+          format: sarif
+          output: trivy-image-medium.sarif
+          exit-code: "0"
+
+      - name: Upload medium container findings
+        uses: github/codeql-action/upload-sarif@f58f0d11ebf5dedd870fab2f999275f7602cfa46 # v4.37.0
+        with:
+          sarif_file: trivy-image-medium.sarif
+          category: trivy-image-medium
 
       - name: Upload backend artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
