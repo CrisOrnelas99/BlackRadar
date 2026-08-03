@@ -29,6 +29,7 @@ func normalizeConfig(cfg Config) Config {
 func setSecurityHeaders(ctx *gin.Context) {
 	headers := ctx.Writer.Header()
 	headers.Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+	headers.Set("Cache-Control", "no-store")
 	headers.Set("X-Content-Type-Options", "nosniff")
 	headers.Set("X-Frame-Options", "DENY")
 	headers.Set("Referrer-Policy", "no-referrer")

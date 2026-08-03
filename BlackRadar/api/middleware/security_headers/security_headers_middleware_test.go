@@ -25,6 +25,7 @@ func TestSecurityHeadersAddsAPIHeaders(t *testing.T) {
 
 	expectedHeaders := map[string]string{
 		"Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+		"Cache-Control":           "no-store",
 		"X-Content-Type-Options":  "nosniff",
 		"X-Frame-Options":         "DENY",
 		"Referrer-Policy":         "no-referrer",
