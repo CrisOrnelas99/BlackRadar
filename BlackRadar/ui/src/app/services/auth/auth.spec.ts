@@ -59,7 +59,12 @@ describe('AuthService', () => {
 
 function loginResponse() {
   return {
-    user: { id: '00000000-0000-4000-8000-000000000001', fullName: 'Analyst User', username: 'analyst', email: 'analyst@example.com' },
+    user: {
+      id: '00000000-0000-4000-8000-000000000001',
+      fullName: 'Analyst User',
+      username: 'analyst',
+      email: 'analyst@example.com',
+    },
     token: 'access-token',
     tokenExpiresAt: new Date().toISOString(),
     refreshTokenExpiresAt: new Date().toISOString(),

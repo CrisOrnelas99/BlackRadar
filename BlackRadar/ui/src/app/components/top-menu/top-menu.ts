@@ -1,6 +1,13 @@
 // Shared authenticated top menu that exposes product navigation and account actions.
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, HostListener, ViewEncapsulation, input, inject } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  HostListener,
+  ViewEncapsulation,
+  input,
+  inject,
+} from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
@@ -28,7 +35,9 @@ export class TopMenuComponent {
 
   // Returns the person label shown in the top-right trigger.
   get displayName(): string {
-    return this.session().user.fullName || this.session().user.username || this.session().user.email;
+    return (
+      this.session().user.fullName || this.session().user.username || this.session().user.email
+    );
   }
 
   // Toggles the page-navigation dropdown and closes the profile panel when needed.

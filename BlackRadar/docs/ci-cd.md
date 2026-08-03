@@ -9,7 +9,7 @@ BlackRadar currently uses GitHub Actions for pull-request and `master` branch va
 The pipeline gives each change the same basic checks before it is merged:
 
 - Go formatting and static analysis
-- Backend and frontend tests
+- Backend and frontend lint and tests
 - Go and Angular dependency security scanning
 - Trivy filesystem and backend-container scanning for high and critical vulnerabilities, secrets, and misconfigurations
 - Backend and frontend build artifacts plus a backend container build
@@ -41,7 +41,12 @@ This job runs from `BlackRadar/` and:
 3. Fails if `gofmt` reports unformatted Go files.
 4. Runs `go vet ./...`.
 
-The frontend does not yet have an Angular lint target. Prettier validation is deferred until the existing frontend formatting baseline is intentionally reviewed and cleaned up.
+The frontend lint step runs the repository's existing Prettier dependency against
+TypeScript, HTML, CSS, and SCSS source files. It is a formatting/static check;
+an ESLint-based Angular lint target remains future work.
+
+The `format-lint` job runs this frontend check alongside Go formatting and
+static analysis.
 
 ### Testing
 
@@ -142,6 +147,8 @@ Review requirements and conversation resolution should also be enabled through G
 The current pipeline does not provide a deployment workflow, container registry publishing, cloud authentication, or a protected release environment. When a deployment target is selected, deployment should use a protected GitHub environment, environment-scoped secrets, and OIDC authentication where supported.
 
 The frontend has no lint target yet, and Prettier validation remains deferred until the existing formatting baseline is intentionally cleaned up. The backend container build may later be extended into a release workflow, but it must remain separate from deployment approval and image publishing.
+
+An ESLint-based Angular lint target remains future work. The backend container build may later be extended into a release workflow, but it must remain separate from deployment approval and image publishing.
 
 ## Key Terms
 

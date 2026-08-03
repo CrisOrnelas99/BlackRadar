@@ -63,7 +63,10 @@ export class LoginPage {
           void this.router.navigateByUrl('/dashboard');
         },
         error: (error: unknown) => {
-          if (error instanceof TimeoutError || (error instanceof HttpErrorResponse && error.status === 0)) {
+          if (
+            error instanceof TimeoutError ||
+            (error instanceof HttpErrorResponse && error.status === 0)
+          ) {
             this.bannerService.show('Unable to contact the sign-in service.', 'error');
             return;
           }

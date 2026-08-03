@@ -43,6 +43,21 @@ jobs:
         working-directory: BlackRadar
         run: go vet ./...
 
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: BlackRadar/ui/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: BlackRadar/ui
+        run: npm ci
+
+      - name: Run frontend lint
+        working-directory: BlackRadar/ui
+        run: npm run lint
+
   testing:
     name: Testing
     runs-on: ubuntu-24.04

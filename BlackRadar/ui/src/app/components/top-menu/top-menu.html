@@ -5,7 +5,12 @@
 
   <div class="top-menu-actions">
     <div class="top-menu-profile">
-      <button type="button" class="top-menu-name" (click)="toggleProfileMenu()" [attr.aria-expanded]="isProfileMenuOpen">
+      <button
+        type="button"
+        class="top-menu-name"
+        (click)="toggleProfileMenu()"
+        [attr.aria-expanded]="isProfileMenuOpen"
+      >
         {{ displayName }}
       </button>
 
@@ -21,7 +26,13 @@
     </div>
 
     <div class="top-menu-nav">
-      <button type="button" class="top-menu-hamburger" (click)="toggleNavigationMenu()" aria-label="Open navigation menu" [attr.aria-expanded]="isNavigationMenuOpen">
+      <button
+        type="button"
+        class="top-menu-hamburger"
+        (click)="toggleNavigationMenu()"
+        aria-label="Open navigation menu"
+        [attr.aria-expanded]="isNavigationMenuOpen"
+      >
         <span></span>
         <span></span>
         <span></span>
