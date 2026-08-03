@@ -2,16 +2,16 @@
 
 ## Overview
 
-BlackRadar currently uses GitHub Actions for pull-request and `master` branch validation. The workflow checks backend and frontend changes, runs dependency security checks, and creates short-lived build artifacts. It does not deploy the application.
+BlackRadar currently uses GitHub Actions for pull-request and `master` branch validation. The workflow checks backend and frontend changes, runs dependency security checks, builds the application, and creates short-lived artifacts. It does not deploy the application.
 
 ## Purpose
 
 The pipeline gives each change the same basic checks before it is merged:
 
-- Go formatting, static analysis, and tests
-- Go dependency vulnerability scanning
-- Angular dependency auditing, tests, and production build validation
-- Backend and frontend build artifacts for inspection
+- Go formatting and static analysis
+- Backend and frontend tests
+- Go and Angular dependency security scanning
+- Backend and frontend build artifacts plus a backend container build
 
 The workflow is intentionally separate from Docker Compose. Compose remains the local development runtime and is not required for every CI run.
 
@@ -27,43 +27,56 @@ The workflow is defined in `.github/workflows/ci.yml` and runs when:
 
 Older runs for the same workflow reference are cancelled when a newer run starts. The workflow has `contents: read` permissions and does not use repository secrets.
 
-## Validation jobs
+## CI jobs
 
-### Backend validation
+### Format and static checks
 
-The backend job runs from `BlackRadar/` and:
+This job runs from `BlackRadar/` and:
 
 1. Checks out the repository with a pinned action.
 2. Installs the Go version declared in `BlackRadar/go.mod`.
 3. Fails if `gofmt` reports unformatted Go files.
 4. Runs `go vet ./...`.
-5. Runs `go test ./...`.
 
-### Go dependency security
+The frontend does not yet have an Angular lint target. Prettier validation is deferred until the existing frontend formatting baseline is intentionally reviewed and cleaned up.
 
-The Go security job installs the pinned `govulncheck` tool into the temporary GitHub runner directory and scans the backend with:
+### Testing
+
+The testing job runs both test suites:
+
+- `go test ./...` from `BlackRadar/`
+- `npx --no-install ng test --watch=false` from `BlackRadar/ui/`
+
+### Security scan
+
+The security job installs the pinned `govulncheck` tool into the temporary GitHub runner directory and scans the backend with:
 
 ```text
 govulncheck ./...
 ```
 
-The scanner is not added to the application’s Go dependencies.
+The scanner is not added to the application’s Go dependencies. The same job runs:
 
-### Frontend validation
+```text
+npm audit --audit-level=high
+```
 
-The frontend job runs from `BlackRadar/ui/` and:
+against the frontend lockfile.
 
-1. Uses Node 22, matching the current frontend Docker development image.
-2. Installs exactly from `package-lock.json` with `npm ci`.
-3. Runs `npm audit --audit-level=high`.
-4. Runs Angular tests without watch mode.
-5. Runs the production Angular build.
+### Build and container
 
-The repository currently has no Angular lint target. Prettier validation is deferred until the existing frontend formatting baseline is intentionally reviewed and cleaned up.
+This job runs only after the format, testing, and security jobs succeed. It:
+
+- builds the backend binary
+- builds the Angular production output
+- builds the backend Docker image locally
+- uploads the backend and frontend artifacts
+
+The container is tagged with the commit SHA and is not pushed to a registry.
 
 ## Build artifacts
 
-The build job runs only after backend validation, Go security scanning, and frontend validation succeed. It creates:
+The job creates:
 
 - `blackradar-backend-<commit-sha>`: the compiled Go backend binary
 - `blackradar-frontend-<commit-sha>`: the Angular production output
@@ -78,7 +91,7 @@ Artifacts are retained for seven days. The artifact paths are created in the run
 - CI does not print environment variables or credentials.
 - `npm audit fix` is not run automatically.
 - CI does not start Docker Compose or require local database credentials.
-- CI does not deploy or publish images.
+- CI builds the backend container but does not deploy or publish images.
 
 ## Rerunning a failed workflow
 
@@ -88,10 +101,10 @@ Open the failed workflow run in GitHub, inspect the failed job and step, and use
 
 The default branch should require these checks after the workflow is available in GitHub:
 
-- Backend validation
-- Go dependency security
-- Frontend validation
-- Build artifacts
+- Format and static checks
+- Testing
+- Security scan
+- Build and container
 
 Review requirements and conversation resolution should also be enabled through GitHub branch protection.
 
@@ -99,7 +112,7 @@ Review requirements and conversation resolution should also be enabled through G
 
 The current pipeline does not provide a deployment workflow, container registry publishing, cloud authentication, or a protected release environment. When a deployment target is selected, deployment should use a protected GitHub environment, environment-scoped secrets, and OIDC authentication where supported.
 
-Docker image validation may be added later if container release checks become necessary. It should remain separate from ordinary source validation and must not push or deploy images without an explicitly configured release process.
+The frontend has no lint target yet, and Prettier validation remains deferred until the existing formatting baseline is intentionally cleaned up. The backend container build may later be extended into a release workflow, but it must remain separate from deployment approval and image publishing.
 
 ## Key Terms
 

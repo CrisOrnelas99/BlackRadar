@@ -17,8 +17,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  backend:
-    name: Backend validation
+  format-lint:
+    name: Format and static checks
     runs-on: ubuntu-24.04
     steps:
       - name: Check out source
@@ -44,12 +44,40 @@ jobs:
         working-directory: BlackRadar
         run: go vet ./...
 
+  testing:
+    name: Testing
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Go
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
+        with:
+          go-version-file: BlackRadar/go.mod
+          cache-dependency-path: BlackRadar/go.sum
+
       - name: Run Go tests
         working-directory: BlackRadar
         run: go test ./...
 
-  go-security:
-    name: Go dependency security
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: BlackRadar/ui/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: BlackRadar/ui
+        run: npm ci
+
+      - name: Run frontend tests
+        working-directory: BlackRadar/ui
+        run: npx --no-install ng test --watch=false
+
+  security:
+    name: Security scan
     runs-on: ubuntu-24.04
     steps:
       - name: Check out source
@@ -69,13 +97,6 @@ jobs:
           GOBIN="$tool_dir" go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
           "$tool_dir/govulncheck" ./...
 
-  frontend:
-    name: Frontend validation
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Check out source
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -91,20 +112,12 @@ jobs:
         working-directory: BlackRadar/ui
         run: npm audit --audit-level=high
 
-      - name: Run frontend tests
-        working-directory: BlackRadar/ui
-        run: npx --no-install ng test --watch=false
-
-      - name: Build frontend
-        working-directory: BlackRadar/ui
-        run: npm run build
-
   build:
-    name: Build artifacts
+    name: Build and container
     needs:
-      - backend
-      - go-security
-      - frontend
+      - format-lint
+      - testing
+      - security
     runs-on: ubuntu-24.04
     steps:
       - name: Check out source
@@ -139,6 +152,10 @@ jobs:
           npm run build
           mkdir -p "$RUNNER_TEMP/blackradar-artifacts/frontend"
           cp -R dist/ui "$RUNNER_TEMP/blackradar-artifacts/frontend/dist"
+
+      - name: Build backend container
+        working-directory: BlackRadar
+        run: docker build --tag blackradar:${{ github.sha }} .
 
       - name: Upload backend artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
