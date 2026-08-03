@@ -45,12 +45,14 @@ The frontend lint step runs the repository's existing Prettier dependency agains
 TypeScript, HTML, CSS, and SCSS source files. It is a formatting/static check;
 an ESLint-based Angular lint target remains future work.
 
+The `format-lint` job runs this frontend check alongside Go formatting and
+static analysis.
+
 ### Testing
 
 The testing job runs both test suites:
 
 - `go test ./...` from `BlackRadar/`
-- `npm run lint` from `BlackRadar/ui/`
 - `npx --no-install ng test --watch=false` from `BlackRadar/ui/`
 
 ### Security scan
