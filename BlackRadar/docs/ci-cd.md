@@ -28,6 +28,8 @@ The workflow is defined in `.github/workflows/ci.yml` and runs when:
 
 Older runs for the same workflow reference are cancelled when a newer run starts. The workflow has read-only source access plus the narrowly scoped `security-events: write` permission needed to publish Trivy SARIF findings to GitHub Code Scanning. It does not use repository secrets.
 
+The workflow uses third-party actions pinned to immutable commit SHAs. Dependabot checks those action references monthly and opens pull requests for updates through `.github/dependabot.yml`.
+
 ## CI jobs
 
 ### Format and static checks
@@ -64,12 +66,30 @@ npm audit --audit-level=high
 
 against the frontend lockfile.
 
+The frontend keeps Angular on its current major version. Its `package.json` uses
+narrow npm `overrides` for patched transitive versions of `undici`,
+`@hono/node-server`, `@modelcontextprotocol/sdk`, and `fast-uri`; the lockfile
+is regenerated and verified with `npm ci` and `npm audit --audit-level=high`.
+
 The security job also scans the checked-out repository with Trivy for high and
 critical vulnerabilities, secrets, and misconfigurations. The build job scans
 the backend container immediately after building it, using the same thresholds.
 Medium findings are scanned separately and uploaded as advisory SARIF results;
 they do not fail the workflow. Both Trivy and SARIF upload action references
 are pinned to immutable commit SHAs.
+
+### Dependency maintenance
+
+Dependabot is configured in `.github/dependabot.yml` with monthly checks for:
+
+- Go modules in `BlackRadar/`
+- npm packages in `BlackRadar/ui/`
+- the Dockerfile in `BlackRadar/`
+- GitHub Actions in `.github/workflows/`
+
+Dependabot creates pull requests; the existing CI workflow validates those pull
+requests before they are merged. CI does not run `npm audit fix` automatically,
+especially when the proposed fix would cross an Angular major version.
 
 ### Build and container
 
@@ -93,7 +113,7 @@ Artifacts are retained for seven days. The artifact paths are created in the run
 
 ## Security boundaries
 
-- Workflow repository permissions are read-only.
+- Workflow source access is read-only; `security-events: write` is limited to publishing Trivy SARIF results.
 - Third-party actions are pinned to immutable commit SHAs.
 - Pull-request validation does not require secrets.
 - CI does not print environment variables or credentials.
