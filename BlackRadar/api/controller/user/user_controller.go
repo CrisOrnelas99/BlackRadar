@@ -24,19 +24,19 @@ func NewUserController(userService userservice.UserService, secureRefreshCookie 
 	}
 }
 
-// Register handles new user registration requests.
-func (c *UserController) Register(ec *appcontext.GinContext) {
-	var request RegisterRequest
+// CreateUser handles administrator requests to provision a standard user.
+func (c *UserController) CreateUser(ec *appcontext.GinContext) {
+	var request CreateUserRequest
 	if shared.BindJSON(ec, &request) {
 		return
 	}
 
-	user, err := c.userService.Register(ec, request.ToServiceInput())
+	user, err := c.userService.CreateUser(ec, request.ToServiceInput())
 	if err != nil {
 		if handleUserServiceError(ec, err) {
 			return
 		}
-		shared.HandleError(ec, http.StatusInternalServerError, err, "Error registering user")
+		shared.HandleError(ec, http.StatusInternalServerError, err, "Error creating user")
 		return
 	}
 

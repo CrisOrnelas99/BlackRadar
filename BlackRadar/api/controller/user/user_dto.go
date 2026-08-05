@@ -8,8 +8,8 @@ import (
 	userservice "blackradar/api/service/user"
 )
 
-// RegisterRequest contains the fields required to create a user account.
-type RegisterRequest struct {
+// CreateUserRequest contains the fields an administrator supplies to provision a user account.
+type CreateUserRequest struct {
 	FullName string `json:"fullName"`
 	Username string `json:"username"`
 	Email    string `json:"email"`
@@ -38,9 +38,9 @@ type LoginResponse struct {
 	RefreshTokenExpiresAt time.Time    `json:"refreshTokenExpiresAt"`
 }
 
-// ToServiceInput converts a registration request into service input.
-func (r RegisterRequest) ToServiceInput() userservice.RegisterInput {
-	return userservice.RegisterInput{
+// ToServiceInput converts an administrator provisioning request into service input.
+func (r CreateUserRequest) ToServiceInput() userservice.CreateUserInput {
+	return userservice.CreateUserInput{
 		FullName: r.FullName,
 		Username: r.Username,
 		Email:    r.Email,

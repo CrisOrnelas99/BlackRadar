@@ -214,6 +214,7 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 	adminOnly := protected.Group("")
 	adminOnly.Use(permissions.RequireAdmin())
 
+	controlleruser.RegisterAdminRoutes(adminOnly, userController)
 	controllerasset.RegisterRoutes(protected, adminOnly, assetController)
 	controllervulnerability.RegisterRoutes(adminOnly, vulnerabilityController)
 	controllernvd.RegisterRoutes(adminOnly, nvdController)

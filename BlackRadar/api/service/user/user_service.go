@@ -22,8 +22,8 @@ import (
 	auditservice "blackradar/api/service/audit"
 )
 
-// RegisterInput contains the fields required to create a user account.
-type RegisterInput struct {
+// CreateUserInput contains the fields required to provision a user account.
+type CreateUserInput struct {
 	FullName string
 	Username string
 	Email    string
@@ -207,11 +207,11 @@ func NewUserService(jwtManager *commonjwt.Manager, userRepository userrepository
 	return service
 }
 
-// Register validates and creates a new user account.
-func (s *userServiceImpl) Register(ec *appcontext.GinContext, request RegisterInput) (model.User, error) {
-	request = normalizeRegisterInput(request)
-	if err := validateRegisterInput(request); err != nil {
-		return model.User{}, ErrInvalidRegisterRequest
+// CreateUser validates and provisions a standard user account.
+func (s *userServiceImpl) CreateUser(ec *appcontext.GinContext, request CreateUserInput) (model.User, error) {
+	request = normalizeCreateUserInput(request)
+	if err := validateCreateUserInput(request); err != nil {
+		return model.User{}, ErrInvalidCreateUserRequest
 	}
 
 	exists, err := s.userRepository.ExistsByUsername(ec, request.Username)

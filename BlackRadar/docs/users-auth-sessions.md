@@ -9,17 +9,17 @@ BlackRadar uses user records, short-lived JWT access tokens, and server-side ref
 ## 🔌 Current API
 
 ```text
-POST /api/auth/register
 POST /api/auth/login
 POST /api/auth/refresh
 POST /api/auth/logout
+POST /api/users             (administrator only)
 ```
 
 Protected application routes require a valid access token and an active corresponding refresh-session record.
 
 ## 🔄 Session Lifecycle
 
-1. Registration validates full name, identity, and password fields, hashes the password, and assigns the default role.
+1. An administrator provisions a standard user through `POST /api/users`; the service validates identity and password fields, hashes the password, and assigns the default role.
 2. Login accepts username or email plus password, applies login-rate limiting, and returns access material only after credential verification.
 3. The access JWT is short-lived and contains scoped claims.
 4. The refresh token identifies server-side session state and is sent to the browser only as an HttpOnly cookie.
@@ -38,7 +38,7 @@ The browser keeps the access token in memory. The refresh token is stored in an 
 - JWT secrets must satisfy minimum configuration requirements.
 - Access and refresh tokens have distinct scopes and uses.
 - Refresh sessions are server-side and revocable.
-- Roles are not client-controlled registration fields.
+- User creation is restricted to administrators, and roles are not client-controlled fields.
 - Invalid login responses remain generic.
 - Login failures consume the same bcrypt verification work before returning.
 - User records retain soft account backoff state, while a separate process-local IP-and-identifier limiter handles short-lived abuse tracking.
@@ -49,7 +49,7 @@ See [security-boundaries.md](security-boundaries.md) and [api-error-handling.md]
 
 ## 🎭 Walkthrough: Alice Logs In
 
-1. Alice has a registered account; Bob is another user with separate session state.
+1. An administrator has provisioned Alice and Bob as separate user accounts with separate session state.
 2. Alice exchanges valid credentials for an access token and refresh session.
 3. The login request reaches the authentication controller.
 4. The service validates credentials, the repository reads user/session data, and middleware later validates tokens on protected routes.

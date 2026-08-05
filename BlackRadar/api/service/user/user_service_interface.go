@@ -11,14 +11,15 @@ import (
 
 type UserService interface {
 	/*
-		Register validates a registration request and creates a new user account.
+		CreateUser validates an administrator provisioning request and creates a
+		standard user account.
 
 		Implementations should normalize user input, enforce password and
 		uniqueness rules, hash credentials before persistence, create only
 		allowed account fields, and translate validation, conflict, or dependency
 		failures into service-layer errors.
 	*/
-	Register(ec *appcontext.GinContext, request RegisterInput) (model.User, error)
+	CreateUser(ec *appcontext.GinContext, request CreateUserInput) (model.User, error)
 
 	/*
 		Login validates credentials and creates a new authenticated session.
