@@ -18,6 +18,16 @@ Use the skills as the source of truth for:
 - security and trust boundaries
 - roadmap and planned work
 - document writing
+- Git branch, commit, push, and cleanup workflows
+
+## Repository skills
+
+- `architecture`: current BlackRadar component boundaries, layering, and ownership rules
+- `clean-code`: naming, structure, and small-change implementation conventions
+- `docs-writing`: README, AGENTS, and `BlackRadar/docs/` writing guidance
+- `git-operations`: safe branch switching, commit, push, and cleanup commands for this checkout
+- `roadmap`: planned work, future features, and what belongs in current-vs-future docs
+- `security`: security boundaries, authorization, session, and trust rules for this repo
 
 ## Repo layout
 
@@ -51,4 +61,3 @@ Use the skills as the source of truth for:
 - Explicit names and narrow interfaces.
 - Repository-local examples over invented patterns.
 - Security, architecture, clean code, and roadmap guidance from the matching skill file instead of duplicating it here.
-

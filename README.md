@@ -2,7 +2,16 @@
 
 BlackRadar Security Platform is a focused cybersecurity asset risk platform. It combines asset inventory, vulnerability intelligence, and AI-assisted workflows to help users understand risk across applications, home networks, and imported asset inventories.
 
-For implementation details and agent research notes, use `.agents/skills/architecture/SKILL.md`, `.agents/skills/clean-code/SKILL.md`, `.agents/skills/security/SKILL.md`, and `.agents/skills/roadmap/SKILL.md` together. `README.md` stays at the product and setup level.
+For implementation details and agent research notes, use the repo skill files in `.agents/skills/` together. The main ones are:
+
+- `.agents/skills/architecture/SKILL.md`
+- `.agents/skills/clean-code/SKILL.md`
+- `.agents/skills/security/SKILL.md`
+- `.agents/skills/roadmap/SKILL.md`
+- `.agents/skills/docs-writing/SKILL.md`
+- `.agents/skills/git-operations/SKILL.md`
+
+`README.md` stays at the product and setup level.
 
 ## Table of Contents
 
@@ -214,6 +223,10 @@ AssetManagementRisk/
 |       |-- architecture/
 |       |   `-- SKILL.md
 |       |-- clean-code/
+|       |   `-- SKILL.md
+|       |-- docs-writing/
+|       |   `-- SKILL.md
+|       |-- git-operations/
 |       |   `-- SKILL.md
 |       |-- roadmap/
 |       |   `-- SKILL.md
@@ -478,6 +491,8 @@ AI-specific guidance:
 - `.agents/skills/clean-code/SKILL.md`: naming, structure, and implementation conventions
 - `.agents/skills/roadmap/SKILL.md`: product roadmap, planned features, and sequencing notes
 - `.agents/skills/security/SKILL.md`: mandatory security policy and secure-coding rules for this repository
+- `.agents/skills/docs-writing/SKILL.md`: repository Markdown structure, flow, and doc maintenance
+- `.agents/skills/git-operations/SKILL.md`: branch switching, commits, pushes, and branch cleanup in this checkout
 - `AGENTS.md`: repository-specific assistant instructions
 
 ## Planned Extensions
