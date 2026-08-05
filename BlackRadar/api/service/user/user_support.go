@@ -2,7 +2,6 @@
 package service
 
 import (
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net/mail"
@@ -71,8 +70,7 @@ func consumeLoginFailureWork(password string) error {
 		return err
 	}
 
-	digest := sha256.Sum256([]byte(password))
-	_ = bcrypt.CompareHashAndPassword(hash, digest[:])
+	_ = bcrypt.CompareHashAndPassword(hash, []byte(password))
 	return nil
 }
 
