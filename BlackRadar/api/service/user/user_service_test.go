@@ -35,12 +35,12 @@ func TestUserService(t *testing.T) {
 	svc := NewUserService(newTestJWTManager(t), repo, &fakeRefreshSessionRepository{})
 	ctx := newUserServiceContext(t)
 
-	registerResponse, err := svc.Register(ctx, RegisterInput{FullName: "Analyst User", Username: "analyst", Email: "analyst@example.com", Password: "Password1!"})
+	createdUser, err := svc.CreateUser(ctx, CreateUserInput{FullName: "Analyst User", Username: "analyst", Email: "analyst@example.com", Password: "Password1!"})
 	if err != nil {
-		t.Fatalf("expected Register to succeed, got %v", err)
+		t.Fatalf("expected CreateUser to succeed, got %v", err)
 	}
-	if registerResponse.ID != testUserID || registerResponse.Username != "analyst" || registerResponse.Email != "analyst@example.com" {
-		t.Fatalf("unexpected register response: %#v", registerResponse)
+	if createdUser.ID != testUserID || createdUser.Username != "analyst" || createdUser.Email != "analyst@example.com" {
+		t.Fatalf("unexpected created user response: %#v", createdUser)
 	}
 
 	loginResponse, err := svc.Login(ctx, LoginInput{UserOrEmail: "analyst", Password: "Password1!"})
@@ -60,7 +60,7 @@ func TestUserService(t *testing.T) {
 
 // TestUserServiceSupport verifies user service support behavior.
 func TestUserServiceSupport(t *testing.T) {
-	normalized := normalizeRegisterInput(RegisterInput{
+	normalized := normalizeCreateUserInput(CreateUserInput{
 		FullName: " Analyst User ",
 		Username: " analyst ",
 		Email:    " ANALYST@EXAMPLE.COM ",
@@ -69,13 +69,13 @@ func TestUserServiceSupport(t *testing.T) {
 	if normalized.FullName != "Analyst User" || normalized.Username != "analyst" || normalized.Email != "analyst@example.com" || normalized.Password != "Password1!" {
 		t.Fatalf("unexpected normalized request: %#v", normalized)
 	}
-	if err := validateRegisterInput(normalized); err != nil {
-		t.Fatalf("expected valid register request, got %v", err)
+	if err := validateCreateUserInput(normalized); err != nil {
+		t.Fatalf("expected valid create user request, got %v", err)
 	}
-	if err := validateRegisterInput(RegisterInput{Username: "ab", Email: "bad", Password: "short"}); !errors.Is(err, ErrInvalidRegisterRequest) {
+	if err := validateCreateUserInput(CreateUserInput{Username: "ab", Email: "bad", Password: "short"}); !errors.Is(err, ErrInvalidCreateUserRequest) {
 		t.Fatalf("expected invalid request data, got %v", err)
 	}
-	if err := validateRegisterInput(RegisterInput{Username: "analyst", Email: "Analyst <analyst@example.com>", Password: "Password1!"}); !errors.Is(err, ErrInvalidRegisterRequest) {
+	if err := validateCreateUserInput(CreateUserInput{Username: "analyst", Email: "Analyst <analyst@example.com>", Password: "Password1!"}); !errors.Is(err, ErrInvalidCreateUserRequest) {
 		t.Fatalf("expected display-name email to be rejected, got %v", err)
 	}
 }
@@ -85,7 +85,7 @@ func TestUserServiceValidationAndTranslation(t *testing.T) {
 	ctx := newUserServiceContext(t)
 	svc := NewUserService(newTestJWTManager(t), &fakeUserRepository{findErr: userrepo.ErrRecordNotFound}, &fakeRefreshSessionRepository{})
 
-	if _, err := svc.Register(ctx, RegisterInput{Username: "ab", Email: "bad", Password: "short"}); !errors.Is(err, ErrInvalidRegisterRequest) {
+	if _, err := svc.CreateUser(ctx, CreateUserInput{Username: "ab", Email: "bad", Password: "short"}); !errors.Is(err, ErrInvalidCreateUserRequest) {
 		t.Fatalf("expected invalid request data, got %v", err)
 	}
 	if _, err := svc.Login(ctx, LoginInput{UserOrEmail: "missing", Password: "Password1!"}); !errors.Is(err, ErrInvalidLoginCredentials) {
@@ -124,8 +124,8 @@ func TestUserServiceLoginStoresAndResetsAccountBackoff(t *testing.T) {
 
 func TestUserServiceErrorsExposeCategories(t *testing.T) {
 	var validationErr *ValidationError
-	if !errors.As(ErrInvalidRegisterRequest, &validationErr) {
-		t.Fatal("expected invalid register request to be a user validation error")
+	if !errors.As(ErrInvalidCreateUserRequest, &validationErr) {
+		t.Fatal("expected invalid create user request to be a user validation error")
 	}
 	var conflictErr *ConflictError
 	if !errors.As(ErrUsernameAlreadyExists, &conflictErr) {
@@ -145,13 +145,13 @@ func TestUserServiceErrorsExposeCategories(t *testing.T) {
 	}
 }
 
-// TestUserServiceRegisterChecksEmailBeforeCreate verifies duplicate email validation runs before creation.
-func TestUserServiceRegisterChecksEmailBeforeCreate(t *testing.T) {
+// TestUserServiceCreateUserChecksEmailBeforeCreate verifies duplicate email validation runs before creation.
+func TestUserServiceCreateUserChecksEmailBeforeCreate(t *testing.T) {
 	users := &fakeUserRepository{emailExists: true}
 	svc := NewUserService(newTestJWTManager(t), users, &fakeRefreshSessionRepository{})
 	ctx := newUserServiceContext(t)
 
-	_, err := svc.Register(ctx, RegisterInput{
+	_, err := svc.CreateUser(ctx, CreateUserInput{
 		FullName: "Analyst User",
 		Username: "analyst",
 		Email:    "analyst@example.com",

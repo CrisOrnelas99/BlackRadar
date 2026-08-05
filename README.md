@@ -100,7 +100,7 @@ When using local `go run .`, Go reads environment variables from the PowerShell 
 - one test device asset
 - one assigned example vulnerability: `CVE-2021-44228`
 
-Registration accepts full name, username, email, and password fields. Organization membership is not part of the current implementation.
+The initial administrator is created through the development bootstrap flow. After that, administrators provision standard user accounts; public self-registration is not available. Organization membership is not part of the current implementation.
 
 The bootstrap flag is rejected outside `local`, `development`, and `test` environments. Bootstrap also requires `BOOTSTRAP_DEV_PASSWORD` and does not keep a default password in source control.
 
@@ -359,7 +359,7 @@ api/
 - Repository, service, external, and controller packages own their layer-specific error contracts where those boundaries need stable errors.
 - Repository, service, and external packages expose component-local interfaces only when they are real layer boundaries or useful test seams.
 - API collection files live under `BlackRadar/tests/`.
-- Admin permissions must not be exposed through client-controlled registration.
+- User creation is administrator-only; role and ownership fields are never client-controlled.
 
 ## API Summary
 
@@ -367,12 +367,15 @@ api/
 
 Authentication
 
-- `POST /api/auth/register`
 - `POST /api/auth/login`
 - `POST /api/auth/refresh`
 - `POST /api/auth/logout`
 
-Registration accepts `fullName`, `username`, `email`, and `password`. Authenticated responses return the full name with the user summary.
+User administration
+
+- `POST /api/users` — administrator-only provisioning of standard users
+
+Provisioning accepts `fullName`, `username`, `email`, and `password`. Authenticated responses return the full name with the user summary.
 
 Assets
 

@@ -1,5 +1,6 @@
 {
   "go.toolsEnvVars": {
-    "GOCACHE": "${workspaceFolder}\\.gocache"
+    "GOCACHE": "${workspaceFolder}\\.gocache",
+    "css.lint.unknownAtRules": "ignore"
   }
 }
