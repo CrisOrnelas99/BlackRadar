@@ -46,17 +46,17 @@ func (r AssetRequest) ToDataModel() model.Asset {
 
 // AssetResponse exposes the public asset fields returned by the API.
 type AssetResponse struct {
-	ID                string    `json:"id"`
-	AssetAssessmentID *string   `json:"assetAssessmentId,omitempty"`
-	Name              string    `json:"name"`
-	Type              string    `json:"type"`
-	OperatingSystem   *string   `json:"operatingSystem"`
-	Vendor            *string   `json:"vendor,omitempty"`
-	Product           *string   `json:"product,omitempty"`
-	Version           *string   `json:"version,omitempty"`
-	Owner             string    `json:"owner"`
-	Criticality       string    `json:"criticality"`
-	RiskLevel         *string   `json:"riskLevel"`
+	ID                 string    `json:"id"`
+	AssetAssessmentID  *string   `json:"assetAssessmentId,omitempty"`
+	Name               string    `json:"name"`
+	Type               string    `json:"type"`
+	OperatingSystem    *string   `json:"operatingSystem"`
+	Vendor             *string   `json:"vendor,omitempty"`
+	Product            *string   `json:"product,omitempty"`
+	Version            *string   `json:"version,omitempty"`
+	Owner              string    `json:"owner"`
+	Criticality        string    `json:"criticality"`
+	RiskLevel          *string   `json:"riskLevel"`
 	VulnerabilityCount int       `json:"vulnerabilityCount"`
 	CreatedAt          time.Time `json:"createdAt"`
 	UpdatedAt          time.Time `json:"updatedAt"`

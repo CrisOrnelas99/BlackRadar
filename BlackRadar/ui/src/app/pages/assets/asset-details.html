@@ -24,21 +24,54 @@
       </header>
 
       <dl class="asset-details-grid">
-        <div><dt>Type</dt><dd>{{ asset()?.type }}</dd></div>
-        <div><dt>Vendor</dt><dd>{{ asset()?.vendor || 'Not provided' }}</dd></div>
-        <div><dt>Product</dt><dd>{{ asset()?.product || 'Not provided' }}</dd></div>
-        <div><dt>Version</dt><dd>{{ asset()?.version || 'Not provided' }}</dd></div>
+        <div>
+          <dt>Type</dt>
+          <dd>{{ asset()?.type }}</dd>
+        </div>
+        <div>
+          <dt>Vendor</dt>
+          <dd>{{ asset()?.vendor || 'Not provided' }}</dd>
+        </div>
+        <div>
+          <dt>Product</dt>
+          <dd>{{ asset()?.product || 'Not provided' }}</dd>
+        </div>
+        <div>
+          <dt>Version</dt>
+          <dd>{{ asset()?.version || 'Not provided' }}</dd>
+        </div>
         <div>
           <dt>Operating system</dt>
           <dd>{{ asset()?.operatingSystem || 'Not provided' }}</dd>
         </div>
-        <div><dt>Owner</dt><dd>{{ asset()?.owner }}</dd></div>
-        <div><dt>Criticality</dt><dd>{{ asset()?.criticality }}</dd></div>
-        <div><dt>Risk level</dt><dd>{{ asset()?.riskLevel || 'Not assessed' }}</dd></div>
-        <div><dt>Vulnerabilities</dt><dd>{{ asset()?.vulnerabilityCount }}</dd></div>
-        <div><dt>Asset ID</dt><dd>{{ asset()?.id }}</dd></div>
-        <div><dt>Created</dt><dd>{{ asset()?.createdAt | date: 'medium' }}</dd></div>
-        <div><dt>Updated</dt><dd>{{ asset()?.updatedAt | date: 'medium' }}</dd></div>
+        <div>
+          <dt>Owner</dt>
+          <dd>{{ asset()?.owner }}</dd>
+        </div>
+        <div>
+          <dt>Criticality</dt>
+          <dd>{{ asset()?.criticality }}</dd>
+        </div>
+        <div>
+          <dt>Risk level</dt>
+          <dd>{{ asset()?.riskLevel || 'Not assessed' }}</dd>
+        </div>
+        <div>
+          <dt>Vulnerabilities</dt>
+          <dd>{{ asset()?.vulnerabilityCount }}</dd>
+        </div>
+        <div>
+          <dt>Asset ID</dt>
+          <dd>{{ asset()?.id }}</dd>
+        </div>
+        <div>
+          <dt>Created</dt>
+          <dd>{{ asset()?.createdAt | date: 'medium' }}</dd>
+        </div>
+        <div>
+          <dt>Updated</dt>
+          <dd>{{ asset()?.updatedAt | date: 'medium' }}</dd>
+        </div>
       </dl>
     </article>
   }
