@@ -31,6 +31,7 @@ type Asset struct {
 	RiskLevel         *string          `gorm:"column:risk_level" json:"riskLevel"`
 	Assessment        *AssetAssessment `gorm:"foreignKey:AssetAssessmentID;references:ID" json:"-"`
 	Vulnerabilities   []Vulnerability  `gorm:"many2many:asset_vulnerabilities;" json:"vulnerabilities,omitempty"`
+	VulnerabilityCount int              `gorm:"-" json:"-"`
 }
 
 // TableName returns the PostgreSQL table name for Asset.

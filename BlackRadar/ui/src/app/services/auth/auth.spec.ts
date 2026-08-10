@@ -1,3 +1,4 @@
+// Verifies in-memory authentication state, cookie-backed refresh, and logout behavior.
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -9,6 +10,7 @@ describe('AuthService', () => {
   let service: AuthService;
   let httpTestingController: HttpTestingController;
 
+  // Creates the authentication service test environment before each test.
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()],
@@ -17,14 +19,17 @@ describe('AuthService', () => {
     httpTestingController = TestBed.inject(HttpTestingController);
   });
 
+  // Confirms all expected HTTP requests were completed after each test.
   afterEach(() => {
     httpTestingController.verify();
   });
 
+  // Confirms the authentication service can be created.
   it('should be created', () => {
     expect(service).toBeTruthy();
   });
 
+  // Confirms a successful login stores the access token in memory.
   it('stores the login response in memory after the refresh cookie is set', () => {
     service.login({ userOrEmail: 'analyst', password: 'Password1!' }).subscribe();
 
@@ -35,6 +40,7 @@ describe('AuthService', () => {
     expect(service.getAccessToken()).toBe('access-token');
   });
 
+  // Confirms refresh uses the HttpOnly cookie without sending a token in the body.
   it('uses the refresh cookie without including a token in the request body', () => {
     service.refreshSession().subscribe();
 
@@ -44,6 +50,7 @@ describe('AuthService', () => {
     request.flush(loginResponse());
   });
 
+  // Confirms logout clears the in-memory session after the backend succeeds.
   it('clears the in-memory session after logout succeeds', () => {
     service.session.set(loginResponse());
     service.logout().subscribe();
@@ -57,6 +64,7 @@ describe('AuthService', () => {
   });
 });
 
+// Builds a representative authenticated login response for service tests.
 function loginResponse() {
   return {
     user: {

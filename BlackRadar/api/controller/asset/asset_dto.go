@@ -57,8 +57,9 @@ type AssetResponse struct {
 	Owner             string    `json:"owner"`
 	Criticality       string    `json:"criticality"`
 	RiskLevel         *string   `json:"riskLevel"`
-	CreatedAt         time.Time `json:"createdAt"`
-	UpdatedAt         time.Time `json:"updatedAt"`
+	VulnerabilityCount int       `json:"vulnerabilityCount"`
+	CreatedAt          time.Time `json:"createdAt"`
+	UpdatedAt          time.Time `json:"updatedAt"`
 }
 
 // AssetWithVulnerabilitiesResponse exposes the minimal asset shape with attached vulnerabilities.
@@ -113,19 +114,20 @@ type ApplyAssetMatchRequest struct {
 // ToAssetResponseDTO converts an asset model into its response DTO.
 func ToAssetResponseDTO(asset model.Asset) AssetResponse {
 	return AssetResponse{
-		ID:                asset.ID,
-		AssetAssessmentID: asset.AssetAssessmentID,
-		Name:              asset.Name,
-		Type:              asset.Type,
-		OperatingSystem:   asset.OperatingSystem,
-		Vendor:            asset.Vendor,
-		Product:           asset.Product,
-		Version:           asset.Version,
-		Owner:             asset.Owner,
-		Criticality:       asset.Criticality,
-		RiskLevel:         asset.RiskLevel,
-		CreatedAt:         asset.CreatedAt,
-		UpdatedAt:         asset.UpdatedAt,
+		ID:                 asset.ID,
+		AssetAssessmentID:  asset.AssetAssessmentID,
+		Name:               asset.Name,
+		Type:               asset.Type,
+		OperatingSystem:    asset.OperatingSystem,
+		Vendor:             asset.Vendor,
+		Product:            asset.Product,
+		Version:            asset.Version,
+		Owner:              asset.Owner,
+		Criticality:        asset.Criticality,
+		RiskLevel:          asset.RiskLevel,
+		VulnerabilityCount: asset.VulnerabilityCount,
+		CreatedAt:          asset.CreatedAt,
+		UpdatedAt:          asset.UpdatedAt,
 	}
 }
 

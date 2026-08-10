@@ -14,6 +14,13 @@ import { firstValueFrom } from 'rxjs';
 import { BannerService } from '../../services/banner/banner';
 import { AuthService, LoginResponse } from '../../services/auth/auth';
 
+interface NavigationItem {
+  key: string;
+  label: string;
+  path: string;
+  isActive: (currentUrl: string) => boolean;
+}
+
 @Component({
   selector: 'app-top-menu',
   standalone: true,
@@ -29,6 +36,20 @@ export class TopMenuComponent {
 
   readonly session = input.required<LoginResponse>();
   readonly currentUrl = input<string>('');
+  readonly navigationItems: ReadonlyArray<NavigationItem> = [
+    {
+      key: 'dashboard',
+      label: 'Dashboard',
+      path: '/dashboard',
+      isActive: (currentUrl) => currentUrl.startsWith('/dashboard'),
+    },
+    {
+      key: 'assets',
+      label: 'Assets',
+      path: '/assets',
+      isActive: (currentUrl) => currentUrl === '/assets' || currentUrl.startsWith('/assets/'),
+    },
+  ];
 
   isNavigationMenuOpen = false;
   isProfileMenuOpen = false;
@@ -56,14 +77,14 @@ export class TopMenuComponent {
     }
   }
 
-  // Routes the user to the dashboard and collapses any open menu state.
-  async navigateToDashboard(): Promise<void> {
+  // Routes the user to the requested page and collapses any open menu state.
+  async navigateTo(path: string, isActive: (currentUrl: string) => boolean): Promise<void> {
     this.closeMenus();
-    if (this.currentUrl().startsWith('/dashboard')) {
+    if (isActive(this.currentUrl())) {
       return;
     }
 
-    await this.router.navigateByUrl('/dashboard');
+    await this.router.navigateByUrl(path);
   }
 
   // Clears the session, announces the logout, and returns the user to the login page.

@@ -11,7 +11,7 @@ app-root {
   display: block;
   min-height: 100vh;
   font-family: var(--brand-font-body);
-  background: linear-gradient(180deg, #f8fafc 0%, var(--BlackRadar-color-white) 100%);
+  background: var(--BlackRadar-color-white);
 }
 app-root {
   --brand-popup-right: 0;
