@@ -1,0 +1,32 @@
+<div class="data-table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        @for (column of columns(); track column.key) {
+          <th scope="col" [style.width]="column.width">{{ column.label }}</th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows(); track $index) {
+        <tr>
+          @for (column of columns(); track column.key) {
+            <td [style.width]="column.width">
+              @if (column.cellType === 'action') {
+                <button
+                  type="button"
+                  class="data-table-action"
+                  (click)="emitCellAction(column, row)"
+                >
+                  {{ column.cellValue(row) }}
+                </button>
+              } @else {
+                {{ column.cellValue(row) }}
+              }
+            </td>
+          }
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

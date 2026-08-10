@@ -1,0 +1,78 @@
+@if (session(); as currentSession) {
+  <app-top-menu
+    [session]="currentSession"
+    [currentUrl]="'/assets/' + (asset()?.id || '')"
+  ></app-top-menu>
+}
+
+<section class="asset-details-page" aria-labelledby="asset-details-heading">
+  <header class="asset-details-page-header">
+    <h1 id="asset-details-heading">Asset Details</h1>
+    <div class="asset-details-assets-link">
+      <a routerLink="/assets">Back to Assets</a>
+    </div>
+  </header>
+
+  @if (isLoading()) {
+    <p class="asset-details-status" role="status" aria-atomic="true">Loading asset...</p>
+  } @else if (hasLoadError() || !asset()) {
+    <p class="asset-details-status" role="alert">Unable to load asset.</p>
+  } @else {
+    <article class="asset-details-card">
+      <header class="asset-details-header">
+        <h2>{{ asset()?.name }}</h2>
+      </header>
+
+      <dl class="asset-details-grid">
+        <div>
+          <dt>Type</dt>
+          <dd>{{ asset()?.type }}</dd>
+        </div>
+        <div>
+          <dt>Vendor</dt>
+          <dd>{{ asset()?.vendor || 'Not provided' }}</dd>
+        </div>
+        <div>
+          <dt>Product</dt>
+          <dd>{{ asset()?.product || 'Not provided' }}</dd>
+        </div>
+        <div>
+          <dt>Version</dt>
+          <dd>{{ asset()?.version || 'Not provided' }}</dd>
+        </div>
+        <div>
+          <dt>Operating system</dt>
+          <dd>{{ asset()?.operatingSystem || 'Not provided' }}</dd>
+        </div>
+        <div>
+          <dt>Owner</dt>
+          <dd>{{ asset()?.owner }}</dd>
+        </div>
+        <div>
+          <dt>Criticality</dt>
+          <dd>{{ asset()?.criticality }}</dd>
+        </div>
+        <div>
+          <dt>Risk level</dt>
+          <dd>{{ asset()?.riskLevel || 'Not assessed' }}</dd>
+        </div>
+        <div>
+          <dt>Vulnerabilities</dt>
+          <dd>{{ asset()?.vulnerabilityCount }}</dd>
+        </div>
+        <div>
+          <dt>Asset ID</dt>
+          <dd>{{ asset()?.id }}</dd>
+        </div>
+        <div>
+          <dt>Created</dt>
+          <dd>{{ asset()?.createdAt | date: 'medium' }}</dd>
+        </div>
+        <div>
+          <dt>Updated</dt>
+          <dd>{{ asset()?.updatedAt | date: 'medium' }}</dd>
+        </div>
+      </dl>
+    </article>
+  }
+</section>

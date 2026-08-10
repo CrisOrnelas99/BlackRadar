@@ -17,20 +17,21 @@ const (
 // Asset represents a user-scoped asset stored in PostgreSQL.
 type Asset struct {
 	Model
-	UserID            string           `gorm:"type:uuid;column:user_id;index;not null" json:"-"`
-	AssetAssessmentID *string          `gorm:"type:uuid;column:asset_assessment_id;not null;uniqueIndex" json:"-"`
-	Name              string           `gorm:"not null" json:"name"`
-	Type              string           `gorm:"not null" json:"type"`
-	OperatingSystem   *string          `gorm:"column:operating_system" json:"operatingSystem"`
-	Vendor            *string          `gorm:"column:vendor" json:"vendor,omitempty"`
-	Product           *string          `gorm:"column:product" json:"product,omitempty"`
-	Version           *string          `gorm:"column:version" json:"version,omitempty"`
-	DeviceModel       *string          `gorm:"column:device_model" json:"deviceModel,omitempty"`
-	Owner             string           `gorm:"not null" json:"owner"`
-	Criticality       string           `gorm:"not null" json:"criticality"`
-	RiskLevel         *string          `gorm:"column:risk_level" json:"riskLevel"`
-	Assessment        *AssetAssessment `gorm:"foreignKey:AssetAssessmentID;references:ID" json:"-"`
-	Vulnerabilities   []Vulnerability  `gorm:"many2many:asset_vulnerabilities;" json:"vulnerabilities,omitempty"`
+	UserID             string           `gorm:"type:uuid;column:user_id;index;not null" json:"-"`
+	AssetAssessmentID  *string          `gorm:"type:uuid;column:asset_assessment_id;not null;uniqueIndex" json:"-"`
+	Name               string           `gorm:"not null" json:"name"`
+	Type               string           `gorm:"not null" json:"type"`
+	OperatingSystem    *string          `gorm:"column:operating_system" json:"operatingSystem"`
+	Vendor             *string          `gorm:"column:vendor" json:"vendor,omitempty"`
+	Product            *string          `gorm:"column:product" json:"product,omitempty"`
+	Version            *string          `gorm:"column:version" json:"version,omitempty"`
+	DeviceModel        *string          `gorm:"column:device_model" json:"deviceModel,omitempty"`
+	Owner              string           `gorm:"not null" json:"owner"`
+	Criticality        string           `gorm:"not null" json:"criticality"`
+	RiskLevel          *string          `gorm:"column:risk_level" json:"riskLevel"`
+	Assessment         *AssetAssessment `gorm:"foreignKey:AssetAssessmentID;references:ID" json:"-"`
+	Vulnerabilities    []Vulnerability  `gorm:"many2many:asset_vulnerabilities;" json:"vulnerabilities,omitempty"`
+	VulnerabilityCount int              `gorm:"-" json:"-"`
 }
 
 // TableName returns the PostgreSQL table name for Asset.

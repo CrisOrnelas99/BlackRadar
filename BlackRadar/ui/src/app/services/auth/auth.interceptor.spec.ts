@@ -1,3 +1,4 @@
+// Verifies bearer-token attachment and one-time refresh retry behavior.
 import { HttpClient } from '@angular/common/http';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
@@ -12,6 +13,7 @@ describe('authInterceptor', () => {
   let httpTestingController: HttpTestingController;
   let authService: AuthService;
 
+  // Creates the interceptor test environment before each test.
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [
@@ -36,10 +38,12 @@ describe('authInterceptor', () => {
     });
   });
 
+  // Confirms all expected HTTP requests were completed after each test.
   afterEach(() => {
     httpTestingController.verify();
   });
 
+  // Confirms authenticated API requests receive the current bearer token.
   it('should attach bearer token to api requests', () => {
     httpClient.get(`${environment.apiUrl}/assets`).subscribe();
 
@@ -48,6 +52,7 @@ describe('authInterceptor', () => {
     request.flush([]);
   });
 
+  // Confirms a failed request refreshes the session and retries once.
   it('should refresh and retry api requests after a 401 response', () => {
     httpClient.get(`${environment.apiUrl}/assets`).subscribe();
 
