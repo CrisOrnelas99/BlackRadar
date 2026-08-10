@@ -1,4 +1,4 @@
-// Verifies the root application component can be configured and rendered.
+// Verifies the root application component can be configured and created.
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';

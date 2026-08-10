@@ -8,11 +8,11 @@
   </div>
 
   @if (isLoading()) {
-    <p class="assets-status">Loading assets...</p>
+    <p class="assets-status" role="status" aria-atomic="true">Loading assets...</p>
   } @else if (hasLoadError()) {
-    <p class="assets-status">Unable to load assets.</p>
+    <p class="assets-status" role="alert">Unable to load assets.</p>
   } @else if (assets().length === 0) {
-    <p class="assets-status">No assets found.</p>
+    <p class="assets-status" role="status" aria-atomic="true">No assets found.</p>
   } @else {
     <app-data-table
       [columns]="assetColumns"

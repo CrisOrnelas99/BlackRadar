@@ -2,6 +2,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { EMPTY, map, switchMap } from 'rxjs';
 
 import { TopMenuComponent } from '../../components/top-menu/top-menu';
 import { AuthService } from '../../services/auth/auth';
@@ -26,22 +27,32 @@ export class AssetDetailsPage {
 
   // Loads the asset identified by the current route for the authenticated user.
   constructor() {
-    const assetID = this.activatedRoute.snapshot.paramMap.get('id');
-    if (!assetID) {
-      this.hasLoadError.set(true);
-      this.isLoading.set(false);
-      return;
-    }
+    this.activatedRoute.paramMap
+      .pipe(
+        map((paramMap) => paramMap.get('id')),
+        switchMap((assetID) => {
+          this.isLoading.set(true);
+          this.hasLoadError.set(false);
+          this.asset.set(null);
 
-    this.assetsService.getAsset(assetID).subscribe({
-      next: (asset) => {
-        this.asset.set(asset);
-        this.isLoading.set(false);
-      },
-      error: () => {
-        this.hasLoadError.set(true);
-        this.isLoading.set(false);
-      },
-    });
+          if (!assetID) {
+            this.hasLoadError.set(true);
+            this.isLoading.set(false);
+            return EMPTY;
+          }
+
+          return this.assetsService.getAsset(assetID);
+        }),
+      )
+      .subscribe({
+        next: (asset) => {
+          this.asset.set(asset);
+          this.isLoading.set(false);
+        },
+        error: () => {
+          this.hasLoadError.set(true);
+          this.isLoading.set(false);
+        },
+      });
   }
 }

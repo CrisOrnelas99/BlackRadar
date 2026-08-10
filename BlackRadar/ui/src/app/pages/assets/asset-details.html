@@ -14,9 +14,9 @@
   </header>
 
   @if (isLoading()) {
-    <p class="asset-details-status">Loading asset...</p>
+    <p class="asset-details-status" role="status" aria-atomic="true">Loading asset...</p>
   } @else if (hasLoadError() || !asset()) {
-    <p class="asset-details-status">Unable to load asset.</p>
+    <p class="asset-details-status" role="alert">Unable to load asset.</p>
   } @else {
     <article class="asset-details-card">
       <header class="asset-details-header">
