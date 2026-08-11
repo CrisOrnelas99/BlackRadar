@@ -39,16 +39,6 @@ type AssetService interface {
 	CreateAsset(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error)
 
 	/*
-		CreateAssetFromAI converts raw asset text into a validated user-owned
-		asset.
-
-		Implementations should keep prompt/text-generation concerns inside the
-		service boundary, validate the generated asset before persistence, and
-		translate external-client and repository failures into service errors.
-	*/
-	CreateAssetFromAI(ec *appcontext.GinContext, rawText string) (model.Asset, error)
-
-	/*
 		UpdateAsset validates and updates an asset owned by the authenticated
 		user.
 

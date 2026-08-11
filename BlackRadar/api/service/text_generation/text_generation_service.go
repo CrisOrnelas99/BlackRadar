@@ -82,22 +82,6 @@ func BuildAssetFingerprintExtractionRequest(rawText string, deterministicFingerp
 	return buildPromptRequest(assetFingerprintExtractionSystemPrompt, payload)
 }
 
-// BuildAssetCreationExtractionRequest asks the model to convert messy text into an asset draft.
-func (textGenerationServiceImpl) BuildAssetCreationExtractionRequest(rawText string) TextGenerationRequest {
-	return BuildAssetCreationExtractionRequest(rawText)
-}
-
-// BuildAssetCreationExtractionRequest asks the model to convert messy text into an asset draft.
-func BuildAssetCreationExtractionRequest(rawText string) TextGenerationRequest {
-	payload := struct {
-		RawText string `json:"rawText"`
-	}{
-		RawText: rawText,
-	}
-
-	return buildPromptRequest(assetCreationExtractionSystemPrompt, payload)
-}
-
 // BuildAssetMatchRankingRequest constructs the locked prompt envelope used for asset matching.
 func (textGenerationServiceImpl) BuildAssetMatchRankingRequest(fingerprint string, keywordSearch string, candidates []cpeclient.CPECandidate) TextGenerationRequest {
 	return BuildAssetMatchRankingRequest(fingerprint, keywordSearch, candidates)

@@ -62,6 +62,135 @@
   color: var(--BlackRadar-color-navy-black);
 }
 
+.asset-details-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.72fr);
+  gap: 1.5rem;
+  width: min(100%, 72rem);
+  margin: 0 auto;
+  align-items: start;
+}
+
+.asset-edit-card {
+  padding: 1.5rem;
+  border: 1px solid var(--BlackRadar-color-success);
+  border-radius: var(--brand-radius-lg);
+  background: var(--BlackRadar-color-pure-white);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--BlackRadar-color-pure-white) 80%, transparent),
+    0 2px 4px color-mix(in srgb, var(--BlackRadar-color-navy-black) 10%, transparent),
+    0 12px 24px color-mix(in srgb, var(--BlackRadar-color-navy-black) 10%, transparent);
+  color: var(--BlackRadar-color-navy-black);
+}
+
+.asset-edit-intro h2,
+.asset-edit-header h2 {
+  margin: 0;
+  color: var(--BlackRadar-color-navy-black);
+  font-family: var(--brand-font-title);
+  font-size: 1.45rem;
+  font-weight: 400;
+}
+
+.asset-edit-intro p,
+.asset-edit-header p {
+  margin: 0.45rem 0 1.25rem;
+  color: var(--BlackRadar-color-light-gray);
+}
+
+.asset-edit-open,
+.asset-edit-submit {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--BlackRadar-color-dark-blue);
+  border-radius: var(--brand-radius-md);
+  background: transparent;
+  color: var(--BlackRadar-color-dark-blue);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.asset-edit-open:hover,
+.asset-edit-submit:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--BlackRadar-color-dark-blue) 10%, transparent);
+  color: var(--BlackRadar-color-dark-blue);
+}
+
+.asset-edit-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.asset-edit-header p {
+  margin-bottom: 0;
+}
+
+.asset-edit-cancel {
+  flex: 0 0 auto;
+  padding: 0.35rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--BlackRadar-color-light-gray);
+  font: inherit;
+  cursor: pointer;
+}
+
+.asset-edit-cancel:hover:not(:disabled) {
+  color: var(--brandRadar-color-blue);
+}
+
+.asset-edit-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.asset-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.asset-field-wide {
+  grid-column: 1 / -1;
+}
+
+.asset-field label {
+  color: var(--BlackRadar-color-dark-blue);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.asset-required {
+  color: var(--BlackRadar-color-error);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.asset-field input,
+.asset-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.5rem;
+  box-sizing: border-box;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--BlackRadar-color-dark-gray) 28%, transparent);
+  border-radius: var(--brand-radius-md);
+  background: var(--BlackRadar-color-white);
+  color: var(--BlackRadar-color-navy-black);
+  font: inherit;
+}
+
 .asset-details-header {
   margin-bottom: 1.75rem;
 }
@@ -101,6 +230,39 @@
   color: var(--BlackRadar-color-light-gray);
 }
 
+.asset-edit-intro-actions,
+.asset-edit-actions {
+  display: flex;
+  gap: 0.7rem;
+}
+
+.asset-edit-intro-actions > button,
+.asset-edit-actions > button {
+  flex: 1;
+}
+
+.asset-delete-button {
+  min-height: 2.75rem;
+  border: 1px solid var(--BlackRadar-color-error);
+  border-radius: var(--brand-radius-md);
+  padding: 0.55rem 0.9rem;
+  background: transparent;
+  color: var(--BlackRadar-color-error);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.asset-delete-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--BlackRadar-color-error) 8%, transparent);
+}
+
+.asset-delete-button:disabled,
+.asset-edit-submit:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 @media (max-width: 640px) {
   .asset-details-page-header {
     align-items: start;
@@ -111,11 +273,18 @@
     align-self: start;
   }
 
-  .asset-details-card {
+  .asset-details-card,
+  .asset-edit-card {
     padding: 1.25rem;
   }
 
-  .asset-details-grid {
+  .asset-details-layout,
+  .asset-details-grid,
+  .asset-edit-fields {
     grid-template-columns: 1fr;
+  }
+
+  .asset-field-wide {
+    grid-column: auto;
   }
 }

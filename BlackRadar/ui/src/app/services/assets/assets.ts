@@ -20,6 +20,19 @@ export interface Asset {
   updatedAt: string;
 }
 
+export interface ManualAssetRequest {
+  name: string;
+  type: string;
+  operatingSystem?: string;
+  vendor?: string;
+  product?: string;
+  version?: string;
+  owner: string;
+  criticality: string;
+}
+
+export type CreateAssetRequest = ManualAssetRequest;
+
 @Injectable({
   providedIn: 'root',
 })
@@ -35,5 +48,20 @@ export class AssetsService {
   // Returns one asset visible to the authenticated user.
   getAsset(assetID: string) {
     return this.httpClient.get<Asset>(`${environment.apiUrl}/assets/${assetID}`);
+  }
+
+  // Creates a manually entered asset for the authenticated user.
+  createAsset(request: CreateAssetRequest) {
+    return this.httpClient.post<Asset>(`${environment.apiUrl}/assets`, request);
+  }
+
+  // Updates an asset owned by the authenticated user.
+  updateAsset(assetID: string, request: ManualAssetRequest) {
+    return this.httpClient.put<Asset>(`${environment.apiUrl}/assets/${assetID}`, request);
+  }
+
+  // Deletes an asset owned by the authenticated user.
+  deleteAsset(assetID: string) {
+    return this.httpClient.delete<void>(`${environment.apiUrl}/assets/${assetID}`);
   }
 }

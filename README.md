@@ -39,7 +39,7 @@ Key capabilities include:
 - backend rate limiting on auth and NVD lookup endpoints
 - short-lived access tokens with server-side refresh-token sessions
 - request-scoped GORM database sessions with service transaction boundaries through `platform/transaction`
-- backend OpenAI-assisted asset creation, CPE matching, and NVD vulnerability attachment
+- backend OpenAI-assisted product matching and NVD vulnerability attachment
 
 The platform supports multiple inventory contexts, including applications, home networks, and imported raw asset lists.
 
@@ -195,7 +195,6 @@ The repository currently contains these working foundations:
 - backend asset-risk calculation when affected relationships or vulnerabilities change
 - NVD CPE candidate search support
 - backend OpenAI provider configuration and text-generation boundary
-- AI-assisted asset creation from raw text through the backend
 - AI-assisted asset product fingerprinting and CPE ranking
 - persisted asset assessment metadata, including risk score, product fingerprint, selected CPE, confidence, review status, review notes, candidate count, and matched timestamp
 - CPE-based NVD CVE lookup and bounded vulnerability attachment to assets
@@ -398,8 +397,6 @@ Assets
 - `PUT /api/assets/{id}`
 - `DELETE /api/assets/{id}`
 
-`POST /api/assets` also supports backend AI-assisted asset creation when the request uses `aiMode` with `rawText`.
-
 Vulnerabilities
 
 - `GET /api/vulnerabilities`
@@ -503,7 +500,7 @@ Future work documented in `.agents/skills/roadmap/SKILL.md` includes:
 - future organization listing and active organization switching
 - future application-aware scoping on top of a server-side ownership boundary
 - future multi-organization membership with active organization switching
-- frontend workflows for AI-assisted asset creation, CPE review, and vulnerability attachment
+- future frontend workflows for batch AI asset ingestion, CPE review, and vulnerability attachment
 - asset-scoped chatbot and guided security answers
 - remediation workflows, work orders, checklist items, and exceptions
 - alerting and CVE refresh services

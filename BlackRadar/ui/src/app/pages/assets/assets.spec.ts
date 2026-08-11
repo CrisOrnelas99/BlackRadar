@@ -1,0 +1,124 @@
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
+import { of } from 'rxjs';
+import { Router } from '@angular/router';
+
+import { AssetsPage } from './assets';
+import { AuthService, LoginResponse } from '../../services/auth/auth';
+import { Asset, AssetsService } from '../../services/assets/assets';
+import { BannerService } from '../../services/banner/banner';
+
+describe('AssetsPage', () => {
+  let fixture: ComponentFixture<AssetsPage>;
+  let component: AssetsPage;
+  let assetsServiceMock: {
+    getAssets: ReturnType<typeof vi.fn>;
+    createAsset: ReturnType<typeof vi.fn>;
+    deleteAsset: ReturnType<typeof vi.fn>;
+  };
+  let bannerServiceMock: {
+    show: ReturnType<typeof vi.fn>;
+    clear: ReturnType<typeof vi.fn>;
+  };
+  let routerMock: { navigate: ReturnType<typeof vi.fn> };
+
+  const session: LoginResponse = {
+    user: {
+      id: 'user-1',
+      fullName: 'System Admin',
+      username: 'system_admin',
+      email: 'system_admin@example.invalid',
+    },
+    token: 'token',
+    tokenExpiresAt: '2026-08-11T12:00:00Z',
+    refreshTokenExpiresAt: '2026-08-12T12:00:00Z',
+  };
+  const assets: Asset[] = [
+    {
+      id: 'asset-1',
+      name: 'Alpha server',
+      type: 'Server',
+      operatingSystem: 'Linux',
+      vendor: 'Dell',
+      product: 'PowerEdge',
+      version: '1.0',
+      owner: 'Platform',
+      criticality: 'High',
+      riskLevel: 'Medium',
+      vulnerabilityCount: 3,
+      createdAt: '2026-08-11T12:00:00Z',
+      updatedAt: '2026-08-11T12:00:00Z',
+    },
+    {
+      id: 'asset-2',
+      name: 'Bravo laptop',
+      type: 'Laptop',
+      operatingSystem: 'Windows',
+      vendor: 'Lenovo',
+      product: 'ThinkPad',
+      version: '2.0',
+      owner: 'Operations',
+      criticality: 'Low',
+      riskLevel: null,
+      vulnerabilityCount: 0,
+      createdAt: '2026-08-11T12:00:00Z',
+      updatedAt: '2026-08-11T12:00:00Z',
+    },
+  ];
+
+  beforeEach(async () => {
+    assetsServiceMock = {
+      getAssets: vi.fn(() => of(assets)),
+      createAsset: vi.fn(),
+      deleteAsset: vi.fn(() => of(void 0)),
+    };
+    bannerServiceMock = {
+      show: vi.fn(),
+      clear: vi.fn(),
+    };
+    routerMock = {
+      navigate: vi.fn(() => Promise.resolve(true)),
+    };
+
+    await TestBed.configureTestingModule({
+      imports: [AssetsPage],
+      providers: [
+        {
+          provide: AuthService,
+          useValue: {
+            session: signal(session),
+          },
+        },
+        { provide: AssetsService, useValue: assetsServiceMock },
+        { provide: BannerService, useValue: bannerServiceMock },
+        { provide: Router, useValue: routerMock },
+      ],
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(AssetsPage);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('loads assets on init and filters them by the search query', () => {
+    expect(component.assets().length).toBe(2);
+
+    component.updateSearchQuery('alpha');
+
+    expect(component.filteredAssets().map((asset) => asset.id)).toEqual(['asset-1']);
+  });
+
+  it('uses the asset id as the stable row key', () => {
+    expect(component.assetRowKey(assets[0])).toBe('asset-1');
+  });
+
+  it('removes a deleted asset from the local list and shows a success banner', () => {
+    component.assetPendingDeletion.set(assets[0]);
+
+    component.confirmAssetDeletion();
+
+    expect(assetsServiceMock.deleteAsset).toHaveBeenCalledWith('asset-1');
+    expect(component.assets().map((asset) => asset.id)).toEqual(['asset-2']);
+    expect(bannerServiceMock.show).toHaveBeenCalledWith('Asset deleted successfully.', 'success');
+  });
+});

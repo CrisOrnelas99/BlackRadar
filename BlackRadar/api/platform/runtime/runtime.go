@@ -164,7 +164,7 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 
 	assetRiskService := serviceassetrisk.NewAssetRiskService(assetRiskRepository).WithAuditService(auditService)
 	assetMatchService := serviceassetmatch.NewAssetMatchService(assetMatchRepository, assetVulnerabilityRepository, vulnerabilityRepository, cpeClient, nvdClient, openAIClient, assetRiskService).WithAuditService(auditService)
-	assetService := serviceasset.NewAssetService(assetRepository, openAIClient, auditService)
+	assetService := serviceasset.NewAssetService(assetRepository, auditService)
 	assetVulnerabilityService := serviceassetvulnerability.NewAssetVulnerabilityService(assetVulnerabilityRepository, assetRiskService).WithAuditService(auditService)
 	vulnerabilityService := servicevulnerability.NewVulnerabilityService(vulnerabilityRepository, assetRiskService).WithAuditService(auditService)
 

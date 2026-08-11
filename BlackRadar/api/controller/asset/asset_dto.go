@@ -22,8 +22,6 @@ type AssetRequest struct {
 	DeviceModel     *string `json:"deviceModel,omitempty"`
 	Owner           string  `json:"owner"`
 	Criticality     string  `json:"criticality"`
-	AIMode          bool    `json:"aiMode,omitempty"`
-	RawText         string  `json:"rawText,omitempty"`
 }
 
 // ToDataModel converts the request into the persistence model with trimmed values.

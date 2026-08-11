@@ -41,16 +41,6 @@ type TextGenerationService interface {
 	BuildAssetFingerprintExtractionRequest(rawText string, deterministicFingerprint string, assetName string, assetType string, assetOperatingSystem string) TextGenerationRequest
 
 	/*
-		BuildAssetCreationExtractionRequest constructs the prompt used to turn
-		messy user-provided text into an asset draft.
-
-		Implementations should keep raw text inside a JSON payload, enforce the
-		locked asset extraction schema, and avoid including tenant, credential, or
-		backend runtime data.
-	*/
-	BuildAssetCreationExtractionRequest(rawText string) TextGenerationRequest
-
-	/*
 		BuildAssetMatchRankingRequest constructs the prompt used to rank NVD CPE
 		candidates for one asset fingerprint.
 

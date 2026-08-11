@@ -1,28 +1,16 @@
-// Package service support contains validation, normalization, and AI parsing helpers for assets.
+// Package service support contains asset validation and normalization helpers.
 package service
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"regexp"
 	"strings"
 	"unicode"
-	"unicode/utf8"
 
 	"blackradar/api/model"
 	platformdb "blackradar/api/platform/db"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetrepository "blackradar/api/repository/asset"
-)
-
-var aiPromptInjectionPattern = regexp.MustCompile(`(?i)(ignore (all )?previous instructions|system prompt|developer message|reveal the prompt|bypass policy|prompt injection|jailbreak|do anything now)`)
-
-const (
-	aiIngestionMaxBytes = 8192
-	aiIngestionMaxRunes = 4000
 )
 
 var displayAcronyms = map[string]string{
@@ -50,68 +38,6 @@ var displayAcronyms = map[string]string{
 
 func runAssetAuditTransaction(ec *appcontext.GinContext, operation func(*appcontext.GinContext) error) error {
 	return platformdb.WithinRequestTransaction(ec, operation)
-}
-
-// assetCreationExtractionResponse represents the constrained AI asset extraction response.
-type assetCreationExtractionResponse struct {
-	Name            string  `json:"name"`
-	Type            string  `json:"type"`
-	OperatingSystem string  `json:"operatingSystem"`
-	Vendor          string  `json:"vendor"`
-	Product         string  `json:"product"`
-	Version         string  `json:"version"`
-	DeviceModel     string  `json:"deviceModel"`
-	Owner           string  `json:"owner"`
-	Criticality     string  `json:"criticality"`
-	Confidence      float64 `json:"confidence"`
-	ReviewNotes     string  `json:"reviewNotes"`
-}
-
-// assetFromAIExtraction converts a validated AI JSON response into an asset model.
-func assetFromAIExtraction(raw string) (model.Asset, error) {
-	var extraction assetCreationExtractionResponse
-	if err := decodeJSONOnly(raw, &extraction); err != nil {
-		return model.Asset{}, err
-	}
-
-	asset := model.Asset{
-		Name:            strings.TrimSpace(extraction.Name),
-		Type:            firstNonEmptyString(extraction.Type, "Device"),
-		OperatingSystem: stringPtrFromValue(extraction.OperatingSystem),
-		Vendor:          stringPtrFromValue(extraction.Vendor),
-		Product:         stringPtrFromValue(extraction.Product),
-		Version:         stringPtrFromValue(extraction.Version),
-		DeviceModel:     stringPtrFromValue(extraction.DeviceModel),
-		Owner:           firstNonEmptyString(extraction.Owner, "unassigned"),
-		Criticality:     firstNonEmptyString(extraction.Criticality, "Medium"),
-		RiskLevel:       nil,
-	}
-	asset = normalizeAssetDisplayFields(asset)
-
-	if strings.TrimSpace(asset.Name) == "" {
-		asset.Name = fallbackAssetName(asset)
-	}
-	if strings.TrimSpace(asset.Name) == "" {
-		return model.Asset{}, ErrInvalidAssetData
-	}
-
-	return asset, nil
-}
-
-// fallbackAssetName builds a usable asset name from structured product fields.
-func fallbackAssetName(asset model.Asset) string {
-	parts := []string{
-		optionalString(asset.Vendor),
-		optionalString(asset.Product),
-		optionalString(asset.DeviceModel),
-	}
-	values := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if strings.TrimSpace(part) != "" {
-			values = append(values, strings.TrimSpace(part))
-		}
-	}
-	return strings.Join(values, " ")
 }
 
 // normalizeAssetDisplayFields normalizes user-visible asset fields before persistence.
@@ -155,52 +81,12 @@ func translateAssetRepositoryError(err error) error {
 	}
 }
 
-// firstNonEmptyString returns the first non-empty trimmed string.
-func firstNonEmptyString(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
-}
-
 // optionalString returns a trimmed value for optional strings.
 func optionalString(value *string) string {
 	if value == nil {
 		return ""
 	}
 	return strings.TrimSpace(*value)
-}
-
-// decodeJSONOnly decodes a JSON object after stripping optional markdown fences.
-func decodeJSONOnly(raw string, target any) error {
-	trimmed := strings.TrimSpace(raw)
-	trimmed = strings.TrimPrefix(trimmed, "```json")
-	trimmed = strings.TrimPrefix(trimmed, "```")
-	trimmed = strings.TrimSuffix(trimmed, "```")
-	trimmed = strings.TrimSpace(trimmed)
-	if trimmed == "" {
-		return fmt.Errorf("%w: empty ai extraction response", ErrAssetExternalService)
-	}
-	decoder := json.NewDecoder(bytes.NewReader([]byte(trimmed)))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(target); err != nil {
-		return fmt.Errorf("%w: decode ai extraction response", ErrAssetExternalService)
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		return fmt.Errorf("%w: decode ai extraction response", ErrAssetExternalService)
-	}
-	return nil
-}
-
-// stringPtrFromValue returns nil for blank values and a pointer otherwise.
-func stringPtrFromValue(value string) *string {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return nil
-	}
-	return &trimmed
 }
 
 // authenticatedUserID returns the authenticated user ID from request context.
@@ -296,42 +182,4 @@ func hasMixedCase(value string) bool {
 		}
 	}
 	return hasUpper && hasLower
-}
-
-// sanitizeAIIngestionText normalizes pasted asset text and rejects obvious prompt-injection attempts.
-func sanitizeAIIngestionText(rawText string) (string, error) {
-	if !utf8.ValidString(rawText) {
-		return "", ErrInvalidAssetText
-	}
-
-	trimmed := strings.TrimSpace(rawText)
-	if trimmed == "" {
-		return "", ErrInvalidAssetText
-	}
-	if len(trimmed) > aiIngestionMaxBytes || utf8.RuneCountInString(trimmed) > aiIngestionMaxRunes {
-		return "", ErrInvalidAssetText
-	}
-	if aiPromptInjectionPattern.MatchString(trimmed) {
-		return "", ErrInvalidAssetText
-	}
-
-	normalized := strings.ReplaceAll(trimmed, "\r\n", "\n")
-	normalized = strings.ReplaceAll(normalized, "\r", "\n")
-	normalized = strings.Map(func(r rune) rune {
-		switch r {
-		case '\n', '\t':
-			return r
-		}
-		if r < 0x20 || r == 0x7f {
-			return -1
-		}
-		return r
-	}, normalized)
-
-	lines := strings.Split(normalized, "\n")
-	for i, line := range lines {
-		lines[i] = strings.TrimSpace(strings.Join(strings.Fields(line), " "))
-	}
-
-	return strings.TrimSpace(strings.Join(lines, "\n")), nil
 }

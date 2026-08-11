@@ -2,7 +2,6 @@
 package service
 
 import (
-	"context"
 	"errors"
 	"io"
 	"log/slog"
@@ -12,18 +11,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	openaiexternal "blackradar/api/external/openai"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetrepo "blackradar/api/repository/asset"
 	vulnrepo "blackradar/api/repository/vulnerability"
-	textgenerationservice "blackradar/api/service/text_generation"
 )
 
 // TestAssetService verifies the happy-path asset service flow.
 func TestAssetService(t *testing.T) {
 	repo := &fakeAssetRepository{asset: sampleAsset(), assets: []model.Asset{sampleAsset()}}
-	svc := NewAssetService(repo, nil)
+	svc := NewAssetService(repo)
 	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
 
 	if _, err := svc.GetAllAssets(ctx); err != nil {
@@ -63,7 +60,7 @@ func TestAssetServiceSupport(t *testing.T) {
 
 // TestAssetServiceValidationAndTranslation verifies validation and error mapping.
 func TestAssetServiceValidationAndTranslation(t *testing.T) {
-	svc := NewAssetService(&fakeAssetRepository{findErr: assetrepo.ErrRecordNotFound}, nil)
+	svc := NewAssetService(&fakeAssetRepository{findErr: assetrepo.ErrRecordNotFound})
 	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
 
 	if _, err := svc.GetAsset(ctx, "00000000-0000-4000-8000-000000000001"); !errors.Is(err, ErrAssetNotFound) {
@@ -95,9 +92,6 @@ func TestAssetServiceErrorsExposeCategories(t *testing.T) {
 	if !errors.As(ErrAssetDependency, &dependencyErr) {
 		t.Fatal("expected asset dependency failure to be an asset dependency error")
 	}
-	if !errors.As(ErrAssetExternalService, &dependencyErr) {
-		t.Fatal("expected external service failure to be an asset dependency error")
-	}
 	var internalErr *InternalError
 	if !errors.As(ErrAssetInternal, &internalErr) {
 		t.Fatal("expected asset internal failure to be an asset internal error")
@@ -106,7 +100,7 @@ func TestAssetServiceErrorsExposeCategories(t *testing.T) {
 
 func TestAssetServiceCreateAssetNormalizesDisplayFields(t *testing.T) {
 	repo := &fakeAssetRepository{}
-	svc := NewAssetService(repo, nil)
+	svc := NewAssetService(repo)
 	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
 
 	created, err := svc.CreateAsset(ctx, model.Asset{
@@ -136,7 +130,7 @@ func TestAssetServiceCreateAssetNormalizesDisplayFields(t *testing.T) {
 
 func TestAssetServiceRejectsDuplicateAssetSignaturePerUser(t *testing.T) {
 	repo := &fakeAssetRepository{signatureExists: true}
-	svc := NewAssetService(repo, nil)
+	svc := NewAssetService(repo)
 	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
 
 	_, err := svc.CreateAsset(ctx, model.Asset{
@@ -154,70 +148,11 @@ func TestAssetServiceRejectsDuplicateAssetSignaturePerUser(t *testing.T) {
 
 func TestAssetServiceRejectsWrongUser(t *testing.T) {
 	repo := &fakeAssetRepository{asset: sampleAsset(), expectedUserID: "00000000-0000-4000-8000-000000000099"}
-	svc := NewAssetService(repo, nil)
+	svc := NewAssetService(repo)
 	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
 
 	if _, err := svc.GetAsset(ctx, "00000000-0000-4000-8000-000000000001"); !errors.Is(err, ErrAssetNotFound) {
 		t.Fatalf("expected wrong user access to be hidden as not found, got %v", err)
-	}
-}
-
-func TestAssetServiceCreateAssetFromAI(t *testing.T) {
-	createdAsset := sampleAsset()
-	createdAsset.ID = "00000000-0000-4000-8000-000000000088"
-	repo := &fakeAssetRepository{asset: createdAsset}
-	ai := &fakeTextGenerationService{
-		response: textgenerationservice.TextGenerationResponse{
-			Text: `{"name":"Ring Video Doorbell","type":"IoT Camera","operatingSystem":"Ring Firmware","vendor":"Amazon","product":"Ring Video Doorbell Firmware","version":"3.4.6","deviceModel":"Ring Video Doorbell","owner":"","criticality":"","confidence":0.91,"reviewNotes":"single asset extracted"}`,
-		},
-	}
-	svc := NewAssetService(repo, ai)
-	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
-	ctx.SetUserRole(model.RoleAdmin)
-
-	asset, err := svc.CreateAssetFromAI(ctx, "I have an Amazon Ring Video Doorbell running firmware 3.4.6.")
-	if err != nil {
-		t.Fatalf("expected ai asset creation to succeed, got %v", err)
-	}
-	if asset.ID != "00000000-0000-4000-8000-000000000088" {
-		t.Fatalf("expected created asset id UUID, got %s", asset.ID)
-	}
-	if repo.saved.Name != "Ring Video Doorbell" {
-		t.Fatalf("expected ai-created asset name, got %q", repo.saved.Name)
-	}
-	if repo.saved.Owner != "Unassigned" {
-		t.Fatalf("expected safe owner default, got %q", repo.saved.Owner)
-	}
-	if repo.saved.Criticality != "Medium" {
-		t.Fatalf("expected safe criticality default, got %q", repo.saved.Criticality)
-	}
-}
-
-func TestAssetServiceCreateAssetFromAIAllowsNoNetworkAddressField(t *testing.T) {
-	createdAsset := sampleAsset()
-	createdAsset.ID = "00000000-0000-4000-8000-000000000089"
-	repo := &fakeAssetRepository{asset: createdAsset}
-	ai := &fakeTextGenerationService{
-		response: textgenerationservice.TextGenerationResponse{
-			Text: `{"name":"WP-Ultimate-Map WordPress Plugin","type":"Web Application","operatingSystem":"WordPress","vendor":"","product":"WP-Ultimate-Map","version":"1.1","deviceModel":"","owner":"","criticality":"","confidence":0.86,"reviewNotes":"single asset extracted"}`,
-		},
-	}
-	svc := NewAssetService(repo, ai)
-	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
-	ctx.SetUserRole(model.RoleAdmin)
-
-	asset, err := svc.CreateAssetFromAI(ctx, "We have WP-Ultimate-Map plugin Software for WordPress. The version number is 1.1")
-	if err != nil {
-		t.Fatalf("expected ai asset creation to succeed, got %v", err)
-	}
-	if asset.ID != "00000000-0000-4000-8000-000000000089" {
-		t.Fatalf("expected created asset id UUID, got %s", asset.ID)
-	}
-	if repo.saved.Owner != "Unassigned" {
-		t.Fatalf("expected safe owner default, got %q", repo.saved.Owner)
-	}
-	if repo.saved.Criticality != "Medium" {
-		t.Fatalf("expected safe criticality default, got %q", repo.saved.Criticality)
 	}
 }
 
@@ -325,27 +260,6 @@ func (f *fakeVulnerabilityRepository) DeleteForUser(ec *appcontext.GinContext, i
 }
 
 var _ vulnrepo.VulnerabilityRepositoryInterface = (*fakeVulnerabilityRepository)(nil)
-
-type fakeTextGenerationService struct {
-	response    textgenerationservice.TextGenerationResponse
-	responses   []textgenerationservice.TextGenerationResponse
-	err         error
-	lastRequest textgenerationservice.TextGenerationRequest
-	requests    []textgenerationservice.TextGenerationRequest
-}
-
-func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request textgenerationservice.TextGenerationRequest) (textgenerationservice.TextGenerationResponse, error) {
-	f.lastRequest = request
-	f.requests = append(f.requests, request)
-	if len(f.responses) > 0 {
-		response := f.responses[0]
-		f.responses = f.responses[1:]
-		return response, f.err
-	}
-	return f.response, f.err
-}
-
-var _ openaiexternal.OpenAIClientInterface = (*fakeTextGenerationService)(nil)
 
 // newServiceContext creates a request context with an authenticated user ID.
 func newServiceContext(t *testing.T, userID string) *appcontext.GinContext {

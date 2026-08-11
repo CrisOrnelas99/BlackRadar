@@ -5,7 +5,7 @@ export interface DataTableColumn<TRow> {
   key: string;
   label: string;
   cellValue: (row: TRow) => string;
-  cellType?: 'text' | 'action';
+  cellType?: 'text' | 'action' | 'delete';
   width?: string;
 }
 
@@ -23,10 +23,16 @@ export interface DataTableCellAction<TRow> {
 export class DataTableComponent<TRow> {
   readonly columns = input.required<readonly DataTableColumn<TRow>[]>();
   readonly rows = input.required<readonly TRow[]>();
+  readonly rowKey = input<((row: TRow) => string | number) | null>(null);
   readonly cellAction = output<DataTableCellAction<TRow>>();
 
   // Emits the row and column when an action cell is selected.
   emitCellAction(column: DataTableColumn<TRow>, row: TRow): void {
     this.cellAction.emit({ column, row });
+  }
+
+  trackRow(_index: number, row: TRow): string | number {
+    const rowKey = this.rowKey();
+    return rowKey ? rowKey(row) : _index;
   }
 }
