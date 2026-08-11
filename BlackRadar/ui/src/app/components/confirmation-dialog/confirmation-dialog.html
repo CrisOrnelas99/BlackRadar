@@ -1,9 +1,12 @@
 <div class="confirmation-dialog-backdrop" role="presentation">
   <section
+    #dialogElement
     class="confirmation-dialog"
     role="dialog"
+    tabindex="-1"
     aria-modal="true"
     [attr.aria-labelledby]="dialogId()"
+    (keydown)="handleKeydown($event)"
   >
     <h2 [id]="dialogId()">{{ title() }}</h2>
     <p>{{ message() }}</p>

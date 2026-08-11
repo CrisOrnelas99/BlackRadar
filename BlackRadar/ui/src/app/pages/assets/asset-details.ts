@@ -102,7 +102,12 @@ export class AssetDetailsPage {
 
   saveAsset(): void {
     const currentAsset = this.asset();
-    if (currentAsset === null || this.isSaving() || this.isDeleting()) {
+    if (
+      currentAsset === null ||
+      this.isSaving() ||
+      this.isDeleting() ||
+      this.isDeleteConfirmationOpen()
+    ) {
       return;
     }
 
@@ -124,7 +129,7 @@ export class AssetDetailsPage {
 
   confirmSave(): void {
     const currentAsset = this.asset();
-    if (currentAsset === null || this.isSaving()) {
+    if (currentAsset === null || this.isSaving() || this.isDeleting()) {
       return;
     }
 
@@ -158,7 +163,7 @@ export class AssetDetailsPage {
   }
 
   requestDeletion(): void {
-    if (!this.isSaving() && !this.isDeleting()) {
+    if (!this.isSaving() && !this.isDeleting() && !this.isSaveConfirmationOpen()) {
       this.isDeleteConfirmationOpen.set(true);
     }
   }
@@ -171,7 +176,7 @@ export class AssetDetailsPage {
 
   confirmDeletion(): void {
     const currentAsset = this.asset();
-    if (currentAsset === null || this.isDeleting()) {
+    if (currentAsset === null || this.isDeleting() || this.isSaving()) {
       return;
     }
 

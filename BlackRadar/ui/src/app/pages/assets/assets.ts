@@ -227,6 +227,7 @@ export class AssetsPage {
       width: '3.5rem',
     },
   ];
+  readonly assetRowKey = (asset: Asset): string => asset.id;
 
   constructor() {
     this.loadAssets();

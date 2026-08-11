@@ -7,7 +7,7 @@
     <h1 id="assets-heading">Assets</h1>
   </div>
 
-  <section class="asset-filters-panel" aria-labelledby="asset-filters-heading">
+  <section class="asset-filters-panel" aria-label="Asset filters and sorting">
     <div class="asset-filters-header">
       <label class="asset-filter-field asset-filter-field-search" for="asset-search-query">
         <span>Name</span>
@@ -21,7 +21,9 @@
           #assetSearchQuery
         />
       </label>
-      <p class="asset-filters-summary">{{ filteredAssets().length }} assets shown</p>
+      <p class="asset-filters-summary" aria-live="polite">
+        {{ filteredAssets().length }} {{ filteredAssets().length === 1 ? 'asset' : 'assets' }} shown
+      </p>
       <div class="asset-filters-actions">
         <button class="asset-filters-toggle" type="button" (click)="toggleFiltersPanel()">
           <span class="asset-filters-toggle-icon" aria-hidden="true">
@@ -367,6 +369,7 @@
         <app-data-table
           [columns]="assetColumns"
           [rows]="filteredAssets()"
+          [rowKey]="assetRowKey"
           (cellAction)="handleTableAction($event)"
         ></app-data-table>
       }

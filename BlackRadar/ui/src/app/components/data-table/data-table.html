@@ -8,7 +8,7 @@
       </tr>
     </thead>
     <tbody>
-      @for (row of rows(); track $index) {
+      @for (row of rows(); track trackRow($index, row)) {
         <tr>
           @for (column of columns(); track column.key) {
             <td [style.width]="column.width">
