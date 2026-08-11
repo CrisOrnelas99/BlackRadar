@@ -24,7 +24,7 @@
 
 .asset-filters-panel {
   display: grid;
-  gap: .75rem;
+  gap: 0.75rem;
   grid-column: 1 / -1;
   grid-row: 2;
   margin-bottom: 1.25rem;
@@ -41,7 +41,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: .75rem;
+  gap: 0.75rem;
   flex-wrap: wrap;
 }
 
@@ -54,7 +54,7 @@
 .asset-filters-actions {
   display: flex;
   align-items: center;
-  gap: .55rem;
+  gap: 0.55rem;
   margin-left: auto;
 }
 
@@ -75,7 +75,7 @@
 .asset-filters-toggle {
   display: inline-flex;
   align-items: center;
-  gap: .55rem;
+  gap: 0.55rem;
 }
 
 .asset-filters-toggle-icon {
@@ -100,13 +100,13 @@
 .asset-filters-advanced {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: .75rem;
+  gap: 0.75rem;
 }
 
 .asset-filters-secondary-actions {
   display: flex;
   align-items: center;
-  gap: .55rem;
+  gap: 0.55rem;
   justify-content: flex-end;
   align-self: end;
   min-width: 0;
@@ -120,7 +120,7 @@
 
 .asset-filter-field {
   display: grid;
-  gap: .25rem;
+  gap: 0.25rem;
 }
 
 .asset-filter-field-search {
@@ -161,7 +161,7 @@
 .asset-filter-vulnerability-controls {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(6rem, 8rem);
-  gap: .55rem;
+  gap: 0.55rem;
 }
 
 .asset-create-card {
@@ -279,7 +279,7 @@
 
 .asset-field {
   display: grid;
-  gap: .35rem;
+  gap: 0.35rem;
 }
 
 .asset-field-wide {
