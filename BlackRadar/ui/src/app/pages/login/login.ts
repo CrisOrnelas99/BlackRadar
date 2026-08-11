@@ -32,8 +32,8 @@ export class LoginPage {
   submitted = false;
   isSubmitting = false;
 
+  // Clears transient login banners as soon as the user edits the form again.
   constructor() {
-    // Clear transient login banners as soon as the user edits the form again.
     this.form.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
       this.bannerService.clear();
     });

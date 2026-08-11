@@ -35,7 +35,49 @@ func (r *AssetRepository) FindAllByUser(ec *appcontext.GinContext, userID string
 	if err != nil {
 		return nil, fmt.Errorf("%w: read assets: %w", ErrPersistenceFailure, err)
 	}
+	if err := r.loadVulnerabilityCounts(ec, assets, userID); err != nil {
+		return nil, err
+	}
 	return assets, nil
+}
+
+// loadVulnerabilityCounts adds active vulnerability counts to owned assets.
+func (r *AssetRepository) loadVulnerabilityCounts(ec *appcontext.GinContext, assets []model.Asset, userID string) error {
+	if len(assets) == 0 {
+		return nil
+	}
+
+	type vulnerabilityCount struct {
+		AssetID string
+		Count   int64
+	}
+
+	assetIDs := make([]string, 0, len(assets))
+	for _, asset := range assets {
+		assetIDs = append(assetIDs, asset.ID)
+	}
+
+	var counts []vulnerabilityCount
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
+		Table("asset_vulnerabilities av").
+		Select("av.asset_id, COUNT(*) AS count").
+		Joins("JOIN vulnerabilities v ON v.id = av.vulnerability_id AND v.user_id = ? AND v.deleted_at IS NULL", userID).
+		Where("av.asset_id IN ? AND av.deleted_at IS NULL", assetIDs).
+		Group("av.asset_id").
+		Scan(&counts).Error
+	if err != nil {
+		return fmt.Errorf("%w: count asset vulnerabilities: %w", ErrPersistenceFailure, err)
+	}
+
+	countByAssetID := make(map[string]int, len(counts))
+	for _, count := range counts {
+		countByAssetID[count.AssetID] = int(count.Count)
+	}
+	for index := range assets {
+		assets[index].VulnerabilityCount = countByAssetID[assets[index].ID]
+	}
+
+	return nil
 }
 
 // FindByIDForUser returns a single asset owned by the specified user.
@@ -54,7 +96,11 @@ func (r *AssetRepository) FindByIDForUser(ec *appcontext.GinContext, id string, 
 	if err := r.loadActiveVulnerabilitiesForAsset(ec, &asset, userID); err != nil {
 		return model.Asset{}, err
 	}
-	return asset, nil
+	assets := []model.Asset{asset}
+	if err := r.loadVulnerabilityCounts(ec, assets, userID); err != nil {
+		return model.Asset{}, err
+	}
+	return assets[0], nil
 }
 
 // ExistsBySignatureForUser reports whether a user already has an asset with the same normalized signature.

@@ -40,15 +40,32 @@
 
       @if (isNavigationMenuOpen) {
         <nav class="top-menu-dropdown" aria-label="Primary navigation">
-          <button type="button" class="top-menu-link" (click)="navigateToDashboard()">
-            <span class="top-menu-link-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" role="presentation">
-                <path d="M3 10.5 12 3l9 7.5" />
-                <path d="M5.5 9.5V21h13V9.5" />
-              </svg>
-            </span>
-            <span>Dashboard</span>
-          </button>
+          @for (item of navigationItems; track item.key) {
+            <button
+              type="button"
+              class="top-menu-link"
+              (click)="navigateTo(item.path, item.isActive)"
+            >
+              <span class="top-menu-link-icon" aria-hidden="true">
+                @switch (item.key) {
+                  @case ('dashboard') {
+                    <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                      <path d="M3 10.5 12 3l9 7.5" />
+                      <path d="M5.5 9.5V21h13V9.5" />
+                    </svg>
+                  }
+                  @case ('assets') {
+                    <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                      <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
+                      <path d="m4.5 7.5 7.5 4.25 7.5-4.25" />
+                      <path d="M12 11.75V21" />
+                    </svg>
+                  }
+                }
+              </span>
+              <span>{{ item.label }}</span>
+            </button>
+          }
         </nav>
       }
     </div>

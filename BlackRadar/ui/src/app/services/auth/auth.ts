@@ -29,6 +29,7 @@ export class AuthService {
   private refreshRequest$: Observable<LoginResponse> | null = null;
   readonly session = signal<LoginResponse | null>(null);
 
+  // Creates the authentication service with the shared HTTP client.
   constructor(private readonly httpClient: HttpClient) {}
 
   // Sends credentials to the backend login endpoint and stores the returned session.
