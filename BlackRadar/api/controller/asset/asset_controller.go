@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	shared "blackradar/api/controller/shared"
-	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetservice "blackradar/api/service/asset"
 	assetmatchservice "blackradar/api/service/asset_match"
@@ -68,14 +67,8 @@ func (c *AssetController) CreateAsset(ec *appcontext.GinContext) {
 		return
 	}
 
-	var created model.Asset
-	var err error
-	if request.AIMode {
-		created, err = c.assetService.CreateAssetFromAI(ec, request.RawText)
-	} else {
-		asset := request.ToDataModel()
-		created, err = c.assetService.CreateAsset(ec, asset)
-	}
+	asset := request.ToDataModel()
+	created, err := c.assetService.CreateAsset(ec, asset)
 	if err != nil {
 		if handleAssetServiceError(ec, err) {
 			return

@@ -218,7 +218,7 @@ func (r *AssetRepository) DeleteForUser(ec *appcontext.GinContext, id string, us
 			return ErrRecordNotFound
 		}
 		if asset.AssetAssessmentID != nil {
-			if err := tx.Delete(&model.AssetAssessment{}, *asset.AssetAssessmentID).Error; err != nil {
+			if err := tx.Where("id = ?", *asset.AssetAssessmentID).Delete(&model.AssetAssessment{}).Error; err != nil {
 				return err
 			}
 		}

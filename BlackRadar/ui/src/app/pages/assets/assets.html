@@ -1,0 +1,389 @@
+@if (session(); as currentSession) {
+  <app-top-menu [session]="currentSession" currentUrl="/assets"></app-top-menu>
+}
+
+<section class="assets-page-shell" aria-labelledby="assets-heading">
+  <div class="assets-page-header">
+    <h1 id="assets-heading">Assets</h1>
+  </div>
+
+  <section class="asset-filters-panel" aria-labelledby="asset-filters-heading">
+    <div class="asset-filters-header">
+      <label class="asset-filter-field asset-filter-field-search" for="asset-search-query">
+        <span>Name</span>
+        <input
+          id="asset-search-query"
+          type="search"
+          [value]="searchQuery()"
+          autocomplete="off"
+          placeholder="Search asset names"
+          (input)="updateSearchQuery(assetSearchQuery.value)"
+          #assetSearchQuery
+        />
+      </label>
+      <p class="asset-filters-summary">{{ filteredAssets().length }} assets shown</p>
+      <div class="asset-filters-actions">
+        <button class="asset-filters-toggle" type="button" (click)="toggleFiltersPanel()">
+          <span class="asset-filters-toggle-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path
+                d="M4 6h16M7 12h10m-7 6h4"
+                fill="none"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.6"
+              />
+            </svg>
+          </span>
+          <span>{{
+            isFiltersPanelOpen() ? 'Hide filters and sorting' : 'Filters and sorting'
+          }}</span>
+        </button>
+      </div>
+    </div>
+
+    @if (isFiltersPanelOpen()) {
+      <div class="asset-filters-primary">
+        <label class="asset-filter-field" for="asset-filter-criticality">
+          <span>Criticality</span>
+          <select id="asset-filter-criticality" [formControl]="filtersForm.controls.criticality">
+            <option value="">All</option>
+            @for (criticality of criticalityOptions; track criticality) {
+              <option [value]="criticality">{{ criticality }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="asset-filter-field" for="asset-filter-risk-level">
+          <span>Risk level</span>
+          <select id="asset-filter-risk-level" [formControl]="filtersForm.controls.riskLevel">
+            <option value="">All</option>
+            @for (riskLevel of riskLevelOptions; track riskLevel) {
+              <option [value]="riskLevel">{{ riskLevel }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="asset-filter-field" for="asset-filter-type">
+          <span>Type</span>
+          <select id="asset-filter-type" [formControl]="filtersForm.controls.type">
+            <option value="">All</option>
+            @for (type of typeOptions(); track type) {
+              <option [value]="type">{{ type }}</option>
+            }
+          </select>
+        </label>
+
+        <div class="asset-filters-secondary-actions">
+          <button class="asset-filters-toggle" type="button" (click)="toggleSort()">
+            {{ isSortOpen() ? 'Hide sorting' : 'Sorting' }}
+          </button>
+          <button class="asset-filters-toggle" type="button" (click)="toggleAdvancedFilters()">
+            {{ isAdvancedFiltersOpen() ? 'Fewer filters' : 'More filters' }}
+          </button>
+          <button class="asset-filters-clear" type="button" (click)="clearFilters()">
+            Clear filters
+          </button>
+        </div>
+      </div>
+
+      @if (isSortOpen()) {
+        <div class="asset-filters-sort">
+          <label class="asset-filter-field" for="asset-sort-field">
+            <span>Sort by</span>
+            <select id="asset-sort-field" [formControl]="filtersForm.controls.sortField">
+              <option value="name">Name</option>
+              <option value="criticality">Criticality</option>
+              <option value="riskLevel">Risk level</option>
+              <option value="vulnerabilityCount">Vulnerability count</option>
+              <option value="type">Type</option>
+              <option value="owner">Owner</option>
+              <option value="operatingSystem">Operating system</option>
+              <option value="vendor">Vendor</option>
+              <option value="product">Product</option>
+              <option value="version">Version</option>
+            </select>
+          </label>
+
+          <label class="asset-filter-field" for="asset-sort-direction">
+            <span>Order</span>
+            <select id="asset-sort-direction" [formControl]="filtersForm.controls.sortDirection">
+              <option value="asc">Ascending</option>
+              <option value="desc">Descending</option>
+            </select>
+          </label>
+        </div>
+      }
+
+      @if (isAdvancedFiltersOpen()) {
+        <div class="asset-filters-advanced">
+          <label class="asset-filter-field" for="asset-filter-owner">
+            <span>Owner</span>
+            <select id="asset-filter-owner" [formControl]="filtersForm.controls.owner">
+              <option value="">All</option>
+              @for (owner of ownerOptions(); track owner) {
+                <option [value]="owner">{{ owner }}</option>
+              }
+            </select>
+          </label>
+
+          <label class="asset-filter-field" for="asset-filter-operating-system">
+            <span>Operating system</span>
+            <select
+              id="asset-filter-operating-system"
+              [formControl]="filtersForm.controls.operatingSystem"
+            >
+              <option value="">All</option>
+              @for (operatingSystem of operatingSystemOptions(); track operatingSystem) {
+                <option [value]="operatingSystem">{{ operatingSystem }}</option>
+              }
+            </select>
+          </label>
+
+          <label class="asset-filter-field" for="asset-filter-vendor">
+            <span>Vendor</span>
+            <select id="asset-filter-vendor" [formControl]="filtersForm.controls.vendor">
+              <option value="">All</option>
+              @for (vendor of vendorOptions(); track vendor) {
+                <option [value]="vendor">{{ vendor }}</option>
+              }
+            </select>
+          </label>
+
+          <label class="asset-filter-field" for="asset-filter-product">
+            <span>Product</span>
+            <select id="asset-filter-product" [formControl]="filtersForm.controls.product">
+              <option value="">All</option>
+              @for (product of productOptions(); track product) {
+                <option [value]="product">{{ product }}</option>
+              }
+            </select>
+          </label>
+
+          <label class="asset-filter-field" for="asset-filter-version">
+            <span>Version</span>
+            <select id="asset-filter-version" [formControl]="filtersForm.controls.version">
+              <option value="">All</option>
+              @for (version of versionOptions(); track version) {
+                <option [value]="version">{{ version }}</option>
+              }
+            </select>
+          </label>
+
+          <div class="asset-filter-field asset-filter-field-vulnerabilities">
+            <span>Vulnerabilities</span>
+            <div class="asset-filter-vulnerability-controls">
+              <select [formControl]="filtersForm.controls.vulnerabilityMode">
+                <option value="any">Any</option>
+                <option value="atLeast">At least</option>
+                <option value="atMost">At most</option>
+                <option value="exactly">Exactly</option>
+              </select>
+              <input
+                type="number"
+                min="0"
+                inputmode="numeric"
+                placeholder="Count"
+                [formControl]="filtersForm.controls.vulnerabilityValue"
+              />
+            </div>
+          </div>
+        </div>
+      }
+    }
+  </section>
+
+  <form
+    class="asset-create-card"
+    [class.asset-create-card-expanded]="createMode() !== null"
+    [formGroup]="createForm"
+    (ngSubmit)="createAsset()"
+    novalidate
+  >
+    <div class="asset-create-header">
+      <div>
+        <h2>Add an asset to your inventory</h2>
+        <p>Choose how you want to provide the asset details.</p>
+      </div>
+      <button
+        class="asset-create-mode-button"
+        type="button"
+        aria-controls="asset-create-fields"
+        [attr.aria-expanded]="createMode() === 'manual'"
+        (click)="selectCreateMode('manual')"
+      >
+        <span>Manual mode</span>
+      </button>
+      <button
+        type="button"
+        aria-controls="asset-create-fields"
+        class="asset-create-mode-button asset-create-mode-button-ai"
+        [attr.aria-expanded]="createMode() === 'ai'"
+        (click)="selectCreateMode('ai')"
+      >
+        <span>AI batch import</span>
+        <span class="asset-create-sparkle" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <defs>
+              <linearGradient id="asset-ai-rainbow" x1="0%" y1="50%" x2="100%" y2="50%">
+                <stop offset="0%" stop-color="#e84a5f" />
+                <stop offset="25%" stop-color="#f5b942" />
+                <stop offset="50%" stop-color="#45b97c" />
+                <stop offset="75%" stop-color="#3a7ca5" />
+                <stop offset="100%" stop-color="#9b59b6" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M12 2.75 14.1 8.4l5.65 2.1-5.65 2.1L12 18.25l-2.1-5.65-5.65-2.1 5.65-2.1L12 2.75Z"
+              fill="url(#asset-ai-rainbow)"
+            />
+            <path
+              d="m18.5 15.5.95 2.55 2.55.95-2.55.95-.95 2.55-.95-2.55-2.55-.95 2.55-.95.95-2.55Z"
+              fill="url(#asset-ai-rainbow)"
+            />
+          </svg>
+        </span>
+      </button>
+    </div>
+
+    @if (createMode() === 'manual') {
+      <div class="asset-create-fields" id="asset-create-fields">
+        <div class="asset-field asset-field-wide">
+          <label for="asset-name">Name <span class="asset-required">(required)</span></label>
+          <input
+            id="asset-name"
+            type="text"
+            formControlName="name"
+            autocomplete="off"
+            required
+            aria-required="true"
+          />
+        </div>
+
+        <div class="asset-field">
+          <label for="asset-type">Type <span class="asset-required">(required)</span></label>
+          <input
+            id="asset-type"
+            type="text"
+            formControlName="type"
+            autocomplete="off"
+            required
+            aria-required="true"
+          />
+        </div>
+
+        <div class="asset-field">
+          <label for="asset-owner">Owner <span class="asset-required">(required)</span></label>
+          <input
+            id="asset-owner"
+            type="text"
+            formControlName="owner"
+            autocomplete="organization"
+            required
+            aria-required="true"
+          />
+        </div>
+
+        <div class="asset-field">
+          <label for="asset-criticality">
+            Criticality <span class="asset-required">(required)</span>
+          </label>
+          <select
+            id="asset-criticality"
+            formControlName="criticality"
+            required
+            aria-required="true"
+          >
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+            <option value="Critical">Critical</option>
+          </select>
+        </div>
+
+        <div class="asset-field">
+          <label for="asset-operating-system">Operating system</label>
+          <input
+            id="asset-operating-system"
+            type="text"
+            formControlName="operatingSystem"
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="asset-field">
+          <label for="asset-vendor">Vendor</label>
+          <input id="asset-vendor" type="text" formControlName="vendor" autocomplete="off" />
+        </div>
+
+        <div class="asset-field">
+          <label for="asset-product">Product</label>
+          <input id="asset-product" type="text" formControlName="product" autocomplete="off" />
+        </div>
+
+        <div class="asset-field">
+          <label for="asset-version">Version</label>
+          <input id="asset-version" type="text" formControlName="version" autocomplete="off" />
+        </div>
+      </div>
+
+      <button class="asset-create-submit" type="submit" [disabled]="isCreating()">
+        {{ isCreating() ? 'Creating...' : 'Create asset' }}
+      </button>
+    }
+
+    @if (createMode() === 'ai') {
+      <div class="asset-ai-coming-soon" id="asset-create-fields">
+        <p>Coming soon.</p>
+      </div>
+    }
+  </form>
+
+  @if (isCreateConfirmationOpen()) {
+    <app-confirmation-dialog
+      [dialogId]="'asset-create-confirm-heading'"
+      [title]="'Create asset?'"
+      [message]="'Create asset ' + createForm.controls.name.value + ' with the entered details?'"
+      [confirmLabel]="'Create asset'"
+      [confirmTone]="'success'"
+      [confirmDisabled]="isCreating()"
+      (cancel)="cancelCreate()"
+      (confirm)="confirmCreate()"
+    ></app-confirmation-dialog>
+  }
+
+  <div class="assets-content-grid">
+    <div class="assets-table-section">
+      @if (isLoading()) {
+        <p class="assets-status" role="status" aria-atomic="true">Loading assets...</p>
+      } @else if (hasLoadError()) {
+        <p class="assets-status" role="alert">Unable to load assets.</p>
+      } @else if (assets().length === 0) {
+        <p class="assets-status" role="status" aria-atomic="true">No assets found.</p>
+      } @else if (filteredAssets().length === 0) {
+        <p class="assets-status" role="status" aria-atomic="true">No matching assets found.</p>
+      } @else {
+        <app-data-table
+          [columns]="assetColumns"
+          [rows]="filteredAssets()"
+          (cellAction)="handleTableAction($event)"
+        ></app-data-table>
+      }
+    </div>
+  </div>
+
+  @if (assetPendingDeletion(); as asset) {
+    <app-confirmation-dialog
+      [dialogId]="'asset-delete-confirm-heading'"
+      [title]="'Delete asset?'"
+      [message]="'Are you sure you want to delete asset ' + asset.name + '?'"
+      [confirmLabel]="isDeleting() ? 'Deleting...' : 'Delete'"
+      [confirmTone]="'danger'"
+      [confirmDisabled]="isDeleting()"
+      [cancelDisabled]="isDeleting()"
+      (cancel)="cancelAssetDeletion()"
+      (confirm)="confirmAssetDeletion()"
+    ></app-confirmation-dialog>
+  }
+</section>

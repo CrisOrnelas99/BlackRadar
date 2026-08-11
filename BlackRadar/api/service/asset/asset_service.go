@@ -2,30 +2,22 @@
 package service
 
 import (
-	"fmt"
-
-	openaiexternal "blackradar/api/external/openai"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetrepository "blackradar/api/repository/asset"
 	auditservice "blackradar/api/service/audit"
-	textgenerationservice "blackradar/api/service/text_generation"
 )
 
 // assetServiceImpl implements asset business workflows.
 type assetServiceImpl struct {
 	assetRepository assetrepository.AssetRepositoryInterface
-	textAI          openaiexternal.OpenAIClientInterface
-	textGeneration  textgenerationservice.TextGenerationService
 	auditService    auditservice.Service
 }
 
 // NewAssetService creates an asset service backed by the supplied repository.
-func NewAssetService(assetRepository assetrepository.AssetRepositoryInterface, textAI openaiexternal.OpenAIClientInterface, auditServices ...auditservice.Service) *assetServiceImpl {
+func NewAssetService(assetRepository assetrepository.AssetRepositoryInterface, auditServices ...auditservice.Service) *assetServiceImpl {
 	service := &assetServiceImpl{
 		assetRepository: assetRepository,
-		textAI:          textAI,
-		textGeneration:  textgenerationservice.NewTextGenerationService(),
 	}
 	if len(auditServices) > 0 {
 		service.auditService = auditServices[0]
@@ -91,30 +83,6 @@ func (s *assetServiceImpl) createAsset(ec *appcontext.GinContext, asset model.As
 		return s.auditService.Record(txContext, auditservice.EventInput{ActorUserID: &userID, Action: action, ResourceType: "asset", ResourceID: &created.ID, Result: auditservice.ResultSucceeded})
 	})
 	return created, err
-}
-
-// CreateAssetFromAI extracts an asset from raw text and creates it without running vulnerability matching.
-func (s *assetServiceImpl) CreateAssetFromAI(ec *appcontext.GinContext, rawText string) (model.Asset, error) {
-	if s.textAI == nil {
-		return model.Asset{}, ErrAssetExternalService
-	}
-
-	sanitizedText, err := sanitizeAIIngestionText(rawText)
-	if err != nil {
-		return model.Asset{}, ErrInvalidAssetText
-	}
-
-	response, err := s.textAI.GenerateText(ec.RequestContext(), s.textGeneration.BuildAssetCreationExtractionRequest(sanitizedText))
-	if err != nil {
-		return model.Asset{}, fmt.Errorf("%w: asset AI extraction failed: %w", ErrAssetExternalService, err)
-	}
-
-	asset, err := assetFromAIExtraction(response.Text)
-	if err != nil {
-		return model.Asset{}, err
-	}
-
-	return s.createAsset(ec, asset, "asset.create.ai_persisted")
 }
 
 // UpdateAsset validates and updates an existing asset for the authenticated user.

@@ -1,0 +1,82 @@
+:host {
+  display: contents;
+}
+
+.confirmation-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: color-mix(in srgb, var(--BlackRadar-color-navy-black) 44%, transparent);
+}
+
+.confirmation-dialog {
+  width: min(100%, 28rem);
+  box-sizing: border-box;
+  padding: 1.5rem;
+  border: 1px solid var(--BlackRadar-color-dark-blue);
+  border-radius: var(--brand-radius-lg);
+  background: var(--BlackRadar-color-pure-white);
+  box-shadow: 0 18px 45px color-mix(in srgb, var(--BlackRadar-color-navy-black) 24%, transparent);
+}
+
+.confirmation-dialog h2 {
+  margin: 0;
+  color: var(--BlackRadar-color-navy-black);
+  font-family: var(--brand-font-title);
+  font-size: 1.4rem;
+  font-weight: 400;
+}
+
+.confirmation-dialog p {
+  margin: 0.7rem 0 1.25rem;
+  color: var(--BlackRadar-color-light-gray);
+}
+
+.confirmation-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.7rem;
+}
+
+.confirmation-dialog-cancel,
+.confirmation-dialog-confirm {
+  min-height: 2.5rem;
+  border-radius: var(--brand-radius-md);
+  padding: 0.55rem 0.9rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.confirmation-dialog-cancel {
+  border: 1px solid var(--BlackRadar-color-dark-blue);
+  background: var(--BlackRadar-color-pure-white);
+  color: var(--BlackRadar-color-dark-blue);
+}
+
+.confirmation-dialog-confirm-primary {
+  border: 1px solid var(--BlackRadar-color-dark-blue);
+  background: var(--BlackRadar-color-dark-blue);
+  color: var(--BlackRadar-color-pure-white);
+}
+
+.confirmation-dialog-confirm-success {
+  border: 1px solid var(--BlackRadar-color-success);
+  background: var(--BlackRadar-color-success);
+  color: var(--BlackRadar-color-navy-black);
+}
+
+.confirmation-dialog-confirm-danger {
+  border: 1px solid var(--BlackRadar-color-error);
+  background: var(--BlackRadar-color-error);
+  color: var(--BlackRadar-color-pure-white);
+}
+
+.confirmation-dialog-cancel:disabled,
+.confirmation-dialog-confirm:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}

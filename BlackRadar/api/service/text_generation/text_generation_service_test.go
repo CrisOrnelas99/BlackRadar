@@ -81,25 +81,7 @@ func TestBuildAssetFingerprintExtractionRequestUsesLockedSystemPrompt(t *testing
 	}
 }
 
-func TestBuildAssetCreationExtractionRequestUsesLockedSystemPrompt(t *testing.T) {
-	request := BuildAssetCreationExtractionRequest("I have an Amazon Ring doorbell.")
-
-	if len(request.Messages) != 2 {
-		t.Fatalf("expected two messages, got %d", len(request.Messages))
-	}
-	if request.Messages[0].Role != "system" {
-		t.Fatalf("expected first message to be system, got %q", request.Messages[0].Role)
-	}
-	if !strings.Contains(request.Messages[0].Content, "Do not invent unsupported security facts") {
-		t.Fatalf("expected no-invention rule in system prompt, got %q", request.Messages[0].Content)
-	}
-	if !strings.Contains(request.Messages[1].Content, `"rawText":"I have an Amazon Ring doorbell."`) {
-		t.Fatalf("expected raw text payload, got %q", request.Messages[1].Content)
-	}
-}
-
 func TestAssetPromptBuildersRedactSensitiveProviderPayloadData(t *testing.T) {
-	creationRequest := BuildAssetCreationExtractionRequest("Contact alice@example.com at 212-555-0198. Host 10.0.0.25 has password=correct-horse-battery-staple.")
 	fingerprintRequest := BuildAssetFingerprintExtractionRequest(
 		"Authorization: Bearer secret-provider-token",
 		"vendor=acme;product=router;token=top-secret-token",
@@ -108,24 +90,18 @@ func TestAssetPromptBuildersRedactSensitiveProviderPayloadData(t *testing.T) {
 		"Linux",
 	)
 
-	for _, request := range []TextGenerationRequest{creationRequest, fingerprintRequest} {
-		content := request.Messages[1].Content
-		for _, sensitiveValue := range []string{
-			"alice@example.com",
-			"212-555-0198",
-			"10.0.0.25",
-			"correct-horse-battery-staple",
-			"secret-provider-token",
-			"top-secret-token",
-			"00:11:22:33:44:55",
-		} {
-			if strings.Contains(content, sensitiveValue) {
-				t.Fatalf("expected provider payload to redact %q, got %q", sensitiveValue, content)
-			}
+	content := fingerprintRequest.Messages[1].Content
+	for _, sensitiveValue := range []string{
+		"secret-provider-token",
+		"top-secret-token",
+		"00:11:22:33:44:55",
+	} {
+		if strings.Contains(content, sensitiveValue) {
+			t.Fatalf("expected provider payload to redact %q, got %q", sensitiveValue, content)
 		}
-		if !strings.Contains(content, redactedPromptValue) {
-			t.Fatalf("expected redacted provider payload, got %q", content)
-		}
+	}
+	if !strings.Contains(content, redactedPromptValue) {
+		t.Fatalf("expected redacted provider payload, got %q", content)
 	}
 }
 

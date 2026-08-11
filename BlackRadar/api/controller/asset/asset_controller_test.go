@@ -60,23 +60,17 @@ func TestAssetControllerHandlers(t *testing.T) {
 		}
 	})
 
-	t.Run("create asset with raw text does not auto-match vulnerabilities", func(t *testing.T) {
+	t.Run("rejects removed ai asset creation mode", func(t *testing.T) {
 		svc := &fakeAssetService{asset: sampleAsset()}
 		controller := NewAssetController(svc, assetVulnerabilitySvc, &fakeAssetMatchService{asset: sampleAsset()})
-		ec, _ := newAssetContext(t, http.MethodPost, "/assets", `{"name":"Asset 1","type":"Server","owner":"IT","criticality":"High","rawText":"Vendor: Tukaani\nProduct: xz\nVersion: 5.6.1"}`)
+		ec, recorder := newAssetContext(t, http.MethodPost, "/assets", `{"aiMode":true,"rawText":"Create an asset from this text."}`)
 		ec.Request.Header.Set("Content-Type", "application/json")
 		controller.CreateAsset(ec)
-		if svc.createCalls != 1 {
-			t.Fatalf("expected CreateAsset to be called once, got %d", svc.createCalls)
+		if recorder.Code != http.StatusBadRequest {
+			t.Fatalf("expected removed AI mode to be rejected with bad request, got %d", recorder.Code)
 		}
-	})
-
-	t.Run("create asset from ai mode", func(t *testing.T) {
-		ec, _ := newAssetContext(t, http.MethodPost, "/assets", `{"aiMode":true,"rawText":"I have an Amazon Ring doorbell running firmware 3.4.6."}`)
-		ec.Request.Header.Set("Content-Type", "application/json")
-		controller.CreateAsset(ec)
-		if svc.createFromAICalls != 1 {
-			t.Fatalf("expected CreateAssetFromAI to be called once, got %d", svc.createFromAICalls)
+		if svc.createCalls != 0 {
+			t.Fatal("expected removed AI mode not to create an asset")
 		}
 	})
 
@@ -268,12 +262,11 @@ func TestToAssetAssessmentResponseDTODefaultsWithoutAssessment(t *testing.T) {
 }
 
 type fakeAssetService struct {
-	assets            []model.Asset
-	asset             model.Asset
-	err               error
-	getAllCalls       int
-	createCalls       int
-	createFromAICalls int
+	assets      []model.Asset
+	asset       model.Asset
+	err         error
+	getAllCalls int
+	createCalls int
 }
 
 type fakeAssetVulnerabilityService struct {
@@ -308,10 +301,6 @@ func (f *fakeAssetService) GetAsset(ec *appcontext.GinContext, id string) (model
 }
 func (f *fakeAssetService) CreateAsset(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
 	f.createCalls++
-	return f.asset, f.err
-}
-func (f *fakeAssetService) CreateAssetFromAI(ec *appcontext.GinContext, rawText string) (model.Asset, error) {
-	f.createFromAICalls++
 	return f.asset, f.err
 }
 func (f *fakeAssetService) UpdateAsset(ec *appcontext.GinContext, id string, asset model.Asset) (model.Asset, error) {

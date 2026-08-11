@@ -1,0 +1,44 @@
+<div class="data-table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        @for (column of columns(); track column.key) {
+          <th scope="col" [style.width]="column.width">{{ column.label }}</th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @for (row of rows(); track $index) {
+        <tr>
+          @for (column of columns(); track column.key) {
+            <td [style.width]="column.width">
+              @if (column.cellType === 'action') {
+                <button
+                  type="button"
+                  class="data-table-action"
+                  (click)="emitCellAction(column, row)"
+                >
+                  {{ column.cellValue(row) }}
+                </button>
+              } @else if (column.cellType === 'delete') {
+                <button
+                  type="button"
+                  class="data-table-action-delete"
+                  aria-label="Delete asset"
+                  title="Delete asset"
+                  (click)="emitCellAction(column, row)"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7l1-3h4l1 3" />
+                  </svg>
+                </button>
+              } @else {
+                {{ column.cellValue(row) }}
+              }
+            </td>
+          }
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>

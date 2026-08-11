@@ -28,7 +28,7 @@ Relationship and matching routes are documented separately in [asset-vulnerabili
 
 ## 🔄 Lifecycle
 
-Manual creation validates and persists the submitted asset. AI-assisted creation accepts bounded raw text, asks the backend-owned prompt to extract a draft, validates the result, and then follows the normal asset creation path.
+Manual creation validates and persists the submitted asset. Single-asset AI creation is not part of the current API. Future AI ingestion is reserved for batch text or file workflows with review before persistence.
 
 Reads and updates are scoped to the authenticated user. Deletes are transactional and clean up related assessment and relationship state according to the persistence rules.
 
@@ -42,13 +42,13 @@ asset controller -> asset service -> asset repository -> PostgreSQL
                                       -> asset assessment
 ```
 
-The asset service owns validation, normalization, ownership, duplicate checks, and AI orchestration. The repository owns persistence. Risk, assignment, NVD, and AI matching are separate boundaries that enrich the asset.
+The asset service owns validation, normalization, ownership, and duplicate checks. The repository owns persistence. Risk, assignment, NVD, and AI matching are separate boundaries that enrich the asset.
 
 ## 🛡️ Security Invariants
 
 - Ownership comes from authenticated server state.
 - Input is validated before persistence or external processing.
-- AI output is treated as untrusted data.
+- AI matching output is treated as untrusted advisory data.
 - Duplicate identity records are rejected within the user’s scope.
 - Browser input cannot set risk, role, user ID, or assessment ownership.
 
@@ -67,6 +67,7 @@ Shared trust and error rules are defined in [security-boundaries.md](security-bo
 
 - Ownership is user-scoped rather than organization-scoped.
 - The frontend asset workflow is still evolving.
+- Batch AI ingestion from large text or uploaded files is future work and must include review before persistence.
 - Risk score and risk level are separate concepts; the current asset-risk service derives `riskLevel`, not `AssetAssessment.RiskScore`.
 - Audit history, remediation workflows, and organization-wide asset views are future work.
 
