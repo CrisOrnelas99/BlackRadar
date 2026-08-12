@@ -12,6 +12,7 @@ import {
   DataTableComponent,
 } from '../../components/data-table/data-table';
 import { ConfirmationDialogComponent } from '../../components/confirmation-dialog/confirmation-dialog';
+import { TableToolbarComponent } from '../../components/table-toolbar/table-toolbar';
 import { TopMenuComponent } from '../../components/top-menu/top-menu';
 import { AuthService } from '../../services/auth/auth';
 import { Asset, AssetsService, CreateAssetRequest } from '../../services/assets/assets';
@@ -39,6 +40,7 @@ type SortDirection = 'asc' | 'desc';
     ConfirmationDialogComponent,
     DataTableComponent,
     ReactiveFormsModule,
+    TableToolbarComponent,
     TopMenuComponent,
   ],
   templateUrl: './assets.html',
@@ -54,7 +56,6 @@ export class AssetsPage {
   readonly session = this.authService.session;
   readonly assets = signal<Asset[]>([]);
   readonly searchQuery = signal('');
-  readonly isFiltersPanelOpen = signal(false);
   readonly isAdvancedFiltersOpen = signal(false);
   readonly isSortOpen = signal(false);
   readonly isLoading = signal(true);
@@ -277,7 +278,7 @@ export class AssetsPage {
     });
   }
 
-  selectCreateMode(mode: 'manual' | 'ai'): void {
+  selectCreateMode(mode: 'ai'): void {
     this.createMode.update((currentMode) => (currentMode === mode ? null : mode));
   }
 
@@ -289,23 +290,12 @@ export class AssetsPage {
     this.isAdvancedFiltersOpen.update((currentValue) => !currentValue);
   }
 
-  toggleFiltersPanel(): void {
-    this.isFiltersPanelOpen.update((currentValue) => !currentValue);
-    if (this.isFiltersPanelOpen()) {
-      return;
-    }
-
-    this.isAdvancedFiltersOpen.set(false);
-    this.isSortOpen.set(false);
-  }
-
   toggleSort(): void {
     this.isSortOpen.update((currentValue) => !currentValue);
   }
 
   clearFilters(): void {
     this.searchQuery.set('');
-    this.isFiltersPanelOpen.set(false);
     this.isAdvancedFiltersOpen.set(false);
     this.isSortOpen.set(false);
     this.filtersForm.reset({
@@ -326,10 +316,6 @@ export class AssetsPage {
 
   createAsset(): void {
     this.bannerService.clear();
-
-    if (this.createMode() !== 'manual') {
-      return;
-    }
 
     if (this.createForm.invalid) {
       this.createForm.markAllAsTouched();

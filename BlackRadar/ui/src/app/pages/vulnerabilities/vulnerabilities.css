@@ -1,0 +1,315 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  font-family: var(--brand-font-body);
+  background: var(--BlackRadar-color-white);
+}
+
+.vulnerabilities-page-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+  column-gap: 1.5rem;
+  align-items: start;
+  padding: 2.5rem clamp(1rem, 4vw, 3rem);
+}
+
+.vulnerabilities-page-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+
+.vulnerabilities-page-header app-table-toolbar {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.vulnerabilities-page-header h1 {
+  margin: 0;
+  font-family: var(--brand-font-title);
+  color: var(--BlackRadar-color-navy-black);
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 400;
+}
+
+.vulnerabilities-table-section {
+  min-width: 0;
+  grid-column: 1;
+  grid-row: 3;
+}
+
+.vulnerabilities-status {
+  margin: 0;
+  color: var(--BlackRadar-color-light-gray);
+}
+
+.vulnerability-filters-panel {
+  display: grid;
+  gap: 0.75rem;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  margin-bottom: 1.25rem;
+  padding: 0.85rem 1rem;
+  border: 0;
+  border-radius: var(--brand-radius-lg);
+  background: transparent;
+  box-shadow: none;
+}
+
+.vulnerability-filters-primary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.vulnerability-filter-field {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.vulnerability-filter-field span {
+  color: var(--BlackRadar-color-navy-black);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.vulnerability-filter-field select {
+  width: 100%;
+  min-height: 2.15rem;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--BlackRadar-color-dark-gray) 28%, transparent);
+  border-radius: var(--brand-radius-md);
+  padding: 0.38rem 0.6rem;
+  background: var(--BlackRadar-color-pure-white);
+  color: var(--BlackRadar-color-navy-black);
+  font: inherit;
+  font-size: 0.92rem;
+}
+
+.vulnerability-filter-field select:focus {
+  outline: 3px solid color-mix(in srgb, var(--brandRadar-color-blue) 28%, transparent);
+  outline-offset: 1px;
+  border-color: var(--brandRadar-color-blue);
+}
+
+.vulnerability-filters-secondary-actions {
+  display: flex;
+  gap: 0.55rem;
+  justify-content: flex-end;
+  align-self: end;
+  min-width: 0;
+}
+
+.vulnerability-filters-toggle,
+.vulnerability-filters-clear {
+  border: 1px solid var(--BlackRadar-color-navy-black);
+  border-radius: var(--brand-radius-md);
+  min-height: 2.15rem;
+  padding: 0.35rem 0.7rem;
+  background: var(--BlackRadar-color-pure-white);
+  color: var(--BlackRadar-color-dark-blue);
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.vulnerability-filters-toggle:hover,
+.vulnerability-filters-clear:hover {
+  background: color-mix(
+    in srgb,
+    var(--BlackRadar-color-navy-black) 8%,
+    var(--BlackRadar-color-pure-white)
+  );
+}
+
+.vulnerability-filters-sort {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding-top: 0.15rem;
+}
+
+.vulnerability-create-card {
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  border: 1px solid var(--BlackRadar-color-dark-blue);
+  border-radius: var(--brand-radius-lg);
+  background: var(--BlackRadar-color-pure-white);
+  box-shadow:
+    0 2px 4px color-mix(in srgb, var(--BlackRadar-color-navy-black) 8%, transparent),
+    0 12px 24px color-mix(in srgb, var(--BlackRadar-color-navy-black) 8%, transparent);
+  grid-column: 2;
+  grid-row: 3;
+  box-sizing: border-box;
+}
+
+.vulnerability-create-card-expanded {
+  gap: 1.25rem;
+}
+
+.vulnerability-create-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.vulnerability-create-header h2 {
+  margin: 0;
+  color: var(--BlackRadar-color-navy-black);
+  font-family: var(--brand-font-title);
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+
+.vulnerability-create-header p {
+  margin: 0.35rem 0 0;
+  color: var(--BlackRadar-color-light-gray);
+  font-size: 0.95rem;
+}
+
+.vulnerability-create-submit {
+  border: 1px solid var(--BlackRadar-color-dark-blue);
+  border-radius: var(--brand-radius-md);
+  background: transparent;
+  color: var(--BlackRadar-color-dark-blue);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.vulnerability-create-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.vulnerability-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.vulnerability-field-wide {
+  grid-column: 1 / -1;
+}
+
+.vulnerability-field label {
+  color: var(--BlackRadar-color-dark-blue);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.vulnerability-field input,
+.vulnerability-field select,
+.vulnerability-field textarea {
+  width: 100%;
+  min-height: 2.5rem;
+  box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--BlackRadar-color-dark-gray) 28%, transparent);
+  border-radius: var(--brand-radius-md);
+  padding: 0.55rem 0.7rem;
+  background: var(--BlackRadar-color-white);
+  color: var(--BlackRadar-color-navy-black);
+  font: inherit;
+}
+
+.vulnerability-field textarea {
+  resize: vertical;
+}
+
+.vulnerability-field input:focus,
+.vulnerability-field select:focus,
+.vulnerability-field textarea:focus {
+  outline: 3px solid color-mix(in srgb, var(--brandRadar-color-blue) 28%, transparent);
+  outline-offset: 1px;
+  border-color: var(--brandRadar-color-blue);
+}
+
+.vulnerability-create-submit {
+  min-height: 2.75rem;
+}
+
+.vulnerability-create-submit:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--BlackRadar-color-dark-blue) 10%, transparent);
+}
+
+.vulnerability-create-submit:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--brandRadar-color-blue) 28%, transparent);
+  outline-offset: 2px;
+}
+
+.vulnerability-required {
+  color: var(--BlackRadar-color-warning);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.vulnerability-optional {
+  color: var(--BlackRadar-color-light-gray);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.vulnerability-create-submit:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+@media (max-width: 700px) {
+  .vulnerabilities-page-shell {
+    grid-template-columns: 1fr;
+    row-gap: 1.5rem;
+  }
+
+  .vulnerability-create-card,
+  .vulnerabilities-table-section {
+    grid-column: 1;
+  }
+
+  .vulnerability-create-card {
+    grid-row: 3;
+  }
+
+  .vulnerabilities-table-section {
+    grid-row: 4;
+  }
+}
+
+@media (max-width: 520px) {
+  .vulnerabilities-page-header,
+  .vulnerability-create-header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .vulnerabilities-page-header app-table-toolbar {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .vulnerability-create-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .vulnerability-filters-primary,
+  .vulnerability-filters-sort {
+    grid-template-columns: 1fr;
+  }
+
+  .vulnerability-filters-secondary-actions {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .vulnerability-field-wide {
+    grid-column: auto;
+  }
+}

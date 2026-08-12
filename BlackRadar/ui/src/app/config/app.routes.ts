@@ -5,6 +5,7 @@ import { LoginPage } from '../pages/login/login';
 import { DashboardPage } from '../pages/dashboard/dashboard';
 import { AssetsPage } from '../pages/assets/assets';
 import { AssetDetailsPage } from '../pages/assets/asset-details';
+import { VulnerabilitiesPage } from '../pages/vulnerabilities/vulnerabilities';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
@@ -12,5 +13,6 @@ export const routes: Routes = [
   { path: 'dashboard', component: DashboardPage, canActivate: [authGuard] },
   { path: 'assets/:id', component: AssetDetailsPage, canActivate: [authGuard] },
   { path: 'assets', component: AssetsPage, canActivate: [authGuard] },
+  { path: 'vulnerabilities', component: VulnerabilitiesPage, canActivate: [authGuard] },
   { path: '**', redirectTo: 'dashboard' },
 ];

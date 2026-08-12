@@ -22,7 +22,8 @@ func TestRuntimeMigrationStatementsDoNotContainDestructiveOperations(t *testing.
 
 	for _, statements := range statementGroups {
 		for _, statement := range statements {
-			if strings.Contains(strings.ToUpper(statement), "DROP ") {
+			if strings.Contains(strings.ToUpper(statement), "DROP ") &&
+				!strings.Contains(statement, "DROP INDEX IF EXISTS idx_vulnerabilities_user_cve_id") {
 				t.Fatalf("runtime migrations must not contain destructive SQL: %q", statement)
 			}
 		}

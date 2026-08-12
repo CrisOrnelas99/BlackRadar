@@ -97,3 +97,15 @@ func AIRateLimit() gin.HandlerFunc {
 		Key: PrincipalUserKey,
 	})
 }
+
+// VulnerabilityMutationRateLimit throttles vulnerability create, update, and delete requests.
+func VulnerabilityMutationRateLimit() gin.HandlerFunc {
+	return mustNew(Config{
+		Rule: RateLimitRule{
+			Name:   "vulnerability_mutation",
+			Limit:  30,
+			Window: defaultRateLimitWindow,
+		},
+		Key: PrincipalUserKey,
+	})
+}
