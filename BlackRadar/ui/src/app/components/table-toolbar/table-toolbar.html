@@ -1,0 +1,16 @@
+<div class="table-toolbar-header">
+  <p class="table-toolbar-summary" aria-live="polite">{{ resultSummary() }}</p>
+  <label class="table-toolbar-search" [attr.for]="searchId()">
+    <span>{{ searchLabel() }}</span>
+    <input
+      [id]="searchId()"
+      type="search"
+      [value]="searchValue()"
+      autocomplete="off"
+      [placeholder]="searchPlaceholder()"
+      (input)="searchChange.emit(searchInput.value)"
+      #searchInput
+    />
+  </label>
+  <ng-content></ng-content>
+</div>

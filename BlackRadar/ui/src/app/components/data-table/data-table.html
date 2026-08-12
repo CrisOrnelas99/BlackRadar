@@ -24,8 +24,8 @@
                 <button
                   type="button"
                   class="data-table-action-delete"
-                  aria-label="Delete asset"
-                  title="Delete asset"
+                  [attr.aria-label]="column.deleteLabel || 'Delete row'"
+                  [attr.title]="column.deleteLabel || 'Delete row'"
                   (click)="emitCellAction(column, row)"
                 >
                   <svg viewBox="0 0 24 24" aria-hidden="true">

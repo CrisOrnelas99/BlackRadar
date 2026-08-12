@@ -6,6 +6,7 @@ export interface DataTableColumn<TRow> {
   label: string;
   cellValue: (row: TRow) => string;
   cellType?: 'text' | 'action' | 'delete';
+  deleteLabel?: string;
   width?: string;
 }
 

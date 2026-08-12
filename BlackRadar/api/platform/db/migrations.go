@@ -121,16 +121,7 @@ func schemaStatements() []string {
 		`CREATE INDEX IF NOT EXISTS idx_refresh_sessions_user_id ON refresh_sessions (user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_events_actor_occurred_at ON audit_events (actor_user_id, occurred_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_events_resource_occurred_at ON audit_events (resource_type, resource_id, occurred_at DESC)`,
-		`DO $$
-		BEGIN
-			IF NOT EXISTS (
-				SELECT 1 FROM vulnerabilities WHERE user_id IS NULL
-			) AND NOT EXISTS (
-				SELECT 1 FROM vulnerabilities WHERE deleted_at IS NULL GROUP BY user_id, cve_id HAVING count(*) > 1
-			) THEN
-				CREATE UNIQUE INDEX IF NOT EXISTS idx_vulnerabilities_user_cve_id ON vulnerabilities (user_id, cve_id) WHERE deleted_at IS NULL;
-			END IF;
-		END $$`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_vulnerabilities_user_cve_id ON vulnerabilities (user_id, cve_id) WHERE deleted_at IS NULL AND cve_id <> ''`,
 		constraintStatement(
 			"chk_users_role",
 			"users",

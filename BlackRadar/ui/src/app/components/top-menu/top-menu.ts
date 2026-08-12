@@ -49,6 +49,12 @@ export class TopMenuComponent {
       path: '/assets',
       isActive: (currentUrl) => currentUrl === '/assets' || currentUrl.startsWith('/assets/'),
     },
+    {
+      key: 'vulnerabilities',
+      label: 'Vulnerabilities',
+      path: '/vulnerabilities',
+      isActive: (currentUrl) => currentUrl.startsWith('/vulnerabilities'),
+    },
   ];
 
   isNavigationMenuOpen = false;
