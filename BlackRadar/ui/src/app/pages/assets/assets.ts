@@ -296,7 +296,7 @@ export class AssetsPage {
 
   clearFilters(): void {
     this.searchQuery.set('');
-      this.isAdvancedFiltersOpen.set(false);
+    this.isAdvancedFiltersOpen.set(false);
     this.isSortOpen.set(false);
     this.filtersForm.reset({
       criticality: '',

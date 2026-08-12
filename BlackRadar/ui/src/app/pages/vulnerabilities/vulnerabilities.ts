@@ -95,9 +95,9 @@ export class VulnerabilitiesPage {
   });
   readonly vulnerabilityColumns: readonly DataTableColumn<Vulnerability>[] = [
     {
-      key: 'cveId',
-      label: 'CVE ID',
-      cellValue: (vulnerability) => vulnerability.cveId || 'Custom finding',
+      key: 'status',
+      label: 'Status',
+      cellValue: (vulnerability) => vulnerability.status,
     },
     {
       key: 'title',
@@ -111,9 +111,9 @@ export class VulnerabilitiesPage {
       cellValue: (vulnerability) => vulnerability.severity,
     },
     {
-      key: 'status',
-      label: 'Status',
-      cellValue: (vulnerability) => vulnerability.status,
+      key: 'cveId',
+      label: 'CVE ID',
+      cellValue: (vulnerability) => vulnerability.cveId || 'Custom finding',
     },
     {
       key: 'affectedAssetCount',
