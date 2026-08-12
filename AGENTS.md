@@ -46,6 +46,13 @@ Use the skills as the source of truth for:
 - Explain the plan before any non-trivial or broad change.
 - Verify the exact path you are changing with tests or the smallest useful check.
 
+## Verification scope
+
+- Run focused tests for the changed package, feature, or component rather than the entire test suite.
+- Run the full backend or frontend suite only when the change crosses package boundaries, affects shared infrastructure, authentication, authorization, migrations, or security, or the user explicitly requests it.
+- For minor frontend layout, styling, or copy changes, do not run a production build unless the change affects template compilation, shared configuration, or the user explicitly requests it.
+- Use the smallest relevant formatter, static check, and test command from the active application root: `BlackRadar/` for Go and `BlackRadar/ui/` for Angular.
+
 ## Safety rules
 
 - Do not change public APIs, database schema, authentication, authorization, dependencies, Docker, CI/CD, or deployment behavior without explicit approval.

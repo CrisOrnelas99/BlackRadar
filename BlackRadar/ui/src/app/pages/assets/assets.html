@@ -183,9 +183,7 @@
       </div>
       <button
         type="button"
-        aria-controls="asset-create-fields"
         class="asset-create-mode-button asset-create-mode-button-ai"
-        [attr.aria-expanded]="createMode() === 'ai'"
         (click)="selectCreateMode('ai')"
       >
         @if (createMode() === 'ai') {
@@ -218,7 +216,7 @@
     </div>
 
     @if (createMode() !== 'ai') {
-      <div class="asset-create-fields" id="asset-create-fields">
+      <div class="asset-create-fields" id="asset-manual-fields">
         <div class="asset-field asset-field-wide">
           <label for="asset-name">Name <span class="asset-required">(required)</span></label>
           <input
@@ -304,7 +302,7 @@
     }
 
     @if (createMode() === 'ai') {
-      <div class="asset-ai-coming-soon" id="asset-create-fields">
+      <div class="asset-ai-coming-soon" id="asset-ai-batch-fields">
         <p>Coming soon.</p>
       </div>
     }
