@@ -20,6 +20,10 @@
                 >
                   {{ column.cellValue(row) }}
                 </button>
+              } @else if (column.cellType === 'link' && column.cellLink) {
+                <a class="data-table-action" [routerLink]="column.cellLink(row)">
+                  {{ column.cellValue(row) }}
+                </a>
               } @else if (column.cellType === 'delete') {
                 <button
                   type="button"

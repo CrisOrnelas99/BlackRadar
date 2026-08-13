@@ -24,6 +24,8 @@ export interface CreateVulnerabilityRequest {
   status: string;
 }
 
+export type UpdateVulnerabilityRequest = CreateVulnerabilityRequest;
+
 @Injectable({
   providedIn: 'root',
 })
@@ -36,6 +38,19 @@ export class VulnerabilitiesService {
 
   createVulnerability(request: CreateVulnerabilityRequest) {
     return this.httpClient.post<Vulnerability>(`${environment.apiUrl}/vulnerabilities`, request);
+  }
+
+  getVulnerability(vulnerabilityID: string) {
+    return this.httpClient.get<Vulnerability>(
+      `${environment.apiUrl}/vulnerabilities/${vulnerabilityID}`,
+    );
+  }
+
+  updateVulnerability(vulnerabilityID: string, request: UpdateVulnerabilityRequest) {
+    return this.httpClient.put<Vulnerability>(
+      `${environment.apiUrl}/vulnerabilities/${vulnerabilityID}`,
+      request,
+    );
   }
 
   deleteVulnerability(vulnerabilityID: string) {

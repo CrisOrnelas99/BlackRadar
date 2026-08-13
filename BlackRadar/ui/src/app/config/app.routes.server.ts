@@ -19,6 +19,14 @@ export const serverRoutes: ServerRoute[] = [
     renderMode: RenderMode.Client,
   },
   {
+    path: 'vulnerabilities',
+    renderMode: RenderMode.Client,
+  },
+  {
+    path: 'vulnerabilities/:id',
+    renderMode: RenderMode.Client,
+  },
+  {
     path: '**',
     renderMode: RenderMode.Prerender,
   },

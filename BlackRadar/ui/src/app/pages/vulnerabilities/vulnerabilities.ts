@@ -119,6 +119,8 @@ export class VulnerabilitiesPage {
       key: 'title',
       label: 'Title',
       cellValue: (vulnerability) => vulnerability.title,
+      cellType: 'link',
+      cellLink: (vulnerability) => ['/vulnerabilities', vulnerability.id],
       width: '55%',
     },
     {
