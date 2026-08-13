@@ -1,0 +1,33 @@
+@if (session(); as currentSession) {
+  <app-top-menu [session]="currentSession" currentUrl="/profile"></app-top-menu>
+
+  <section class="profile-page" aria-labelledby="profile-heading">
+    <header class="profile-page-header">
+      <div class="profile-page-title">
+        <h1 id="profile-heading">Profile</h1>
+        <p class="profile-user-id">User ID: {{ currentSession.user.id }}</p>
+      </div>
+    </header>
+
+    <article class="profile-details-card profile-details-card-wide">
+      <header class="profile-details-header">
+        <h2>Profile information</h2>
+      </header>
+
+      <dl class="profile-details-grid">
+        <div>
+          <dt>Full name</dt>
+          <dd>{{ currentSession.user.fullName || 'Not provided' }}</dd>
+        </div>
+        <div>
+          <dt>Username</dt>
+          <dd>{{ currentSession.user.username || 'Not provided' }}</dd>
+        </div>
+        <div>
+          <dt>Email</dt>
+          <dd>{{ currentSession.user.email || 'Not provided' }}</dd>
+        </div>
+      </dl>
+    </article>
+  </section>
+}

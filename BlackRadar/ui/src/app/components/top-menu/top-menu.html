@@ -5,24 +5,7 @@
 
   <div class="top-menu-actions">
     <div class="top-menu-profile">
-      <button
-        type="button"
-        class="top-menu-name"
-        (click)="toggleProfileMenu()"
-        [attr.aria-expanded]="isProfileMenuOpen"
-      >
-        {{ displayName }}
-      </button>
-
-      @if (isProfileMenuOpen) {
-        <section class="top-menu-profile-panel">
-          <p class="top-menu-panel-label">Username</p>
-          <p class="top-menu-panel-value">{{ session().user.username }}</p>
-          <p class="top-menu-panel-label">Email</p>
-          <p class="top-menu-panel-value">{{ session().user.email }}</p>
-          <button type="button" class="top-menu-logout" (click)="signOut()">Log out</button>
-        </section>
-      }
+      <span class="top-menu-name">{{ displayName }}</span>
     </div>
 
     <div class="top-menu-nav">
@@ -67,11 +50,18 @@
                       <path d="M12 8v4.5M12 16h.01" />
                     </svg>
                   }
+                  @case ('profile') {
+                    <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                      <circle cx="12" cy="8" r="3.25" />
+                      <path d="M5 21c.7-3.5 3.1-5.5 7-5.5s6.3 2 7 5.5" />
+                    </svg>
+                  }
                 }
               </span>
               <span>{{ item.label }}</span>
             </button>
           }
+          <button type="button" class="top-menu-logout" (click)="signOut()">Log out</button>
         </nav>
       }
     </div>

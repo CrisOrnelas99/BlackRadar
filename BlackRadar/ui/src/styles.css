@@ -71,7 +71,6 @@ app-top-menu .top-menu-link,
 app-top-menu .top-menu-logout {
   font: inherit;
 }
-app-top-menu .top-menu-name,
 app-top-menu .top-menu-hamburger {
   border: 1px solid var(--menu-line);
   background: var(--menu-soft);
@@ -108,20 +107,17 @@ app-top-menu .top-menu-hamburger span {
   border-radius: 999px;
   background: currentColor;
 }
-app-top-menu .top-menu-name:hover,
 app-top-menu .top-menu-hamburger:hover {
   background: var(--menu-soft-hover);
   border-color: var(--menu-line-strong);
   transform: translateY(-1px);
 }
-app-top-menu .top-menu-name:focus-visible,
 app-top-menu .top-menu-hamburger:focus-visible,
 app-top-menu .top-menu-link:focus-visible,
 app-top-menu .top-menu-logout:focus-visible {
   outline: 3px solid var(--menu-outline);
   outline-offset: 3px;
 }
-app-top-menu .top-menu-profile-panel,
 app-top-menu .top-menu-dropdown {
   position: absolute;
   top: calc(100% + 1.35rem);
@@ -131,31 +127,6 @@ app-top-menu .top-menu-dropdown {
   box-shadow: var(--menu-panel-shadow);
   animation: topMenuReveal 0.22s ease;
   color: var(--BlackRadar-color-navy-black);
-}
-app-top-menu .top-menu-profile-panel {
-  right: -3.35rem;
-  display: grid;
-  gap: 0.35rem;
-  width: 13rem;
-  min-width: 13rem;
-  max-width: 13rem;
-  padding: 0.95rem 1rem 1rem;
-}
-app-top-menu .top-menu-panel-label {
-  margin: 0;
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--BlackRadar-color-dark-blue);
-}
-app-top-menu .top-menu-panel-value {
-  margin: 0 0 0.4rem;
-  font-size: 0.8rem;
-  font-weight: 400;
-  line-height: 1.35;
-  color: var(--BlackRadar-color-light-gray);
-  word-break: break-word;
 }
 app-top-menu .top-menu-logout {
   margin-top: 0.35rem;
@@ -235,17 +206,10 @@ app-top-menu .top-menu-link-icon svg {
     max-width: 9rem;
     padding: 0.55rem 0.8rem;
   }
-  app-top-menu .top-menu-profile-panel {
-    right: -3.2rem;
-    width: min(13rem, 88vw);
-    min-width: min(13rem, 88vw);
-    max-width: min(13rem, 88vw);
-  }
   app-top-menu .top-menu-dropdown {
     right: -0.15rem;
     min-width: 11.5rem;
   }
-  app-top-menu .top-menu-profile-panel,
   app-top-menu .top-menu-dropdown {
     top: calc(100% + 1.35rem);
   }

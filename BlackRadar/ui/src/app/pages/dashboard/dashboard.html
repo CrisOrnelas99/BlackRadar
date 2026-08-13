@@ -2,10 +2,13 @@
   <app-top-menu [session]="currentSession" currentUrl="/dashboard"></app-top-menu>
 }
 
-<section class="dashboard-shell">
+<section class="dashboard-shell" aria-labelledby="dashboard-heading">
+  <header class="dashboard-page-header">
+    <h1 id="dashboard-heading">Dashboard</h1>
+  </header>
+
   <div class="dashboard-card">
     <p class="dashboard-kicker">Authenticated</p>
-    <h1>Dashboard</h1>
     <p class="dashboard-copy">
       Signed in as <strong>{{ username || 'unknown user' }}</strong
       >.

@@ -1,5 +1,4 @@
 // Shared authenticated top menu that exposes product navigation and account actions.
-import { CommonModule } from '@angular/common';
 import {
   Component,
   ElementRef,
@@ -24,7 +23,6 @@ interface NavigationItem {
 @Component({
   selector: 'app-top-menu',
   standalone: true,
-  imports: [CommonModule],
   templateUrl: './top-menu.html',
   encapsulation: ViewEncapsulation.None,
 })
@@ -55,10 +53,15 @@ export class TopMenuComponent {
       path: '/vulnerabilities',
       isActive: (currentUrl) => currentUrl.startsWith('/vulnerabilities'),
     },
+    {
+      key: 'profile',
+      label: 'Profile',
+      path: '/profile',
+      isActive: (currentUrl) => currentUrl.startsWith('/profile'),
+    },
   ];
 
   isNavigationMenuOpen = false;
-  isProfileMenuOpen = false;
 
   // Returns the person label shown in the top-right trigger.
   get displayName(): string {
@@ -67,20 +70,9 @@ export class TopMenuComponent {
     );
   }
 
-  // Toggles the page-navigation dropdown and closes the profile panel when needed.
+  // Toggles the page-navigation dropdown.
   toggleNavigationMenu(): void {
     this.isNavigationMenuOpen = !this.isNavigationMenuOpen;
-    if (this.isNavigationMenuOpen) {
-      this.isProfileMenuOpen = false;
-    }
-  }
-
-  // Toggles the profile panel and closes the page-navigation dropdown when needed.
-  toggleProfileMenu(): void {
-    this.isProfileMenuOpen = !this.isProfileMenuOpen;
-    if (this.isProfileMenuOpen) {
-      this.isNavigationMenuOpen = false;
-    }
   }
 
   // Routes the user to the requested page and collapses any open menu state.
@@ -129,6 +121,5 @@ export class TopMenuComponent {
   // Resets both menu surfaces to their closed state.
   private closeMenus(): void {
     this.isNavigationMenuOpen = false;
-    this.isProfileMenuOpen = false;
   }
 }

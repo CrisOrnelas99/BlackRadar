@@ -141,11 +141,46 @@
   gap: 1.25rem;
 }
 
+.asset-create-intro h2 {
+  margin: 0;
+  color: var(--BlackRadar-color-navy-black);
+  font-family: var(--brand-font-title);
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+
+.asset-create-intro p {
+  margin: 0.35rem 0 1.25rem;
+  color: var(--BlackRadar-color-light-gray);
+  font-size: 0.95rem;
+}
+
+.asset-create-intro-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.asset-create-icons {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
 .asset-create-header {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 1rem;
+}
+
+.asset-create-mode-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-left: auto;
 }
 
 .asset-create-header h2 {
