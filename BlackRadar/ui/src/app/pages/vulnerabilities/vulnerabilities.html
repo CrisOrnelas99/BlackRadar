@@ -117,7 +117,12 @@
       <div class="vulnerability-create-intro">
         <h2>Add a vulnerability to your inventory</h2>
         <p>Enter the details for a vulnerability you found.</p>
-        <button class="vulnerability-create-open" type="button" (click)="openCreatePanel()">
+        <button
+          #createTrigger
+          class="vulnerability-create-open"
+          type="button"
+          (click)="openCreatePanel()"
+        >
           Add vulnerability
         </button>
       </div>
@@ -136,6 +141,7 @@
         <div class="vulnerability-field">
           <label for="vulnerability-cve-id">CVE ID</label>
           <input
+            #firstCreateControl
             id="vulnerability-cve-id"
             type="text"
             formControlName="cveId"

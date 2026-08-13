@@ -1,5 +1,5 @@
 // Authenticated page that lists the vulnerabilities visible to the current user.
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, ElementRef, inject, signal, ViewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { startWith } from 'rxjs';
@@ -70,13 +70,18 @@ export class VulnerabilitiesPage {
     sortDirection: ['asc' as SortDirection],
   });
 
+  @ViewChild('createTrigger') private createTrigger?: ElementRef<HTMLButtonElement>;
+  @ViewChild('firstCreateControl') private firstCreateControl?: ElementRef<HTMLInputElement>;
+
   openCreatePanel(): void {
     this.isCreateOpen.set(true);
+    setTimeout(() => this.firstCreateControl?.nativeElement.focus());
   }
 
   closeCreatePanel(): void {
     if (!this.isCreating()) {
       this.isCreateOpen.set(false);
+      setTimeout(() => this.createTrigger?.nativeElement.focus());
     }
   }
   readonly filtersFormValue = toSignal(
