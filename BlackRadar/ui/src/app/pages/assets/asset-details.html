@@ -7,9 +7,14 @@
 
 <section class="asset-details-page" aria-labelledby="asset-details-heading">
   <header class="asset-details-page-header">
-    <h1 id="asset-details-heading">Asset Details</h1>
-    <div class="asset-details-assets-link">
-      <a routerLink="/assets">Back to Assets</a>
+    <div class="asset-details-page-title">
+      <h1 id="asset-details-heading">Asset Details</h1>
+      <p class="asset-details-asset-id">Asset ID: {{ asset()?.id || 'Not available' }}</p>
+    </div>
+    <div class="asset-details-page-meta">
+      <div class="asset-details-assets-link">
+        <a routerLink="/assets">Back to Assets</a>
+      </div>
     </div>
   </header>
 
@@ -60,10 +65,6 @@
           <div>
             <dt>Vulnerabilities</dt>
             <dd>{{ asset()?.vulnerabilityCount }}</dd>
-          </div>
-          <div>
-            <dt>Asset ID</dt>
-            <dd>{{ asset()?.id }}</dd>
           </div>
           <div>
             <dt>Created</dt>

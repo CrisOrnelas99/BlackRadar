@@ -63,6 +63,7 @@ export class AssetsPage {
   readonly isCreating = signal(false);
   readonly isCreateConfirmationOpen = signal(false);
   readonly isDeleting = signal(false);
+  readonly isCreateOpen = signal(false);
   readonly assetPendingDeletion = signal<Asset | null>(null);
   readonly createMode = signal<'manual' | 'ai' | null>(null);
   readonly createForm = this.formBuilder.nonNullable.group({
@@ -278,8 +279,16 @@ export class AssetsPage {
     });
   }
 
-  selectCreateMode(mode: 'ai'): void {
-    this.createMode.update((currentMode) => (currentMode === mode ? null : mode));
+  selectCreateMode(mode: 'manual' | 'ai'): void {
+    this.createMode.set(mode);
+    this.isCreateOpen.set(true);
+  }
+
+  closeCreatePanel(): void {
+    if (!this.isCreating()) {
+      this.createMode.set(null);
+      this.isCreateOpen.set(false);
+    }
   }
 
   updateSearchQuery(query: string): void {
@@ -370,6 +379,7 @@ export class AssetsPage {
           criticality: 'Medium',
         });
         this.createMode.set(null);
+        this.isCreateOpen.set(false);
         this.isCreating.set(false);
         this.bannerService.show('Asset created successfully.', 'success');
       },

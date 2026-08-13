@@ -53,6 +53,7 @@ export class VulnerabilitiesPage {
   readonly isSortOpen = signal(false);
   readonly isCreating = signal(false);
   readonly isCreateConfirmationOpen = signal(false);
+  readonly isCreateOpen = signal(false);
   readonly createForm = this.formBuilder.nonNullable.group({
     cveId: ['', Validators.pattern(/^CVE-\d{4}-\d{4,}$/i)],
     title: ['', [Validators.required, Validators.maxLength(300)]],
@@ -68,6 +69,16 @@ export class VulnerabilitiesPage {
     sortField: ['title' as VulnerabilitySortField],
     sortDirection: ['asc' as SortDirection],
   });
+
+  openCreatePanel(): void {
+    this.isCreateOpen.set(true);
+  }
+
+  closeCreatePanel(): void {
+    if (!this.isCreating()) {
+      this.isCreateOpen.set(false);
+    }
+  }
   readonly filtersFormValue = toSignal(
     this.filtersForm.valueChanges.pipe(startWith(this.filtersForm.getRawValue())),
     { initialValue: this.filtersForm.getRawValue() },
@@ -207,6 +218,7 @@ export class VulnerabilitiesPage {
           status: 'Open',
         });
         this.isCreating.set(false);
+        this.isCreateOpen.set(false);
         this.bannerService.show('Vulnerability created successfully.', 'success');
       },
       error: () => {

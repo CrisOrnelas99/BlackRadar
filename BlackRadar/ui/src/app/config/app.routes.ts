@@ -6,6 +6,7 @@ import { DashboardPage } from '../pages/dashboard/dashboard';
 import { AssetsPage } from '../pages/assets/assets';
 import { AssetDetailsPage } from '../pages/assets/asset-details';
 import { VulnerabilitiesPage } from '../pages/vulnerabilities/vulnerabilities';
+import { ProfilePage } from '../pages/profile/profile';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
@@ -14,5 +15,6 @@ export const routes: Routes = [
   { path: 'assets/:id', component: AssetDetailsPage, canActivate: [authGuard] },
   { path: 'assets', component: AssetsPage, canActivate: [authGuard] },
   { path: 'vulnerabilities', component: VulnerabilitiesPage, canActivate: [authGuard] },
+  { path: 'profile', component: ProfilePage, canActivate: [authGuard] },
   { path: '**', redirectTo: 'dashboard' },
 ];

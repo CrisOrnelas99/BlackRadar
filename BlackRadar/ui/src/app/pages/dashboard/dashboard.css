@@ -6,15 +6,33 @@
 }
 
 .dashboard-shell {
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
-  padding: 1.5rem;
+  padding: 2.5rem clamp(1rem, 4vw, 3rem);
   background: var(--BlackRadar-color-white);
+}
+
+.dashboard-page-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  width: min(100%, 72rem);
+  margin: 0 auto 1.5rem;
+}
+
+.dashboard-page-header h1 {
+  margin: 0;
+  color: var(--BlackRadar-color-navy-black);
+  font-family: var(--brand-font-title);
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  font-weight: 400;
 }
 
 .dashboard-card {
   width: min(100%, 32rem);
+  margin: auto;
   padding: 2rem;
   border-radius: var(--brand-radius-lg);
   background: var(--BlackRadar-color-pure-white);
@@ -34,13 +52,6 @@
   font-size: 1.1rem;
 }
 
-.dashboard-card h1 {
-  margin: 0;
-  font-family: var(--brand-font-title);
-  color: var(--brandRadar-color-blue);
-  font-size: clamp(2rem, 4vw, 2.75rem);
-}
-
 .dashboard-copy {
   margin: 0.9rem 0 0;
   color: var(--BlackRadar-color-light-gray);
@@ -57,4 +68,11 @@
   background: var(--BlackRadar-color-navy-black);
   box-shadow: 0 16px 30px color-mix(in srgb, var(--BlackRadar-color-navy-black) 24%, transparent);
   cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .dashboard-page-header {
+    align-items: start;
+    flex-direction: column;
+  }
 }

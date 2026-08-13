@@ -153,11 +153,57 @@
   gap: 1.25rem;
 }
 
+.vulnerability-create-intro h2 {
+  margin: 0;
+  color: var(--BlackRadar-color-navy-black);
+  font-family: var(--brand-font-title);
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+
+.vulnerability-create-intro p {
+  margin: 0.35rem 0 1.25rem;
+  color: var(--BlackRadar-color-light-gray);
+  font-size: 0.95rem;
+}
+
+.vulnerability-create-open {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--BlackRadar-color-dark-blue);
+  border-radius: var(--brand-radius-md);
+  background: transparent;
+  color: var(--BlackRadar-color-dark-blue);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.vulnerability-create-open:hover {
+  background: color-mix(in srgb, var(--BlackRadar-color-dark-blue) 10%, transparent);
+}
+
 .vulnerability-create-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
   gap: 1rem;
+}
+
+.vulnerability-create-cancel {
+  flex: 0 0 auto;
+  padding: 0.35rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--BlackRadar-color-light-gray);
+  font: inherit;
+  cursor: pointer;
+}
+
+.vulnerability-create-cancel:hover {
+  color: var(--brandRadar-color-blue);
 }
 
 .vulnerability-create-header h2 {
