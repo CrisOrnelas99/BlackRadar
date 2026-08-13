@@ -6,6 +6,7 @@ import { DashboardPage } from '../pages/dashboard/dashboard';
 import { AssetsPage } from '../pages/assets/assets';
 import { AssetDetailsPage } from '../pages/assets/asset-details';
 import { VulnerabilitiesPage } from '../pages/vulnerabilities/vulnerabilities';
+import { VulnerabilityDetailsPage } from '../pages/vulnerabilities/vulnerability-details';
 import { ProfilePage } from '../pages/profile/profile';
 
 export const routes: Routes = [
@@ -15,6 +16,7 @@ export const routes: Routes = [
   { path: 'assets/:id', component: AssetDetailsPage, canActivate: [authGuard] },
   { path: 'assets', component: AssetsPage, canActivate: [authGuard] },
   { path: 'vulnerabilities', component: VulnerabilitiesPage, canActivate: [authGuard] },
+  { path: 'vulnerabilities/:id', component: VulnerabilityDetailsPage, canActivate: [authGuard] },
   { path: 'profile', component: ProfilePage, canActivate: [authGuard] },
   { path: '**', redirectTo: 'dashboard' },
 ];

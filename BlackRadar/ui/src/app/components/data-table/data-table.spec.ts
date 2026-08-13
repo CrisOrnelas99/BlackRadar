@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 
 import { DataTableColumn, DataTableComponent } from './data-table';
 
@@ -23,6 +24,7 @@ describe('DataTableComponent', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [DataTableComponent<TestRow>],
+      providers: [provideRouter([])],
     }).compileComponents();
 
     fixture = TestBed.createComponent(DataTableComponent<TestRow>);
@@ -53,5 +55,21 @@ describe('DataTableComponent', () => {
     fixture.detectChanges();
 
     expect(component.trackRow(4, rows[0])).toBe(4);
+  });
+
+  it('renders a configured link cell with its row route', () => {
+    const linkColumn: DataTableColumn<TestRow> = {
+      key: 'details',
+      label: 'Details',
+      cellValue: (row) => row.name,
+      cellType: 'link',
+      cellLink: (row) => ['/assets', row.id],
+    };
+    fixture.componentRef.setInput('columns', [linkColumn]);
+    fixture.detectChanges();
+
+    const link = fixture.nativeElement.querySelector('a') as HTMLAnchorElement;
+    expect(link.textContent.trim()).toBe('Primary server');
+    expect(link.getAttribute('href')).toBe('/assets/asset-1');
   });
 });

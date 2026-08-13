@@ -1,11 +1,13 @@
 // Reusable typed table component that renders configurable columns and rows.
 import { Component, input, output } from '@angular/core';
+import { RouterLink } from '@angular/router';
 
 export interface DataTableColumn<TRow> {
   key: string;
   label: string;
   cellValue: (row: TRow) => string;
-  cellType?: 'text' | 'action' | 'delete';
+  cellType?: 'text' | 'action' | 'link' | 'delete';
+  cellLink?: (row: TRow) => readonly (string | number)[];
   deleteLabel?: string;
   width?: string;
 }
@@ -18,6 +20,7 @@ export interface DataTableCellAction<TRow> {
 @Component({
   selector: 'app-data-table',
   standalone: true,
+  imports: [RouterLink],
   templateUrl: './data-table.html',
   styleUrl: './data-table.css',
 })
