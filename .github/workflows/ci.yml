@@ -215,6 +215,7 @@ jobs:
         run: |
           docker build --tag blackradar:${{ github.sha }} .
           docker save --output "${{ github.workspace }}/blackradar-image.tar" blackradar:${{ github.sha }}
+          test -s "${{ github.workspace }}/blackradar-image.tar"
 
       - name: Scan backend container with Trivy
         id: trivy_image_blocking
