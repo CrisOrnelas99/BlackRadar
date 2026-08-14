@@ -59,15 +59,33 @@
           <div class="profile-edit-fields">
             <div class="profile-field profile-field-wide">
               <label for="profile-full-name">Full name</label>
-              <input id="profile-full-name" type="text" formControlName="fullName" required />
+              <input
+                id="profile-full-name"
+                type="text"
+                formControlName="fullName"
+                [readOnly]="isSaving()"
+                required
+              />
             </div>
             <div class="profile-field">
               <label for="profile-username">Username</label>
-              <input id="profile-username" type="text" formControlName="username" required />
+              <input
+                id="profile-username"
+                type="text"
+                formControlName="username"
+                [readOnly]="isSaving()"
+                required
+              />
             </div>
             <div class="profile-field">
               <label for="profile-email">Email</label>
-              <input id="profile-email" type="email" formControlName="email" required />
+              <input
+                id="profile-email"
+                type="email"
+                formControlName="email"
+                [readOnly]="isSaving()"
+                required
+              />
             </div>
           </div>
 
