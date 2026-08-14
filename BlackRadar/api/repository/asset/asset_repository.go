@@ -214,6 +214,7 @@ func (r *AssetRepository) UpdateForUser(ec *appcontext.GinContext, id string, us
 
 	asset.Name = updates.Name
 	asset.Type = updates.Type
+	asset.Description = updates.Description
 	asset.OperatingSystem = updates.OperatingSystem
 	asset.Vendor = updates.Vendor
 	asset.Product = updates.Product

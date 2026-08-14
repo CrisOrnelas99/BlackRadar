@@ -44,7 +44,7 @@
           <dt>Account created</dt>
           <dd>
             @if (currentSession.user.createdAt) {
-              {{ currentSession.user.createdAt | date: 'MMM d, y' }}
+              {{ currentSession.user.createdAt | date: 'medium' }}
             } @else {
               Not available
             }
@@ -54,7 +54,7 @@
           <dt>Last updated</dt>
           <dd>
             @if (currentSession.user.updatedAt) {
-              {{ currentSession.user.updatedAt | date: 'MMM d, y' }}
+              {{ currentSession.user.updatedAt | date: 'medium' }}
             } @else {
               Not available
             }

@@ -17,6 +17,18 @@ app-root {
   --brand-popup-right: 0;
   --brand-banner-top: 4.95rem;
 }
+.page-heading-icon {
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  stroke: var(--brandRadar-color-blue);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+.asset-field textarea {
+  resize: vertical;
+}
 app-top-menu {
   --menu-line: color-mix(in srgb, var(--BlackRadar-color-light-blue) 18%, transparent);
   --menu-line-strong: color-mix(in srgb, var(--BlackRadar-color-light-blue) 28%, transparent);

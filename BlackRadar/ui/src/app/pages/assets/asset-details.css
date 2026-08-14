@@ -41,16 +41,6 @@
   line-height: 1.45;
 }
 
-.page-heading-icon {
-  width: 2rem;
-  height: 2rem;
-  flex: 0 0 auto;
-  stroke: var(--brandRadar-color-blue);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.6;
-}
-
 .asset-details-assets-link {
   display: block;
 }
@@ -243,10 +233,6 @@
   font: inherit;
 }
 
-.asset-field textarea {
-  resize: vertical;
-}
-
 .asset-details-header {
   margin-bottom: 1.75rem;
 }
@@ -269,6 +255,10 @@
 .asset-details-grid > div {
   padding-bottom: 0.7rem;
   border-bottom: 1px solid color-mix(in srgb, var(--BlackRadar-color-dark-gray) 18%, transparent);
+}
+
+.asset-details-wide {
+  grid-column: 1 / -1;
 }
 
 .asset-details-grid dt {

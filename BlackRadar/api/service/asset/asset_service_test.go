@@ -141,6 +141,27 @@ func TestAssetServiceRejectsOversizedDescription(t *testing.T) {
 	}
 }
 
+func TestAssetServiceUpdateAssetIncludesDescription(t *testing.T) {
+	repo := &fakeAssetRepository{}
+	svc := NewAssetService(repo)
+	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
+	description := "  Updated asset description  "
+
+	_, err := svc.UpdateAsset(ctx, "00000000-0000-4000-8000-000000000001", model.Asset{
+		Name:        "Asset 1",
+		Type:        "Server",
+		Description: &description,
+		Owner:       "IT",
+		Criticality: "High",
+	})
+	if err != nil {
+		t.Fatalf("expected update asset to succeed, got %v", err)
+	}
+	if got := optionalString(repo.saved.Description); got != "Updated asset description" {
+		t.Fatalf("expected normalized description in update, got %q", got)
+	}
+}
+
 func TestAssetServiceRejectsDuplicateAssetSignaturePerUser(t *testing.T) {
 	repo := &fakeAssetRepository{signatureExists: true}
 	svc := NewAssetService(repo)
@@ -216,6 +237,7 @@ func (f *fakeAssetRepository) CreateForUser(ec *appcontext.GinContext, userID st
 
 // UpdateForUser returns the supplied fake asset.
 func (f *fakeAssetRepository) UpdateForUser(ec *appcontext.GinContext, id string, userID string, asset model.Asset) (model.Asset, error) {
+	f.saved = asset
 	return asset, nil
 }
 

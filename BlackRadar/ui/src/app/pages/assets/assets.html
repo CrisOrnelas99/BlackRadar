@@ -251,11 +251,6 @@
       @if (createMode() !== 'ai') {
         <div class="asset-create-fields" id="asset-manual-fields">
           <div class="asset-field asset-field-wide">
-            <label for="asset-description">Description</label>
-            <textarea id="asset-description" formControlName="description" rows="4"></textarea>
-          </div>
-
-          <div class="asset-field asset-field-wide">
             <label for="asset-name">Name <span class="asset-required">(required)</span></label>
             <input
               id="asset-name"
@@ -309,6 +304,11 @@
           </div>
 
           <div class="asset-field">
+            <label for="asset-vendor">Vendor</label>
+            <input id="asset-vendor" type="text" formControlName="vendor" autocomplete="off" />
+          </div>
+
+          <div class="asset-field">
             <label for="asset-operating-system">Operating system</label>
             <input
               id="asset-operating-system"
@@ -319,13 +319,13 @@
           </div>
 
           <div class="asset-field">
-            <label for="asset-vendor">Vendor</label>
-            <input id="asset-vendor" type="text" formControlName="vendor" autocomplete="off" />
-          </div>
-
-          <div class="asset-field">
             <label for="asset-product">Product</label>
             <input id="asset-product" type="text" formControlName="product" autocomplete="off" />
+          </div>
+
+          <div class="asset-field asset-field-wide">
+            <label for="asset-description">Description</label>
+            <textarea id="asset-description" formControlName="description" rows="4"></textarea>
           </div>
 
           <div class="asset-field">

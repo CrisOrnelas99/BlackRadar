@@ -299,10 +299,6 @@
   font: inherit;
 }
 
-.asset-field textarea {
-  resize: vertical;
-}
-
 .asset-field input:focus,
 .asset-field select:focus {
   outline: 3px solid color-mix(in srgb, var(--brandRadar-color-blue) 28%, transparent);
@@ -375,16 +371,6 @@
   color: var(--BlackRadar-color-dark-blue);
   font-size: 0.9rem;
   line-height: 1.45;
-}
-
-.page-heading-icon {
-  width: 2rem;
-  height: 2rem;
-  flex: 0 0 auto;
-  stroke: var(--brandRadar-color-blue);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.6;
 }
 
 .assets-status {
