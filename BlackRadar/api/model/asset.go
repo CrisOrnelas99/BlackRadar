@@ -21,6 +21,7 @@ type Asset struct {
 	AssetAssessmentID  *string          `gorm:"type:uuid;column:asset_assessment_id;not null;uniqueIndex" json:"-"`
 	Name               string           `gorm:"not null" json:"name"`
 	Type               string           `gorm:"not null" json:"type"`
+	Description        *string          `gorm:"type:text" json:"description,omitempty"`
 	OperatingSystem    *string          `gorm:"column:operating_system" json:"operatingSystem"`
 	Vendor             *string          `gorm:"column:vendor" json:"vendor,omitempty"`
 	Product            *string          `gorm:"column:product" json:"product,omitempty"`

@@ -251,6 +251,11 @@
       @if (createMode() !== 'ai') {
         <div class="asset-create-fields" id="asset-manual-fields">
           <div class="asset-field asset-field-wide">
+            <label for="asset-description">Description</label>
+            <textarea id="asset-description" formControlName="description" rows="4"></textarea>
+          </div>
+
+          <div class="asset-field asset-field-wide">
             <label for="asset-name">Name <span class="asset-required">(required)</span></label>
             <input
               id="asset-name"

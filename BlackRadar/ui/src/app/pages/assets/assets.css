@@ -286,7 +286,8 @@
 }
 
 .asset-field input,
-.asset-field select {
+.asset-field select,
+.asset-field textarea {
   width: 100%;
   min-height: 2.5rem;
   box-sizing: border-box;
@@ -296,6 +297,10 @@
   background: var(--BlackRadar-color-white);
   color: var(--BlackRadar-color-navy-black);
   font: inherit;
+}
+
+.asset-field textarea {
+  resize: vertical;
 }
 
 .asset-field input:focus,

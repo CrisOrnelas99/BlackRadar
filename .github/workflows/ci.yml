@@ -212,14 +212,17 @@ jobs:
 
       - name: Build backend container
         working-directory: BlackRadar
-        run: docker build --tag blackradar:${{ github.sha }} .
+        run: |
+          docker build --tag blackradar:${{ github.sha }} .
+          docker save --output "${{ github.workspace }}/blackradar-image.tar" blackradar:${{ github.sha }}
 
       - name: Scan backend container with Trivy
         id: trivy_image_blocking
         continue-on-error: true
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: blackradar:${{ github.sha }}
+          scan-type: image
+          input: ${{ github.workspace }}/blackradar-image.tar
           scanners: vuln,secret,misconfig
           severity: HIGH,CRITICAL
           exit-code: "1"
@@ -228,7 +231,8 @@ jobs:
         if: always()
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: blackradar:${{ github.sha }}
+          scan-type: image
+          input: ${{ github.workspace }}/blackradar-image.tar
           scanners: vuln,secret,misconfig
           severity: MEDIUM
           limit-severities-for-sarif: true

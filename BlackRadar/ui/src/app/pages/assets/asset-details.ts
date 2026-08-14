@@ -44,6 +44,7 @@ export class AssetDetailsPage {
   readonly editForm = this.formBuilder.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(200)]],
     type: ['', [Validators.required, Validators.maxLength(100)]],
+    description: ['', Validators.maxLength(5000)],
     operatingSystem: ['', Validators.maxLength(100)],
     vendor: ['', Validators.maxLength(100)],
     product: ['', Validators.maxLength(100)],
@@ -139,6 +140,7 @@ export class AssetDetailsPage {
     const request: ManualAssetRequest = {
       name: formValue.name.trim(),
       type: formValue.type.trim(),
+      description: formValue.description.trim() || undefined,
       operatingSystem: formValue.operatingSystem.trim() || undefined,
       vendor: formValue.vendor.trim() || undefined,
       product: formValue.product.trim() || undefined,
@@ -199,6 +201,7 @@ export class AssetDetailsPage {
     this.editForm.reset({
       name: asset.name,
       type: asset.type,
+      description: asset.description || '',
       operatingSystem: asset.operatingSystem || '',
       vendor: asset.vendor || '',
       product: asset.product || '',

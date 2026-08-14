@@ -60,7 +60,7 @@
 
 .dashboard-card {
   width: min(100%, 32rem);
-  margin: auto;
+  margin: 0;
   padding: 2rem;
   border-radius: var(--brand-radius-lg);
   background: var(--BlackRadar-color-pure-white);
