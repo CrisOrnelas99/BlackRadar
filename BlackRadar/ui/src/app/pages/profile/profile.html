@@ -9,7 +9,7 @@
       </div>
     </header>
 
-    <article class="profile-details-card profile-details-card-wide">
+    <article class="profile-details-card">
       <header class="profile-details-header">
         <h2>Profile information</h2>
       </header>
@@ -29,5 +29,68 @@
         </div>
       </dl>
     </article>
+
+    <section class="profile-edit-card" aria-labelledby="profile-edit-heading">
+      @if (!isEditing()) {
+        <div class="profile-edit-intro">
+          <h2 id="profile-edit-heading">Edit profile</h2>
+          <p>Update your account details.</p>
+          <button class="profile-edit-open" type="button" (click)="openEditor()">
+            Edit profile
+          </button>
+        </div>
+      } @else {
+        <form class="profile-edit-form" [formGroup]="editForm" (ngSubmit)="saveProfile()">
+          <div class="profile-edit-header">
+            <div>
+              <h2 id="profile-edit-heading">Edit profile</h2>
+              <p>Update your account details.</p>
+            </div>
+            <button
+              class="profile-edit-cancel"
+              type="button"
+              [disabled]="isSaving()"
+              (click)="closeEditor()"
+            >
+              Cancel
+            </button>
+          </div>
+
+          <div class="profile-edit-fields">
+            <div class="profile-field profile-field-wide">
+              <label for="profile-full-name">Full name</label>
+              <input id="profile-full-name" type="text" formControlName="fullName" required />
+            </div>
+            <div class="profile-field">
+              <label for="profile-username">Username</label>
+              <input id="profile-username" type="text" formControlName="username" required />
+            </div>
+            <div class="profile-field">
+              <label for="profile-email">Email</label>
+              <input id="profile-email" type="email" formControlName="email" required />
+            </div>
+          </div>
+
+          <div class="profile-edit-actions">
+            <button class="profile-edit-submit" type="submit" [disabled]="isSaving()">
+              {{ isSaving() ? 'Saving...' : 'Save changes' }}
+            </button>
+          </div>
+        </form>
+      }
+    </section>
   </section>
+
+  @if (isSaveConfirmationOpen()) {
+    <app-confirmation-dialog
+      [dialogId]="'profile-save-confirm-heading'"
+      [title]="'Save profile changes?'"
+      [message]="'Save the updated details for your profile?'"
+      [confirmLabel]="'Save changes'"
+      [confirmTone]="'success'"
+      [confirmDisabled]="isSaving()"
+      (cancel)="cancelSave()"
+      (confirm)="confirmSave()"
+    ></app-confirmation-dialog>
+  }
 }

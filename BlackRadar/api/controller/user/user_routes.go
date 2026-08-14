@@ -20,3 +20,8 @@ func RegisterRoutes(router *gin.RouterGroup, controller *UserController) {
 func RegisterAdminRoutes(router *gin.RouterGroup, controller *UserController) {
 	router.POST("/users", appcontext.Wrap(controller.CreateUser))
 }
+
+// RegisterProtectedRoutes registers authenticated self-service user routes.
+func RegisterProtectedRoutes(router *gin.RouterGroup, controller *UserController) {
+	router.PUT("/profile", appcontext.Wrap(controller.UpdateProfile))
+}

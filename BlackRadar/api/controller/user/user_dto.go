@@ -22,6 +22,13 @@ type LoginRequest struct {
 	Password    string `json:"password"`
 }
 
+// UpdateProfileRequest contains mutable profile fields for the authenticated user.
+type UpdateProfileRequest struct {
+	FullName string `json:"fullName"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+}
+
 // UserResponse exposes the user fields safe for API responses.
 type UserResponse struct {
 	ID       string `json:"id"`
@@ -53,6 +60,15 @@ func (r LoginRequest) ToServiceInput() userservice.LoginInput {
 	return userservice.LoginInput{
 		UserOrEmail: r.UserOrEmail,
 		Password:    r.Password,
+	}
+}
+
+// ToServiceInput converts a profile update request into service input.
+func (r UpdateProfileRequest) ToServiceInput() userservice.UpdateProfileInput {
+	return userservice.UpdateProfileInput{
+		FullName: r.FullName,
+		Username: r.Username,
+		Email:    r.Email,
 	}
 }
 

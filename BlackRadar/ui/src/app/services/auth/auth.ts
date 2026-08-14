@@ -22,6 +22,12 @@ export interface LoginResponse {
   refreshTokenExpiresAt: string;
 }
 
+export interface UpdateProfileRequest {
+  fullName: string;
+  username: string;
+  email: string;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -74,6 +80,20 @@ export class AuthService {
   // Returns the current access token from memory.
   getAccessToken(): string | null {
     return this.getSession()?.token ?? null;
+  }
+
+  updateProfile(request: UpdateProfileRequest): Observable<LoginResponse['user']> {
+    return this.httpClient
+      .put<LoginResponse['user']>(`${environment.apiUrl}/profile`, request)
+      .pipe(
+        timeout(15000),
+        tap((user) => {
+          const currentSession = this.session();
+          if (currentSession) {
+            this.session.set({ ...currentSession, user });
+          }
+        }),
+      );
   }
 
   // Exchanges the HttpOnly refresh cookie for a new access token and session.

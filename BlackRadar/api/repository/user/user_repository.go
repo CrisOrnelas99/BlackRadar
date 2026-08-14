@@ -44,10 +44,34 @@ func (r *UserRepository) ExistsByUsername(ec *appcontext.GinContext, username st
 	return count > 0, nil
 }
 
+// ExistsByUsernameExceptID reports whether another active user uses username.
+func (r *UserRepository) ExistsByUsernameExceptID(ec *appcontext.GinContext, username string, userID string) (bool, error) {
+	var count int64
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Model(&model.User{}).
+		Where("username = ? AND id <> ?", strings.TrimSpace(username), strings.TrimSpace(userID)).
+		Count(&count).Error
+	if err != nil {
+		return false, fmt.Errorf("%w: check username uniqueness: %w", ErrPersistenceFailure, err)
+	}
+	return count > 0, nil
+}
+
 // ExistsByEmail reports whether an email address already exists.
 func (r *UserRepository) ExistsByEmail(ec *appcontext.GinContext, email string) (bool, error) {
 	var count int64
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Model(&model.User{}).Where("email = ?", strings.ToLower(strings.TrimSpace(email))).Count(&count).Error
+	if err != nil {
+		return false, fmt.Errorf("%w: check email uniqueness: %w", ErrPersistenceFailure, err)
+	}
+	return count > 0, nil
+}
+
+// ExistsByEmailExceptID reports whether another active user uses email.
+func (r *UserRepository) ExistsByEmailExceptID(ec *appcontext.GinContext, email string, userID string) (bool, error) {
+	var count int64
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Model(&model.User{}).
+		Where("email = ? AND id <> ?", strings.ToLower(strings.TrimSpace(email)), strings.TrimSpace(userID)).
+		Count(&count).Error
 	if err != nil {
 		return false, fmt.Errorf("%w: check email uniqueness: %w", ErrPersistenceFailure, err)
 	}
@@ -89,6 +113,34 @@ func (r *UserRepository) CreateUser(ec *appcontext.GinContext, user model.User) 
 	}
 
 	return model.User{}, fmt.Errorf("%w: exhausted random id retries", ErrPrimaryKeyViolation)
+}
+
+// UpdateProfile updates the mutable profile fields for one active user.
+func (r *UserRepository) UpdateProfile(ec *appcontext.GinContext, userID string, user model.User) (model.User, error) {
+	if strings.TrimSpace(userID) == "" || user.FullName == "" || user.Username == "" || user.Email == "" {
+		return model.User{}, ErrNotNullViolation
+	}
+
+	result := r.dbForContext(ec).WithContext(ec.RequestContext()).
+		Model(&model.User{}).
+		Where("id = ?", strings.TrimSpace(userID)).
+		Updates(map[string]any{
+			"full_name": user.FullName,
+			"username":  user.Username,
+			"email":     user.Email,
+		})
+	if result.Error != nil {
+		databaseErr := platformdb.TranslateDatabaseError(result.Error)
+		if errors.Is(databaseErr, platformdb.ErrUniqueViolation) {
+			return model.User{}, fmt.Errorf("%w: %w", ErrUniqueViolation, databaseErr)
+		}
+		return model.User{}, fmt.Errorf("%w: update profile: %w", ErrPersistenceFailure, databaseErr)
+	}
+	if result.RowsAffected == 0 {
+		return model.User{}, ErrRecordNotFound
+	}
+
+	return r.FindByID(ec, userID)
 }
 
 // FindByUsername returns a user that matches the supplied username.

@@ -42,6 +42,18 @@ func TestUserControllerHandlers(t *testing.T) {
 		}
 	})
 
+	t.Run("update profile", func(t *testing.T) {
+		ec, recorder := newUserContext(t, http.MethodPut, "/profile", `{"fullName":"Updated User","username":"updated","email":"updated@example.com"}`)
+		ec.Request.Header.Set("Content-Type", "application/json")
+		controller.UpdateProfile(ec)
+		if svc.updateProfileCalls != 1 {
+			t.Fatal("expected UpdateProfile to be called")
+		}
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected %d, got %d", http.StatusOK, recorder.Code)
+		}
+	})
+
 	t.Run("create user conflict is generic", func(t *testing.T) {
 		tests := []struct {
 			name string
@@ -230,16 +242,19 @@ func TestRegisterAdminRoutes(t *testing.T) {
 }
 
 type fakeUserService struct {
-	createUserResponse model.User
-	loginResponse      userservice.LoginResult
-	createUserErr      error
-	loginErr           error
-	createUserCalls    int
-	loginCalls         int
-	refreshCalls       int
-	logoutCalls        int
-	refreshToken       string
-	logoutToken        string
+	createUserResponse    model.User
+	loginResponse         userservice.LoginResult
+	createUserErr         error
+	loginErr              error
+	createUserCalls       int
+	loginCalls            int
+	refreshCalls          int
+	logoutCalls           int
+	refreshToken          string
+	logoutToken           string
+	updateProfileResponse model.User
+	updateProfileErr      error
+	updateProfileCalls    int
 }
 
 func (f *fakeUserService) CreateUser(ec *appcontext.GinContext, request userservice.CreateUserInput) (model.User, error) {
@@ -274,6 +289,17 @@ func (f *fakeUserService) Logout(ec *appcontext.GinContext, request userservice.
 	f.logoutCalls++
 	f.logoutToken = request.RefreshToken
 	return nil
+}
+
+func (f *fakeUserService) UpdateProfile(ec *appcontext.GinContext, request userservice.UpdateProfileInput) (model.User, error) {
+	f.updateProfileCalls++
+	if f.updateProfileErr != nil {
+		return model.User{}, f.updateProfileErr
+	}
+	if f.updateProfileResponse == (model.User{}) {
+		f.updateProfileResponse = model.User{Model: model.Model{ID: "00000000-0000-0000-0000-000000000001"}, FullName: request.FullName, Username: request.Username, Email: request.Email}
+	}
+	return f.updateProfileResponse, nil
 }
 
 var _ userservice.UserService = (*fakeUserService)(nil)

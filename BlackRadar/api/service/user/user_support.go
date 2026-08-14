@@ -37,6 +37,32 @@ func normalizeCreateUserInput(request CreateUserInput) CreateUserInput {
 	return request
 }
 
+// normalizeProfileUpdateInput trims profile fields and lowercases email.
+func normalizeProfileUpdateInput(request UpdateProfileInput) UpdateProfileInput {
+	request.FullName = strings.TrimSpace(request.FullName)
+	request.Username = strings.TrimSpace(request.Username)
+	request.Email = strings.ToLower(strings.TrimSpace(request.Email))
+	return request
+}
+
+// validateProfileUpdateInput validates mutable profile fields.
+func validateProfileUpdateInput(request UpdateProfileInput) error {
+	if strings.TrimSpace(request.FullName) == "" || utf8.RuneCountInString(request.FullName) > 100 {
+		return ErrInvalidProfileUpdate
+	}
+	if utf8.RuneCountInString(request.Username) < 3 || utf8.RuneCountInString(request.Username) > 50 || strings.Contains(request.Username, "@") {
+		return ErrInvalidProfileUpdate
+	}
+	if request.Email == "" {
+		return ErrInvalidProfileUpdate
+	}
+	parsedEmail, err := mail.ParseAddress(request.Email)
+	if err != nil || parsedEmail.Address != request.Email {
+		return ErrInvalidProfileUpdate
+	}
+	return nil
+}
+
 // validateCreateUserInput validates the fields required to create an account.
 func validateCreateUserInput(request CreateUserInput) error {
 	if strings.TrimSpace(request.FullName) == "" || utf8.RuneCountInString(request.FullName) > 100 {

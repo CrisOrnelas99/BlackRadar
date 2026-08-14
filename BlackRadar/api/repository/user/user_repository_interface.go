@@ -23,6 +23,9 @@ type UserRepositoryInterface interface {
 	*/
 	ExistsByUsername(ec *appcontext.GinContext, username string) (bool, error)
 
+	// ExistsByUsernameExceptID reports whether another active user uses username.
+	ExistsByUsernameExceptID(ec *appcontext.GinContext, username string, userID string) (bool, error)
+
 	/*
 		ExistsByEmail reports whether an active user already exists for email.
 
@@ -31,6 +34,9 @@ type UserRepositoryInterface interface {
 		sentinel errors for database failures.
 	*/
 	ExistsByEmail(ec *appcontext.GinContext, email string) (bool, error)
+
+	// ExistsByEmailExceptID reports whether another active user uses email.
+	ExistsByEmailExceptID(ec *appcontext.GinContext, email string, userID string) (bool, error)
 
 	/*
 		CreateUser persists the service-prepared user record and returns the
@@ -42,6 +48,9 @@ type UserRepositoryInterface interface {
 		failures with repository sentinel errors.
 	*/
 	CreateUser(ec *appcontext.GinContext, user model.User) (model.User, error)
+
+	// UpdateProfile updates only mutable profile fields for the authenticated user.
+	UpdateProfile(ec *appcontext.GinContext, userID string, user model.User) (model.User, error)
 
 	/*
 		FindByUsername returns the active user matching username.

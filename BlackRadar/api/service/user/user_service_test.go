@@ -80,6 +80,23 @@ func TestUserServiceSupport(t *testing.T) {
 	}
 }
 
+func TestUserServiceUpdateProfileNormalizesAndUpdatesAuthenticatedUser(t *testing.T) {
+	repo := &fakeUserRepository{user: model.User{Model: model.Model{ID: testUserID}, FullName: "Old Name", Username: "analyst", Email: "old@example.com"}}
+	svc := NewUserService(newTestJWTManager(t), repo, &fakeRefreshSessionRepository{})
+
+	updated, err := svc.UpdateProfile(newUserServiceContext(t), UpdateProfileInput{
+		FullName: " New Name ",
+		Username: " analyst2 ",
+		Email:    " NEW@EXAMPLE.COM ",
+	})
+	if err != nil {
+		t.Fatalf("expected profile update to succeed, got %v", err)
+	}
+	if updated.FullName != "New Name" || updated.Username != "analyst2" || updated.Email != "new@example.com" {
+		t.Fatalf("unexpected updated profile: %#v", updated)
+	}
+}
+
 // TestUserServiceValidationAndTranslation verifies validation and error mapping.
 func TestUserServiceValidationAndTranslation(t *testing.T) {
 	ctx := newUserServiceContext(t)
@@ -349,6 +366,8 @@ type fakeUserRepository struct {
 	exists               bool
 	usernameExists       bool
 	emailExists          bool
+	usernameExistsOther  bool
+	emailExistsOther     bool
 	usernameLookupCalled bool
 	emailLookupCalled    bool
 	usernameLookupCalls  int
@@ -365,12 +384,22 @@ func (f *fakeUserRepository) ExistsByUsername(ec *appcontext.GinContext, usernam
 	return f.exists, nil
 }
 
+// ExistsByUsernameExceptID reports whether another fake user uses username.
+func (f *fakeUserRepository) ExistsByUsernameExceptID(ec *appcontext.GinContext, username string, userID string) (bool, error) {
+	return f.usernameExistsOther, nil
+}
+
 // ExistsByEmail reports whether the fake user exists.
 func (f *fakeUserRepository) ExistsByEmail(ec *appcontext.GinContext, email string) (bool, error) {
 	if f.emailExists {
 		return true, nil
 	}
 	return f.exists, nil
+}
+
+// ExistsByEmailExceptID reports whether another fake user uses email.
+func (f *fakeUserRepository) ExistsByEmailExceptID(ec *appcontext.GinContext, email string, userID string) (bool, error) {
+	return f.emailExistsOther, nil
 }
 
 // CreateUser accepts the fake user without error.
@@ -381,6 +410,17 @@ func (f *fakeUserRepository) CreateUser(ec *appcontext.GinContext, user model.Us
 	}
 	f.user = user
 	return user, nil
+}
+
+// UpdateProfile updates the fake user's mutable profile fields.
+func (f *fakeUserRepository) UpdateProfile(ec *appcontext.GinContext, userID string, user model.User) (model.User, error) {
+	if f.user.ID != userID {
+		return model.User{}, userrepo.ErrRecordNotFound
+	}
+	f.user.FullName = user.FullName
+	f.user.Username = user.Username
+	f.user.Email = user.Email
+	return f.user, nil
 }
 
 // FindByUsername returns the configured fake user.
@@ -496,5 +536,8 @@ func newUserServiceContext(t *testing.T) *appcontext.GinContext {
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/", nil)
 	ec := appcontext.NewGinContext(ctx, "txn-123", slog.New(slog.NewTextHandler(io.Discard, nil)))
 	appcontext.SetGinContext(ctx, ec)
+	if err := ec.SetPrincipal(appcontext.Principal{UserID: testUserID, Username: "analyst", Role: model.RoleUser}); err != nil {
+		t.Fatalf("failed to set test principal: %v", err)
+	}
 	return ec
 }
