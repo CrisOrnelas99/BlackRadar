@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
@@ -9,7 +10,7 @@ import { BannerService } from '../../services/banner/banner';
 @Component({
   selector: 'app-profile-page',
   standalone: true,
-  imports: [ConfirmationDialogComponent, ReactiveFormsModule, TopMenuComponent],
+  imports: [ConfirmationDialogComponent, DatePipe, ReactiveFormsModule, TopMenuComponent],
   templateUrl: './profile.html',
   styleUrl: './profile.css',
 })
@@ -26,6 +27,22 @@ export class ProfilePage {
     username: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(50)]],
     email: ['', [Validators.required, Validators.email]],
   });
+
+  readonly adminPermissions = [
+    'View the dashboard',
+    'View and manage assets',
+    'View and manage vulnerabilities',
+    'Manage users',
+  ];
+  readonly userPermissions = ['View the dashboard', 'View assets', 'View vulnerabilities'];
+
+  permissionsFor(role: string | undefined): readonly string[] {
+    return role === 'admin' ? this.adminPermissions : this.userPermissions;
+  }
+
+  roleLabel(role: string | undefined): string {
+    return role === 'admin' ? 'Administrator' : 'User';
+  }
 
   openEditor(): void {
     const currentSession = this.session();

@@ -16,6 +16,9 @@ export interface LoginResponse {
     fullName: string;
     username: string;
     email: string;
+    role?: string;
+    createdAt?: string;
+    updatedAt?: string;
   };
   token: string;
   tokenExpiresAt: string;

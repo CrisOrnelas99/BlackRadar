@@ -354,6 +354,18 @@
   font-weight: 400;
 }
 
+.assets-page-heading {
+  min-width: 0;
+}
+
+.assets-page-subtitle {
+  max-width: 42rem;
+  margin: 0.3rem 0 0;
+  color: var(--BlackRadar-color-dark-blue);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .assets-status {
   margin: 0;
   color: var(--BlackRadar-color-light-gray);

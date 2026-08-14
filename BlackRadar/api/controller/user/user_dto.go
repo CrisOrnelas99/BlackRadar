@@ -31,10 +31,13 @@ type UpdateProfileRequest struct {
 
 // UserResponse exposes the user fields safe for API responses.
 type UserResponse struct {
-	ID       string `json:"id"`
-	FullName string `json:"fullName"`
-	Username string `json:"username"`
-	Email    string `json:"email"`
+	ID        string    `json:"id"`
+	FullName  string    `json:"fullName"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // LoginResponse returns the issued token and the authenticated user summary.
@@ -75,10 +78,13 @@ func (r UpdateProfileRequest) ToServiceInput() userservice.UpdateProfileInput {
 // ToUserResponse converts the persistence user model into a response DTO.
 func ToUserResponse(user model.User) UserResponse {
 	return UserResponse{
-		ID:       user.ID,
-		FullName: user.FullName,
-		Username: user.Username,
-		Email:    user.Email,
+		ID:        user.ID,
+		FullName:  user.FullName,
+		Username:  user.Username,
+		Email:     user.Email,
+		Role:      user.Role,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
 	}
 }
 

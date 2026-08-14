@@ -4,7 +4,13 @@
 
 <section class="vulnerabilities-page-shell" aria-labelledby="vulnerabilities-heading">
   <div class="vulnerabilities-page-header">
-    <h1 id="vulnerabilities-heading">Vulnerabilities</h1>
+    <div class="vulnerabilities-page-heading">
+      <h1 id="vulnerabilities-heading">Vulnerabilities</h1>
+      <p class="vulnerabilities-page-subtitle">
+        Track security weaknesses, review their severity and status, and see which assets they
+        affect.
+      </p>
+    </div>
     <app-table-toolbar
       [searchLabel]="'Name or CVE ID'"
       [searchId]="'vulnerability-search-query'"

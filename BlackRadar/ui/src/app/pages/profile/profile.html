@@ -5,6 +5,9 @@
     <header class="profile-page-header">
       <div class="profile-page-title">
         <h1 id="profile-heading">Profile</h1>
+        <p class="profile-page-subtitle">
+          Review your account details, access role, and permissions for the BlackRadar platform.
+        </p>
         <p class="profile-user-id">User ID: {{ currentSession.user.id }}</p>
       </div>
     </header>
@@ -27,7 +30,40 @@
           <dt>Email</dt>
           <dd>{{ currentSession.user.email || 'Not provided' }}</dd>
         </div>
+        <div>
+          <dt>Role</dt>
+          <dd>{{ roleLabel(currentSession.user.role) }}</dd>
+        </div>
+        <div>
+          <dt>Account created</dt>
+          <dd>
+            @if (currentSession.user.createdAt) {
+              {{ currentSession.user.createdAt | date: 'MMM d, y' }}
+            } @else {
+              Not available
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Last updated</dt>
+          <dd>
+            @if (currentSession.user.updatedAt) {
+              {{ currentSession.user.updatedAt | date: 'MMM d, y' }}
+            } @else {
+              Not available
+            }
+          </dd>
+        </div>
       </dl>
+
+      <section class="profile-permissions" aria-labelledby="profile-permissions-heading">
+        <h3 id="profile-permissions-heading">Permissions</h3>
+        <ul>
+          @for (permission of permissionsFor(currentSession.user.role); track permission) {
+            <li>{{ permission }}</li>
+          }
+        </ul>
+      </section>
     </article>
 
     <section class="profile-edit-card" aria-labelledby="profile-edit-heading">

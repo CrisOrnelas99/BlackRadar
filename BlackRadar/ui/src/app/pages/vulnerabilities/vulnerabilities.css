@@ -35,6 +35,18 @@
   font-weight: 400;
 }
 
+.vulnerabilities-page-heading {
+  min-width: 0;
+}
+
+.vulnerabilities-page-subtitle {
+  max-width: 42rem;
+  margin: 0.3rem 0 0;
+  color: var(--BlackRadar-color-dark-blue);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .vulnerabilities-table-section {
   min-width: 0;
   grid-column: 1;
