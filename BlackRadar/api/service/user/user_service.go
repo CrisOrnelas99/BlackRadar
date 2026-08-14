@@ -30,6 +30,13 @@ type CreateUserInput struct {
 	Password string
 }
 
+// UpdateProfileInput contains mutable profile fields for the authenticated user.
+type UpdateProfileInput struct {
+	FullName string
+	Username string
+	Email    string
+}
+
 // LoginInput contains the credentials used to authenticate a user.
 type LoginInput struct {
 	UserOrEmail string
@@ -241,6 +248,46 @@ func (s *userServiceImpl) CreateUser(ec *appcontext.GinContext, request CreateUs
 		Email:        request.Email,
 		Role:         model.RoleUser,
 		PasswordHash: string(hash),
+	})
+	if err != nil {
+		return model.User{}, translateUserRepositoryError(err)
+	}
+
+	return user, nil
+}
+
+// UpdateProfile validates and updates the authenticated user's profile.
+func (s *userServiceImpl) UpdateProfile(ec *appcontext.GinContext, request UpdateProfileInput) (model.User, error) {
+	userID, err := ec.UserID()
+	if err != nil {
+		return model.User{}, ErrInvalidProfileUpdate
+	}
+
+	request = normalizeProfileUpdateInput(request)
+	if err := validateProfileUpdateInput(request); err != nil {
+		return model.User{}, ErrInvalidProfileUpdate
+	}
+
+	exists, err := s.userRepository.ExistsByUsernameExceptID(ec, request.Username, userID)
+	if err != nil {
+		return model.User{}, translateUserRepositoryError(err)
+	}
+	if exists {
+		return model.User{}, ErrUsernameAlreadyExists
+	}
+
+	exists, err = s.userRepository.ExistsByEmailExceptID(ec, request.Email, userID)
+	if err != nil {
+		return model.User{}, translateUserRepositoryError(err)
+	}
+	if exists {
+		return model.User{}, ErrEmailAlreadyExists
+	}
+
+	user, err := s.userRepository.UpdateProfile(ec, userID, model.User{
+		FullName: request.FullName,
+		Username: request.Username,
+		Email:    request.Email,
 	})
 	if err != nil {
 		return model.User{}, translateUserRepositoryError(err)

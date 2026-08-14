@@ -1,6 +1,6 @@
 module blackradar
 
-go 1.25.12
+go 1.26.6
 
 require (
 	github.com/gin-gonic/gin v1.12.0

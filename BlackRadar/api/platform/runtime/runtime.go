@@ -211,6 +211,7 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 	}
 	protected := engine.Group("/api")
 	protected.Use(authenticationMiddleware)
+	controlleruser.RegisterProtectedRoutes(protected, userController)
 	adminOnly := protected.Group("")
 	adminOnly.Use(permissions.RequireAdmin())
 

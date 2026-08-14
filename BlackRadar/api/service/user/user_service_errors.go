@@ -53,6 +53,7 @@ func (e InternalError) Error() string {
 
 var (
 	ErrInvalidCreateUserRequest = &ValidationError{Message: "invalid user provisioning request"}
+	ErrInvalidProfileUpdate     = &ValidationError{Message: "invalid profile update"}
 	ErrUsernameAlreadyExists    = &ConflictError{Message: "username already exists"}
 	ErrEmailAlreadyExists       = &ConflictError{Message: "email already exists"}
 	ErrInvalidLoginCredentials  = &UnauthorizedError{Message: "invalid credentials"}

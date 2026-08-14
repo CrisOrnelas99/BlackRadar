@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -102,10 +103,12 @@ func TestAssetServiceCreateAssetNormalizesDisplayFields(t *testing.T) {
 	repo := &fakeAssetRepository{}
 	svc := NewAssetService(repo)
 	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
+	description := "  primary production asset  "
 
 	created, err := svc.CreateAsset(ctx, model.Asset{
 		Name:        "aws athena",
 		Type:        "cloud service",
+		Description: &description,
 		Vendor:      stringPtr("amazon"),
 		Product:     stringPtr("athena"),
 		Owner:       "cloud engineer",
@@ -125,6 +128,37 @@ func TestAssetServiceCreateAssetNormalizesDisplayFields(t *testing.T) {
 	}
 	if got := optionalString(repo.saved.Product); got != "Athena" {
 		t.Fatalf("expected normalized product, got %q", got)
+	}
+	if got := optionalString(repo.saved.Description); got != "primary production asset" {
+		t.Fatalf("expected normalized description, got %q", got)
+	}
+}
+
+func TestAssetServiceRejectsOversizedDescription(t *testing.T) {
+	description := strings.Repeat("a", maxAssetDescriptionLength+1)
+	if err := validateAsset(model.Asset{Description: &description, Name: "Asset", Type: "Server", Owner: "IT", Criticality: "Medium"}); !errors.Is(err, ErrInvalidAssetData) {
+		t.Fatalf("expected oversized description to be rejected, got %v", err)
+	}
+}
+
+func TestAssetServiceUpdateAssetIncludesDescription(t *testing.T) {
+	repo := &fakeAssetRepository{}
+	svc := NewAssetService(repo)
+	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
+	description := "  Updated asset description  "
+
+	_, err := svc.UpdateAsset(ctx, "00000000-0000-4000-8000-000000000001", model.Asset{
+		Name:        "Asset 1",
+		Type:        "Server",
+		Description: &description,
+		Owner:       "IT",
+		Criticality: "High",
+	})
+	if err != nil {
+		t.Fatalf("expected update asset to succeed, got %v", err)
+	}
+	if got := optionalString(repo.saved.Description); got != "Updated asset description" {
+		t.Fatalf("expected normalized description in update, got %q", got)
 	}
 }
 
@@ -203,6 +237,7 @@ func (f *fakeAssetRepository) CreateForUser(ec *appcontext.GinContext, userID st
 
 // UpdateForUser returns the supplied fake asset.
 func (f *fakeAssetRepository) UpdateForUser(ec *appcontext.GinContext, id string, userID string, asset model.Asset) (model.Asset, error) {
+	f.saved = asset
 	return asset, nil
 }
 

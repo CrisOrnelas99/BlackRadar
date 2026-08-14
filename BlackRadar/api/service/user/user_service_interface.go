@@ -21,6 +21,9 @@ type UserService interface {
 	*/
 	CreateUser(ec *appcontext.GinContext, request CreateUserInput) (model.User, error)
 
+	// UpdateProfile validates and updates only the authenticated user's profile fields.
+	UpdateProfile(ec *appcontext.GinContext, request UpdateProfileInput) (model.User, error)
+
 	/*
 		Login validates credentials and creates a new authenticated session.
 

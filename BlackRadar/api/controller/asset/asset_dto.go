@@ -15,6 +15,7 @@ import (
 type AssetRequest struct {
 	Name            string  `json:"name"`
 	Type            string  `json:"type"`
+	Description     *string `json:"description,omitempty"`
 	OperatingSystem *string `json:"operatingSystem"`
 	Vendor          *string `json:"vendor,omitempty"`
 	Product         *string `json:"product,omitempty"`
@@ -31,6 +32,7 @@ func (r AssetRequest) ToDataModel() model.Asset {
 	return model.Asset{
 		Name:            strings.TrimSpace(r.Name),
 		Type:            strings.TrimSpace(r.Type),
+		Description:     trimOptionalString(r.Description),
 		OperatingSystem: operatingSystem,
 		Vendor:          trimOptionalString(r.Vendor),
 		Product:         trimOptionalString(r.Product),
@@ -48,6 +50,7 @@ type AssetResponse struct {
 	AssetAssessmentID  *string   `json:"assetAssessmentId,omitempty"`
 	Name               string    `json:"name"`
 	Type               string    `json:"type"`
+	Description        *string   `json:"description,omitempty"`
 	OperatingSystem    *string   `json:"operatingSystem"`
 	Vendor             *string   `json:"vendor,omitempty"`
 	Product            *string   `json:"product,omitempty"`
@@ -116,6 +119,7 @@ func ToAssetResponseDTO(asset model.Asset) AssetResponse {
 		AssetAssessmentID:  asset.AssetAssessmentID,
 		Name:               asset.Name,
 		Type:               asset.Type,
+		Description:        asset.Description,
 		OperatingSystem:    asset.OperatingSystem,
 		Vendor:             asset.Vendor,
 		Product:            asset.Product,

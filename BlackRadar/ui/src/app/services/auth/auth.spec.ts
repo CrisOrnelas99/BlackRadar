@@ -62,6 +62,28 @@ describe('AuthService', () => {
 
     expect(service.isAuthenticated()).toBe(false);
   });
+
+  it('updates the in-memory user after a profile update succeeds', () => {
+    service.session.set(loginResponse());
+    service
+      .updateProfile({
+        fullName: 'Updated User',
+        username: 'updated',
+        email: 'updated@example.com',
+      })
+      .subscribe();
+
+    const request = httpTestingController.expectOne(`${environment.apiUrl}/profile`);
+    expect(request.request.method).toBe('PUT');
+    request.flush({
+      id: '00000000-0000-0000-0000-000000000001',
+      fullName: 'Updated User',
+      username: 'updated',
+      email: 'updated@example.com',
+    });
+
+    expect(service.getSession()?.user.username).toBe('updated');
+  });
 });
 
 // Builds a representative authenticated login response for service tests.

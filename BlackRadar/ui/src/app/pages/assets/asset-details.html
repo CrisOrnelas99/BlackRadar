@@ -8,7 +8,17 @@
 <section class="asset-details-page" aria-labelledby="asset-details-heading">
   <header class="asset-details-page-header">
     <div class="asset-details-page-title">
-      <h1 id="asset-details-heading">Asset Details</h1>
+      <div class="asset-details-page-title-row">
+        <svg class="page-heading-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
+          <path d="m4.5 7.5 7.5 4.25 7.5-4.25" />
+          <path d="M12 11.75V21" />
+        </svg>
+        <h1 id="asset-details-heading">Asset Details</h1>
+      </div>
+      <p class="asset-details-page-subtitle">
+        Review the configuration, ownership, risk, and vulnerabilities associated with this asset.
+      </p>
       <p class="asset-details-asset-id">Asset ID: {{ asset()?.id || 'Not available' }}</p>
     </div>
     <div class="asset-details-page-meta">
@@ -66,6 +76,10 @@
             <dt>Vulnerabilities</dt>
             <dd>{{ asset()?.vulnerabilityCount }}</dd>
           </div>
+          <div class="asset-details-wide">
+            <dt>Description</dt>
+            <dd>{{ asset()?.description || 'Not provided' }}</dd>
+          </div>
           <div>
             <dt>Created</dt>
             <dd>{{ asset()?.createdAt | date: 'medium' }}</dd>
@@ -109,6 +123,14 @@
             </div>
 
             <div class="asset-edit-fields">
+              <div class="asset-field asset-field-wide">
+                <label for="edit-asset-description">Description</label>
+                <textarea
+                  id="edit-asset-description"
+                  formControlName="description"
+                  rows="4"
+                ></textarea>
+              </div>
               <div class="asset-field asset-field-wide">
                 <label for="edit-asset-name">
                   Name <span class="asset-required">(required)</span>

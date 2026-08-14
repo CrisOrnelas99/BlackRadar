@@ -8,6 +8,7 @@ export interface Asset {
   id: string;
   name: string;
   type: string;
+  description?: string;
   operatingSystem: string | null;
   vendor?: string;
   product?: string;
@@ -23,6 +24,7 @@ export interface Asset {
 export interface ManualAssetRequest {
   name: string;
   type: string;
+  description?: string;
   operatingSystem?: string;
   vendor?: string;
   product?: string;

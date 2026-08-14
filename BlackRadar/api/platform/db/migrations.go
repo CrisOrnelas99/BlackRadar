@@ -160,6 +160,7 @@ func schemaStatements() []string {
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS vendor TEXT`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS product TEXT`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS version TEXT`,
+		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS description TEXT`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS device_model TEXT`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS asset_assessment_id UUID`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,

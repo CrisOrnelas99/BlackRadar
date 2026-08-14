@@ -286,7 +286,8 @@
 }
 
 .asset-field input,
-.asset-field select {
+.asset-field select,
+.asset-field textarea {
   width: 100%;
   min-height: 2.5rem;
   box-sizing: border-box;
@@ -352,6 +353,24 @@
   color: var(--BlackRadar-color-navy-black);
   font-size: clamp(2rem, 4vw, 2.75rem);
   font-weight: 400;
+}
+
+.assets-page-heading {
+  min-width: 0;
+}
+
+.assets-page-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.assets-page-subtitle {
+  max-width: 42rem;
+  margin: 0.3rem 0 0;
+  color: var(--BlackRadar-color-dark-blue);
+  font-size: 0.9rem;
+  line-height: 1.45;
 }
 
 .assets-status {

@@ -4,7 +4,19 @@
 
 <section class="assets-page-shell" aria-labelledby="assets-heading">
   <div class="assets-page-header">
-    <h1 id="assets-heading">Assets</h1>
+    <div class="assets-page-heading">
+      <div class="assets-page-title-row">
+        <svg class="page-heading-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
+          <path d="m4.5 7.5 7.5 4.25 7.5-4.25" />
+          <path d="M12 11.75V21" />
+        </svg>
+        <h1 id="assets-heading">Assets</h1>
+      </div>
+      <p class="assets-page-subtitle">
+        Catalog the systems, services, and technology you manage, along with their associated risk.
+      </p>
+    </div>
     <app-table-toolbar
       [searchLabel]="'Name'"
       [searchId]="'asset-search-query'"
@@ -292,6 +304,11 @@
           </div>
 
           <div class="asset-field">
+            <label for="asset-vendor">Vendor</label>
+            <input id="asset-vendor" type="text" formControlName="vendor" autocomplete="off" />
+          </div>
+
+          <div class="asset-field">
             <label for="asset-operating-system">Operating system</label>
             <input
               id="asset-operating-system"
@@ -302,13 +319,13 @@
           </div>
 
           <div class="asset-field">
-            <label for="asset-vendor">Vendor</label>
-            <input id="asset-vendor" type="text" formControlName="vendor" autocomplete="off" />
-          </div>
-
-          <div class="asset-field">
             <label for="asset-product">Product</label>
             <input id="asset-product" type="text" formControlName="product" autocomplete="off" />
+          </div>
+
+          <div class="asset-field asset-field-wide">
+            <label for="asset-description">Description</label>
+            <textarea id="asset-description" formControlName="description" rows="4"></textarea>
           </div>
 
           <div class="asset-field">

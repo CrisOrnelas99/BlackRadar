@@ -43,6 +43,25 @@ func (c *UserController) CreateUser(ec *appcontext.GinContext) {
 	ec.JSON(http.StatusCreated, ToUserResponse(user))
 }
 
+// UpdateProfile updates the authenticated user's profile fields.
+func (c *UserController) UpdateProfile(ec *appcontext.GinContext) {
+	var request UpdateProfileRequest
+	if shared.BindJSON(ec, &request) {
+		return
+	}
+
+	user, err := c.userService.UpdateProfile(ec, request.ToServiceInput())
+	if err != nil {
+		if handleUserServiceError(ec, err) {
+			return
+		}
+		shared.HandleError(ec, http.StatusInternalServerError, err, "Error updating profile")
+		return
+	}
+
+	ec.JSON(http.StatusOK, ToUserResponse(user))
+}
+
 // Login handles user authentication requests and returns credentials.
 func (c *UserController) Login(ec *appcontext.GinContext) {
 	var request LoginRequest

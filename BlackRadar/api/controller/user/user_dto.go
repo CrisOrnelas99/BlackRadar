@@ -22,12 +22,22 @@ type LoginRequest struct {
 	Password    string `json:"password"`
 }
 
-// UserResponse exposes the user fields safe for API responses.
-type UserResponse struct {
-	ID       string `json:"id"`
+// UpdateProfileRequest contains mutable profile fields for the authenticated user.
+type UpdateProfileRequest struct {
 	FullName string `json:"fullName"`
 	Username string `json:"username"`
 	Email    string `json:"email"`
+}
+
+// UserResponse exposes the user fields safe for API responses.
+type UserResponse struct {
+	ID        string    `json:"id"`
+	FullName  string    `json:"fullName"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	Role      string    `json:"role"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // LoginResponse returns the issued token and the authenticated user summary.
@@ -56,13 +66,25 @@ func (r LoginRequest) ToServiceInput() userservice.LoginInput {
 	}
 }
 
+// ToServiceInput converts a profile update request into service input.
+func (r UpdateProfileRequest) ToServiceInput() userservice.UpdateProfileInput {
+	return userservice.UpdateProfileInput{
+		FullName: r.FullName,
+		Username: r.Username,
+		Email:    r.Email,
+	}
+}
+
 // ToUserResponse converts the persistence user model into a response DTO.
 func ToUserResponse(user model.User) UserResponse {
 	return UserResponse{
-		ID:       user.ID,
-		FullName: user.FullName,
-		Username: user.Username,
-		Email:    user.Email,
+		ID:        user.ID,
+		FullName:  user.FullName,
+		Username:  user.Username,
+		Email:     user.Email,
+		Role:      user.Role,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
 	}
 }
 
