@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 
 export interface Vulnerability {
   id: string;
+  source: 'CVE' | 'Manual';
   cveId: string;
   title: string;
   severity: string;

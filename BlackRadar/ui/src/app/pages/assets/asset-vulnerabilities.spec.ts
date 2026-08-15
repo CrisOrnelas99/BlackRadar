@@ -29,6 +29,7 @@ describe('AssetVulnerabilitiesPage', () => {
   };
   const vulnerability: Vulnerability = {
     id: 'vulnerability-1',
+    source: 'CVE',
     cveId: 'CVE-2026-1234',
     title: 'Example vulnerability',
     severity: 'High',
