@@ -41,8 +41,33 @@
 
         <dl class="asset-details-grid">
           <div>
+            <dt>Criticality</dt>
+            <dd>{{ asset()?.criticality }}</dd>
+          </div>
+          <div>
+            <dt>Risk level</dt>
+            <dd [class]="semanticLevelClass(asset()?.riskLevel)">
+              {{ asset()?.riskLevel || 'Not assessed' }}
+            </dd>
+          </div>
+          <div>
             <dt>Type</dt>
             <dd>{{ asset()?.type }}</dd>
+          </div>
+          <div>
+            <dt>Vulnerabilities</dt>
+            <dd>
+              <a
+                class="relationship-count-link"
+                [routerLink]="['/assets', asset()?.id, 'vulnerabilities']"
+              >
+                {{ asset()?.vulnerabilityCount }}
+              </a>
+            </dd>
+          </div>
+          <div class="asset-details-wide">
+            <dt>Description</dt>
+            <dd>{{ asset()?.description || 'Not provided' }}</dd>
           </div>
           <div>
             <dt>Vendor</dt>
@@ -63,29 +88,6 @@
           <div>
             <dt>Owner</dt>
             <dd>{{ asset()?.owner }}</dd>
-          </div>
-          <div>
-            <dt>Criticality</dt>
-            <dd [class]="semanticLevelClass(asset()?.criticality)">{{ asset()?.criticality }}</dd>
-          </div>
-          <div>
-            <dt>Risk level</dt>
-            <dd>{{ asset()?.riskLevel || 'Not assessed' }}</dd>
-          </div>
-          <div>
-            <dt>Vulnerabilities</dt>
-            <dd>
-              <a
-                class="relationship-count-link"
-                [routerLink]="['/assets', asset()?.id, 'vulnerabilities']"
-              >
-                {{ asset()?.vulnerabilityCount }}
-              </a>
-            </dd>
-          </div>
-          <div class="asset-details-wide">
-            <dt>Description</dt>
-            <dd>{{ asset()?.description || 'Not provided' }}</dd>
           </div>
           <div>
             <dt>Created</dt>

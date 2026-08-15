@@ -209,15 +209,15 @@ export class AssetsPage {
       width: '55%',
     },
     {
-      key: 'criticality',
-      label: 'Criticality',
-      cellValue: (asset) => asset.criticality,
-      cellClass: (asset) => semanticLevelClass(asset.criticality),
-    },
-    {
       key: 'riskLevel',
       label: 'Risk level',
       cellValue: (asset) => asset.riskLevel || 'Not assessed',
+      cellClass: (asset) => semanticLevelClass(asset.riskLevel),
+    },
+    {
+      key: 'criticality',
+      label: 'Criticality',
+      cellValue: (asset) => asset.criticality,
     },
     {
       key: 'vulnerabilityCount',

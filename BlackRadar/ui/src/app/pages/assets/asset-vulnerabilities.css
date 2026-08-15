@@ -88,6 +88,15 @@
   line-height: 1.45;
 }
 
+.asset-vulnerabilities-page > app-data-table {
+  margin-top: 0.5rem;
+}
+
+.relationship-context-name {
+  color: var(--brandRadar-color-blue);
+  font-weight: 700;
+}
+
 .asset-vulnerabilities-page-header a,
 .asset-vulnerabilities-back-link {
   border: 0;

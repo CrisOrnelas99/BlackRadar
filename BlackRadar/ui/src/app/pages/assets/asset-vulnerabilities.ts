@@ -1,7 +1,7 @@
 // Authenticated page that lists vulnerabilities attached to one asset.
 import { CommonModule, Location } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { EMPTY, map, switchMap } from 'rxjs';
 
 import {
@@ -18,7 +18,7 @@ import { semanticLevelClass } from '../../utils/semantic-level';
 @Component({
   selector: 'app-asset-vulnerabilities-page',
   standalone: true,
-  imports: [CommonModule, DataTableComponent, TopMenuComponent],
+  imports: [CommonModule, DataTableComponent, RouterLink, TopMenuComponent],
   templateUrl: './asset-vulnerabilities.html',
   styleUrl: './asset-vulnerabilities.css',
 })
@@ -57,7 +57,7 @@ export class AssetVulnerabilitiesPage {
     {
       key: 'cveId',
       label: 'CVE ID',
-      cellValue: (vulnerability) => vulnerability.cveId || 'Custom finding',
+      cellValue: (vulnerability) => vulnerability.cveId || '—',
     },
     {
       key: 'affectedAssetCount',

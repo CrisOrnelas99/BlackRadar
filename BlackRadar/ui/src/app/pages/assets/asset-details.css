@@ -270,6 +270,22 @@
   color: var(--BlackRadar-color-light-gray);
 }
 
+.asset-details-grid dd.semantic-level-critical,
+.asset-details-grid dd.semantic-level-high {
+  color: var(--BlackRadar-color-error);
+  font-weight: 700;
+}
+
+.asset-details-grid dd.semantic-level-medium {
+  color: var(--BlackRadar-color-warning);
+  font-weight: 700;
+}
+
+.asset-details-grid dd.semantic-level-low {
+  color: var(--BlackRadar-color-success);
+  font-weight: 700;
+}
+
 .asset-edit-intro-actions,
 .asset-edit-actions {
   display: flex;

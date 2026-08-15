@@ -11,15 +11,15 @@
       <div class="asset-vulnerabilities-title-row">
         <span class="asset-vulnerabilities-direction-icons" aria-hidden="true">
           <svg class="context-direction-icon" viewBox="0 0 24 24" fill="none">
-            <path d="M12 3 20 7.5v9L12 21l-8-4.5v-9L12 3Z" />
-            <path d="M12 8v4.5M12 16h.01" />
+            <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
+            <path d="m4.5 7.5 7.5 4.25 7.5-4.25M12 11.75V21" />
           </svg>
           <svg class="context-direction-arrow" viewBox="0 0 24 24" fill="none">
             <path d="M4 12h15M13 6l6 6-6 6" />
           </svg>
           <svg class="context-direction-icon" viewBox="0 0 24 24" fill="none">
-            <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
-            <path d="m4.5 7.5 7.5 4.25 7.5-4.25M12 11.75V21" />
+            <path d="M12 3 20 7.5v9L12 21l-8-4.5v-9L12 3Z" />
+            <path d="M12 8v4.5M12 16h.01" />
           </svg>
         </span>
         <h1 id="asset-vulnerabilities-heading">Attached Vulnerabilities</h1>
@@ -30,7 +30,11 @@
       </div>
       <div class="asset-vulnerabilities-description-row">
         <p class="asset-vulnerabilities-page-subtitle">
-          Vulnerabilities attached to {{ asset()?.name || 'this asset' }}.
+          Vulnerabilities attached to
+          <a class="relationship-context-name" [routerLink]="['/assets', asset()?.id]">{{
+            asset()?.name || 'this asset'
+          }}</a
+          >.
         </p>
         <button class="asset-vulnerabilities-back-link" type="button" (click)="goBack()">
           Back

@@ -135,7 +135,7 @@ export class VulnerabilitiesPage {
     {
       key: 'cveId',
       label: 'CVE ID',
-      cellValue: (vulnerability) => vulnerability.cveId || 'Custom finding',
+      cellValue: (vulnerability) => vulnerability.cveId || '—',
     },
     {
       key: 'affectedAssetCount',
