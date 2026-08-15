@@ -45,6 +45,19 @@ func (s *assetServiceImpl) GetAsset(ec *appcontext.GinContext, id string) (model
 	return asset, translateAssetRepositoryError(err)
 }
 
+// GetAssetVulnerabilities returns active vulnerabilities attached to an owned asset.
+func (s *assetServiceImpl) GetAssetVulnerabilities(ec *appcontext.GinContext, id string) ([]model.Vulnerability, error) {
+	userID, err := authenticatedUserID(ec)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := s.assetRepository.FindByIDForUser(ec, id, userID); err != nil {
+		return nil, translateAssetRepositoryError(err)
+	}
+	vulnerabilities, err := s.assetRepository.FindVulnerabilitiesForAsset(ec, id, userID)
+	return vulnerabilities, translateAssetRepositoryError(err)
+}
+
 // CreateAsset validates and creates a new asset for the authenticated user.
 func (s *assetServiceImpl) CreateAsset(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
 	return s.createAsset(ec, asset, "asset.create")

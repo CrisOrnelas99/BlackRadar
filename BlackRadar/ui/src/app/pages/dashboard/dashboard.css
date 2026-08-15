@@ -2,7 +2,7 @@
   display: block;
   min-height: 100vh;
   font-family: var(--brand-font-body);
-  background: var(--BlackRadar-color-white);
+  background: var(--BlackRadar-color-pure-white);
 }
 
 .dashboard-shell {
@@ -10,7 +10,7 @@
   flex-direction: column;
   min-height: 100vh;
   padding: 2.5rem clamp(1rem, 4vw, 3rem);
-  background: var(--BlackRadar-color-white);
+  background: var(--BlackRadar-color-pure-white);
 }
 
 .dashboard-page-header {

@@ -1,0 +1,56 @@
+@if (session(); as currentSession) {
+  <app-top-menu
+    [session]="currentSession"
+    [currentUrl]="'/assets/' + (asset()?.id || '') + '/vulnerabilities'"
+  ></app-top-menu>
+}
+
+<section class="asset-vulnerabilities-page" aria-labelledby="asset-vulnerabilities-heading">
+  <header class="asset-vulnerabilities-page-header">
+    <div>
+      <div class="asset-vulnerabilities-title-row">
+        <span class="asset-vulnerabilities-direction-icons" aria-hidden="true">
+          <svg class="context-direction-icon" viewBox="0 0 24 24" fill="none">
+            <path d="M12 3 20 7.5v9L12 21l-8-4.5v-9L12 3Z" />
+            <path d="M12 8v4.5M12 16h.01" />
+          </svg>
+          <svg class="context-direction-arrow" viewBox="0 0 24 24" fill="none">
+            <path d="M4 12h15M13 6l6 6-6 6" />
+          </svg>
+          <svg class="context-direction-icon" viewBox="0 0 24 24" fill="none">
+            <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
+            <path d="m4.5 7.5 7.5 4.25 7.5-4.25M12 11.75V21" />
+          </svg>
+        </span>
+        <h1 id="asset-vulnerabilities-heading">Attached Vulnerabilities</h1>
+        <span class="asset-vulnerabilities-count">
+          {{ vulnerabilities().length }}
+          {{ vulnerabilities().length === 1 ? 'vulnerability' : 'vulnerabilities' }} shown
+        </span>
+      </div>
+      <div class="asset-vulnerabilities-description-row">
+        <p class="asset-vulnerabilities-page-subtitle">
+          Vulnerabilities attached to {{ asset()?.name || 'this asset' }}.
+        </p>
+        <button class="asset-vulnerabilities-back-link" type="button" (click)="goBack()">
+          Back
+        </button>
+      </div>
+    </div>
+  </header>
+
+  @if (isLoading()) {
+    <p class="asset-vulnerabilities-status" role="status" aria-atomic="true">
+      Loading vulnerabilities...
+    </p>
+  } @else if (hasLoadError()) {
+    <p class="asset-vulnerabilities-status" role="alert">Unable to load asset vulnerabilities.</p>
+  } @else if (vulnerabilities().length > 0) {
+    <app-data-table
+      [columns]="vulnerabilityColumns"
+      [rows]="vulnerabilities()"
+      [rowKey]="vulnerabilityRowKey"
+      (cellAction)="handleTableAction($event)"
+    ></app-data-table>
+  }
+</section>

@@ -2,6 +2,33 @@
 @import './theme.css';
 @source "./app/**/*.{html,ts}";
 
+.relationship-count-link {
+  color: var(--brandRadar-color-blue);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.relationship-count-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2rem;
+}
+
+.semantic-level-critical,
+.semantic-level-high {
+  color: var(--BlackRadar-color-error);
+  font-weight: 700;
+}
+
+.semantic-level-medium {
+  color: var(--BlackRadar-color-warning);
+  font-weight: 700;
+}
+
+.semantic-level-low {
+  color: var(--BlackRadar-color-success);
+  font-weight: 700;
+}
+
 app-login-page {
   display: block;
   min-height: 100vh;
@@ -11,7 +38,7 @@ app-root {
   display: block;
   min-height: 100vh;
   font-family: var(--brand-font-body);
-  background: var(--BlackRadar-color-white);
+  background: var(--BlackRadar-color-pure-white);
 }
 app-root {
   --brand-popup-right: 0;
@@ -35,13 +62,7 @@ app-top-menu {
   --menu-soft: color-mix(in srgb, var(--BlackRadar-color-light-blue) 8%, transparent);
   --menu-soft-hover: color-mix(in srgb, var(--BlackRadar-color-light-blue) 14%, transparent);
   --menu-outline: color-mix(in srgb, var(--brandRadar-color-blue) 32%, transparent);
-  --menu-panel-line: color-mix(in srgb, var(--BlackRadar-color-light-blue) 10%, transparent);
-  --menu-panel-bg: linear-gradient(
-    180deg,
-    var(--BlackRadar-color-white) 0%,
-    color-mix(in srgb, var(--BlackRadar-color-white) 88%, var(--BlackRadar-color-light-blue) 12%)
-      100%
-  );
+  --menu-panel-bg: var(--BlackRadar-color-white);
   --menu-panel-shadow: 0 22px 42px
     color-mix(in srgb, var(--BlackRadar-color-navy-black) 16%, transparent);
   --menu-link-hover: color-mix(in srgb, var(--brandRadar-color-blue) 12%, transparent);
@@ -50,18 +71,31 @@ app-top-menu .top-menu-shell {
   position: sticky;
   top: 0;
   z-index: 900;
+  background: var(--BlackRadar-color-white);
+  box-shadow: none;
+}
+app-top-menu .top-menu-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
-  padding: 0.72rem 1.15rem;
+  padding: 0.55rem 1.15rem;
   background-color: var(--BlackRadar-color-navy-black);
-  background-image: none;
-  border-bottom: 1px solid var(--menu-line);
-  box-shadow: 0 12px 28px color-mix(in srgb, var(--BlackRadar-color-navy-black) 18%, transparent);
   color: var(--BlackRadar-color-white);
 }
+app-top-menu .top-menu-primary {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0.35rem 1.15rem;
+  overflow-x: auto;
+  background: var(--BlackRadar-color-pure-white);
+  border-bottom: 1px solid color-mix(in srgb, var(--BlackRadar-color-dark-blue) 16%, transparent);
+  scrollbar-width: thin;
+}
 app-top-menu .top-menu-brand {
+  padding-left: 0.75rem;
   font-family: var(--brand-font-title);
   font-size: 1.25rem;
   font-weight: 700;
@@ -133,7 +167,7 @@ app-top-menu .top-menu-logout:focus-visible {
 app-top-menu .top-menu-dropdown {
   position: absolute;
   top: calc(100% + 1.35rem);
-  border: 1px solid var(--menu-panel-line);
+  border: 1px solid color-mix(in srgb, var(--brandRadar-color-blue) 35%, transparent);
   border-radius: 1.15rem;
   background: var(--menu-panel-bg);
   box-shadow: var(--menu-panel-shadow);
@@ -172,9 +206,19 @@ app-top-menu .top-menu-link {
     background 160ms ease,
     transform 160ms ease;
 }
+app-top-menu .top-menu-primary .top-menu-link {
+  flex: 0 0 auto;
+  padding: 0.5rem 0.75rem;
+  color: var(--BlackRadar-color-dark-blue);
+  white-space: nowrap;
+}
 app-top-menu .top-menu-link:hover {
   background: var(--menu-link-hover);
   transform: translateX(-1px);
+}
+app-top-menu .top-menu-primary .top-menu-link-active {
+  color: var(--brandRadar-color-blue);
+  box-shadow: inset 0 -2px 0 var(--brandRadar-color-blue);
 }
 app-top-menu .top-menu-link-icon {
   display: grid;
@@ -205,7 +249,10 @@ app-top-menu .top-menu-link-icon svg {
 }
 @media (max-width: 640px) {
   app-top-menu .top-menu-shell {
-    padding: 0.68rem 0.85rem;
+    padding: 0;
+  }
+  app-top-menu .top-menu-bar {
+    padding: 0.5rem 0.85rem;
   }
   app-top-menu .top-menu-brand {
     font-size: 1.1rem;
@@ -224,6 +271,10 @@ app-top-menu .top-menu-link-icon svg {
   }
   app-top-menu .top-menu-dropdown {
     top: calc(100% + 1.35rem);
+  }
+  app-top-menu .top-menu-primary {
+    padding-right: 0.85rem;
+    padding-left: 0.85rem;
   }
 }
 app-login-page .login-shell {

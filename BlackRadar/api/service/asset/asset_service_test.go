@@ -27,6 +27,9 @@ func TestAssetService(t *testing.T) {
 	if _, err := svc.GetAllAssets(ctx); err != nil {
 		t.Fatalf("expected GetAllAssets to succeed, got %v", err)
 	}
+	if _, err := svc.GetAssetVulnerabilities(ctx, "00000000-0000-4000-8000-000000000001"); err != nil {
+		t.Fatalf("expected GetAssetVulnerabilities to succeed, got %v", err)
+	}
 	if _, err := svc.CreateAsset(ctx, sampleAsset()); err != nil {
 		t.Fatalf("expected CreateAsset to succeed, got %v", err)
 	}
@@ -188,6 +191,9 @@ func TestAssetServiceRejectsWrongUser(t *testing.T) {
 	if _, err := svc.GetAsset(ctx, "00000000-0000-4000-8000-000000000001"); !errors.Is(err, ErrAssetNotFound) {
 		t.Fatalf("expected wrong user access to be hidden as not found, got %v", err)
 	}
+	if _, err := svc.GetAssetVulnerabilities(ctx, "00000000-0000-4000-8000-000000000001"); !errors.Is(err, ErrAssetNotFound) {
+		t.Fatalf("expected attached vulnerability access for wrong user to be hidden as not found, got %v", err)
+	}
 }
 
 type fakeAssetRepository struct {
@@ -218,6 +224,13 @@ func (f *fakeAssetRepository) FindByIDForUser(ec *appcontext.GinContext, id stri
 		return model.Asset{}, f.findErr
 	}
 	return f.asset, nil
+}
+
+func (f *fakeAssetRepository) FindVulnerabilitiesForAsset(ec *appcontext.GinContext, assetID string, userID string) ([]model.Vulnerability, error) {
+	if f.expectedUserID != "" && userID != f.expectedUserID {
+		return nil, assetrepo.ErrRecordNotFound
+	}
+	return f.asset.Vulnerabilities, f.findErr
 }
 
 // ExistsBySignatureForUser reports whether the fake duplicate exists.
@@ -260,6 +273,10 @@ func (f *fakeVulnerabilityRepository) FindAllByUser(ec *appcontext.GinContext, u
 
 func (f *fakeVulnerabilityRepository) FindByIDForUser(ec *appcontext.GinContext, id string, userID string) (model.Vulnerability, error) {
 	return model.Vulnerability{}, nil
+}
+
+func (f *fakeVulnerabilityRepository) FindAffectedAssetsForUser(ec *appcontext.GinContext, vulnerabilityID string, userID string) ([]model.Asset, error) {
+	return nil, nil
 }
 
 func (f *fakeVulnerabilityRepository) ExistsByCVEIDForUser(ec *appcontext.GinContext, cveID string, userID string) (bool, error) {

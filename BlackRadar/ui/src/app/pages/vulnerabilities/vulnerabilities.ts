@@ -1,5 +1,6 @@
 // Authenticated page that lists the vulnerabilities visible to the current user.
 import { Component, computed, ElementRef, inject, signal, ViewChild } from '@angular/core';
+import { Router } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { startWith } from 'rxjs';
@@ -19,6 +20,7 @@ import {
   VulnerabilitiesService,
 } from '../../services/vulnerabilities/vulnerabilities';
 import { BannerService } from '../../services/banner/banner';
+import { semanticLevelClass } from '../../utils/semantic-level';
 
 type VulnerabilitySortField = 'cveId' | 'title' | 'severity' | 'status' | 'affectedAssetCount';
 type SortDirection = 'asc' | 'desc';
@@ -40,6 +42,7 @@ export class VulnerabilitiesPage {
   private readonly authService = inject(AuthService);
   private readonly bannerService = inject(BannerService);
   private readonly formBuilder = inject(FormBuilder);
+  private readonly router = inject(Router);
   private readonly vulnerabilitiesService = inject(VulnerabilitiesService);
 
   readonly session = this.authService.session;
@@ -127,6 +130,7 @@ export class VulnerabilitiesPage {
       key: 'severity',
       label: 'Severity',
       cellValue: (vulnerability) => vulnerability.severity,
+      cellClass: (vulnerability) => semanticLevelClass(vulnerability.severity),
     },
     {
       key: 'cveId',
@@ -140,6 +144,7 @@ export class VulnerabilitiesPage {
         vulnerability.affectedAssetCount === undefined
           ? '—'
           : String(vulnerability.affectedAssetCount),
+      cellType: 'action',
     },
     {
       key: 'delete',
@@ -235,7 +240,12 @@ export class VulnerabilitiesPage {
     });
   }
 
-  handleTableAction(action: DataTableCellAction<Vulnerability>): void {
+  async handleTableAction(action: DataTableCellAction<Vulnerability>): Promise<void> {
+    if (action.column.key === 'affectedAssetCount') {
+      await this.router.navigate(['/vulnerabilities', action.row.id, 'assets']);
+      return;
+    }
+
     if (action.column.key === 'delete') {
       this.vulnerabilityPendingDeletion.set(action.row);
     }

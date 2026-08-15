@@ -35,6 +35,31 @@ func TestAssetControllerHandlers(t *testing.T) {
 		}
 	})
 
+	t.Run("get asset vulnerabilities", func(t *testing.T) {
+		attachedAsset := sampleAsset()
+		attachedAsset.Vulnerabilities = []model.Vulnerability{{Model: model.Model{ID: "vulnerability-1"}, Title: "Example vulnerability", Severity: "High", Status: "Open"}}
+		controller := NewAssetController(
+			&fakeAssetService{asset: attachedAsset},
+			assetVulnerabilitySvc,
+			&fakeAssetMatchService{asset: attachedAsset},
+		)
+		ec, recorder := newAssetContext(t, http.MethodGet, "/assets/00000000-0000-4000-8000-000000000001/vulnerabilities", "")
+		ec.AddParam("id", "00000000-0000-4000-8000-000000000001")
+
+		controller.GetAssetVulnerabilities(ec)
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+		}
+		var response AssetWithVulnerabilitiesResponse
+		if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+			t.Fatalf("failed to decode response: %v", err)
+		}
+		if len(response.Vulnerabilities) != 1 || response.Vulnerabilities[0].ID != "vulnerability-1" {
+			t.Fatalf("expected attached vulnerability in response, got %+v", response.Vulnerabilities)
+		}
+	})
+
 	t.Run("create asset", func(t *testing.T) {
 		ec, recorder := newAssetContext(t, http.MethodPost, "/assets", `{"name":"Asset 1","type":"Server","owner":"IT","criticality":"High"}`)
 		ec.Request.Header.Set("Content-Type", "application/json")
@@ -298,6 +323,9 @@ func (f *fakeAssetService) GetAllAssets(ec *appcontext.GinContext) ([]model.Asse
 }
 func (f *fakeAssetService) GetAsset(ec *appcontext.GinContext, id string) (model.Asset, error) {
 	return f.asset, f.err
+}
+func (f *fakeAssetService) GetAssetVulnerabilities(ec *appcontext.GinContext, id string) ([]model.Vulnerability, error) {
+	return f.asset.Vulnerabilities, f.err
 }
 func (f *fakeAssetService) CreateAsset(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
 	f.createCalls++

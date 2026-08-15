@@ -15,11 +15,11 @@
           <path d="M12 11.75V21" />
         </svg>
         <h1 id="asset-details-heading">Asset Details</h1>
+        <span class="asset-details-asset-id">Asset ID: {{ asset()?.id || 'Not available' }}</span>
       </div>
       <p class="asset-details-page-subtitle">
         Review the configuration, ownership, risk, and vulnerabilities associated with this asset.
       </p>
-      <p class="asset-details-asset-id">Asset ID: {{ asset()?.id || 'Not available' }}</p>
     </div>
     <div class="asset-details-page-meta">
       <div class="asset-details-assets-link">
@@ -66,7 +66,7 @@
           </div>
           <div>
             <dt>Criticality</dt>
-            <dd>{{ asset()?.criticality }}</dd>
+            <dd [class]="semanticLevelClass(asset()?.criticality)">{{ asset()?.criticality }}</dd>
           </div>
           <div>
             <dt>Risk level</dt>
@@ -74,7 +74,14 @@
           </div>
           <div>
             <dt>Vulnerabilities</dt>
-            <dd>{{ asset()?.vulnerabilityCount }}</dd>
+            <dd>
+              <a
+                class="relationship-count-link"
+                [routerLink]="['/assets', asset()?.id, 'vulnerabilities']"
+              >
+                {{ asset()?.vulnerabilityCount }}
+              </a>
+            </dd>
           </div>
           <div class="asset-details-wide">
             <dt>Description</dt>

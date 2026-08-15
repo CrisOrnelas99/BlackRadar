@@ -17,6 +17,7 @@ import { TopMenuComponent } from '../../components/top-menu/top-menu';
 import { AuthService } from '../../services/auth/auth';
 import { Asset, AssetsService, CreateAssetRequest } from '../../services/assets/assets';
 import { BannerService } from '../../services/banner/banner';
+import { semanticLevelClass } from '../../utils/semantic-level';
 
 type VulnerabilityFilterMode = 'any' | 'atLeast' | 'atMost' | 'exactly';
 type AssetSortField =
@@ -211,6 +212,7 @@ export class AssetsPage {
       key: 'criticality',
       label: 'Criticality',
       cellValue: (asset) => asset.criticality,
+      cellClass: (asset) => semanticLevelClass(asset.criticality),
     },
     {
       key: 'riskLevel',
@@ -221,6 +223,7 @@ export class AssetsPage {
       key: 'vulnerabilityCount',
       label: 'Vulnerabilities',
       cellValue: (asset) => String(asset.vulnerabilityCount),
+      cellType: 'action',
     },
     {
       key: 'delete',
@@ -240,9 +243,18 @@ export class AssetsPage {
     await this.router.navigate(['/assets', assetID]);
   }
 
+  async openAssetVulnerabilities(assetID: string): Promise<void> {
+    await this.router.navigate(['/assets', assetID, 'vulnerabilities']);
+  }
+
   async handleTableAction(action: DataTableCellAction<Asset>): Promise<void> {
     if (action.column.key === 'name') {
       await this.openAsset(action.row.id);
+      return;
+    }
+
+    if (action.column.key === 'vulnerabilityCount') {
+      await this.openAssetVulnerabilities(action.row.id);
       return;
     }
 

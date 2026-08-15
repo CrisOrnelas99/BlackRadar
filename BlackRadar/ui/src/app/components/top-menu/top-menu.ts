@@ -34,7 +34,7 @@ export class TopMenuComponent {
 
   readonly session = input.required<LoginResponse>();
   readonly currentUrl = input<string>('');
-  readonly navigationItems: ReadonlyArray<NavigationItem> = [
+  readonly primaryNavigationItems: ReadonlyArray<NavigationItem> = [
     {
       key: 'dashboard',
       label: 'Dashboard',
@@ -53,6 +53,8 @@ export class TopMenuComponent {
       path: '/vulnerabilities',
       isActive: (currentUrl) => currentUrl.startsWith('/vulnerabilities'),
     },
+  ];
+  readonly accountNavigationItems: ReadonlyArray<NavigationItem> = [
     {
       key: 'profile',
       label: 'Profile',
@@ -76,9 +78,9 @@ export class TopMenuComponent {
   }
 
   // Routes the user to the requested page and collapses any open menu state.
-  async navigateTo(path: string, isActive: (currentUrl: string) => boolean): Promise<void> {
+  async navigateTo(path: string): Promise<void> {
     this.closeMenus();
-    if (isActive(this.currentUrl())) {
+    if (this.currentUrl() === path) {
       return;
     }
 

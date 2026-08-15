@@ -16,6 +16,19 @@ export interface Vulnerability {
   updatedAt: string;
 }
 
+export interface AffectedAsset {
+  id: string;
+  name: string;
+  type: string;
+  criticality: string;
+  riskLevel: string | null;
+  vulnerabilityCount: number;
+}
+
+export interface VulnerabilityAssetsResponse extends Vulnerability {
+  assets: AffectedAsset[];
+}
+
 export interface CreateVulnerabilityRequest {
   cveId: string;
   title: string;
@@ -43,6 +56,12 @@ export class VulnerabilitiesService {
   getVulnerability(vulnerabilityID: string) {
     return this.httpClient.get<Vulnerability>(
       `${environment.apiUrl}/vulnerabilities/${vulnerabilityID}`,
+    );
+  }
+
+  getVulnerabilityAssets(vulnerabilityID: string) {
+    return this.httpClient.get<VulnerabilityAssetsResponse>(
+      `${environment.apiUrl}/vulnerabilities/${vulnerabilityID}/assets`,
     );
   }
 

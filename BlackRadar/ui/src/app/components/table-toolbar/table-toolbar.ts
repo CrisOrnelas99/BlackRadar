@@ -11,7 +11,6 @@ export class TableToolbarComponent {
   readonly searchId = input.required<string>();
   readonly searchPlaceholder = input.required<string>();
   readonly searchValue = input.required<string>();
-  readonly resultSummary = input.required<string>();
 
   readonly searchChange = output<string>();
 }

@@ -8,6 +8,7 @@ export interface DataTableColumn<TRow> {
   cellValue: (row: TRow) => string;
   cellType?: 'text' | 'action' | 'link' | 'delete';
   cellLink?: (row: TRow) => readonly (string | number)[];
+  cellClass?: (row: TRow) => string;
   deleteLabel?: string;
   width?: string;
 }

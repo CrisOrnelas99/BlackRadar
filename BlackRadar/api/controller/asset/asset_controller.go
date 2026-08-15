@@ -60,6 +60,34 @@ func (c *AssetController) GetAsset(ec *appcontext.GinContext) {
 	ec.JSON(http.StatusOK, ToAssetResponseDTO(asset))
 }
 
+// GetAssetVulnerabilities returns the vulnerabilities attached to one owned asset.
+func (c *AssetController) GetAssetVulnerabilities(ec *appcontext.GinContext) {
+	id, err := shared.ParseID(ec.Param("id"))
+	if shared.HandleError(ec, http.StatusBadRequest, err, "Asset ID must be a valid UUID") {
+		return
+	}
+
+	asset, err := c.assetService.GetAsset(ec, id)
+	if err != nil {
+		if handleAssetServiceError(ec, err) {
+			return
+		}
+		shared.HandleError(ec, http.StatusInternalServerError, err, "Error retrieving asset vulnerabilities")
+		return
+	}
+	vulnerabilities, err := c.assetService.GetAssetVulnerabilities(ec, id)
+	if err != nil {
+		if handleAssetServiceError(ec, err) {
+			return
+		}
+		shared.HandleError(ec, http.StatusInternalServerError, err, "Error retrieving asset vulnerabilities")
+		return
+	}
+	asset.Vulnerabilities = vulnerabilities
+
+	ec.JSON(http.StatusOK, ToAssetWithVulnerabilitiesResponseDTO(asset))
+}
+
 // CreateAsset creates a new asset for the authenticated user.
 func (c *AssetController) CreateAsset(ec *appcontext.GinContext) {
 	var request AssetRequest

@@ -49,6 +49,8 @@ Use the skills as the source of truth for:
 ## Verification scope
 
 - Run focused tests for the changed package, feature, or component rather than the entire test suite.
+- Codex runs only focused local unit tests for changed code; the user runs Docker-based integration and environment tests.
+- Do not create or manage custom local Go cache directories for verification; use the repository's normal test command or the user's Docker workflow.
 - Run the full backend or frontend suite only when the change crosses package boundaries, affects shared infrastructure, authentication, authorization, migrations, or security, or the user explicitly requests it.
 - For minor frontend layout, styling, or copy changes, do not run a production build unless the change affects template compilation, shared configuration, or the user explicitly requests it.
 - Use the smallest relevant formatter, static check, and test command from the active application root: `BlackRadar/` for Go and `BlackRadar/ui/` for Angular.

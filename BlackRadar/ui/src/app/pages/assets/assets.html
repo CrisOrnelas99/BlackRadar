@@ -12,6 +12,10 @@
           <path d="M12 11.75V21" />
         </svg>
         <h1 id="assets-heading">Assets</h1>
+        <span class="assets-page-count">
+          {{ filteredAssets().length }}
+          {{ filteredAssets().length === 1 ? 'asset' : 'assets' }} shown
+        </span>
       </div>
       <p class="assets-page-subtitle">
         Catalog the systems, services, and technology you manage, along with their associated risk.
@@ -22,12 +26,6 @@
       [searchId]="'asset-search-query'"
       [searchPlaceholder]="'Search asset names'"
       [searchValue]="searchQuery()"
-      [resultSummary]="
-        filteredAssets().length +
-        ' ' +
-        (filteredAssets().length === 1 ? 'asset' : 'assets') +
-        ' shown'
-      "
       (searchChange)="updateSearchQuery($event)"
     >
       <div class="table-toolbar-actions asset-filters-secondary-actions">

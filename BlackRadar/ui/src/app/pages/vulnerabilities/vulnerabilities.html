@@ -11,6 +11,10 @@
           <path d="M12 8v4.5M12 16h.01" />
         </svg>
         <h1 id="vulnerabilities-heading">Vulnerabilities</h1>
+        <span class="vulnerabilities-page-count">
+          {{ filteredVulnerabilities().length }}
+          {{ filteredVulnerabilities().length === 1 ? 'vulnerability' : 'vulnerabilities' }} shown
+        </span>
       </div>
       <p class="vulnerabilities-page-subtitle">
         Track security weaknesses, review their severity and status, and see which assets they
@@ -22,12 +26,6 @@
       [searchId]="'vulnerability-search-query'"
       [searchPlaceholder]="'Search vulnerabilities'"
       [searchValue]="searchQuery()"
-      [resultSummary]="
-        filteredVulnerabilities().length +
-        ' ' +
-        (filteredVulnerabilities().length === 1 ? 'vulnerability' : 'vulnerabilities') +
-        ' shown'
-      "
       (searchChange)="updateSearchQuery($event)"
     >
       <div class="table-toolbar-actions vulnerability-filters-secondary-actions">

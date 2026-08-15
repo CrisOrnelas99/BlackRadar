@@ -1,69 +1,86 @@
 <header class="top-menu-shell">
-  <div class="top-menu-brand">
-    <span>BlackRadar</span>
-  </div>
-
-  <div class="top-menu-actions">
-    <div class="top-menu-profile">
-      <span class="top-menu-name">{{ displayName }}</span>
+  <div class="top-menu-bar">
+    <div class="top-menu-brand">
+      <span>BlackRadar</span>
     </div>
 
-    <div class="top-menu-nav">
+    <div class="top-menu-actions">
+      <div class="top-menu-profile">
+        <span class="top-menu-name">{{ displayName }}</span>
+      </div>
+
+      <div class="top-menu-nav">
+        <button
+          type="button"
+          class="top-menu-hamburger"
+          (click)="toggleNavigationMenu()"
+          aria-label="Open account menu"
+          [attr.aria-expanded]="isNavigationMenuOpen"
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+
+        @if (isNavigationMenuOpen) {
+          <nav class="top-menu-dropdown" aria-label="Account navigation">
+            @for (item of accountNavigationItems; track item.key) {
+              <button
+                type="button"
+                class="top-menu-link"
+                (click)="navigateTo(item.path)"
+                [attr.aria-current]="item.isActive(currentUrl()) ? 'page' : null"
+              >
+                <span class="top-menu-link-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                    <circle cx="12" cy="8" r="3.25" />
+                    <path d="M5 21c.7-3.5 3.1-5.5 7-5.5s6.3 2 7 5.5" />
+                  </svg>
+                </span>
+                <span>{{ item.label }}</span>
+              </button>
+            }
+            <button type="button" class="top-menu-logout" (click)="signOut()">Log out</button>
+          </nav>
+        }
+      </div>
+    </div>
+  </div>
+
+  <nav class="top-menu-primary" aria-label="Primary navigation">
+    @for (item of primaryNavigationItems; track item.key) {
       <button
         type="button"
-        class="top-menu-hamburger"
-        (click)="toggleNavigationMenu()"
-        aria-label="Open navigation menu"
-        [attr.aria-expanded]="isNavigationMenuOpen"
+        class="top-menu-link"
+        (click)="navigateTo(item.path)"
+        [class.top-menu-link-active]="item.isActive(currentUrl())"
+        [attr.aria-current]="item.isActive(currentUrl()) ? 'page' : null"
       >
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
-
-      @if (isNavigationMenuOpen) {
-        <nav class="top-menu-dropdown" aria-label="Primary navigation">
-          @for (item of navigationItems; track item.key) {
-            <button
-              type="button"
-              class="top-menu-link"
-              (click)="navigateTo(item.path, item.isActive)"
-            >
-              <span class="top-menu-link-icon" aria-hidden="true">
-                @switch (item.key) {
-                  @case ('dashboard') {
-                    <svg viewBox="0 0 24 24" fill="none" role="presentation">
-                      <path d="M3 10.5 12 3l9 7.5" />
-                      <path d="M5.5 9.5V21h13V9.5" />
-                    </svg>
-                  }
-                  @case ('assets') {
-                    <svg viewBox="0 0 24 24" fill="none" role="presentation">
-                      <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
-                      <path d="m4.5 7.5 7.5 4.25 7.5-4.25" />
-                      <path d="M12 11.75V21" />
-                    </svg>
-                  }
-                  @case ('vulnerabilities') {
-                    <svg viewBox="0 0 24 24" fill="none" role="presentation">
-                      <path d="M12 3 20 7.5v9L12 21l-8-4.5v-9L12 3Z" />
-                      <path d="M12 8v4.5M12 16h.01" />
-                    </svg>
-                  }
-                  @case ('profile') {
-                    <svg viewBox="0 0 24 24" fill="none" role="presentation">
-                      <circle cx="12" cy="8" r="3.25" />
-                      <path d="M5 21c.7-3.5 3.1-5.5 7-5.5s6.3 2 7 5.5" />
-                    </svg>
-                  }
-                }
-              </span>
-              <span>{{ item.label }}</span>
-            </button>
+        <span class="top-menu-link-icon" aria-hidden="true">
+          @switch (item.key) {
+            @case ('dashboard') {
+              <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                <path d="M3 10.5 12 3l9 7.5" />
+                <path d="M5.5 9.5V21h13V9.5" />
+              </svg>
+            }
+            @case ('assets') {
+              <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
+                <path d="m4.5 7.5 7.5 4.25 7.5-4.25" />
+                <path d="M12 11.75V21" />
+              </svg>
+            }
+            @case ('vulnerabilities') {
+              <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                <path d="M12 3 20 7.5v9L12 21l-8-4.5v-9L12 3Z" />
+                <path d="M12 8v4.5M12 16h.01" />
+              </svg>
+            }
           }
-          <button type="button" class="top-menu-logout" (click)="signOut()">Log out</button>
-        </nav>
-      }
-    </div>
-  </div>
+        </span>
+        <span>{{ item.label }}</span>
+      </button>
+    }
+  </nav>
 </header>

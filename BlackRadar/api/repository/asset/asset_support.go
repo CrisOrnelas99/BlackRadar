@@ -23,17 +23,68 @@ func (r *AssetRepository) dbForContext(ec *appcontext.GinContext) *gorm.DB {
 
 // loadActiveVulnerabilitiesForAsset loads active vulnerability assignments for an asset.
 func (r *AssetRepository) loadActiveVulnerabilitiesForAsset(ec *appcontext.GinContext, asset *model.Asset, userID string) error {
+	vulnerabilities, err := r.FindVulnerabilitiesForAsset(ec, asset.ID, userID)
+	if err != nil {
+		return err
+	}
+	asset.Vulnerabilities = vulnerabilities
+	return nil
+}
+
+// FindVulnerabilitiesForAsset returns active vulnerabilities attached to an owned asset.
+func (r *AssetRepository) FindVulnerabilitiesForAsset(ec *appcontext.GinContext, assetID string, userID string) ([]model.Vulnerability, error) {
 	var vulnerabilities []model.Vulnerability
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Model(&model.Vulnerability{}).
 		Joins("JOIN asset_vulnerabilities av ON av.vulnerability_id = vulnerabilities.id AND av.deleted_at IS NULL").
-		Where("av.asset_id = ? AND vulnerabilities.user_id = ?", asset.ID, userID).
+		Where("av.asset_id = ? AND vulnerabilities.user_id = ? AND vulnerabilities.deleted_at IS NULL", assetID, userID).
 		Order("vulnerabilities.id").
 		Find(&vulnerabilities).Error
 	if err != nil {
-		return fmt.Errorf("%w: load asset vulnerabilities: %w", ErrPersistenceFailure, err)
+		return nil, fmt.Errorf("%w: load asset vulnerabilities: %w", ErrPersistenceFailure, err)
 	}
-	asset.Vulnerabilities = vulnerabilities
+	if err := r.loadAffectedAssetCounts(ec, vulnerabilities, userID); err != nil {
+		return nil, err
+	}
+	return vulnerabilities, nil
+}
+
+// loadAffectedAssetCounts adds active owned-asset counts to vulnerabilities.
+func (r *AssetRepository) loadAffectedAssetCounts(ec *appcontext.GinContext, vulnerabilities []model.Vulnerability, userID string) error {
+	if len(vulnerabilities) == 0 {
+		return nil
+	}
+
+	type affectedAssetCount struct {
+		VulnerabilityID string
+		Count           int64
+	}
+
+	vulnerabilityIDs := make([]string, 0, len(vulnerabilities))
+	for _, vulnerability := range vulnerabilities {
+		vulnerabilityIDs = append(vulnerabilityIDs, vulnerability.ID)
+	}
+
+	var counts []affectedAssetCount
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
+		Table("asset_vulnerabilities av").
+		Select("av.vulnerability_id, COUNT(*) AS count").
+		Joins("JOIN assets a ON a.id = av.asset_id AND a.user_id = ? AND a.deleted_at IS NULL", userID).
+		Where("av.vulnerability_id IN ? AND av.deleted_at IS NULL", vulnerabilityIDs).
+		Group("av.vulnerability_id").
+		Scan(&counts).Error
+	if err != nil {
+		return fmt.Errorf("%w: count vulnerability assets: %w", ErrPersistenceFailure, err)
+	}
+
+	countByVulnerabilityID := make(map[string]int, len(counts))
+	for _, count := range counts {
+		countByVulnerabilityID[count.VulnerabilityID] = int(count.Count)
+	}
+	for index := range vulnerabilities {
+		vulnerabilities[index].AffectedAssetCount = countByVulnerabilityID[vulnerabilities[index].ID]
+	}
+
 	return nil
 }
 

@@ -28,6 +28,15 @@ type AssetRepositoryInterface interface {
 	FindByIDForUser(ec *appcontext.GinContext, id string, userID string) (model.Asset, error)
 
 	/*
+		FindVulnerabilitiesForAsset returns active vulnerabilities attached to
+		an asset owned by userID.
+
+		Implementations must scope both the asset and vulnerability records to
+		userID and exclude soft-deleted assignments.
+	*/
+	FindVulnerabilitiesForAsset(ec *appcontext.GinContext, assetID string, userID string) ([]model.Vulnerability, error)
+
+	/*
 		ExistsBySignatureForUser reports whether userID already owns an asset with
 		the same normalized identifying fields.
 

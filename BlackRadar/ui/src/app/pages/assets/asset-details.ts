@@ -10,6 +10,7 @@ import { TopMenuComponent } from '../../components/top-menu/top-menu';
 import { AuthService } from '../../services/auth/auth';
 import { Asset, AssetsService, ManualAssetRequest } from '../../services/assets/assets';
 import { BannerService } from '../../services/banner/banner';
+import { semanticLevelClass } from '../../utils/semantic-level';
 
 @Component({
   selector: 'app-asset-details-page',
@@ -52,6 +53,8 @@ export class AssetDetailsPage {
     owner: ['', [Validators.required, Validators.maxLength(200)]],
     criticality: ['Medium', Validators.required],
   });
+
+  readonly semanticLevelClass = semanticLevelClass;
 
   constructor() {
     this.activatedRoute.paramMap
