@@ -2,7 +2,7 @@
   display: block;
   min-height: 100vh;
   font-family: var(--brand-font-body);
-  background: var(--BlackRadar-color-white);
+  background: var(--BlackRadar-color-pure-white);
   --assets-outline: color-mix(in srgb, var(--brandRadar-color-blue) 32%, transparent);
 }
 .assets-page-shell {
@@ -10,6 +10,7 @@
   grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
   column-gap: 1.5rem;
   align-items: start;
+  background: var(--BlackRadar-color-pure-white);
   padding: 2.5rem clamp(1rem, 4vw, 3rem);
 }
 
@@ -31,7 +32,7 @@
   padding: 0.85rem 1rem;
   border: 0;
   border-radius: var(--brand-radius-lg);
-  background: transparent;
+  background: var(--BlackRadar-color-pure-white);
   box-shadow: none;
 }
 
@@ -294,7 +295,7 @@
   border: 1px solid color-mix(in srgb, var(--BlackRadar-color-dark-gray) 28%, transparent);
   border-radius: var(--brand-radius-md);
   padding: 0.55rem 0.7rem;
-  background: var(--BlackRadar-color-white);
+  background: var(--BlackRadar-color-pure-white);
   color: var(--BlackRadar-color-navy-black);
   font: inherit;
 }
@@ -362,7 +363,15 @@
 .assets-page-title-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.7rem;
+}
+
+.assets-page-count {
+  color: var(--BlackRadar-color-warning);
+  font-size: 0.85rem;
+  font-weight: 400;
+  white-space: nowrap;
 }
 
 .assets-page-subtitle {

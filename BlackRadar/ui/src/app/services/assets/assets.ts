@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 
 import { environment } from '../../../environments/environment';
+import { Vulnerability } from '../vulnerabilities/vulnerabilities';
 
 export interface Asset {
   id: string;
@@ -19,6 +20,10 @@ export interface Asset {
   vulnerabilityCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AssetVulnerabilitiesResponse extends Asset {
+  vulnerabilities: Vulnerability[];
 }
 
 export interface ManualAssetRequest {
@@ -50,6 +55,12 @@ export class AssetsService {
   // Returns one asset visible to the authenticated user.
   getAsset(assetID: string) {
     return this.httpClient.get<Asset>(`${environment.apiUrl}/assets/${assetID}`);
+  }
+
+  getAssetVulnerabilities(assetID: string) {
+    return this.httpClient.get<AssetVulnerabilitiesResponse>(
+      `${environment.apiUrl}/assets/${assetID}/vulnerabilities`,
+    );
   }
 
   // Creates a manually entered asset for the authenticated user.

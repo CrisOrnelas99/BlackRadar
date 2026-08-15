@@ -27,7 +27,7 @@
   width: 100%;
   min-height: 2.15rem;
   box-sizing: border-box;
-  border: 1px solid color-mix(in srgb, var(--BlackRadar-color-dark-gray) 28%, transparent);
+  border: 1px solid var(--BlackRadar-color-dark-gray);
   border-radius: var(--brand-radius-md);
   padding: 0.38rem 0.6rem;
   background: var(--BlackRadar-color-pure-white);
@@ -40,12 +40,6 @@
   outline: 3px solid color-mix(in srgb, var(--brandRadar-color-blue) 28%, transparent);
   outline-offset: 1px;
   border-color: var(--brandRadar-color-blue);
-}
-
-.table-toolbar-summary {
-  margin: 0;
-  color: var(--BlackRadar-color-warning);
-  font-size: 0.85rem;
 }
 
 .table-toolbar-actions {

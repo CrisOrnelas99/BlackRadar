@@ -61,6 +61,26 @@ describe('TopMenuComponent', () => {
     expect(component.displayName).toBe('System Admin');
   });
 
+  it('keeps primary navigation visible and account actions in the hamburger menu', () => {
+    expect(fixture.nativeElement.querySelector('.top-menu-primary').textContent).toContain(
+      'Dashboard',
+    );
+    expect(fixture.nativeElement.querySelector('.top-menu-primary').textContent).toContain(
+      'Assets',
+    );
+    expect(fixture.nativeElement.querySelector('.top-menu-primary').textContent).toContain(
+      'Vulnerabilities',
+    );
+    expect(fixture.nativeElement.querySelector('.top-menu-dropdown')).toBeNull();
+
+    expect(component.primaryNavigationItems.map((item) => item.label)).toEqual([
+      'Dashboard',
+      'Assets',
+      'Vulnerabilities',
+    ]);
+    expect(component.accountNavigationItems.map((item) => item.label)).toEqual(['Profile']);
+  });
+
   it('signs the user out and navigates to the login page on success', async () => {
     await component.signOut();
 

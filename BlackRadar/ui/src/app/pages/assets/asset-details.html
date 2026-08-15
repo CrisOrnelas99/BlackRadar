@@ -15,11 +15,11 @@
           <path d="M12 11.75V21" />
         </svg>
         <h1 id="asset-details-heading">Asset Details</h1>
+        <span class="asset-details-asset-id">Asset ID: {{ asset()?.id || 'Not available' }}</span>
       </div>
       <p class="asset-details-page-subtitle">
         Review the configuration, ownership, risk, and vulnerabilities associated with this asset.
       </p>
-      <p class="asset-details-asset-id">Asset ID: {{ asset()?.id || 'Not available' }}</p>
     </div>
     <div class="asset-details-page-meta">
       <div class="asset-details-assets-link">
@@ -41,8 +41,33 @@
 
         <dl class="asset-details-grid">
           <div>
+            <dt>Criticality</dt>
+            <dd>{{ asset()?.criticality }}</dd>
+          </div>
+          <div>
+            <dt>Risk level</dt>
+            <dd [class]="semanticLevelClass(asset()?.riskLevel)">
+              {{ asset()?.riskLevel || 'Not assessed' }}
+            </dd>
+          </div>
+          <div>
             <dt>Type</dt>
             <dd>{{ asset()?.type }}</dd>
+          </div>
+          <div>
+            <dt>Vulnerabilities</dt>
+            <dd>
+              <a
+                class="relationship-count-link"
+                [routerLink]="['/assets', asset()?.id, 'vulnerabilities']"
+              >
+                {{ asset()?.vulnerabilityCount }}
+              </a>
+            </dd>
+          </div>
+          <div class="asset-details-wide">
+            <dt>Description</dt>
+            <dd>{{ asset()?.description || 'Not provided' }}</dd>
           </div>
           <div>
             <dt>Vendor</dt>
@@ -63,22 +88,6 @@
           <div>
             <dt>Owner</dt>
             <dd>{{ asset()?.owner }}</dd>
-          </div>
-          <div>
-            <dt>Criticality</dt>
-            <dd>{{ asset()?.criticality }}</dd>
-          </div>
-          <div>
-            <dt>Risk level</dt>
-            <dd>{{ asset()?.riskLevel || 'Not assessed' }}</dd>
-          </div>
-          <div>
-            <dt>Vulnerabilities</dt>
-            <dd>{{ asset()?.vulnerabilityCount }}</dd>
-          </div>
-          <div class="asset-details-wide">
-            <dt>Description</dt>
-            <dd>{{ asset()?.description || 'Not provided' }}</dd>
           </div>
           <div>
             <dt>Created</dt>

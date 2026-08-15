@@ -11,7 +11,7 @@
       @for (row of rows(); track trackRow($index, row)) {
         <tr>
           @for (column of columns(); track column.key) {
-            <td [style.width]="column.width">
+            <td [style.width]="column.width" [class]="column.cellClass?.(row) || ''">
               @if (column.cellType === 'action') {
                 <button
                   type="button"

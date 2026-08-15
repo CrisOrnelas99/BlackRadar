@@ -30,6 +30,15 @@ type AssetService interface {
 	GetAsset(ec *appcontext.GinContext, id string) (model.Asset, error)
 
 	/*
+		GetAssetVulnerabilities returns active vulnerabilities attached to an
+		asset owned by the authenticated user.
+
+		Implementations must verify asset ownership and return only active,
+		user-scoped vulnerability assignments.
+	*/
+	GetAssetVulnerabilities(ec *appcontext.GinContext, id string) ([]model.Vulnerability, error)
+
+	/*
 		CreateAsset validates and creates a user-owned asset.
 
 		Implementations should apply asset business validation, check for

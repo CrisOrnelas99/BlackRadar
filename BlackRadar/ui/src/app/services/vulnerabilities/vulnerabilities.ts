@@ -6,6 +6,7 @@ import { environment } from '../../../environments/environment';
 
 export interface Vulnerability {
   id: string;
+  source: 'CVE' | 'Manual';
   cveId: string;
   title: string;
   severity: string;
@@ -14,6 +15,19 @@ export interface Vulnerability {
   affectedAssetCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AffectedAsset {
+  id: string;
+  name: string;
+  type: string;
+  criticality: string;
+  riskLevel: string | null;
+  vulnerabilityCount: number;
+}
+
+export interface VulnerabilityAssetsResponse extends Vulnerability {
+  assets: AffectedAsset[];
 }
 
 export interface CreateVulnerabilityRequest {
@@ -43,6 +57,12 @@ export class VulnerabilitiesService {
   getVulnerability(vulnerabilityID: string) {
     return this.httpClient.get<Vulnerability>(
       `${environment.apiUrl}/vulnerabilities/${vulnerabilityID}`,
+    );
+  }
+
+  getVulnerabilityAssets(vulnerabilityID: string) {
+    return this.httpClient.get<VulnerabilityAssetsResponse>(
+      `${environment.apiUrl}/vulnerabilities/${vulnerabilityID}/assets`,
     );
   }
 
