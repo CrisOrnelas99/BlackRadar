@@ -20,15 +20,21 @@ import (
 
 // TestAssetService verifies the happy-path asset service flow.
 func TestAssetService(t *testing.T) {
-	repo := &fakeAssetRepository{asset: sampleAsset(), assets: []model.Asset{sampleAsset()}}
+	asset := sampleAsset()
+	asset.Vulnerabilities = []model.Vulnerability{{Model: model.Model{ID: "vulnerability-1"}, Title: "Example vulnerability"}}
+	repo := &fakeAssetRepository{asset: asset, assets: []model.Asset{asset}}
 	svc := NewAssetService(repo)
 	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
 
 	if _, err := svc.GetAllAssets(ctx); err != nil {
 		t.Fatalf("expected GetAllAssets to succeed, got %v", err)
 	}
-	if _, err := svc.GetAssetVulnerabilities(ctx, "00000000-0000-4000-8000-000000000001"); err != nil {
+	vulnerabilities, err := svc.GetAssetVulnerabilities(ctx, "00000000-0000-4000-8000-000000000001")
+	if err != nil {
 		t.Fatalf("expected GetAssetVulnerabilities to succeed, got %v", err)
+	}
+	if len(vulnerabilities) != 1 || vulnerabilities[0].ID != "vulnerability-1" {
+		t.Fatalf("expected attached vulnerability, got %+v", vulnerabilities)
 	}
 	if _, err := svc.CreateAsset(ctx, sampleAsset()); err != nil {
 		t.Fatalf("expected CreateAsset to succeed, got %v", err)

@@ -37,14 +37,16 @@ func TestAssetControllerHandlers(t *testing.T) {
 
 	t.Run("get asset vulnerabilities", func(t *testing.T) {
 		attachedAsset := sampleAsset()
-		attachedAsset.Vulnerabilities = []model.Vulnerability{{Model: model.Model{ID: "vulnerability-1"}, Title: "Example vulnerability", Severity: "High", Status: "Open"}}
+		attachedVulnerabilities := []model.Vulnerability{{Model: model.Model{ID: "vulnerability-2"}, Title: "Returned vulnerability", Severity: "Critical", Status: "Open"}}
+		assetService := &fakeAssetService{asset: attachedAsset, vulnerabilities: attachedVulnerabilities}
 		controller := NewAssetController(
-			&fakeAssetService{asset: attachedAsset},
+			assetService,
 			assetVulnerabilitySvc,
 			&fakeAssetMatchService{asset: attachedAsset},
 		)
-		ec, recorder := newAssetContext(t, http.MethodGet, "/assets/00000000-0000-4000-8000-000000000001/vulnerabilities", "")
-		ec.AddParam("id", "00000000-0000-4000-8000-000000000001")
+		assetID := "00000000-0000-4000-8000-000000000001"
+		ec, recorder := newAssetContext(t, http.MethodGet, "/assets/"+assetID+"/vulnerabilities", "")
+		ec.AddParam("id", assetID)
 
 		controller.GetAssetVulnerabilities(ec)
 
@@ -55,7 +57,13 @@ func TestAssetControllerHandlers(t *testing.T) {
 		if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 			t.Fatalf("failed to decode response: %v", err)
 		}
-		if len(response.Vulnerabilities) != 1 || response.Vulnerabilities[0].ID != "vulnerability-1" {
+		if assetService.getAssetVulnerabilitiesCalls != 1 {
+			t.Fatalf("expected GetAssetVulnerabilities to be called once, got %d", assetService.getAssetVulnerabilitiesCalls)
+		}
+		if assetService.getAssetVulnerabilitiesID != assetID {
+			t.Fatalf("expected GetAssetVulnerabilities to receive %q, got %q", assetID, assetService.getAssetVulnerabilitiesID)
+		}
+		if len(response.Vulnerabilities) != 1 || response.Vulnerabilities[0].ID != "vulnerability-2" {
 			t.Fatalf("expected attached vulnerability in response, got %+v", response.Vulnerabilities)
 		}
 	})
@@ -287,11 +295,14 @@ func TestToAssetAssessmentResponseDTODefaultsWithoutAssessment(t *testing.T) {
 }
 
 type fakeAssetService struct {
-	assets      []model.Asset
-	asset       model.Asset
-	err         error
-	getAllCalls int
-	createCalls int
+	assets                       []model.Asset
+	asset                        model.Asset
+	vulnerabilities              []model.Vulnerability
+	err                          error
+	getAllCalls                  int
+	createCalls                  int
+	getAssetVulnerabilitiesCalls int
+	getAssetVulnerabilitiesID    string
 }
 
 type fakeAssetVulnerabilityService struct {
@@ -325,7 +336,9 @@ func (f *fakeAssetService) GetAsset(ec *appcontext.GinContext, id string) (model
 	return f.asset, f.err
 }
 func (f *fakeAssetService) GetAssetVulnerabilities(ec *appcontext.GinContext, id string) ([]model.Vulnerability, error) {
-	return f.asset.Vulnerabilities, f.err
+	f.getAssetVulnerabilitiesCalls++
+	f.getAssetVulnerabilitiesID = id
+	return f.vulnerabilities, f.err
 }
 func (f *fakeAssetService) CreateAsset(ec *appcontext.GinContext, asset model.Asset) (model.Asset, error) {
 	f.createCalls++

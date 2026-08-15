@@ -3,7 +3,6 @@ node_modules/
 dist/
 target/
 .gocache/
-/.tmp-go-cache/
 /.tmp-go-telemetry/
 .angular/
 npm-debug.log*
