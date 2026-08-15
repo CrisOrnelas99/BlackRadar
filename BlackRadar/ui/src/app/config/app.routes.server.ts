@@ -19,11 +19,19 @@ export const serverRoutes: ServerRoute[] = [
     renderMode: RenderMode.Client,
   },
   {
+    path: 'assets/:id/vulnerabilities',
+    renderMode: RenderMode.Client,
+  },
+  {
     path: 'vulnerabilities',
     renderMode: RenderMode.Client,
   },
   {
     path: 'vulnerabilities/:id',
+    renderMode: RenderMode.Client,
+  },
+  {
+    path: 'vulnerabilities/:id/assets',
     renderMode: RenderMode.Client,
   },
   {
