@@ -72,10 +72,10 @@ export class AssetsPage {
     type: ['', [Validators.required, Validators.maxLength(100)]],
     description: ['', Validators.maxLength(5000)],
     operatingSystem: ['', Validators.maxLength(100)],
-    vendor: ['', Validators.maxLength(100)],
-    product: ['', Validators.maxLength(100)],
-    version: ['', Validators.maxLength(100)],
-    owner: ['', [Validators.required, Validators.maxLength(200)]],
+    vendor: ['', [Validators.required, Validators.maxLength(100)]],
+    product: ['', [Validators.required, Validators.maxLength(100)]],
+    version: ['', [Validators.required, Validators.maxLength(100)]],
+    owner: ['', Validators.maxLength(200)],
     criticality: ['Medium', Validators.required],
   });
   readonly filtersForm = this.formBuilder.nonNullable.group({
@@ -97,7 +97,7 @@ export class AssetsPage {
     { initialValue: this.filtersForm.getRawValue() },
   );
   readonly criticalityOptions = ['Low', 'Medium', 'High', 'Critical'];
-  readonly riskLevelOptions = ['Critical', 'High', 'Medium', 'Low', 'Not assessed'];
+  readonly riskLevelOptions = ['Critical', 'High', 'Medium', 'Low'];
   readonly filteredAssets = computed(() => {
     const normalizedQuery = this.searchQuery().trim().toLocaleLowerCase();
     const formValue = this.filtersFormValue();
@@ -131,7 +131,7 @@ export class AssetsPage {
         return false;
       }
 
-      const assetRiskLevel = asset.riskLevel || 'Not assessed';
+      const assetRiskLevel = asset.riskLevel || 'Low';
       if (riskLevel !== '' && assetRiskLevel !== riskLevel) {
         return false;
       }
@@ -211,8 +211,8 @@ export class AssetsPage {
     {
       key: 'riskLevel',
       label: 'Risk level',
-      cellValue: (asset) => asset.riskLevel || 'Not assessed',
-      cellClass: (asset) => semanticLevelClass(asset.riskLevel),
+      cellValue: (asset) => asset.riskLevel || 'Low',
+      cellClass: (asset) => semanticLevelClass(asset.riskLevel || 'Low'),
     },
     {
       key: 'criticality',
@@ -227,7 +227,7 @@ export class AssetsPage {
     },
     {
       key: 'delete',
-      label: '',
+      label: 'Remove',
       cellValue: () => '',
       cellType: 'delete',
       width: '3.5rem',
@@ -367,10 +367,10 @@ export class AssetsPage {
       type: formValue.type.trim(),
       description: formValue.description.trim() || undefined,
       operatingSystem: formValue.operatingSystem.trim() || undefined,
-      vendor: formValue.vendor.trim() || undefined,
-      product: formValue.product.trim() || undefined,
-      version: formValue.version.trim() || undefined,
-      owner: formValue.owner.trim(),
+      vendor: formValue.vendor.trim(),
+      product: formValue.product.trim(),
+      version: formValue.version.trim(),
+      owner: formValue.owner.trim() || undefined,
       criticality: formValue.criticality,
     };
 
@@ -463,7 +463,7 @@ export class AssetsPage {
 
   private assetSortValue(asset: Asset, sortField: AssetSortField): string {
     if (sortField === 'riskLevel') {
-      return asset.riskLevel || 'Not assessed';
+      return asset.riskLevel || 'Low';
     }
 
     if (sortField === 'operatingSystem') {

@@ -35,12 +35,17 @@ func (s *assetRiskServiceImpl) RefreshAssetRisk(ec *appcontext.GinContext, asset
 		return err
 	}
 
+	criticality, err := s.repository.FindAssetCriticalityForUser(ec, assetID, userID)
+	if err != nil {
+		return translateAssetRiskRepositoryError(err)
+	}
+
 	vulnerabilities, err := s.repository.FindActiveVulnerabilitiesForUser(ec, assetID, userID)
 	if err != nil {
 		return translateAssetRiskRepositoryError(err)
 	}
 
-	riskLevel := CalculateRiskLevel(vulnerabilities)
+	riskLevel := CalculateRiskLevel(criticality, vulnerabilities)
 	if err := translateAssetRiskRepositoryError(s.repository.UpdateRiskLevelForUser(
 		ec,
 		assetID,
@@ -52,10 +57,7 @@ func (s *assetRiskServiceImpl) RefreshAssetRisk(ec *appcontext.GinContext, asset
 	if s.auditService == nil {
 		return nil
 	}
-	details := "risk_level=none"
-	if riskLevel != nil {
-		details = "risk_level=" + *riskLevel
-	}
+	details := "risk_level=" + *riskLevel
 	return s.auditService.Record(ec, auditservice.EventInput{ActorUserID: &userID, Action: "asset.risk.recalculated", ResourceType: "asset", ResourceID: &assetID, Result: auditservice.ResultSucceeded, Details: details})
 }
 

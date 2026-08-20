@@ -45,6 +45,9 @@ func TestAssetService(t *testing.T) {
 	if repo.saved.UserID != "00000000-0000-4000-8000-000000000042" {
 		t.Fatalf("expected asset to be created for authenticated user, got %q", repo.saved.UserID)
 	}
+	if repo.saved.RiskLevel == nil || *repo.saved.RiskLevel != "Low" {
+		t.Fatalf("expected new asset without vulnerabilities to have Low risk level, got %#v", repo.saved.RiskLevel)
+	}
 	if _, err := svc.UpdateAsset(ctx, "00000000-0000-4000-8000-000000000001", sampleAsset()); err != nil {
 		t.Fatalf("expected UpdateAsset to succeed, got %v", err)
 	}
@@ -120,6 +123,7 @@ func TestAssetServiceCreateAssetNormalizesDisplayFields(t *testing.T) {
 		Description: &description,
 		Vendor:      stringPtr("amazon"),
 		Product:     stringPtr("athena"),
+		Version:     stringPtr(" 2.0.1 "),
 		Owner:       "cloud engineer",
 		Criticality: "medium",
 	})
@@ -138,6 +142,9 @@ func TestAssetServiceCreateAssetNormalizesDisplayFields(t *testing.T) {
 	if got := optionalString(repo.saved.Product); got != "Athena" {
 		t.Fatalf("expected normalized product, got %q", got)
 	}
+	if got := optionalString(repo.saved.Version); got != "2.0.1" {
+		t.Fatalf("expected normalized version, got %q", got)
+	}
 	if got := optionalString(repo.saved.Description); got != "primary production asset" {
 		t.Fatalf("expected normalized description, got %q", got)
 	}
@@ -145,8 +152,44 @@ func TestAssetServiceCreateAssetNormalizesDisplayFields(t *testing.T) {
 
 func TestAssetServiceRejectsOversizedDescription(t *testing.T) {
 	description := strings.Repeat("a", maxAssetDescriptionLength+1)
-	if err := validateAsset(model.Asset{Description: &description, Name: "Asset", Type: "Server", Owner: "IT", Criticality: "Medium"}); !errors.Is(err, ErrInvalidAssetData) {
+	if err := validateAsset(model.Asset{Description: &description, Name: "Asset", Type: "Server", Vendor: stringPtr("Vendor"), Product: stringPtr("Product"), Version: stringPtr("1.0"), Criticality: "Medium"}); !errors.Is(err, ErrInvalidAssetData) {
 		t.Fatalf("expected oversized description to be rejected, got %v", err)
+	}
+}
+
+func TestAssetServiceRequiresCPEIdentityFields(t *testing.T) {
+	tests := []struct {
+		name   string
+		modify func(*model.Asset)
+	}{
+		{name: "vendor", modify: func(asset *model.Asset) { asset.Vendor = nil }},
+		{name: "product", modify: func(asset *model.Asset) { asset.Product = nil }},
+		{name: "version", modify: func(asset *model.Asset) { asset.Version = nil }},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			asset := sampleAsset()
+			test.modify(&asset)
+			if err := validateAsset(asset); !errors.Is(err, ErrInvalidAssetData) {
+				t.Fatalf("expected missing %s to be rejected, got %v", test.name, err)
+			}
+		})
+	}
+}
+
+func TestAssetServiceDefaultsMissingOwner(t *testing.T) {
+	repo := &fakeAssetRepository{}
+	svc := NewAssetService(repo)
+	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
+	asset := sampleAsset()
+	asset.Owner = ""
+
+	if _, err := svc.CreateAsset(ctx, asset); err != nil {
+		t.Fatalf("expected an asset without an owner to use the default, got %v", err)
+	}
+	if repo.saved.Owner != defaultAssetOwner {
+		t.Fatalf("expected default owner %q, got %q", defaultAssetOwner, repo.saved.Owner)
 	}
 }
 
@@ -160,6 +203,9 @@ func TestAssetServiceUpdateAssetIncludesDescription(t *testing.T) {
 		Name:        "Asset 1",
 		Type:        "Server",
 		Description: &description,
+		Vendor:      stringPtr("Vendor"),
+		Product:     stringPtr("Product"),
+		Version:     stringPtr("1.0"),
 		Owner:       "IT",
 		Criticality: "High",
 	})
@@ -181,6 +227,7 @@ func TestAssetServiceRejectsDuplicateAssetSignaturePerUser(t *testing.T) {
 		Type:        "Cloud Service",
 		Vendor:      stringPtr("Amazon"),
 		Product:     stringPtr("Athena"),
+		Version:     stringPtr("1.0"),
 		Owner:       "cloud engineer",
 		Criticality: "Medium",
 	})
@@ -340,7 +387,15 @@ func newServiceContext(t *testing.T, userID string) *appcontext.GinContext {
 
 // sampleAsset returns a reusable asset fixture.
 func sampleAsset() model.Asset {
-	return model.Asset{Name: "Asset 1", Type: "Server", Owner: "IT", Criticality: "High"}
+	return model.Asset{
+		Name:        "Asset 1",
+		Type:        "Server",
+		Vendor:      stringPtr("Example Vendor"),
+		Product:     stringPtr("Example Product"),
+		Version:     stringPtr("1.0"),
+		Owner:       "IT",
+		Criticality: "High",
+	}
 }
 
 func stringPtr(value string) *string {

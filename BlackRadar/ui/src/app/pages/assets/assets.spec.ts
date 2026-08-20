@@ -59,7 +59,7 @@ describe('AssetsPage', () => {
       version: '2.0',
       owner: 'Operations',
       criticality: 'Low',
-      riskLevel: null,
+      riskLevel: 'Low',
       vulnerabilityCount: 0,
       createdAt: '2026-08-11T12:00:00Z',
       updatedAt: '2026-08-11T12:00:00Z',
@@ -120,5 +120,46 @@ describe('AssetsPage', () => {
     expect(assetsServiceMock.deleteAsset).toHaveBeenCalledWith('asset-1');
     expect(component.assets().map((asset) => asset.id)).toEqual(['asset-2']);
     expect(bannerServiceMock.show).toHaveBeenCalledWith('Asset deleted successfully.', 'success');
+  });
+
+  it('hides only the selected asset creation mode button', () => {
+    component.selectCreateMode('ai');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.asset-create-mode-button-ai')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector(
+        '.asset-create-mode-actions .asset-create-mode-button:not(.asset-create-mode-button-ai)',
+      ),
+    ).not.toBeNull();
+
+    component.closeCreatePanel();
+    component.selectCreateMode('manual');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.asset-create-mode-button-ai')).not.toBeNull();
+    expect(
+      fixture.nativeElement.querySelector(
+        '.asset-create-mode-actions .asset-create-mode-button:not(.asset-create-mode-button-ai)',
+      ),
+    ).toBeNull();
+  });
+
+  it('requires CPE identity fields but allows an unassigned owner', () => {
+    component.createForm.patchValue({
+      name: 'Windows App client',
+      type: 'Application',
+      vendor: 'Microsoft',
+      product: 'Windows App',
+      version: '2.0.1313',
+      owner: '',
+      criticality: 'Medium',
+    });
+
+    expect(component.createForm.valid).toBe(true);
+
+    component.createForm.controls.version.setValue('');
+
+    expect(component.createForm.invalid).toBe(true);
   });
 });

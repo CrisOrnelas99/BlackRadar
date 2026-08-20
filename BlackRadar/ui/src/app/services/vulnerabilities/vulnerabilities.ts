@@ -12,6 +12,7 @@ export interface Vulnerability {
   severity: string;
   description: string;
   status: string;
+  nvdPublishedAt?: string;
   affectedAssetCount: number;
   createdAt: string;
   updatedAt: string;

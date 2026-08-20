@@ -220,20 +220,6 @@
   background: color-mix(in srgb, var(--BlackRadar-color-dark-blue) 10%, transparent);
 }
 
-.profile-edit-cancel {
-  flex: 0 0 auto;
-  padding: 0.35rem 0;
-  border: 0;
-  background: transparent;
-  color: var(--BlackRadar-color-light-gray);
-  font: inherit;
-  cursor: pointer;
-}
-
-.profile-edit-cancel:hover {
-  color: var(--brandRadar-color-blue);
-}
-
 .profile-edit-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

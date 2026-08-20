@@ -36,7 +36,10 @@ var displayAcronyms = map[string]string{
 	"vm":    "VM",
 }
 
-const maxAssetDescriptionLength = 5000
+const (
+	maxAssetDescriptionLength = 5000
+	defaultAssetOwner         = "Unassigned"
+)
 
 func runAssetAuditTransaction(ec *appcontext.GinContext, operation func(*appcontext.GinContext) error) error {
 	return platformdb.WithinRequestTransaction(ec, operation)
@@ -50,8 +53,12 @@ func normalizeAssetDisplayFields(asset model.Asset) model.Asset {
 	asset.OperatingSystem = normalizeOptionalDisplayText(asset.OperatingSystem)
 	asset.Vendor = normalizeOptionalDisplayText(asset.Vendor)
 	asset.Product = normalizeOptionalDisplayText(asset.Product)
+	asset.Version = normalizeOptionalText(asset.Version)
 	asset.DeviceModel = normalizeOptionalDisplayText(asset.DeviceModel)
 	asset.Owner = normalizeDisplayText(asset.Owner)
+	if asset.Owner == "" {
+		asset.Owner = defaultAssetOwner
+	}
 	asset.Criticality = normalizeDisplayText(asset.Criticality)
 	return asset
 }
@@ -77,8 +84,10 @@ func validateAsset(asset model.Asset) error {
 
 	if strings.TrimSpace(asset.Name) == "" ||
 		strings.TrimSpace(asset.Type) == "" ||
-		strings.TrimSpace(asset.Owner) == "" ||
-		strings.TrimSpace(asset.Criticality) == "" {
+		strings.TrimSpace(asset.Criticality) == "" ||
+		optionalString(asset.Vendor) == "" ||
+		optionalString(asset.Product) == "" ||
+		optionalString(asset.Version) == "" {
 		return ErrInvalidAssetData
 	}
 	return nil

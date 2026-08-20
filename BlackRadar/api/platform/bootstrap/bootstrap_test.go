@@ -128,3 +128,40 @@ func TestNormalize(t *testing.T) {
 		})
 	}
 }
+
+func TestNewBootstrapUserUsesFixedLocalAdministratorIdentity(t *testing.T) {
+	user := newBootstrapUser("test-password-hash")
+
+	if user.ID != bootstrapUserID {
+		t.Fatalf("unexpected bootstrap user ID %q", user.ID)
+	}
+	if user.FullName != bootstrapFullName || user.Username != bootstrapUsername {
+		t.Fatalf("unexpected bootstrap user identity: %#v", user)
+	}
+	if user.Email != bootstrapEmail || user.Role != "admin" {
+		t.Fatalf("unexpected bootstrap user access fields: email=%q role=%q", user.Email, user.Role)
+	}
+	if user.PasswordHash != "test-password-hash" {
+		t.Fatalf("unexpected bootstrap password hash %q", user.PasswordHash)
+	}
+}
+
+func TestNewBootstrapAssetSupportsWindowsAppCVEScanWithoutAssignments(t *testing.T) {
+	asset := newBootstrapAsset(bootstrapUserID, bootstrapAssessmentID)
+
+	if asset.Name != "Microsoft Windows App Client" {
+		t.Fatalf("unexpected bootstrap asset name %q", asset.Name)
+	}
+	if asset.Criticality != "Medium" || asset.RiskLevel == nil || *asset.RiskLevel != "Low" {
+		t.Fatalf("unexpected bootstrap risk fields: criticality=%q risk=%v", asset.Criticality, asset.RiskLevel)
+	}
+	if asset.Type != "Application" || asset.Vendor == nil || *asset.Vendor != "Microsoft" {
+		t.Fatalf("unexpected bootstrap product class: type=%q vendor=%v", asset.Type, asset.Vendor)
+	}
+	if asset.Product == nil || *asset.Product != "Windows App" || asset.Version == nil || *asset.Version != "2.0.1313" {
+		t.Fatalf("unexpected bootstrap product fingerprint: product=%v version=%v", asset.Product, asset.Version)
+	}
+	if len(asset.Vulnerabilities) != 0 {
+		t.Fatalf("expected no bootstrap vulnerability assignments, got %d", len(asset.Vulnerabilities))
+	}
+}

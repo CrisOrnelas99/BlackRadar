@@ -15,7 +15,8 @@ type AssetRiskService interface {
 		The implementation must read the user ID from ec rather than from a
 		request payload, load only active asset-vulnerability relationships, and
 		ensure the asset and its vulnerabilities are scoped to that user. The
-		calculated value is nil when the asset has no active vulnerabilities.
+		calculated value uses Low as the vulnerability baseline when the asset
+		has no active vulnerabilities.
 
 		When ec contains a request-scoped transaction database, all reads and the
 		risk-level update must use that database. This allows assignment and

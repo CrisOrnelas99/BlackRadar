@@ -106,8 +106,8 @@ When using local `go run .`, Go reads environment variables from the PowerShell 
 - admin username: `system_admin`
 - email: `system_admin@example.invalid`
 - password: value from `BOOTSTRAP_DEV_PASSWORD`
-- one test device asset
-- one assigned example vulnerability: `CVE-2021-44228`
+- one Microsoft Windows App test asset at version `2.0.1313`
+- no vulnerabilities preassigned to the test asset, so its initial risk is Low
 
 The initial administrator is created through the development bootstrap flow. After that, administrators provision standard user accounts; public self-registration is not available. Organization membership is not part of the current implementation.
 
@@ -430,7 +430,7 @@ The current model is centered on:
 - `asset_vulnerabilities`
 - `refresh_sessions`
 
-Users own their assets and vulnerabilities directly in the current implementation. Assets keep core inventory fields plus `riskLevel`, `criticality`, and a linked assessment record. `riskLevel` stays null until vulnerabilities are attached and the backend derives a value from their severities. The linked `asset_assessments` data holds `riskScore`, product fingerprint, selected CPE, confidence, review status, review notes, candidate count, and match timestamp.
+Users own their assets and vulnerabilities directly in the current implementation. Assets keep core inventory fields plus `riskLevel`, `criticality`, and a linked assessment record. `riskLevel` is always Low when no vulnerabilities are attached; otherwise, it combines asset criticality with the highest attached vulnerability severity. The linked `asset_assessments` data holds `riskScore`, product fingerprint, selected CPE, confidence, review status, review notes, candidate count, and match timestamp.
 
 ### Asset model goals
 

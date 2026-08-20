@@ -91,6 +91,24 @@ describe('AssetDetailsPage', () => {
   it('loads the asset on init and populates the edit form', () => {
     expect(component.asset()?.id).toBe('asset-1');
     expect(component.editForm.controls.name.value).toBe('Alpha server');
+    const relationshipLink = fixture.nativeElement.querySelector(
+      '.relationship-navigation-link',
+    ) as HTMLAnchorElement;
+    expect(relationshipLink.textContent).toContain('View attached vulnerabilities');
+    expect(relationshipLink.getAttribute('href')).toBe('/assets/asset-1/vulnerabilities');
+    expect(relationshipLink.querySelector('.relationship-navigation-icon')).not.toBeNull();
+    expect(relationshipLink.closest('.asset-details-edit-column')).not.toBeNull();
+    expect(relationshipLink.closest('.asset-edit-card')).toBeNull();
+  });
+
+  it('requires CPE identity fields but not an explicit owner when editing', () => {
+    component.editForm.controls.owner.setValue('');
+
+    expect(component.editForm.valid).toBe(true);
+
+    component.editForm.controls.product.setValue('');
+
+    expect(component.editForm.invalid).toBe(true);
   });
 
   it('does not open delete confirmation while save confirmation is open', () => {

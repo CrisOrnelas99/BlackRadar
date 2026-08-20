@@ -8,12 +8,12 @@ import "context"
 
 type CPEClientInterface interface {
 	/*
-		SearchCandidates searches NVD CPE records with a normalized
-		backend-generated keyword request and returns bounded CPE candidates for
-		service-side matching.
+		SearchCandidates searches NVD CPE records with one normalized,
+		backend-generated exact component match or keyword request and returns
+		bounded CPE candidates for service-side matching.
 
 		Implementations must honor ctx cancellation, validate and bound the
-		keyword search, apply outbound timeout/rate-limit behavior, limit response
+		search, apply outbound timeout/rate-limit behavior, limit response
 		bodies, and return sentinel errors such as ErrInvalidCPESearch,
 		ErrNVDRateLimited, ErrNVDUnavailable, or ErrInvalidNVDResponse.
 

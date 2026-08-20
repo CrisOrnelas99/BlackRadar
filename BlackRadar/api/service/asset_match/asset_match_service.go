@@ -45,6 +45,14 @@ type AssetMatchAnalysis struct {
 	Candidates         []nvdcpeclient.CPECandidate
 }
 
+// AssetMatchPreview combines CPE analysis with the CVE availability for the selected CPE.
+type AssetMatchPreview struct {
+	Analysis         AssetMatchAnalysis
+	CVECount         int
+	CVEIDs           []string
+	CVEDataAvailable bool
+}
+
 // AssetFingerprint captures the normalized product signals derived from an asset.
 type AssetFingerprint struct {
 	Vendor          string
@@ -167,7 +175,8 @@ func (s *assetMatchServiceImpl) AnalyzeAssetMatch(ctx context.Context, asset mod
 		}
 	}
 	keywordSearches := buildCPEKeywordSearches(fingerprint)
-	if len(keywordSearches) == 0 {
+	matchStrings := buildCPEMatchStrings(fingerprint)
+	if len(matchStrings) == 0 && len(keywordSearches) == 0 {
 		return AssetMatchAnalysis{
 			ProductFingerprint: fingerprint.Canonical,
 			ReviewStatus:       model.AssetCPEReviewStatusNeedsReview,
@@ -175,21 +184,35 @@ func (s *assetMatchServiceImpl) AnalyzeAssetMatch(ctx context.Context, asset mod
 		}, nil
 	}
 
-	keywordSearch, candidates, err := s.searchCPECandidates(ctx, keywordSearches)
+	searchResult, err := s.searchCPECandidates(ctx, matchStrings, keywordSearches)
 	if err != nil {
 		return AssetMatchAnalysis{
 			ProductFingerprint: fingerprint.Canonical,
-			KeywordSearch:      keywordSearch,
+			KeywordSearch:      searchResult.SearchTerm,
 			ReviewStatus:       model.AssetCPEReviewStatusNeedsReview,
 			ReviewNotes:        "nvd candidate search failed",
 		}, nil
 	}
+	keywordSearch := searchResult.SearchTerm
+	candidates := searchResult.Candidates
 	if len(candidates) == 0 {
 		return AssetMatchAnalysis{
 			ProductFingerprint: fingerprint.Canonical,
 			KeywordSearch:      keywordSearch,
 			ReviewStatus:       model.AssetCPEReviewStatusNeedsReview,
 			ReviewNotes:        "no NVD CPE candidates returned",
+		}, nil
+	}
+	if searchResult.Exact && len(candidates) == 1 {
+		return AssetMatchAnalysis{
+			ProductFingerprint: fingerprint.Canonical,
+			KeywordSearch:      keywordSearch,
+			SelectedCPE:        normalizeCPEName(candidates[0].CPEName),
+			Confidence:         1,
+			ReviewStatus:       model.AssetCPEReviewStatusAccepted,
+			ReviewNotes:        "exact vendor and product match from the NVD CPE dictionary",
+			CandidateCount:     1,
+			Candidates:         candidates,
 		}, nil
 	}
 
@@ -212,6 +235,10 @@ func (s *assetMatchServiceImpl) AnalyzeAssetMatch(ctx context.Context, asset mod
 		reviewNotes = "selected cpe was not returned by the nvd candidate search"
 		selectedCPE = ""
 	}
+	if selectedCPE != "" && !cpeVersionMatchesFingerprint(selectedCPE, fingerprint.Version) {
+		reviewNotes = "selected cpe version does not match the asset version"
+		selectedCPE = ""
+	}
 	if selectedCPE != "" && ranking.Confidence >= 0.85 && isStrongFingerprint(fingerprint) {
 		reviewStatus = model.AssetCPEReviewStatusAccepted
 	} else if reviewNotes == "" {
@@ -231,38 +258,47 @@ func (s *assetMatchServiceImpl) AnalyzeAssetMatch(ctx context.Context, asset mod
 }
 
 // PreviewAssetMatch returns a non-persistent CPE proposal for an asset.
-func (s *assetMatchServiceImpl) PreviewAssetMatch(ec *appcontext.GinContext, assetID string) (AssetMatchAnalysis, error) {
+func (s *assetMatchServiceImpl) PreviewAssetMatch(ec *appcontext.GinContext, assetID string, selectedCPE string) (AssetMatchPreview, error) {
 	role, err := authenticatedRole(ec)
 	if err != nil {
-		return AssetMatchAnalysis{}, assetvulnerabilityservice.ErrAssetPermissionDenied
+		return AssetMatchPreview{}, assetvulnerabilityservice.ErrAssetPermissionDenied
 	}
 	if !canManageVulnerabilities(role) {
-		return AssetMatchAnalysis{}, assetvulnerabilityservice.ErrVulnerabilityManagementDenied
+		return AssetMatchPreview{}, assetvulnerabilityservice.ErrVulnerabilityManagementDenied
 	}
 
 	userID, err := authenticatedUserID(ec)
 	if err != nil {
-		return AssetMatchAnalysis{}, err
+		return AssetMatchPreview{}, err
 	}
 
 	asset, err := s.assetMatchRepository.FindByIDForUser(ec, assetID, userID)
 	if err != nil {
-		return AssetMatchAnalysis{}, translateMatchRepositoryError(err)
+		return AssetMatchPreview{}, translateMatchRepositoryError(err)
 	}
 
 	analysis, err := s.AnalyzeAssetMatch(ec.RequestContext(), asset, "")
 	if err != nil {
-		return AssetMatchAnalysis{}, err
+		return AssetMatchPreview{}, err
 	}
+	selectedCPE = normalizeCPEName(selectedCPE)
+	if selectedCPE != "" {
+		if !containsCPECandidate(analysis.Candidates, selectedCPE) {
+			return AssetMatchPreview{}, ValidationError{Message: "selected CPE was not returned by the match preview"}
+		}
+		analysis.SelectedCPE = selectedCPE
+	}
+
+	preview := AssetMatchPreview{Analysis: analysis}
 	ec.Logger().Info("asset cpe match analysis",
 		"asset_id", assetID,
-		"product_fingerprint", analysis.ProductFingerprint,
-		"nvd_cpe_keyword_search", analysis.KeywordSearch,
-		"nvd_cpe_candidate_count", analysis.CandidateCount,
-		"selected_cpe", analysis.SelectedCPE,
-		"review_status", analysis.ReviewStatus,
+		"product_fingerprint", preview.Analysis.ProductFingerprint,
+		"nvd_cpe_keyword_search", preview.Analysis.KeywordSearch,
+		"nvd_cpe_candidate_count", preview.Analysis.CandidateCount,
+		"selected_cpe", preview.Analysis.SelectedCPE,
+		"review_status", preview.Analysis.ReviewStatus,
 	)
-	return analysis, nil
+	return preview, nil
 }
 
 // ApplyApprovedCPEMatch attaches NVD vulnerabilities for an administrator-selected CPE.
@@ -279,9 +315,6 @@ func (s *assetMatchServiceImpl) ApplyApprovedCPEMatch(ec *appcontext.GinContext,
 	}
 
 	selectedCPE = normalizeCPEName(selectedCPE)
-	if !strings.HasPrefix(selectedCPE, "cpe:2.3:") {
-		return model.Asset{}, ErrMatchExternalService
-	}
 
 	userID, err := authenticatedUserID(ec)
 	if err != nil {
@@ -291,8 +324,12 @@ func (s *assetMatchServiceImpl) ApplyApprovedCPEMatch(ec *appcontext.GinContext,
 	if err != nil {
 		return model.Asset{}, translateMatchRepositoryError(err)
 	}
+	cveQueryCPE, valid := cpeNameWithAssetVersion(selectedCPE, optionalStringValue(asset.Version))
+	if !valid {
+		return model.Asset{}, ValidationError{Message: "selected CPE or asset version is invalid"}
+	}
 
-	cves, err := s.cveSearcher.SearchCVEsByCPE(ec.RequestContext(), selectedCPE, maxAutoAttachedCVEs)
+	cves, err := s.cveSearcher.SearchCVEsByCPE(ec.RequestContext(), cveQueryCPE, maxAutoAttachedCVEs)
 	if err != nil {
 		return model.Asset{}, fmt.Errorf("%w: %v", ErrMatchExternalService, err)
 	}
@@ -534,12 +571,13 @@ func (s *assetMatchServiceImpl) findOrCreateNVDVulnerability(ec *appcontext.GinC
 	existing, err := s.vulnRepository.FindByCVEIDForUser(ec, normalizedCVEID, userID)
 	if err == nil {
 		updated, err := s.vulnRepository.UpdateForUser(ec, existing.ID, userID, model.Vulnerability{
-			UserID:      userID,
-			CVEID:       normalizedCVEID,
-			Title:       firstNonEmptyString(response.Title, normalizedCVEID),
-			Severity:    normalizeSeverity(response.Severity),
-			Description: firstNonEmptyString(response.Description, "No description returned by NVD."),
-			Status:      "Open",
+			UserID:         userID,
+			CVEID:          normalizedCVEID,
+			Title:          firstNonEmptyString(response.Title, normalizedCVEID),
+			Severity:       normalizeSeverity(response.Severity),
+			Description:    firstNonEmptyString(response.Description, "No description returned by NVD."),
+			Status:         existing.Status,
+			NVDPublishedAt: firstNonNilTime(parseNVDTimestamp(response.PublishedAt), existing.NVDPublishedAt),
 		})
 		return updated, translateMatchRepositoryError(err)
 	}
@@ -548,11 +586,12 @@ func (s *assetMatchServiceImpl) findOrCreateNVDVulnerability(ec *appcontext.GinC
 	}
 
 	created, err := s.vulnRepository.CreateForUser(ec, userID, model.Vulnerability{
-		CVEID:       normalizedCVEID,
-		Title:       firstNonEmptyString(response.Title, normalizedCVEID),
-		Severity:    normalizeSeverity(response.Severity),
-		Description: firstNonEmptyString(response.Description, "No description returned by NVD."),
-		Status:      "Open",
+		CVEID:          normalizedCVEID,
+		Title:          firstNonEmptyString(response.Title, normalizedCVEID),
+		Severity:       normalizeSeverity(response.Severity),
+		Description:    firstNonEmptyString(response.Description, "No description returned by NVD."),
+		Status:         "Open",
+		NVDPublishedAt: parseNVDTimestamp(response.PublishedAt),
 	})
 	return created, translateMatchRepositoryError(err)
 }
@@ -685,23 +724,41 @@ func (s *assetMatchServiceImpl) expandCVEKeywordSearchesWithAI(ctx context.Conte
 }
 
 // fingerprintExtractionRawText converts an AI extraction response into labeled fingerprint text.
-func (s *assetMatchServiceImpl) searchCPECandidates(ctx context.Context, keywordSearches []string) (string, []nvdcpeclient.CPECandidate, error) {
+func (s *assetMatchServiceImpl) searchCPECandidates(ctx context.Context, matchStrings []string, keywordSearches []string) (cpeCandidateSearchResult, error) {
 	var lastErr error
+	for _, matchString := range matchStrings {
+		candidates, err := s.cpeSearcher.SearchCandidates(ctx, nvdcpeclient.CPEMatchRequest{CPEMatchString: matchString})
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		candidates = activeCPECandidates(candidates)
+		if len(candidates) > 0 {
+			return cpeCandidateSearchResult{SearchTerm: matchString, Candidates: candidates, Exact: true}, nil
+		}
+	}
 	for _, keywordSearch := range keywordSearches {
 		candidates, err := s.cpeSearcher.SearchCandidates(ctx, nvdcpeclient.CPEMatchRequest{KeywordSearch: keywordSearch})
 		if err != nil {
 			lastErr = err
 			continue
 		}
+		candidates = activeCPECandidates(candidates)
 		if len(candidates) > 0 {
-			return keywordSearch, candidates, nil
+			return cpeCandidateSearchResult{SearchTerm: keywordSearch, Candidates: candidates}, nil
 		}
 	}
 
-	if lastErr != nil {
-		return keywordSearches[0], nil, lastErr
+	searchTerm := ""
+	if len(matchStrings) > 0 {
+		searchTerm = matchStrings[0]
+	} else if len(keywordSearches) > 0 {
+		searchTerm = keywordSearches[0]
 	}
-	return keywordSearches[0], []nvdcpeclient.CPECandidate{}, nil
+	if lastErr != nil {
+		return cpeCandidateSearchResult{SearchTerm: searchTerm}, lastErr
+	}
+	return cpeCandidateSearchResult{SearchTerm: searchTerm, Candidates: []nvdcpeclient.CPECandidate{}}, nil
 }
 
 // buildCPEKeywordSearches creates ordered NVD CPE search terms from a fingerprint.

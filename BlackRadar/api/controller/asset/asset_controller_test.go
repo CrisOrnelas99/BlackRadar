@@ -69,7 +69,8 @@ func TestAssetControllerHandlers(t *testing.T) {
 	})
 
 	t.Run("create asset", func(t *testing.T) {
-		ec, recorder := newAssetContext(t, http.MethodPost, "/assets", `{"name":"Asset 1","type":"Server","owner":"IT","criticality":"High"}`)
+		svc.asset.RiskLevel = stringPtr("Low")
+		ec, recorder := newAssetContext(t, http.MethodPost, "/assets", `{"name":"Asset 1","type":"Server","vendor":"Example Vendor","product":"Example Product","version":"1.0","criticality":"High"}`)
 		ec.Request.Header.Set("Content-Type", "application/json")
 		controller.CreateAsset(ec)
 		if svc.createCalls != 1 {
@@ -88,8 +89,8 @@ func TestAssetControllerHandlers(t *testing.T) {
 		if _, exists := response["riskLevel"]; !exists {
 			t.Fatal("expected create asset response to expose riskLevel")
 		}
-		if response["riskLevel"] != nil {
-			t.Fatalf("expected create asset response riskLevel to be null, got %#v", response["riskLevel"])
+		if response["riskLevel"] != "Low" {
+			t.Fatalf("expected create asset response riskLevel to be Low, got %#v", response["riskLevel"])
 		}
 	})
 
@@ -179,7 +180,7 @@ func TestToAssetResponseDTOIncludesMatchMetadata(t *testing.T) {
 		Type:              "Server",
 		Owner:             "IT",
 		Criticality:       "High",
-		RiskLevel:         nil,
+		RiskLevel:         stringPtr("Low"),
 		Assessment: &model.AssetAssessment{
 			RiskScore:          riskScore,
 			ProductFingerprint: &productFingerprint,
@@ -194,8 +195,8 @@ func TestToAssetResponseDTOIncludesMatchMetadata(t *testing.T) {
 	if response.AssetAssessmentID == nil || *response.AssetAssessmentID != assessmentID {
 		t.Fatalf("expected asset assessment id %s, got %#v", assessmentID, response.AssetAssessmentID)
 	}
-	if response.RiskLevel != nil {
-		t.Fatalf("expected risk level to be null, got %#v", response.RiskLevel)
+	if response.RiskLevel == nil || *response.RiskLevel != "Low" {
+		t.Fatalf("expected Low risk level, got %#v", response.RiskLevel)
 	}
 }
 
@@ -318,9 +319,9 @@ type fakeAssetMatchService struct {
 	applyCalls   int
 }
 
-func (f *fakeAssetMatchService) PreviewAssetMatch(ec *appcontext.GinContext, assetID string) (assetmatchservice.AssetMatchAnalysis, error) {
+func (f *fakeAssetMatchService) PreviewAssetMatch(ec *appcontext.GinContext, assetID string, selectedCPE string) (assetmatchservice.AssetMatchPreview, error) {
 	f.previewCalls++
-	return assetmatchservice.AssetMatchAnalysis{}, f.err
+	return assetmatchservice.AssetMatchPreview{}, f.err
 }
 
 func (f *fakeAssetMatchService) ApplyApprovedCPEMatch(ec *appcontext.GinContext, assetID string, selectedCPE string) (model.Asset, error) {

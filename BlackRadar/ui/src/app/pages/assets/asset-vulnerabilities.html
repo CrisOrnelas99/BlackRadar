@@ -49,12 +49,214 @@
     </p>
   } @else if (hasLoadError()) {
     <p class="asset-vulnerabilities-status" role="alert">Unable to load asset vulnerabilities.</p>
-  } @else if (vulnerabilities().length > 0) {
-    <app-data-table
-      [columns]="vulnerabilityColumns"
-      [rows]="vulnerabilities()"
-      [rowKey]="vulnerabilityRowKey"
-      (cellAction)="handleTableAction($event)"
-    ></app-data-table>
+  } @else {
+    <div class="asset-vulnerabilities-layout">
+      @if (vulnerabilities().length > 0) {
+        <app-data-table
+          [columns]="vulnerabilityColumns"
+          [rows]="vulnerabilities()"
+          [rowKey]="vulnerabilityRowKey"
+          (cellAction)="handleTableAction($event)"
+        ></app-data-table>
+      }
+
+      <section
+        class="asset-vulnerabilities-manage-card"
+        aria-labelledby="asset-vulnerabilities-manage-heading"
+      >
+        <div class="asset-vulnerabilities-manage-intro">
+          <div class="asset-vulnerabilities-manage-header">
+            <div>
+              <h2 id="asset-vulnerabilities-manage-heading">Manage vulnerabilities</h2>
+              <p>Attach or detach vulnerabilities from this asset.</p>
+            </div>
+            @if (isAttachPanelOpen() || isScanPanelOpen()) {
+              <button
+                class="page-cancel asset-vulnerabilities-manage-cancel"
+                type="button"
+                (click)="isScanPanelOpen() ? cancelScan() : toggleAttachPanel()"
+              >
+                Cancel
+              </button>
+            }
+          </div>
+          <div class="asset-vulnerabilities-manage-actions">
+            @if (!isScanPanelOpen()) {
+              <button
+                class="asset-vulnerabilities-scan-button"
+                type="button"
+                [attr.aria-expanded]="false"
+                aria-controls="asset-vulnerabilities-scan-panel"
+                (click)="scanCVEs()"
+              >
+                Scan CVEs
+                <svg class="asset-vulnerabilities-scan-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <use href="#asset-cve-ai-sparkle" />
+                </svg>
+              </button>
+            }
+            @if (!isAttachPanelOpen()) {
+              <button
+                class="asset-vulnerabilities-attach-button"
+                type="button"
+                [attr.aria-expanded]="false"
+                aria-controls="asset-vulnerabilities-attach-panel"
+                (click)="toggleAttachPanel()"
+              >
+                Attach vulnerability
+              </button>
+            }
+          </div>
+          @if (isScanPanelOpen()) {
+            <div class="asset-vulnerabilities-scan-panel">
+              <h3>CVE scan</h3>
+              @if (isScanning()) {
+                <p class="asset-vulnerabilities-scan-status" role="status">Scanning NVD...</p>
+              } @else if (scanResult(); as result) {
+                <p class="asset-vulnerabilities-scan-summary">
+                  {{ result.candidateCount }} possible product matches found.
+                </p>
+                @if (result.candidates.length > 0) {
+                  <div
+                    class="asset-vulnerabilities-scan-candidates"
+                    role="radiogroup"
+                    aria-label="Possible product matches"
+                  >
+                    @for (candidate of result.candidates; track candidate.cpeName) {
+                      <label class="asset-vulnerabilities-scan-candidate">
+                        <input
+                          type="radio"
+                          name="asset-cpe-candidate"
+                          [checked]="selectedScanCPE() === candidate.cpeName"
+                          (change)="selectScanCPE(candidate.cpeName)"
+                        />
+                        <span class="asset-vulnerabilities-scan-candidate-details">
+                          <strong>
+                            {{ candidate.title || 'No product description available' }}
+                          </strong>
+                          <code>{{ candidate.cpeName }}</code>
+                        </span>
+                      </label>
+                    }
+                  </div>
+                }
+                @if (selectedScanCPE()) {
+                  <button
+                    class="asset-vulnerabilities-scan-apply"
+                    type="button"
+                    (click)="requestScanApply()"
+                  >
+                    Attach CVEs for selected match
+                  </button>
+                } @else if (result.candidates.length > 0) {
+                  <p class="asset-vulnerabilities-scan-status">
+                    Select the CPE that best matches this asset to continue the CVE search.
+                  </p>
+                } @else {
+                  <p class="asset-vulnerabilities-scan-status">
+                    NVD returned no selectable CPE details. Review the asset product details and try
+                    again.
+                  </p>
+                }
+              }
+            </div>
+          }
+          @if (isAttachPanelOpen()) {
+            <div id="asset-vulnerabilities-attach-panel" class="asset-vulnerabilities-attach-panel">
+              <h3>Available vulnerabilities</h3>
+              @if (availableVulnerabilities().length > 0) {
+                <div class="asset-vulnerabilities-available-list" role="list">
+                  @for (vulnerability of availableVulnerabilities(); track vulnerability.id) {
+                    <div class="asset-vulnerabilities-available-item" role="listitem">
+                      <div class="asset-vulnerabilities-available-details">
+                        <strong>{{ vulnerability.title }}</strong>
+                        <span>
+                          {{ vulnerability.cveId || 'No CVE ID' }} · {{ vulnerability.severity }}
+                        </span>
+                      </div>
+                      <button
+                        class="asset-vulnerabilities-available-attach"
+                        type="button"
+                        (click)="requestAttachment(vulnerability)"
+                      >
+                        Attach
+                      </button>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <p class="asset-vulnerabilities-no-available">
+                  No unattached vulnerabilities available.
+                </p>
+              }
+            </div>
+          }
+        </div>
+      </section>
+    </div>
   }
 </section>
+
+<svg class="asset-vulnerabilities-scan-icons" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="asset-cve-rainbow" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#e84a5f" />
+      <stop offset="25%" stop-color="#f5b942" />
+      <stop offset="50%" stop-color="#45b97c" />
+      <stop offset="75%" stop-color="#3a7ca5" />
+      <stop offset="100%" stop-color="#9b59b6" />
+    </linearGradient>
+    <symbol id="asset-cve-ai-sparkle" viewBox="0 0 24 24">
+      <path
+        d="M12 2.75 14.1 8.4l5.65 2.1-5.65 2.1L12 18.25l-2.1-5.65-5.65-2.1 5.65-2.1L12 2.75Z"
+        fill="url(#asset-cve-rainbow)"
+      />
+      <path
+        d="m18.5 15.5.95 2.55 2.55.95-2.55.95-.95 2.55-.95-2.55-2.55-.95 2.55-.95.95-2.55Z"
+        fill="url(#asset-cve-rainbow)"
+      />
+    </symbol>
+  </defs>
+</svg>
+
+@if (pendingAttachment(); as vulnerability) {
+  <app-confirmation-dialog
+    [dialogId]="'asset-vulnerability-attach-confirm-heading'"
+    [title]="'Attach vulnerability?'"
+    [message]="'Attach ' + vulnerability.title + ' to ' + (asset()?.name || 'this asset') + '?'"
+    [confirmLabel]="isAttaching() ? 'Attaching...' : 'Attach vulnerability'"
+    [confirmTone]="'success'"
+    [confirmDisabled]="isAttaching()"
+    [cancelDisabled]="isAttaching()"
+    (cancel)="cancelAttachment()"
+    (confirm)="confirmAttachment()"
+  ></app-confirmation-dialog>
+}
+
+@if (pendingDetachment(); as vulnerability) {
+  <app-confirmation-dialog
+    [dialogId]="'asset-vulnerability-detach-confirm-heading'"
+    [title]="'Detach vulnerability?'"
+    [message]="'Detach ' + vulnerability.title + ' from ' + (asset()?.name || 'this asset') + '?'"
+    [confirmLabel]="isDetaching() ? 'Detaching...' : 'Detach vulnerability'"
+    [confirmTone]="'danger'"
+    [confirmDisabled]="isDetaching()"
+    [cancelDisabled]="isDetaching()"
+    (cancel)="cancelDetachment()"
+    (confirm)="confirmDetachment()"
+  ></app-confirmation-dialog>
+}
+
+@if (pendingScanCPE(); as selectedCPE) {
+  <app-confirmation-dialog
+    [dialogId]="'asset-cve-scan-apply-confirm-heading'"
+    [title]="'Attach CVE findings?'"
+    [message]="scanApplyConfirmationMessage()"
+    [confirmLabel]="isApplyingScan() ? 'Attaching...' : 'Attach CVEs'"
+    [confirmTone]="'success'"
+    [confirmDisabled]="isApplyingScan()"
+    [cancelDisabled]="isApplyingScan()"
+    (cancel)="cancelScanApply()"
+    (confirm)="confirmScanApply()"
+  ></app-confirmation-dialog>
+}

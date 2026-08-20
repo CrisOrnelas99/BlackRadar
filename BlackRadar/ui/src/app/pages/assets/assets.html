@@ -192,13 +192,6 @@
         <p>Enter the details for an asset you found.</p>
         <div class="asset-create-intro-actions">
           <button
-            class="asset-create-mode-button"
-            type="button"
-            (click)="selectCreateMode('manual')"
-          >
-            Manual
-          </button>
-          <button
             type="button"
             class="asset-create-mode-button asset-create-mode-button-ai"
             (click)="selectCreateMode('ai')"
@@ -210,6 +203,13 @@
               </svg>
             </span>
           </button>
+          <button
+            class="asset-create-mode-button"
+            type="button"
+            (click)="selectCreateMode('manual')"
+          >
+            Manual
+          </button>
         </div>
       </div>
     } @else {
@@ -218,15 +218,12 @@
           <h2>Add an asset to your inventory</h2>
           <p>Enter the details for an asset you found.</p>
         </div>
-        <div class="asset-create-mode-actions">
-          <button
-            type="button"
-            class="asset-create-mode-button"
-            [attr.aria-expanded]="createMode() === 'manual'"
-            (click)="selectCreateMode('manual')"
-          >
-            Manual
-          </button>
+        <button class="page-cancel asset-create-cancel" type="button" (click)="closeCreatePanel()">
+          Cancel
+        </button>
+      </div>
+      <div class="asset-create-mode-actions">
+        @if (createMode() !== 'ai') {
           <button
             type="button"
             class="asset-create-mode-button asset-create-mode-button-ai"
@@ -240,10 +237,17 @@
               </svg>
             </span>
           </button>
-          <button class="asset-create-mode-button" type="button" (click)="closeCreatePanel()">
-            Cancel
+        }
+        @if (createMode() !== 'manual') {
+          <button
+            type="button"
+            class="asset-create-mode-button"
+            [attr.aria-expanded]="createMode() === 'manual'"
+            (click)="selectCreateMode('manual')"
+          >
+            Manual
           </button>
-        </div>
+        }
       </div>
 
       @if (createMode() !== 'ai') {
@@ -273,14 +277,12 @@
           </div>
 
           <div class="asset-field">
-            <label for="asset-owner">Owner <span class="asset-required">(required)</span></label>
+            <label for="asset-owner">Owner</label>
             <input
               id="asset-owner"
               type="text"
               formControlName="owner"
               autocomplete="organization"
-              required
-              aria-required="true"
             />
           </div>
 
@@ -302,8 +304,17 @@
           </div>
 
           <div class="asset-field">
-            <label for="asset-vendor">Vendor</label>
-            <input id="asset-vendor" type="text" formControlName="vendor" autocomplete="off" />
+            <label for="asset-vendor">
+              Vendor <span class="asset-required">(required)</span>
+            </label>
+            <input
+              id="asset-vendor"
+              type="text"
+              formControlName="vendor"
+              autocomplete="off"
+              required
+              aria-required="true"
+            />
           </div>
 
           <div class="asset-field">
@@ -317,8 +328,17 @@
           </div>
 
           <div class="asset-field">
-            <label for="asset-product">Product</label>
-            <input id="asset-product" type="text" formControlName="product" autocomplete="off" />
+            <label for="asset-product">
+              Product <span class="asset-required">(required)</span>
+            </label>
+            <input
+              id="asset-product"
+              type="text"
+              formControlName="product"
+              autocomplete="off"
+              required
+              aria-required="true"
+            />
           </div>
 
           <div class="asset-field asset-field-wide">
@@ -327,8 +347,17 @@
           </div>
 
           <div class="asset-field">
-            <label for="asset-version">Version</label>
-            <input id="asset-version" type="text" formControlName="version" autocomplete="off" />
+            <label for="asset-version">
+              Version <span class="asset-required">(required)</span>
+            </label>
+            <input
+              id="asset-version"
+              type="text"
+              formControlName="version"
+              autocomplete="off"
+              required
+              aria-required="true"
+            />
           </div>
         </div>
 

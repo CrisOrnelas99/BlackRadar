@@ -11,6 +11,14 @@ import (
 
 type AssetRiskRepositoryInterface interface {
 	/*
+		FindAssetCriticalityForUser loads the criticality for an owned asset.
+
+		Implementations must scope the lookup by assetID and userID and return
+		ErrRecordNotFound when the asset is not owned by the user.
+	*/
+	FindAssetCriticalityForUser(ec *appcontext.GinContext, assetID string, userID string) (string, error)
+
+	/*
 		FindActiveVulnerabilitiesForUser loads the active vulnerabilities assigned
 		to assetID for userID.
 
@@ -40,8 +48,8 @@ type AssetRiskRepositoryInterface interface {
 		The repository must not decide how severity maps to risk. It must apply
 		the supplied value with an ownership predicate, use the request-scoped
 		database when present, and return ErrRecordNotFound when no owned asset
-		was updated. A nil risk level represents an asset with no active assigned
-		vulnerabilities.
+		was updated. Risk levels use Low as the minimum value, including when an
+		asset has no active assigned vulnerabilities.
 	*/
 	UpdateRiskLevelForUser(ec *appcontext.GinContext, assetID string, userID string, riskLevel *string) error
 }

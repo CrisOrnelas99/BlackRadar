@@ -47,10 +47,10 @@ export class AssetDetailsPage {
     type: ['', [Validators.required, Validators.maxLength(100)]],
     description: ['', Validators.maxLength(5000)],
     operatingSystem: ['', Validators.maxLength(100)],
-    vendor: ['', Validators.maxLength(100)],
-    product: ['', Validators.maxLength(100)],
-    version: ['', Validators.maxLength(100)],
-    owner: ['', [Validators.required, Validators.maxLength(200)]],
+    vendor: ['', [Validators.required, Validators.maxLength(100)]],
+    product: ['', [Validators.required, Validators.maxLength(100)]],
+    version: ['', [Validators.required, Validators.maxLength(100)]],
+    owner: ['', Validators.maxLength(200)],
     criticality: ['Medium', Validators.required],
   });
 
@@ -145,10 +145,10 @@ export class AssetDetailsPage {
       type: formValue.type.trim(),
       description: formValue.description.trim() || undefined,
       operatingSystem: formValue.operatingSystem.trim() || undefined,
-      vendor: formValue.vendor.trim() || undefined,
-      product: formValue.product.trim() || undefined,
-      version: formValue.version.trim() || undefined,
-      owner: formValue.owner.trim(),
+      vendor: formValue.vendor.trim(),
+      product: formValue.product.trim(),
+      version: formValue.version.trim(),
+      owner: formValue.owner.trim() || undefined,
       criticality: formValue.criticality,
     };
 

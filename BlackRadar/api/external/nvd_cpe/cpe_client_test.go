@@ -84,6 +84,78 @@ func TestCPEClientNormalizesKeywordSearch(t *testing.T) {
 	}
 }
 
+func TestCPEClientSearchesByCPEMatchString(t *testing.T) {
+	var receivedQuery string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedQuery = r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"products":[{"cpe":{"cpeName":"cpe:2.3:a:microsoft:windows_app:-:*:*:*:*:windows:*:*","deprecated":false,"titles":[{"lang":"en_US","title":"Microsoft Windows App for Windows"}]}}]}`))
+	}))
+	defer server.Close()
+
+	client, err := NewCPEClientWithHTTPClient(
+		server.URL+"/rest/json/cpes/2.0",
+		"",
+		server.Client(),
+		externalratelimiter.NewRateLimiter(10, 30*time.Second),
+	)
+	if err != nil {
+		t.Fatalf("expected client creation to succeed, got %v", err)
+	}
+
+	candidates, err := client.SearchCandidates(context.Background(), CPEMatchRequest{
+		CPEMatchString: "cpe:2.3:a:microsoft:windows_app:-:*:*:*:*:windows:*:*",
+	})
+	if err != nil {
+		t.Fatalf("expected CPE match search to succeed, got %v", err)
+	}
+	if !strings.Contains(receivedQuery, "cpeMatchString=cpe%3A2.3%3Aa%3Amicrosoft%3Awindows_app%3A-%3A%2A%3A%2A%3A%2A%3A%2A%3Awindows%3A%2A%3A%2A") {
+		t.Fatalf("expected CPE match string query, got %q", receivedQuery)
+	}
+	if len(candidates) != 1 || candidates[0].Title != "Microsoft Windows App for Windows" {
+		t.Fatalf("unexpected candidates %#v", candidates)
+	}
+}
+
+func TestCPEClientRejectsMultipleSearchModes(t *testing.T) {
+	client, err := NewCPEClientWithHTTPClient(
+		"http://localhost/rest/json/cpes/2.0",
+		"",
+		&http.Client{},
+		externalratelimiter.NewRateLimiter(10, 30*time.Second),
+	)
+	if err != nil {
+		t.Fatalf("expected client creation to succeed, got %v", err)
+	}
+
+	_, err = client.SearchCandidates(context.Background(), CPEMatchRequest{
+		CPEMatchString: "cpe:2.3:a:microsoft:windows_app",
+		KeywordSearch:  "microsoft windows app",
+	})
+	if !errors.Is(err, ErrInvalidCPESearch) {
+		t.Fatalf("expected invalid CPE search error, got %v", err)
+	}
+}
+
+func TestCPEClientRejectsInvalidMatchString(t *testing.T) {
+	client, err := NewCPEClientWithHTTPClient(
+		"http://localhost/rest/json/cpes/2.0",
+		"",
+		&http.Client{},
+		externalratelimiter.NewRateLimiter(10, 30*time.Second),
+	)
+	if err != nil {
+		t.Fatalf("expected client creation to succeed, got %v", err)
+	}
+
+	_, err = client.SearchCandidates(context.Background(), CPEMatchRequest{
+		CPEMatchString: "https://untrusted.example/cpe",
+	})
+	if !errors.Is(err, ErrInvalidCPESearch) {
+		t.Fatalf("expected invalid CPE search error, got %v", err)
+	}
+}
+
 func TestCPEClientRejectsOversizedKeywordSearch(t *testing.T) {
 	client, err := NewCPEClientWithHTTPClient(
 		"http://localhost/rest/json/cpes/2.0",

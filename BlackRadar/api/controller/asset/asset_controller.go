@@ -200,7 +200,12 @@ func (c *AssetController) PreviewAssetCPEMatch(ec *appcontext.GinContext) {
 		return
 	}
 
-	analysis, err := c.assetMatchService.PreviewAssetMatch(ec, id)
+	var request PreviewAssetMatchRequest
+	if shared.BindJSON(ec, &request) {
+		return
+	}
+
+	preview, err := c.assetMatchService.PreviewAssetMatch(ec, id, request.SelectedCPE)
 	if err != nil {
 		if handleAssetServiceError(ec, err) {
 			return
@@ -209,7 +214,7 @@ func (c *AssetController) PreviewAssetCPEMatch(ec *appcontext.GinContext) {
 		return
 	}
 
-	ec.JSON(http.StatusOK, ToAssetMatchPreviewResponseDTO(analysis))
+	ec.JSON(http.StatusOK, ToAssetMatchPreviewResponseDTO(preview))
 }
 
 // ApplyAssetCPEMatch attaches NVD vulnerabilities after an administrator approves a CPE in the request body.
