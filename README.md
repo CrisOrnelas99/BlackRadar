@@ -1,516 +1,168 @@
 # BlackRadar Security Platform
 
-BlackRadar Security Platform is a focused cybersecurity asset risk platform. It combines asset inventory, vulnerability intelligence, and AI-assisted workflows to help users understand risk across applications, home networks, and imported asset inventories.
+BlackRadar is a security-focused asset-risk platform for tracking assets, CVEs, and the relationships that make a vulnerability relevant to a specific asset.
 
-For implementation details and agent research notes, use the repo skill files in `.agents/skills/` together. The main ones are:
+It keeps ownership, authorization, risk calculation, NVD access, and AI-assisted matching in the backend rather than trusting the browser.
 
-- `.agents/skills/architecture/SKILL.md`
-- `.agents/skills/clean-code/SKILL.md`
-- `.agents/skills/security/SKILL.md`
-- `.agents/skills/roadmap/SKILL.md`
-- `.agents/skills/docs-writing/SKILL.md`
-- `.agents/skills/git-operations/SKILL.md`
+## What works today
 
-`README.md` stays at the product and setup level.
+- Create, edit, and manage user-scoped assets and vulnerabilities.
+- Attach and remove vulnerabilities from assets, with asset risk recalculated from active assignments.
+- Browse attached vulnerabilities for an asset and affected assets for a vulnerability.
+- Scan an asset's product identity for NVD CPE candidates, approve a CPE, and attach bounded NVD CVE results.
+- Reuse existing CVE records and restore a previously removed asset-vulnerability relationship when an approved scan finds it again.
+- Persist NVD publication timestamps for imported CVEs and show them in vulnerability details.
+- Enforce backend authentication, ownership, administrator-only management actions, input validation, rate limiting, and transaction boundaries.
 
-## Table of Contents
+## Who, what, when, where, why, and how
 
-- [What This Project Is](#what-this-project-is)
-- [Getting Started](#getting-started)
-- [Architecture](#architecture)
-- [Current Capabilities](#current-capabilities)
-- [Repository Layout](#repository-layout)
-- [API Summary](#api-summary)
-- [Data Model Direction](#data-model-direction)
-- [Security Approach](#security-approach)
-- [Documentation](#documentation)
-- [Planned Extensions](#planned-extensions)
+- **Who:** Administrators manage assets and vulnerability relationships; each user sees only their own assets and vulnerabilities.
+- **What:** BlackRadar records assets, local vulnerability data, and the active relationships between them.
+- **When:** Use it when you need to understand which known vulnerabilities affect a product and how they change an asset's risk.
+- **Why:** A CVE record alone does not indicate exposure. The asset-vulnerability relationship makes the risk specific and actionable.
+- **How:** The backend validates ownership, retrieves NVD data when an administrator approves a CPE scan, persists the result locally, and recalculates risk.
 
-## What This Project Is
+## Quick start
 
-BlackRadar Security Platform is designed as a practical, developer-friendly security application rather than a full enterprise SIEM. It demonstrates how a secure backend trust boundary, external vulnerability data, and AI-assisted ingestion can work together in one system.
-
-Key capabilities include:
-
-- asset inventory with product-aware metadata
-- vulnerability tracking and asset-to-vulnerability assignment
-- user-scoped asset and vulnerability separation
-- backend-enforced authorization and security controls
-- backend rate limiting on auth and NVD lookup endpoints
-- short-lived access tokens with server-side refresh-token sessions
-- request-scoped GORM database sessions with service transaction boundaries through `platform/transaction`
-- backend OpenAI-assisted product matching and NVD vulnerability attachment
-
-The platform supports multiple inventory contexts, including applications, home networks, and imported raw asset lists.
-
-## Getting Started
-
-### Requirements
+Requirements:
 
 - Docker Desktop
-- Node.js for Angular frontend work
-- Go for backend development or local builds
 
-### Starting the current backend stack
+1. Create a local environment file.
 
-The current `docker-compose.yml` includes:
+   ```powershell
+    .env
+   ```
 
-- `postgres`
-- `backend`
-- `frontend`
+   The template contains only local placeholders:
 
-Start the full Compose stack with:
+   ```dotenv
+   GO_ENV=development
 
-```bash
-docker compose run --rm frontend npm ci
-docker compose up --build
-```
+   POSTGRES_DB=blackradar
+   POSTGRES_USER=blackradar
+   POSTGRES_PASSWORD=replace-with-a-local-db-password
 
-The frontend dependencies are installed explicitly into the named Docker volume once; the frontend service does not install packages during every startup.
-Compose does not enable development bootstrap data by default. To opt in for a local database, set `BOOTSTRAP_DEV_DATA=true` and `BOOTSTRAP_DEV_PASSWORD` in the root `.env` file.
-When that password is supplied, the seeded `system_admin` test account is available after a fresh compose start.
+   # Must be a unique local-only value with at least 32 characters.
+   JWT_SECRET=replace-with-a-local-jwt-secret-at-least-32-characters
 
-Default endpoints:
+   BOOTSTRAP_DEV_DATA=true
+   BOOTSTRAP_DEV_PASSWORD=replace-with-a-local-bootstrap-password
 
-- backend: `http://localhost:8080`
-- frontend: `http://localhost:4200`
-- PostgreSQL: mapped from `${POSTGRES_PORT}` to container `5432`
+   # Optional provider credentials. Keep these server-side.
+   NVD_API_KEY=
+   OPENAI_API_KEY=
+   ```
 
-For backend development, it is often simpler to run PostgreSQL in Docker and the Go backend directly from the local shell. This keeps rebuilds fast while still using the same database container.
+2. In `.env`, replace `JWT_SECRET` and `BOOTSTRAP_DEV_PASSWORD` with unique local-only values. `JWT_SECRET` must be at least 32 characters. Do not commit `.env`.
 
-From the repository root:
+3. Start the stack.
 
-```powershell
-$env:POSTGRES_PORT = '15432'
-docker compose up -d postgres
-docker compose ps
-```
+   ```bash
+   docker compose up --build
+   ```
 
-Use `15432` when another PostgreSQL process is already using local port `5432`. The `docker compose ps` output should show `15432->5432/tcp`.
+4. Open the application at `http://localhost:4200`. The backend is available at `http://localhost:8080`.
 
-Then run the backend from `BlackRadar/`:
+The frontend service installs its dependencies during startup, so the first run can take a little longer. PostgreSQL stays inside the Compose network and is not published to the host.
 
-```powershell
-cd BlackRadar
-$env:DATABASE_URL = 'postgres://secureops_user:s5e4c3u2r1e@127.0.0.1:15432/secureops'
-$env:JWT_SECRET = 't1h2i3s4I5s6A7R8a9n0d1o2m3S4e5c6r7e8t'
-$env:BOOTSTRAP_DEV_DATA = 'true'
-$env:BOOTSTRAP_DEV_PASSWORD = 'choose-a-local-dev-password'
-go run .
-```
+### Optional local bootstrap data
 
-When using local `go run .`, Go reads environment variables from the PowerShell session. It does not automatically load the root `.env` file. Docker Compose reads `.env` for containers.
+The example environment file enables a local-only bootstrap account and sample asset. It is allowed only in `local`, `development`, and `test` environments. Sign in as `system_admin` with the value you set for `BOOTSTRAP_DEV_PASSWORD`. To disable it, set `BOOTSTRAP_DEV_DATA=false` before starting Compose.
 
-`BOOTSTRAP_DEV_DATA=true` is optional. When enabled in local development or tests, startup refreshes a fixed local test setup:
+NVD and OpenAI keys are optional local configuration values. Keep both in `.env`; the browser never receives them.
 
-- admin username: `system_admin`
-- email: `system_admin@example.invalid`
-- password: value from `BOOTSTRAP_DEV_PASSWORD`
-- one Microsoft Windows App test asset at version `2.0.1313`
-- no vulnerabilities preassigned to the test asset, so its initial risk is Low
-
-The initial administrator is created through the development bootstrap flow. After that, administrators provision standard user accounts; public self-registration is not available. Organization membership is not part of the current implementation.
-
-The bootstrap flag is rejected outside `local`, `development`, and `test` environments. Bootstrap also requires `BOOTSTRAP_DEV_PASSWORD` and does not keep a default password in source control.
-
-If port `8080` is already in use, stop the old local backend process before restarting:
-
-```powershell
-netstat -ano | findstr ":8080"
-Stop-Process -Id <PID> -Force
-```
-
-### Frontend status
-
-The Angular UI lives in `BlackRadar/ui/` and is wired into Docker Compose as the `frontend` service. It should be treated as active local-development UI, not as a production deployment example.
-The backend container runs as the unprivileged `blackradar` user with a read-only root filesystem, dropped Linux capabilities, and `no-new-privileges`. Production deployments still need separately managed image digest pinning, TLS, secrets, networking, and runtime policy.
-
-### Environment configuration
-
-This project uses a local `.env` file for development configuration.
-Typical values include:
-
-- PostgreSQL database host, port, name, user, password
-- JWT secret of at least 32 bytes and token expiration settings
-- allowed frontend origins for backend CORS, such as `http://localhost:4200,http://localhost:4000`
-- trusted reverse-proxy IPs or CIDR ranges for forwarded client IPs, such as `10.0.0.10,10.0.1.0/24` (`TRUSTED_PROXY_CIDRS`); leave empty when the backend is directly exposed
-- frontend SSR API origin for CSP, such as `http://localhost:8080`
-- NVD API key
-- OpenAI API key
-- internal service URLs
-
-Important:
-
-- do not commit secrets
-- set `JWT_SECRET`; the backend refuses to start with a missing or weak JWT secret
-- do not expose API keys to the frontend
-- keep `.env` local to development
-
-## Architecture
-
-BlackRadar Security Platform is intentionally designed with clear component separation. The backend is the primary security boundary and owner of authorization, persistence, external integration, and AI orchestration.
-
-- Angular frontend: UI, authentication, asset and vulnerability workflows, chat UX.
-- Go Gin/GORM backend: API, authentication, business logic, data orchestration, NVD/AI integration.
-- PostgreSQL: persistent storage for users, assets, vulnerabilities, and workflow state.
-- Focused services: asset, AI diagnostics, vulnerability, asset-vulnerability assignment, asset-risk, and AI matching services.
-- Backend request logging and rate limiting are applied to sensitive endpoints.
-
-### High-level architecture
+## How it is structured
 
 ```text
-Browser
-  |
-  v
 Angular frontend
-  |
-  v
-Go Gin/GORM backend
-  |
-  +--> PostgreSQL
-  +--> NVD / NIST APIs
-  `--> OpenAI API
+       |
+       v
+Go API (authentication, authorization, matching, risk)
+       |
+       +--> PostgreSQL
+       +--> NVD APIs
+       `--> OpenAI API
 ```
 
-### Design principles
+The Go backend is the trust boundary. The Angular application handles user interaction and renders backend responses, but it does not make authorization decisions, calculate authoritative risk, or call NVD and OpenAI directly.
 
-- Backend is the main security and trust boundary.
-- Frontend never calls NVD, AI providers, or internal services directly.
-- Backend enforces validation, authorization, and DTO mapping.
-- Backend write workflows request transactions through `platform/transaction`; `platform/db` owns the GORM transaction implementation so partial database updates roll back when the operation fails.
-- Controller → service → repository captures request flow.
-- Local persistence of imported CVE data is preferred over live UI lookups.
+The backend uses a controller -> service -> repository flow. Services coordinate transactions and external providers; repositories own PostgreSQL access. Imported CVEs are persisted locally so normal application reads do not depend on live NVD responses.
 
-## Current Capabilities
-
-The repository currently contains these working foundations:
-
-- Go Gin/GORM backend foundation
-- JWT-based authentication with access and refresh tokens
-- permission middleware support
-- asset CRUD API and models
-- vulnerability CRUD API and models
-- asset-to-vulnerability assignment endpoints
-- CVE lookup through the backend NVD integration
-- backend asset-risk calculation when affected relationships or vulnerabilities change
-- NVD CPE candidate search support
-- backend OpenAI provider configuration and text-generation boundary
-- AI-assisted asset product fingerprinting and CPE ranking
-- persisted asset assessment metadata, including risk score, product fingerprint, selected CPE, confidence, review status, review notes, candidate count, and matched timestamp
-- CPE-based NVD CVE lookup and bounded vulnerability attachment to assets
-- admin-only AI diagnostic endpoints
-- user-owned assets and vulnerabilities
-- PostgreSQL UUID primary keys through embedded model metadata
-- request-scoped GORM database sessions with service-owned transaction boundaries implemented through the platform transaction runner
-- GORM soft-delete support for audit-relevant records and active-row uniqueness
-- `updated_by_id` audit metadata on mutable model records
-- repository-level database revalidation for privileged mutations
-- ownership predicates on user-owned writes and database-required `user_id` values
-- server-generated UUIDs for persisted records; client request DTOs cannot choose record IDs
-- layered repository/service/controller error handling with safe JSON responses
-- controller → service → repository layering
-- GORM AutoMigrate provisioning
-- Docker Compose support for PostgreSQL, backend, and frontend
-- Angular UI project scaffold under `BlackRadar/ui/`
-
-## Repository Layout
+## Project layout
 
 ```text
 AssetManagementRisk/
-|-- .agents/
-|   `-- skills/
-|       |-- architecture/
-|       |   `-- SKILL.md
-|       |-- clean-code/
-|       |   `-- SKILL.md
-|       |-- docs-writing/
-|       |   `-- SKILL.md
-|       |-- git-operations/
-|       |   `-- SKILL.md
-|       |-- roadmap/
-|       |   `-- SKILL.md
-|       `-- security/
-|           `-- SKILL.md
-|-- .env
-|-- .gitignore
-|-- AGENTS.md
-|-- BlackRadar/
-|   |-- Dockerfile
-|   |-- api/
-|   |   |-- common/
-|   |   |-- controller/
-|   |   |-- external/
-|   |   |-- middleware/
-|   |   |-- model/
-|   |   |-- platform/
-|   |   |-- repository/
-|   |   `-- service/
-|   |-- docs/
-|   |   |-- ai-asset-ingestion.md
-|   |   |-- ai-cpe-and-cve-matching.md
-|   |   |-- api-error-handling.md
-|   |   |-- asset-risk.md
-|   |   |-- asset-vulnerability-assignment.md
-|   |   |-- assets.md
-|   |   |-- database-and-soft-deletes.md
-|   |   |-- frontend-angular.md
-|   |   |-- infrastructure.md
-|   |   |-- nvd-integration.md
-|   |   |-- security-boundaries.md
-|   |   |-- users-auth-sessions.md
-|   |   `-- vulnerabilities.md
-|   |-- go.mod
-|   |-- go.sum
-|   |-- main.go
-|   |-- tests/
-|   |   |-- AI/
-|   |   |-- Admin Setup/
-|   |   |-- Assets/
-|   |   |-- Non-Admin Setup/
-|   |   |-- NVD/
-|   |   |-- Vulnerabilities/
-|   |   `-- opencollection.yml
-|   `-- ui/
-|       |-- angular.json
-|       |-- package-lock.json
-|       |-- package.json
-|       |-- postcss.config.mjs
-|       |-- public/
-|       |   |-- BlackRadar Logo.png
-|       |   `-- favicon.ico
-|       `-- src/
-|           |-- app/
-|           |   |-- components/
-|           |   |-- config/
-|           |   |-- pages/
-|           |   `-- services/
-|           |-- environments/
-|           |-- index.html
-|           |-- main.server.ts
-|           |-- main.ts
-|           |-- server.ts
-|           |-- styles.css
-|           `-- theme.css
-`-- docker-compose.yml
+|-- BlackRadar/              Go backend and feature documentation
+|   |-- api/                 Controllers, services, repositories, models, platform code
+|   |-- docs/                Feature and operational documentation
+|   `-- ui/                  Angular application
+|-- docker-compose.yml       Local PostgreSQL, backend, and frontend stack
+|-- .env                     Safe local configuration
+`-- AGENTS.md                Repository instructions for coding agents
 ```
 
-Inside `BlackRadar/api/`:
+## Main API areas
 
-```text
-api/
-|-- common/
-|   |-- id/
-|   |-- jwt/
-|   `-- token/
-|-- controller/
-|   |-- ai/
-|   |-- asset/
-|   |-- health/
-|   |-- nvd/
-|   |-- shared/
-|   |-- user/
-|   `-- vulnerability/
-|-- external/
-|   |-- nvd_cpe/
-|   |-- nvd_cve/
-|   |-- openai/
-|   |-- provider_quota/
-|   `-- rate_limiter/
-|-- middleware/
-|   |-- context/
-|   |-- cors/
-|   |-- filter/
-|   |-- gorm/
-|   |-- jwt/
-|   |-- permissions/
-|   |-- rate_limit/
-|   `-- security_headers/
-|-- model/
-|-- platform/
-|   |-- bootstrap/
-|   |-- config/
-|   |-- db/
-|   |-- requestcontext/
-|   |-- runtime/
-|   `-- transaction/
-|-- repository/
-|   |-- asset/
-|   |-- asset_match/
-|   |-- asset_risk/
-|   |-- asset_vulnerability/
-|   |-- audit/
-|   |-- provider_usage/
-|   |-- user/
-|   `-- vulnerability/
-`-- service/
-    |-- ai/
-    |-- asset/
-    |-- asset_match/
-    |-- asset_risk/
-    |-- asset_vulnerability/
-    |-- audit/
-    |-- text_generation/
-    |-- user/
-    `-- vulnerability/
+| Area             | Current endpoints                                                                                        |
+| ---------------- | -------------------------------------------------------------------------------------------------------- |
+| Authentication   | `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`                                |
+| Assets           | `GET`, `POST /api/assets`; `GET`, `PUT`, `DELETE /api/assets/{id}`                                       |
+| Vulnerabilities  | `GET`, `POST /api/vulnerabilities`; `GET`, `PUT`, `DELETE /api/vulnerabilities/{id}`                     |
+| Relationships    | `GET /api/assets/{id}/vulnerabilities`; `GET /api/vulnerabilities/{id}/assets`; assign and remove routes |
+| CPE/CVE matching | `POST /api/assets/{id}/match-cpe/preview`; `POST /api/assets/{id}/match-cpe/vulnerabilities/apply`       |
+| NVD lookup       | `GET /api/nvd/cves/{cveId}`                                                                              |
+
+See [asset-vulnerability-assignment.md](BlackRadar/docs/asset-vulnerability-assignment.md) and [ai-cpe-and-cve-matching.md](BlackRadar/docs/ai-cpe-and-cve-matching.md) for workflow details and route behavior.
+
+## Security model
+
+- Assets and vulnerabilities are scoped to the authenticated user.
+- Privileged vulnerability-management actions are enforced by the backend.
+- Provider credentials, database credentials, and session secrets remain server-side.
+- Browser input, NVD data, AI output, and route parameters are validated before use.
+- Asset-risk updates and relationship writes share transaction boundaries.
+- Core records and asset-vulnerability relationships use soft-delete behavior where recovery and history matter.
+
+Read [security-boundaries.md](BlackRadar/docs/security-boundaries.md) for the full trust-boundary and error-handling model.
+
+## Development checks
+
+Run backend checks from `BlackRadar/` and frontend checks from `BlackRadar/ui/`:
+
+```powershell
+cd BlackRadar
+go test ./...
+
+cd ui
+npm run test -- --watch=false
 ```
 
-### Backend conventions
-
-- Controllers handle HTTP binding and response formatting.
-- Services handle business validation, authorization, and use-case orchestration.
-- Services coordinate external providers; the AI diagnostic provider and prompt workflow lives in `api/service/ai`.
-- Repositories handle GORM/database access only.
-- Services request atomic transactions through `api/platform/transaction`; GORM transaction mechanics remain in `api/platform/db`.
-- DTOs are separated from domain models and live with the controller component that owns the HTTP contract, with only shared response/error DTOs in `api/controller/shared`.
-- Controller route registration lives in component `*_routes.go` files.
-- Non-entrypoint support code lives in component `*_support.go` files so primary controller, service, repository, middleware, and external client files stay focused.
-- Model files are grouped by domain: `asset.go` owns asset, assessment, and asset-vulnerability persistence models; `user.go` owns user and refresh-session persistence models.
-- `platform/runtime` owns application wiring and server startup; `main.go` delegates to runtime and stays small.
-- `platform` owns runtime infrastructure such as configuration, local bootstrap seed data, database setup/migrations, request context, and startup composition.
-- `common` stays narrow: secure ID/token helpers and JWT primitives. Asset-risk calculation and affected-asset refreshes live in `api/service/asset_risk` and `api/repository/asset_risk`.
-- Repository, service, external, and controller packages own their layer-specific error contracts where those boundaries need stable errors.
-- Repository, service, and external packages expose component-local interfaces only when they are real layer boundaries or useful test seams.
-- API collection files live under `BlackRadar/tests/`.
-- User creation is administrator-only; role and ownership fields are never client-controlled.
-
-## API Summary
-
-### Implemented routes
-
-Authentication
-
-- `POST /api/auth/login`
-- `POST /api/auth/refresh`
-- `POST /api/auth/logout`
-
-User administration
-
-- `POST /api/users` — administrator-only provisioning of standard users
-
-Provisioning accepts `fullName`, `username`, `email`, and `password`. Authenticated responses return the full name with the user summary.
-
-Assets
-
-- `GET /api/assets`
-- `GET /api/assets/{id}`
-- `POST /api/assets`
-- `PUT /api/assets/{id}`
-- `DELETE /api/assets/{id}`
-
-Vulnerabilities
-
-- `GET /api/vulnerabilities`
-- `GET /api/vulnerabilities/{id}`
-- `POST /api/vulnerabilities` with `cveId`, `title`, `severity`, `description`, and `status`
-- `PUT /api/vulnerabilities/{id}`
-- `DELETE /api/vulnerabilities/{id}`
-
-Assignment
-
-- `POST /api/assets/{assetId}/vulnerabilities/{vulnerabilityId}`
-- `POST /api/assets/{assetId}/match-cpe/vulnerabilities`
-- `DELETE /api/assets/{assetId}/vulnerabilities/{vulnerabilityId}`
-
-NVD
-
-- `GET /api/nvd/cves/{cveId}`
-
-AI diagnostics
-
-- `GET /api/ai/test`
-- `POST /api/ai/message`
-
-## Data Model Direction
-
-The current model is centered on:
-
-- `users`
-- `assets`
-- `vulnerabilities`
-- `asset_vulnerabilities`
-- `refresh_sessions`
-
-Users own their assets and vulnerabilities directly in the current implementation. Assets keep core inventory fields plus `riskLevel`, `criticality`, and a linked assessment record. `riskLevel` is always Low when no vulnerabilities are attached; otherwise, it combines asset criticality with the highest attached vulnerability severity. The linked `asset_assessments` data holds `riskScore`, product fingerprint, selected CPE, confidence, review status, review notes, candidate count, and match timestamp.
-
-### Asset model goals
-
-Assets should capture both business inventory and product fingerprint metadata:
-
-- name
-- type
-- vendor
-- product
-- version
-- operating system
-- owner
-- criticality
-- linked assessment data plus asset risk level
-- CPE metadata and sync timestamps
-
-## Security Approach
-
-BlackRadar Security Platform is organized around strong backend controls and safe external integration.
-
-Security principles:
-
-- BCrypt password hashing
-- JWT access tokens with short lifetimes
-- server-side refresh-token sessions
-- logout-driven session revocation
-- server-side authorization enforcement
-- admin permissions enforced in middleware
-- DTO-based request and response handling
-- service-owned transaction boundaries implemented through the platform transaction runner
-- backend-only AI and external service keys
-- local persistence of vulnerability data over live UI lookups
-- soft-delete support for records that need recovery, retention, or forensic auditability
-- safe error handling without secret leakage
-- request sanitization and validation before processing
-- rate limiting for AI-assisted matching and diagnostic routes
-
-AI-specific guidance:
-
-- keep OpenAI API keys server-side
-- use AI as an assist layer, not a source of truth
-- validate JSON model output before using it
-- minimize outbound prompt payloads and redact common secrets and direct identifiers before provider calls
-- require review for ambiguous or low-confidence matches
-- ground chatbot answers in local data
+For focused feature work, run the smallest relevant test package or component spec first.
 
 ## Documentation
 
-- `README.md`: product overview and setup guidance
-- `BlackRadar/docs/`: feature documentation covering what, why, how, ownership, security, and current limitations
-- `BlackRadar/docs/infrastructure.md`: current Docker Compose, container, network, and persistence topology
-- `BlackRadar/docs/asset-risk.md`: backend risk calculation and refresh workflow
-- `BlackRadar/docs/ci-cd.md`: current GitHub Actions validation checks and build artifacts
-- `.agents/skills/architecture/SKILL.md`: technical architecture and implementation direction
-- `.agents/skills/clean-code/SKILL.md`: naming, structure, and implementation conventions
-- `.agents/skills/roadmap/SKILL.md`: product roadmap, planned features, and sequencing notes
-- `.agents/skills/security/SKILL.md`: mandatory security policy and secure-coding rules for this repository
-- `.agents/skills/docs-writing/SKILL.md`: repository Markdown structure, flow, and doc maintenance
-- `.agents/skills/git-operations/SKILL.md`: branch switching, commits, pushes, and branch cleanup in this checkout
-- `AGENTS.md`: repository-specific assistant instructions
+- [NVD integration](BlackRadar/docs/nvd-integration.md)
+- [Asset-vulnerability assignment](BlackRadar/docs/asset-vulnerability-assignment.md)
+- [CPE and CVE matching](BlackRadar/docs/ai-cpe-and-cve-matching.md)
+- [Asset risk](BlackRadar/docs/asset-risk.md)
+- [Frontend architecture](BlackRadar/docs/frontend-angular.md)
+- [Infrastructure](BlackRadar/docs/infrastructure.md)
 
-## Planned Extensions
+## Concepts
 
-Future work documented in `.agents/skills/roadmap/SKILL.md` includes:
+- **Asset:** A tracked product, device, application, or service.
+- **Vulnerability:** A locally stored security issue, optionally identified by a CVE.
+- **CVE:** A standardized identifier for a publicly disclosed vulnerability.
+- **CPE:** A standardized product identifier used to find relevant NVD CVEs.
+- **NVD:** The National Vulnerability Database, the external CVE and CPE data source.
+- **Active assignment:** A current link between one asset and one vulnerability; only active assignments affect risk.
+- **Affected asset:** An asset with an active assignment to a vulnerability.
+- **Asset risk:** A backend-derived level based on asset criticality and the highest severity among its active vulnerabilities.
+## Next up
 
-- future API areas such as `GET /api/organizations`, `POST /api/organizations/switch`, `POST /api/assets/{id}/chat`, `POST /api/sync/nvd`, `GET /api/alerts`, `PATCH /api/alerts/{id}/acknowledge`, and dashboard summary endpoints
-- future organization listing and active organization switching
-- future application-aware scoping on top of a server-side ownership boundary
-- future multi-organization membership with active organization switching
-- future frontend workflows for batch AI asset ingestion, CPE review, and vulnerability attachment
-- asset-scoped chatbot and guided security answers
-- remediation workflows, work orders, checklist items, and exceptions
-- alerting and CVE refresh services
-- dashboard analytics and risk trend reporting
-- future organization-aware API and UI flows for assets, vulnerabilities, and memberships
-- future data model expansions such as alerts, work orders, work order checklist items, vulnerability exceptions, remediation entries, comments, optional chat sessions and chat messages, sync history records, future organization membership and active-organization records, and audit and notification records for sensitive actions
-- HTTPS/TLS enforcement with certificate handling at the deployment boundary
-- backend-issued internal service certificates for privileged `/internal` service authentication
-- protected GitHub Actions release environments and deployment
-- full Docker integration for frontend, backend, and services
-- later AWS deployment foundation using ECR, ECS/Fargate or EC2, RDS, ALB/ACM, Secrets Manager, CloudWatch, and EventBridge
-- later AWS edge controls such as WAF, ALB throttling, or CloudFront-style protection layered on top of backend limits
-- later AWS single-tenant deployment option for dedicated organizational instances
+- Human CPE-review improvements and batch asset ingestion.
+- CVE synchronization and alerting for changed vulnerability data.
+- Remediation workflows, exceptions, and work orders.
+- Dashboard analytics and risk trends.
+- Production deployment hardening, including TLS, managed secrets, and cloud runtime controls.
