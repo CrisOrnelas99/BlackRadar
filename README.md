@@ -107,18 +107,40 @@ AssetManagementRisk/
 | Area             | Current endpoints                                                                                        |
 | ---------------- | -------------------------------------------------------------------------------------------------------- |
 | Authentication   | `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`                                |
-![alt text](image.png)
+| Dashboard        | Uses `GET /api/assets` and `GET /api/vulnerabilities` for the current overview                           |
 | Assets           | `GET`, `POST /api/assets`; `GET`, `PUT`, `DELETE /api/assets/{id}`                                       |
-![alt text](image-1.png)
-![alt text](image-5.png)
 | Vulnerabilities  | `GET`, `POST /api/vulnerabilities`; `GET`, `PUT`, `DELETE /api/vulnerabilities/{id}`                     |
-![alt text](image-2.png)
-![alt text](image-6.png)
 | Relationships    | `GET /api/assets/{id}/vulnerabilities`; `GET /api/vulnerabilities/{id}/assets`; assign and remove routes |
-![alt text](image-3.png)
-![alt text](image-4.png)
 | CPE/CVE matching | `POST /api/assets/{id}/match-cpe/preview`; `POST /api/assets/{id}/match-cpe/vulnerabilities/apply`       |
 | NVD lookup       | `GET /api/nvd/cves/{cveId}`                                                                              |
+
+## Interface walkthrough
+
+### Sign in
+
+![Sign-in page](BlackRadar/ui/public/README/sign-in.png)
+
+### Dashboard
+
+![Dashboard page](BlackRadar/ui/public/README/dashboard.png)
+
+### Assets
+
+![Assets page](BlackRadar/ui/public/README/assets.png)
+
+![Asset details page](BlackRadar/ui/public/README/asset-details.png)
+
+### Vulnerabilities
+
+![Vulnerabilities page](BlackRadar/ui/public/README/vulnerabilities.png)
+
+![Vulnerability details page](BlackRadar/ui/public/README/vulnerability-details.png)
+
+### Asset-vulnerability relationships
+
+![Attached vulnerabilities CVE scan](BlackRadar/ui/public/README/attached-vulnerabilities-cve-scan.png)
+
+![Affected assets page](BlackRadar/ui/public/README/affected-assets.png)
 
 See [asset-vulnerability-assignment.md](BlackRadar/docs/asset-vulnerability-assignment.md) and [ai-cpe-and-cve-matching.md](BlackRadar/docs/ai-cpe-and-cve-matching.md) for workflow details and route behavior.
 

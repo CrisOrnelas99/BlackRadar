@@ -17,6 +17,7 @@ export interface Asset {
   owner: string;
   criticality: string;
   riskLevel: string | null;
+  hasCveScan: boolean;
   vulnerabilityCount: number;
   createdAt: string;
   updatedAt: string;

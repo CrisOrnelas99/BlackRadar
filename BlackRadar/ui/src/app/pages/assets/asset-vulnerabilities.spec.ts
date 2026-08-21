@@ -67,6 +67,7 @@ describe('AssetVulnerabilitiesPage', () => {
     owner: 'Platform',
     criticality: 'High',
     riskLevel: 'Medium',
+    hasCveScan: true,
     vulnerabilityCount: 1,
     createdAt: '2026-08-11T12:00:00Z',
     updatedAt: '2026-08-11T12:00:00Z',

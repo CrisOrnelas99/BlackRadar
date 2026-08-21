@@ -58,6 +58,7 @@ type AssetResponse struct {
 	Owner              string    `json:"owner"`
 	Criticality        string    `json:"criticality"`
 	RiskLevel          *string   `json:"riskLevel"`
+	HasCVEScan         bool      `json:"hasCveScan"`
 	VulnerabilityCount int       `json:"vulnerabilityCount"`
 	CreatedAt          time.Time `json:"createdAt"`
 	UpdatedAt          time.Time `json:"updatedAt"`
@@ -135,6 +136,7 @@ func ToAssetResponseDTO(asset model.Asset) AssetResponse {
 		Owner:              asset.Owner,
 		Criticality:        asset.Criticality,
 		RiskLevel:          asset.RiskLevel,
+		HasCVEScan:         asset.Assessment != nil && asset.Assessment.SelectedCPE != nil && *asset.Assessment.SelectedCPE != "",
 		VulnerabilityCount: asset.VulnerabilityCount,
 		CreatedAt:          asset.CreatedAt,
 		UpdatedAt:          asset.UpdatedAt,

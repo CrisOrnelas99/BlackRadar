@@ -11,6 +11,12 @@
           <path d="M5.5 9.5V21h13V9.5" />
         </svg>
         <h1 id="dashboard-heading">Dashboard</h1>
+        @if (overview(); as overview) {
+          <span class="dashboard-page-count">
+            {{ overview.unscannedAssets }}
+            {{ overview.unscannedAssets === 1 ? 'unscanned asset' : 'unscanned assets' }}
+          </span>
+        }
       </div>
       <p class="dashboard-page-subtitle">
         Review your security inventory and vulnerability-management activity from one place.
@@ -18,11 +24,140 @@
     </div>
   </header>
 
-  <div class="dashboard-card">
-    <p class="dashboard-kicker">Authenticated</p>
-    <p class="dashboard-copy">
-      Signed in as <strong>{{ username || 'unknown user' }}</strong
-      >.
-    </p>
-  </div>
+  <section class="dashboard-overview" aria-label="Dashboard metrics">
+    @if (isOverviewLoading()) {
+      <p class="dashboard-overview-message" role="status">Loading security overview…</p>
+    } @else if (hasOverviewLoadError()) {
+      <p class="dashboard-overview-message" role="alert">
+        Unable to load dashboard metrics. Try refreshing the page.
+      </p>
+    } @else if (overview(); as overview) {
+      <div class="dashboard-overview-grid">
+        <article class="dashboard-overview-card">
+          <div class="dashboard-overview-card-header">
+            <div class="dashboard-overview-title-row">
+              <svg class="dashboard-overview-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
+                <path d="m4.5 7.5 7.5 4.25 7.5-4.25" />
+                <path d="M12 11.75V21" />
+              </svg>
+              <h2 class="dashboard-overview-label">Assets</h2>
+              <p class="dashboard-overview-value">{{ overview.assetCount }}</p>
+            </div>
+          </div>
+          <div class="dashboard-overview-card-content">
+            <section class="dashboard-overview-chart-section" aria-label="Asset risk chart">
+              <h3>Asset risk chart</h3>
+              <div class="dashboard-overview-chart-row">
+                <div
+                  class="dashboard-overview-chart"
+                  [style.background]="pieChartBackground(overview.assetRiskLevels)"
+                  role="img"
+                  aria-label="Asset risk level distribution"
+                ></div>
+                <ul class="dashboard-overview-chart-legend" aria-label="Asset risk level counts">
+                  @for (level of metricLevels; track level.key) {
+                    <li>
+                      <span class="dashboard-overview-chart-swatch dashboard-overview-chart-swatch--{{ level.key }}"></span>
+                      <span>{{ level.label }}</span>
+                      <strong>{{ overview.assetRiskLevels[level.key] }}</strong>
+                      <span class="dashboard-overview-chart-percentage">
+                        ({{ pieChartPercentage(overview.assetRiskLevels, level.key) }}%)
+                      </span>
+                    </li>
+                  }
+                </ul>
+              </div>
+              <div class="dashboard-overview-coverage">
+                <div class="dashboard-overview-coverage-labels">
+                  <span>
+                    Attached vulnerabilities
+                    <strong>
+                      {{ overview.assetsWithVulnerabilities }}
+                      ({{ coveragePercentage(overview.assetsWithVulnerabilities, overview.assetCount) }}%)
+                    </strong>
+                  </span>
+                  <span>
+                    Unaffected assets
+                    <strong>
+                      {{ overview.unaffectedAssets }}
+                      ({{ coveragePercentage(overview.unaffectedAssets, overview.assetCount) }}%)
+                    </strong>
+                  </span>
+                </div>
+                <div
+                  class="dashboard-overview-coverage-bar"
+                  [style.background]="coverageBarBackground(overview.assetsWithVulnerabilities, overview.assetCount)"
+                  role="img"
+                  aria-label="Attached vulnerabilities and unaffected assets coverage"
+                ></div>
+              </div>
+            </section>
+          </div>
+        </article>
+
+        <article class="dashboard-overview-card">
+          <div class="dashboard-overview-card-header">
+            <div class="dashboard-overview-title-row">
+              <svg class="dashboard-overview-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 3 20 7.5v9L12 21l-8-4.5v-9L12 3Z" />
+                <path d="M12 8v4.5M12 16h.01" />
+              </svg>
+              <h2 class="dashboard-overview-label">Vulnerabilities</h2>
+              <p class="dashboard-overview-value">{{ overview.vulnerabilityCount }}</p>
+            </div>
+          </div>
+          <div class="dashboard-overview-card-content">
+            <section class="dashboard-overview-chart-section" aria-label="Vulnerability severity chart">
+              <h3>Vulnerability severity chart</h3>
+              <div class="dashboard-overview-chart-row">
+                <div
+                  class="dashboard-overview-chart"
+                  [style.background]="pieChartBackground(overview.vulnerabilitySeverityLevels)"
+                  role="img"
+                  aria-label="Vulnerability severity distribution"
+                ></div>
+                <ul class="dashboard-overview-chart-legend" aria-label="Vulnerability severity counts">
+                  @for (level of metricLevels; track level.key) {
+                    <li>
+                      <span class="dashboard-overview-chart-swatch dashboard-overview-chart-swatch--{{ level.key }}"></span>
+                      <span>{{ level.label }}</span>
+                      <strong>{{ overview.vulnerabilitySeverityLevels[level.key] }}</strong>
+                      <span class="dashboard-overview-chart-percentage">
+                        ({{ pieChartPercentage(overview.vulnerabilitySeverityLevels, level.key) }}%)
+                      </span>
+                    </li>
+                  }
+                </ul>
+              </div>
+              <div class="dashboard-overview-coverage">
+                <div class="dashboard-overview-coverage-labels">
+                  <span>
+                    Assigned assets
+                    <strong>
+                      {{ overview.assignedVulnerabilities }}
+                      ({{ coveragePercentage(overview.assignedVulnerabilities, overview.vulnerabilityCount) }}%)
+                    </strong>
+                  </span>
+                  <span>
+                    Unassigned vulnerabilities
+                    <strong>
+                      {{ overview.unassignedVulnerabilities }}
+                      ({{ coveragePercentage(overview.unassignedVulnerabilities, overview.vulnerabilityCount) }}%)
+                    </strong>
+                  </span>
+                </div>
+                <div
+                  class="dashboard-overview-coverage-bar"
+                  [style.background]="coverageBarBackground(overview.assignedVulnerabilities, overview.vulnerabilityCount)"
+                  role="img"
+                  aria-label="Assigned assets and unassigned vulnerabilities coverage"
+                ></div>
+              </div>
+            </section>
+          </div>
+        </article>
+      </div>
+    }
+  </section>
 </section>
