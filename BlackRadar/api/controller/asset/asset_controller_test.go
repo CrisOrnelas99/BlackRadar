@@ -198,6 +198,12 @@ func TestToAssetResponseDTOIncludesMatchMetadata(t *testing.T) {
 	if response.RiskLevel == nil || *response.RiskLevel != "Low" {
 		t.Fatalf("expected Low risk level, got %#v", response.RiskLevel)
 	}
+	if !response.HasCVEScan {
+		t.Fatal("expected selected CPE to mark the asset as CVE scanned")
+	}
+	if ToAssetResponseDTO(model.Asset{}).HasCVEScan {
+		t.Fatal("expected asset without a selected CPE to remain unscanned")
+	}
 }
 
 func TestToAssetMatchResponseDTOSeparatesAssessmentMetadata(t *testing.T) {

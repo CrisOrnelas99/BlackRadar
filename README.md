@@ -107,18 +107,40 @@ AssetManagementRisk/
 | Area             | Current endpoints                                                                                        |
 | ---------------- | -------------------------------------------------------------------------------------------------------- |
 | Authentication   | `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`                                |
-![alt text](image.png)
+| Dashboard        | Uses `GET /api/assets` and `GET /api/vulnerabilities` for the current overview                           |
 | Assets           | `GET`, `POST /api/assets`; `GET`, `PUT`, `DELETE /api/assets/{id}`                                       |
-![alt text](image-1.png)
-![alt text](image-5.png)
 | Vulnerabilities  | `GET`, `POST /api/vulnerabilities`; `GET`, `PUT`, `DELETE /api/vulnerabilities/{id}`                     |
-![alt text](image-2.png)
-![alt text](image-6.png)
 | Relationships    | `GET /api/assets/{id}/vulnerabilities`; `GET /api/vulnerabilities/{id}/assets`; assign and remove routes |
-![alt text](image-3.png)
-![alt text](image-4.png)
 | CPE/CVE matching | `POST /api/assets/{id}/match-cpe/preview`; `POST /api/assets/{id}/match-cpe/vulnerabilities/apply`       |
 | NVD lookup       | `GET /api/nvd/cves/{cveId}`                                                                              |
+
+## Interface walkthrough
+
+### Sign in
+
+<img src="BlackRadar/ui/public/README/sign-in.png" alt="Sign-in page" width="800" />
+
+### Dashboard
+
+<img src="BlackRadar/ui/public/README/dashboard.png" alt="Dashboard page" width="800" />
+
+### Assets
+
+<img src="BlackRadar/ui/public/README/assets.png" alt="Assets page" width="800" />
+
+<img src="BlackRadar/ui/public/README/asset-details.png" alt="Asset details page" width="800" />
+
+### Vulnerabilities
+
+<img src="BlackRadar/ui/public/README/vulnerabilities.png" alt="Vulnerabilities page" width="800" />
+
+<img src="BlackRadar/ui/public/README/vulnerability-details.png" alt="Vulnerability details page" width="800" />
+
+### Asset-vulnerability relationships
+
+<img src="BlackRadar/ui/public/README/attached-vulnerabilities-cve-scan.png" alt="Attached vulnerabilities CVE scan" width="800" />
+
+<img src="BlackRadar/ui/public/README/affected-assets.png" alt="Affected assets page" width="800" />
 
 See [asset-vulnerability-assignment.md](BlackRadar/docs/asset-vulnerability-assignment.md) and [ai-cpe-and-cve-matching.md](BlackRadar/docs/ai-cpe-and-cve-matching.md) for workflow details and route behavior.
 
