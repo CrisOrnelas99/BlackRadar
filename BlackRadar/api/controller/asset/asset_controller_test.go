@@ -278,6 +278,32 @@ func TestToAssetMatchResponseDTOSeparatesAssessmentMetadata(t *testing.T) {
 	}
 }
 
+func TestToAssetMatchPreviewResponseDTOAlwaysReturnsCVEIDsArray(t *testing.T) {
+	response := ToAssetMatchPreviewResponseDTO(assetmatchservice.AssetMatchPreview{})
+	if response.CVEIDs == nil {
+		t.Fatal("expected CVE IDs to be an empty slice")
+	}
+
+	encoded, err := json.Marshal(response)
+	if err != nil {
+		t.Fatalf("failed to encode match preview response: %v", err)
+	}
+	var payload map[string]json.RawMessage
+	if err := json.Unmarshal(encoded, &payload); err != nil {
+		t.Fatalf("failed to decode match preview response: %v", err)
+	}
+	if string(payload["cveIds"]) != "[]" {
+		t.Fatalf("expected cveIds to encode as an empty array, got %s", payload["cveIds"])
+	}
+
+	response = ToAssetMatchPreviewResponseDTO(assetmatchservice.AssetMatchPreview{
+		CVEIDs: []string{"CVE-2026-0001"},
+	})
+	if len(response.CVEIDs) != 1 || response.CVEIDs[0] != "CVE-2026-0001" {
+		t.Fatalf("expected CVE IDs to be preserved, got %#v", response.CVEIDs)
+	}
+}
+
 func TestToAssetAssessmentResponseDTODefaultsWithoutAssessment(t *testing.T) {
 	assessmentID := "00000000-0000-4000-8000-000000000077"
 	response := ToAssetAssessmentResponseDTO(model.Asset{

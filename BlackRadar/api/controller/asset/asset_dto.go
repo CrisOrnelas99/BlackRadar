@@ -200,11 +200,16 @@ func ToAssetMatchResponseDTO(asset model.Asset) AssetMatchResponse {
 // ToAssetMatchPreviewResponseDTO converts a non-persistent analysis into its HTTP response.
 func ToAssetMatchPreviewResponseDTO(preview assetmatchservice.AssetMatchPreview) AssetMatchPreviewResponse {
 	analysis := preview.Analysis
+	cveIDs := preview.CVEIDs
+	if cveIDs == nil {
+		cveIDs = []string{}
+	}
+
 	return AssetMatchPreviewResponse{
 		ProductFingerprint: analysis.ProductFingerprint,
 		SelectedCPE:        analysis.SelectedCPE,
 		CVECount:           preview.CVECount,
-		CVEIDs:             preview.CVEIDs,
+		CVEIDs:             cveIDs,
 		CVEDataAvailable:   preview.CVEDataAvailable,
 		Confidence:         analysis.Confidence,
 		ReviewStatus:       analysis.ReviewStatus,

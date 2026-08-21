@@ -473,6 +473,67 @@ func TestAnalyzeAssetMatchRejectsMismatchedSelectedCPEVersion(t *testing.T) {
 	}
 }
 
+func TestAnalyzeAssetMatchDoesNotAutoAcceptMismatchedExactCPEVersion(t *testing.T) {
+	const matchCPE = "cpe:2.3:a:microsoft:windows_app:-:*:*:*:*:windows:*:*"
+	const mismatchedCPE = "cpe:2.3:a:microsoft:windows_app:1.0.0:*:*:*:*:windows:*:*"
+	asset := sampleMatchedAsset()
+	asset.Type = "Application"
+	asset.Vendor = ptrString("Microsoft")
+	asset.Product = ptrString("Windows App")
+	asset.Version = ptrString("2.0.1313")
+	asset.OperatingSystem = ptrString("Windows")
+	svc := &assetMatchServiceImpl{
+		cpeSearcher: &fakeCPECandidateSearcher{
+			candidatesByMatchString: map[string][]nvdcpeclient.CPECandidate{
+				matchCPE: {{CPEName: mismatchedCPE, Title: "Microsoft Windows App 1.0.0"}},
+			},
+		},
+		textAI: &fakeTextGenerationService{
+			response: textgenerationservice.TextGenerationResponse{
+				Text: `{"selectedCpe":"cpe:2.3:a:microsoft:windows_app:1.0.0:*:*:*:*:windows:*:*","confidence":0.99,"reviewNotes":"version mismatch"}`,
+			},
+		},
+	}
+
+	analysis, err := svc.AnalyzeAssetMatch(contextForTest(t), asset, "")
+	if err != nil {
+		t.Fatalf("expected analysis to succeed, got %v", err)
+	}
+	if analysis.SelectedCPE != "" || analysis.ReviewStatus != model.AssetCPEReviewStatusNeedsReview {
+		t.Fatalf("expected mismatched exact CPE to require review, got %+v", analysis)
+	}
+}
+
+func TestSearchCPECandidatesReservesBudgetForKeywordFallback(t *testing.T) {
+	searcher := &fakeCPECandidateSearcher{
+		candidatesBySearch: map[string][]nvdcpeclient.CPECandidate{
+			"fallback": {{CPEName: "cpe:2.3:a:vendor:product:*:*:*:*:*:*:*:*", Title: "Vendor Product"}},
+		},
+	}
+	svc := &assetMatchServiceImpl{cpeSearcher: searcher}
+
+	result, err := svc.searchCPECandidates(
+		contextForTest(t).RequestContext(),
+		[]string{"exact-1", "exact-2", "exact-3", "exact-4", "exact-5", "exact-6"},
+		[]string{"fallback", "unused"},
+	)
+	if err != nil {
+		t.Fatalf("expected CPE search to succeed, got %v", err)
+	}
+	if len(searcher.matchRequests) != maxCPECandidateSearches-1 {
+		t.Fatalf("expected %d exact searches, got %#v", maxCPECandidateSearches-1, searcher.matchRequests)
+	}
+	if len(searcher.requests) != 1 || searcher.requests[0] != "fallback" {
+		t.Fatalf("expected one fallback search, got %#v", searcher.requests)
+	}
+	if len(searcher.matchRequests)+len(searcher.requests) > maxCPECandidateSearches {
+		t.Fatalf("expected at most %d CPE searches", maxCPECandidateSearches)
+	}
+	if result.SearchTerm != "fallback" || len(result.Candidates) != 1 {
+		t.Fatalf("expected fallback candidate result, got %+v", result)
+	}
+}
+
 func TestAnalyzeAssetMatchHandlesMalformedRankingResponse(t *testing.T) {
 	svc := &assetMatchServiceImpl{
 		cpeSearcher: &fakeCPECandidateSearcher{
@@ -674,6 +735,50 @@ func TestPreviewAssetMatchRejectsCPEOutsideCandidatesBeforeCVESearch(t *testing.
 	}
 }
 
+func TestPreviewAssetMatchRejectsMismatchedCandidateVersion(t *testing.T) {
+	asset := sampleMatchedAsset()
+	asset.Version = ptrString("5.6.1")
+	candidateCPE := "cpe:2.3:a:tukaani:xz:5.0.8:*:*:*:*:*:*:*"
+	svc := &assetMatchServiceImpl{
+		assetMatchRepository: &fakeAssetRepository{asset: asset},
+		cpeSearcher: &fakeCPECandidateSearcher{candidates: []nvdcpeclient.CPECandidate{
+			{CPEName: candidateCPE, Title: "Tukaani XZ 5.0.8"},
+		}},
+		textAI: &fakeTextGenerationService{},
+	}
+	ctx := contextForTest(t)
+	ctx.SetUserRole(model.RoleAdmin)
+
+	_, err := svc.PreviewAssetMatch(ctx, asset.ID, candidateCPE)
+	var validationErr ValidationError
+	if !errors.As(err, &validationErr) {
+		t.Fatalf("expected mismatched CPE version to be rejected, got %v", err)
+	}
+}
+
+func TestApplyApprovedCPEMatchRejectsMismatchedCandidateVersion(t *testing.T) {
+	asset := sampleMatchedAsset()
+	asset.Version = ptrString("5.6.1")
+	cveSearcher := &fakeCVEByCPESearcher{}
+	svc := &assetMatchServiceImpl{
+		assetMatchRepository:         &fakeAssetRepository{asset: asset},
+		assetVulnerabilityRepository: &fakeAssetRepository{},
+		vulnRepository:               &fakeVulnerabilityRepository{},
+		cveSearcher:                  cveSearcher,
+	}
+	ctx := contextForTest(t)
+	ctx.SetUserRole(model.RoleAdmin)
+
+	_, err := svc.ApplyApprovedCPEMatch(ctx, asset.ID, "cpe:2.3:a:tukaani:xz:5.0.8:*:*:*:*:*:*:*")
+	var validationErr ValidationError
+	if !errors.As(err, &validationErr) {
+		t.Fatalf("expected mismatched CPE version to be rejected, got %v", err)
+	}
+	if len(cveSearcher.cpeRequests) != 0 {
+		t.Fatalf("expected rejected CPE not to search NVD CVEs, got %#v", cveSearcher.cpeRequests)
+	}
+}
+
 func TestApplyApprovedCPEMatchUsesAssetVersionAndStoresNVDResults(t *testing.T) {
 	const dictionaryCPE = "cpe:2.3:a:microsoft:windows_app:-:*:*:*:*:windows:*:*"
 	const applicabilityCPE = "cpe:2.3:a:microsoft:windows_app:2.0.1313:*:*:*:*:windows:*:*"
@@ -734,8 +839,10 @@ func TestApplyApprovedCPEMatchReusesExistingVulnerabilityByCVEID(t *testing.T) {
 	repo := &fakeAssetRepository{asset: asset}
 	vulnRepo := &fakeVulnerabilityRepository{
 		saved: model.Vulnerability{
-			Model: model.Model{ID: "00000000-0000-4000-8000-000000000099"},
-			CVEID: "CVE-2026-59124",
+			Model:       model.Model{ID: "00000000-0000-4000-8000-000000000099"},
+			CVEID:       "CVE-2026-59124",
+			Title:       "Custom vulnerability title",
+			Description: "Custom vulnerability description",
 		},
 	}
 	cveSearcher := &fakeCVEByCPESearcher{
@@ -765,14 +872,14 @@ func TestApplyApprovedCPEMatchReusesExistingVulnerabilityByCVEID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected existing CVE to be reused, got %v", err)
 	}
-	if vulnRepo.updated.CVEID != "CVE-2026-59124" {
-		t.Fatalf("expected normalized existing CVE to be updated, got %q", vulnRepo.updated.CVEID)
-	}
-	if vulnRepo.updated.Title != "Updated NVD title" || vulnRepo.updated.Severity != "High" {
-		t.Fatalf("expected existing vulnerability to receive NVD details, got %#v", vulnRepo.updated)
-	}
 	if vulnRepo.createCalls != 0 {
 		t.Fatalf("expected no new vulnerability record, created %d", vulnRepo.createCalls)
+	}
+	if vulnRepo.updateCalls != 0 {
+		t.Fatalf("expected existing vulnerability to remain unchanged, updated %d times", vulnRepo.updateCalls)
+	}
+	if vulnRepo.saved.Title != "Custom vulnerability title" || vulnRepo.saved.Description != "Custom vulnerability description" {
+		t.Fatalf("expected custom vulnerability details to be preserved, got %#v", vulnRepo.saved)
 	}
 	if !repo.assigned {
 		t.Fatal("expected the existing vulnerability to be assigned to the asset")
@@ -1004,6 +1111,7 @@ type fakeVulnerabilityRepository struct {
 	saved       model.Vulnerability
 	updated     model.Vulnerability
 	createCalls int
+	updateCalls int
 }
 
 func (f *fakeVulnerabilityRepository) FindAllByUser(ec *appcontext.GinContext, userID string) ([]model.Vulnerability, error) {
@@ -1042,6 +1150,7 @@ func (f *fakeVulnerabilityRepository) CreateForUser(ec *appcontext.GinContext, u
 }
 
 func (f *fakeVulnerabilityRepository) UpdateForUser(ec *appcontext.GinContext, id string, userID string, vulnerability model.Vulnerability) (model.Vulnerability, error) {
+	f.updateCalls++
 	f.updated = vulnerability
 	f.updated.ID = id
 	return f.updated, nil

@@ -47,9 +47,9 @@ export class AssetDetailsPage {
     type: ['', [Validators.required, Validators.maxLength(100)]],
     description: ['', Validators.maxLength(5000)],
     operatingSystem: ['', Validators.maxLength(100)],
-    vendor: ['', [Validators.required, Validators.maxLength(100)]],
-    product: ['', [Validators.required, Validators.maxLength(100)]],
-    version: ['', [Validators.required, Validators.maxLength(100)]],
+    vendor: ['', [Validators.required, Validators.pattern(/\S/), Validators.maxLength(100)]],
+    product: ['', [Validators.required, Validators.pattern(/\S/), Validators.maxLength(100)]],
+    version: ['', [Validators.required, Validators.pattern(/\S/), Validators.maxLength(100)]],
     owner: ['', Validators.maxLength(200)],
     criticality: ['Medium', Validators.required],
   });

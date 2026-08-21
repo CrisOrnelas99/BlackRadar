@@ -111,6 +111,22 @@ describe('AssetDetailsPage', () => {
     expect(component.editForm.invalid).toBe(true);
   });
 
+  it('rejects whitespace-only CPE identity fields', () => {
+    const cpeIdentityControls = [
+      component.editForm.controls.vendor,
+      component.editForm.controls.product,
+      component.editForm.controls.version,
+    ];
+
+    for (const control of cpeIdentityControls) {
+      control.setValue('   ');
+
+      expect(component.editForm.invalid).toBe(true);
+
+      control.setValue('valid value');
+    }
+  });
+
   it('does not open delete confirmation while save confirmation is open', () => {
     component.isSaveConfirmationOpen.set(true);
 

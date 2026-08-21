@@ -973,15 +973,6 @@ func parseNVDTimestamp(value string) *time.Time {
 	return nil
 }
 
-func firstNonNilTime(values ...*time.Time) *time.Time {
-	for _, value := range values {
-		if value != nil {
-			return value
-		}
-	}
-	return nil
-}
-
 // logAssetMatchDebug logs asset-match diagnostics with a safe fallback logger.
 func logAssetMatchDebug(logger *slog.Logger, message string, args ...any) {
 	if logger == nil {

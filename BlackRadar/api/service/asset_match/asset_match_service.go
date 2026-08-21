@@ -27,6 +27,7 @@ import (
 
 const (
 	maxAutoAttachedCVEs          = 10
+	maxCPECandidateSearches      = 5
 	maxKeywordFallbackSearches   = 5
 	maxKeywordFallbackNVDResults = 100
 	maxKeywordFallbackCandidates = 20
@@ -203,7 +204,7 @@ func (s *assetMatchServiceImpl) AnalyzeAssetMatch(ctx context.Context, asset mod
 			ReviewNotes:        "no NVD CPE candidates returned",
 		}, nil
 	}
-	if searchResult.Exact && len(candidates) == 1 {
+	if searchResult.Exact && len(candidates) == 1 && cpeVersionMatchesFingerprint(candidates[0].CPEName, fingerprint.Version) {
 		return AssetMatchAnalysis{
 			ProductFingerprint: fingerprint.Canonical,
 			KeywordSearch:      keywordSearch,
@@ -286,6 +287,9 @@ func (s *assetMatchServiceImpl) PreviewAssetMatch(ec *appcontext.GinContext, ass
 		if !containsCPECandidate(analysis.Candidates, selectedCPE) {
 			return AssetMatchPreview{}, ValidationError{Message: "selected CPE was not returned by the match preview"}
 		}
+		if !cpeVersionMatchesFingerprint(selectedCPE, optionalStringValue(asset.Version)) {
+			return AssetMatchPreview{}, ValidationError{Message: "selected CPE version does not match the asset version"}
+		}
 		analysis.SelectedCPE = selectedCPE
 	}
 
@@ -323,6 +327,9 @@ func (s *assetMatchServiceImpl) ApplyApprovedCPEMatch(ec *appcontext.GinContext,
 	asset, err := s.assetMatchRepository.FindByIDForUser(ec, assetID, userID)
 	if err != nil {
 		return model.Asset{}, translateMatchRepositoryError(err)
+	}
+	if !cpeVersionMatchesFingerprint(selectedCPE, optionalStringValue(asset.Version)) {
+		return model.Asset{}, ValidationError{Message: "selected CPE version does not match the asset version"}
 	}
 	cveQueryCPE, valid := cpeNameWithAssetVersion(selectedCPE, optionalStringValue(asset.Version))
 	if !valid {
@@ -561,7 +568,7 @@ func (s *assetMatchServiceImpl) findKeywordFallbackCVEs(ctx context.Context, ana
 	}, nil
 }
 
-// findOrCreateNVDVulnerability creates or updates a local vulnerability from an NVD CVE response.
+// findOrCreateNVDVulnerability creates a local vulnerability only when its CVE ID is not already stored.
 func (s *assetMatchServiceImpl) findOrCreateNVDVulnerability(ec *appcontext.GinContext, userID string, response nvdcveclient.CVELookupResponse) (model.Vulnerability, error) {
 	normalizedCVEID := normalizeCVEID(response.CVEID)
 	if err := validateCVEID(normalizedCVEID); err != nil {
@@ -570,16 +577,7 @@ func (s *assetMatchServiceImpl) findOrCreateNVDVulnerability(ec *appcontext.GinC
 
 	existing, err := s.vulnRepository.FindByCVEIDForUser(ec, normalizedCVEID, userID)
 	if err == nil {
-		updated, err := s.vulnRepository.UpdateForUser(ec, existing.ID, userID, model.Vulnerability{
-			UserID:         userID,
-			CVEID:          normalizedCVEID,
-			Title:          firstNonEmptyString(response.Title, normalizedCVEID),
-			Severity:       normalizeSeverity(response.Severity),
-			Description:    firstNonEmptyString(response.Description, "No description returned by NVD."),
-			Status:         existing.Status,
-			NVDPublishedAt: firstNonNilTime(parseNVDTimestamp(response.PublishedAt), existing.NVDPublishedAt),
-		})
-		return updated, translateMatchRepositoryError(err)
+		return existing, nil
 	}
 	if !errors.Is(err, vulnerabilityrepo.ErrRecordNotFound) {
 		return model.Vulnerability{}, translateMatchRepositoryError(err)
@@ -726,7 +724,11 @@ func (s *assetMatchServiceImpl) expandCVEKeywordSearchesWithAI(ctx context.Conte
 // fingerprintExtractionRawText converts an AI extraction response into labeled fingerprint text.
 func (s *assetMatchServiceImpl) searchCPECandidates(ctx context.Context, matchStrings []string, keywordSearches []string) (cpeCandidateSearchResult, error) {
 	var lastErr error
-	for _, matchString := range matchStrings {
+	maxExactSearches := min(len(matchStrings), maxCPECandidateSearches)
+	if len(keywordSearches) > 0 && maxExactSearches == maxCPECandidateSearches {
+		maxExactSearches--
+	}
+	for _, matchString := range matchStrings[:maxExactSearches] {
 		candidates, err := s.cpeSearcher.SearchCandidates(ctx, nvdcpeclient.CPEMatchRequest{CPEMatchString: matchString})
 		if err != nil {
 			lastErr = err
@@ -737,7 +739,12 @@ func (s *assetMatchServiceImpl) searchCPECandidates(ctx context.Context, matchSt
 			return cpeCandidateSearchResult{SearchTerm: matchString, Candidates: candidates, Exact: true}, nil
 		}
 	}
+	searchesUsed := maxExactSearches
 	for _, keywordSearch := range keywordSearches {
+		if searchesUsed >= maxCPECandidateSearches {
+			break
+		}
+		searchesUsed++
 		candidates, err := s.cpeSearcher.SearchCandidates(ctx, nvdcpeclient.CPEMatchRequest{KeywordSearch: keywordSearch})
 		if err != nil {
 			lastErr = err

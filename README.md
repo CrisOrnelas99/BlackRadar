@@ -14,6 +14,38 @@ It keeps ownership, authorization, risk calculation, NVD access, and AI-assisted
 - Persist NVD publication timestamps for imported CVEs and show them in vulnerability details.
 - Enforce backend authentication, ownership, administrator-only management actions, input validation, rate limiting, and transaction boundaries.
 
+## Interface walkthrough
+
+### Sign in
+
+Administrators sign in before accessing user-scoped assets and vulnerabilities.
+
+<img src="BlackRadar/ui/public/README/sign-in.png" alt="BlackRadar sign-in page" width="720" />
+
+### Inventory
+
+The Assets and Vulnerabilities pages provide searchable, sortable inventories and focused creation actions.
+
+<img src="BlackRadar/ui/public/README/assets.png" alt="Assets inventory page" width="960" />
+
+<img src="BlackRadar/ui/public/README/vulnerabilities.png" alt="Vulnerabilities inventory page" width="960" />
+
+### Asset-vulnerability relationships
+
+Attached Vulnerabilities shows the findings on one asset and provides the CVE scan workflow. Affected Assets shows the inverse relationship for a vulnerability.
+
+<img src="BlackRadar/ui/public/README/attached-vulnerabilities-cve-scan.png" alt="Attached Vulnerabilities page with CVE scan in progress" width="960" />
+
+<img src="BlackRadar/ui/public/README/affected-assets.png" alt="Affected Assets page" width="960" />
+
+### Detail views
+
+Asset and vulnerability detail pages show the saved context and provide direct access to their related records.
+
+<img src="BlackRadar/ui/public/README/asset-details.png" alt="Asset details page" width="960" />
+
+<img src="BlackRadar/ui/public/README/vulnerability-details.png" alt="Vulnerability details page" width="960" />
+
 ## Who, what, when, where, why, and how
 
 - **Who:** Administrators manage assets and vulnerability relationships; each user sees only their own assets and vulnerabilities.
