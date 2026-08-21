@@ -118,29 +118,29 @@ AssetManagementRisk/
 
 ### Sign in
 
-![Sign-in page](BlackRadar/ui/public/README/sign-in.png)
+<img src="BlackRadar/ui/public/README/sign-in.png" alt="Sign-in page" width="800" />
 
 ### Dashboard
 
-![Dashboard page](BlackRadar/ui/public/README/dashboard.png)
+<img src="BlackRadar/ui/public/README/dashboard.png" alt="Dashboard page" width="800" />
 
 ### Assets
 
-![Assets page](BlackRadar/ui/public/README/assets.png)
+<img src="BlackRadar/ui/public/README/assets.png" alt="Assets page" width="800" />
 
-![Asset details page](BlackRadar/ui/public/README/asset-details.png)
+<img src="BlackRadar/ui/public/README/asset-details.png" alt="Asset details page" width="800" />
 
 ### Vulnerabilities
 
-![Vulnerabilities page](BlackRadar/ui/public/README/vulnerabilities.png)
+<img src="BlackRadar/ui/public/README/vulnerabilities.png" alt="Vulnerabilities page" width="800" />
 
-![Vulnerability details page](BlackRadar/ui/public/README/vulnerability-details.png)
+<img src="BlackRadar/ui/public/README/vulnerability-details.png" alt="Vulnerability details page" width="800" />
 
 ### Asset-vulnerability relationships
 
-![Attached vulnerabilities CVE scan](BlackRadar/ui/public/README/attached-vulnerabilities-cve-scan.png)
+<img src="BlackRadar/ui/public/README/attached-vulnerabilities-cve-scan.png" alt="Attached vulnerabilities CVE scan" width="800" />
 
-![Affected assets page](BlackRadar/ui/public/README/affected-assets.png)
+<img src="BlackRadar/ui/public/README/affected-assets.png" alt="Affected assets page" width="800" />
 
 See [asset-vulnerability-assignment.md](BlackRadar/docs/asset-vulnerability-assignment.md) and [ai-cpe-and-cve-matching.md](BlackRadar/docs/ai-cpe-and-cve-matching.md) for workflow details and route behavior.
 
