@@ -29,7 +29,7 @@ type Asset struct {
 	DeviceModel        *string          `gorm:"column:device_model" json:"deviceModel,omitempty"`
 	Owner              string           `gorm:"not null" json:"owner"`
 	Criticality        string           `gorm:"not null" json:"criticality"`
-	RiskLevel          *string          `gorm:"column:risk_level" json:"riskLevel"`
+	RiskLevel          *string          `gorm:"column:risk_level;default:Low" json:"riskLevel"`
 	Assessment         *AssetAssessment `gorm:"foreignKey:AssetAssessmentID;references:ID" json:"-"`
 	Vulnerabilities    []Vulnerability  `gorm:"many2many:asset_vulnerabilities;" json:"vulnerabilities,omitempty"`
 	VulnerabilityCount int              `gorm:"-" json:"-"`

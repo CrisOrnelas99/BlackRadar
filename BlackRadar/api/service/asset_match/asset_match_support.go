@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	nvdcpeclient "blackradar/api/external/nvd_cpe"
@@ -50,6 +51,7 @@ var (
 	namedPackageFromVendor = regexp.MustCompile(`(?i)\b([a-z0-9][a-z0-9._+-]*)\s+(?:package|software|application|app)\s+(?:installed\s+)?(?:from|by)\s+(?:the\s+)?([a-z0-9][a-z0-9 ._-]*?)(?:\s+(?:project|vendor|team|foundation|software foundation))?\b`)
 	apacheHTTPServerHint   = regexp.MustCompile(`(?i)\bapache\s+http\s+server\b`)
 	matchCVEIDPattern      = regexp.MustCompile(`^CVE-\d{4}-\d{4,}$`)
+	cpeVersionPattern      = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,79}$`)
 	promptInjectionPattern = regexp.MustCompile(`(?i)(ignore (all )?previous instructions|system prompt|developer message|reveal the prompt|bypass policy|prompt injection|jailbreak|do anything now)`)
 )
 
@@ -364,6 +366,13 @@ type cveMatchResult struct {
 	KeywordFallback bool
 }
 
+// cpeCandidateSearchResult identifies how bounded NVD CPE candidates were found.
+type cpeCandidateSearchResult struct {
+	SearchTerm string
+	Candidates []nvdcpeclient.CPECandidate
+	Exact      bool
+}
+
 // assetFingerprintExtractionResponse represents the constrained AI fingerprint response.
 type assetFingerprintExtractionResponse struct {
 	Vendor          any `json:"vendor"`
@@ -510,6 +519,107 @@ func cpeComponent(value string) string {
 	return strings.Trim(value, "_")
 }
 
+// buildCPEMatchStrings creates exact vendor/product component searches before keyword fallback.
+func buildCPEMatchStrings(fingerprint AssetFingerprint) []string {
+	if strings.TrimSpace(fingerprint.Vendor) == "" || strings.TrimSpace(fingerprint.Product) == "" {
+		return nil
+	}
+
+	matchStrings := make([]string, 0, 6)
+	for _, vendor := range cpeComponentAliases(fingerprint.Vendor) {
+		for _, product := range cpeProductAliases(fingerprint.Product, fingerprint.OperatingSystem) {
+			for _, part := range preferredCPEParts(fingerprint) {
+				targetSoftware := cpeComponent(fingerprint.OperatingSystem)
+				if targetSoftware != "" {
+					exactMatch := "cpe:2.3:" + part + ":" + vendor + ":" + product + ":-:*:*:*:*:" + targetSoftware + ":*:*"
+					if !containsString(matchStrings, exactMatch) {
+						matchStrings = append(matchStrings, exactMatch)
+					}
+				}
+				partialMatch := "cpe:2.3:" + part + ":" + vendor + ":" + product
+				if !containsString(matchStrings, partialMatch) {
+					matchStrings = append(matchStrings, partialMatch)
+				}
+				if len(matchStrings) >= 6 {
+					return matchStrings
+				}
+			}
+		}
+	}
+
+	return matchStrings
+}
+
+// preferredCPEParts orders CPE product classes using the asset's explicit context.
+func preferredCPEParts(fingerprint AssetFingerprint) []string {
+	productContext := normalizedSearchPhrase(fingerprint.Product + " " + fingerprint.OperatingSystem)
+	if strings.Contains(productContext, "firmware") {
+		return []string{"o", "h", "a"}
+	}
+
+	assetType := normalizedSearchPhrase(fingerprint.AssetType)
+	switch {
+	case strings.Contains(assetType, "application"),
+		strings.Contains(assetType, "software"),
+		strings.Contains(assetType, "package"),
+		strings.Contains(assetType, "library"),
+		strings.Contains(assetType, "cloud database"):
+		return []string{"a", "o", "h"}
+	case strings.Contains(assetType, "operating system"):
+		return []string{"o", "a", "h"}
+	case strings.Contains(assetType, "device"),
+		strings.Contains(assetType, "hardware"),
+		strings.Contains(assetType, "laptop"),
+		strings.Contains(assetType, "desktop"),
+		strings.Contains(assetType, "server"):
+		return []string{"h", "o", "a"}
+	default:
+		return []string{"a", "o", "h"}
+	}
+}
+
+// cpeNameWithAssetVersion converts a dictionary CPE into an NVD applicability query.
+func cpeNameWithAssetVersion(cpeName string, assetVersion string) (string, bool) {
+	parts := strings.Split(normalizeCPEName(cpeName), ":")
+	if len(parts) != 13 || parts[0] != "cpe" || parts[1] != "2.3" {
+		return "", false
+	}
+	if parts[2] != "a" && parts[2] != "h" && parts[2] != "o" {
+		return "", false
+	}
+	if parts[3] == "" || parts[4] == "" {
+		return "", false
+	}
+
+	version := strings.ToLower(strings.TrimSpace(assetVersion))
+	if (parts[5] == "*" || parts[5] == "-") && version != "" {
+		if !cpeVersionPattern.MatchString(version) {
+			return "", false
+		}
+		parts[5] = version
+	}
+	if parts[5] == "*" {
+		return "", false
+	}
+
+	return strings.Join(parts, ":"), true
+}
+
+// cpeVersionMatchesFingerprint rejects a concrete candidate for a different product version.
+func cpeVersionMatchesFingerprint(cpeName string, assetVersion string) bool {
+	assetVersion = strings.ToLower(strings.TrimSpace(assetVersion))
+	if assetVersion == "" {
+		return true
+	}
+
+	parts := strings.Split(normalizeCPEName(cpeName), ":")
+	if len(parts) != 13 {
+		return false
+	}
+	candidateVersion := parts[5]
+	return candidateVersion == "*" || candidateVersion == "-" || candidateVersion == assetVersion
+}
+
 // containsString reports whether values contains target.
 func containsString(values []string, target string) bool {
 	for _, value := range values {
@@ -520,7 +630,18 @@ func containsString(values []string, target string) bool {
 	return false
 }
 
-// searchCPECandidates tries CPE keyword searches until NVD returns candidates.
+// activeCPECandidates excludes deprecated dictionary records from matching decisions.
+func activeCPECandidates(candidates []nvdcpeclient.CPECandidate) []nvdcpeclient.CPECandidate {
+	active := make([]nvdcpeclient.CPECandidate, 0, len(candidates))
+	for _, candidate := range candidates {
+		if !candidate.Deprecated && normalizeCPEName(candidate.CPEName) != "" {
+			active = append(active, candidate)
+		}
+	}
+	return active
+}
+
+// buildCPEKeywordSearches creates ordered keyword fallbacks for CPE discovery.
 func buildCPEKeywordSearches(fingerprint AssetFingerprint) []string {
 	searches := make([]string, 0, 5)
 	appendSearch := func(parts ...string) {
@@ -832,6 +953,24 @@ func cveIDs(cves []nvdcveclient.CVELookupResponse) []string {
 		}
 	}
 	return ids
+}
+
+// parseNVDTimestamp converts NVD's ISO timestamp into a nullable database time.
+func parseNVDTimestamp(value string) *time.Time {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+
+	for _, layout := range []string{time.RFC3339Nano, "2006-01-02T15:04:05.000", "2006-01-02T15:04:05"} {
+		parsed, err := time.Parse(layout, value)
+		if err == nil {
+			parsed = parsed.UTC()
+			return &parsed
+		}
+	}
+
+	return nil
 }
 
 // logAssetMatchDebug logs asset-match diagnostics with a safe fallback logger.

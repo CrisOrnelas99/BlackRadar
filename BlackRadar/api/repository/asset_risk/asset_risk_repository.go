@@ -20,6 +20,22 @@ func NewAssetRiskRepository(db *gorm.DB) *AssetRiskRepository {
 	return &AssetRiskRepository{db: db}
 }
 
+// FindAssetCriticalityForUser loads the criticality for an owned asset.
+func (r *AssetRiskRepository) FindAssetCriticalityForUser(ec *appcontext.GinContext, assetID string, userID string) (string, error) {
+	var criticality string
+	result := r.dbForContext(ec).WithContext(ec.RequestContext()).
+		Model(&model.Asset{}).
+		Where("id = ? AND user_id = ?", assetID, userID).
+		Pluck("criticality", &criticality)
+	if result.Error != nil {
+		return "", fmt.Errorf("%w: load asset criticality: %w", ErrPersistenceFailure, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return "", ErrRecordNotFound
+	}
+	return criticality, nil
+}
+
 // FindActiveVulnerabilitiesForUser loads active vulnerabilities assigned to an owned asset.
 func (r *AssetRiskRepository) FindActiveVulnerabilitiesForUser(ec *appcontext.GinContext, assetID string, userID string) ([]model.Vulnerability, error) {
 	var vulnerabilities []model.Vulnerability

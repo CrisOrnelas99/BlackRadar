@@ -23,7 +23,25 @@ export interface Asset {
 }
 
 export interface AssetVulnerabilitiesResponse extends Asset {
-  vulnerabilities: Vulnerability[];
+  vulnerabilities?: Vulnerability[];
+}
+
+export interface AssetMatchPreviewResponse {
+  productFingerprint: string;
+  selectedCpe?: string;
+  cveCount: number;
+  cveIds: string[];
+  cveDataAvailable: boolean;
+  confidence?: number;
+  reviewStatus: string;
+  reviewNotes?: string;
+  candidateCount: number;
+  candidates: Array<{ cpeName: string; title: string }>;
+}
+
+export interface AssetMatchResponse {
+  asset: AssetVulnerabilitiesResponse;
+  assetAssessment: Record<string, unknown>;
 }
 
 export interface ManualAssetRequest {
@@ -31,10 +49,10 @@ export interface ManualAssetRequest {
   type: string;
   description?: string;
   operatingSystem?: string;
-  vendor?: string;
-  product?: string;
-  version?: string;
-  owner: string;
+  vendor: string;
+  product: string;
+  version: string;
+  owner?: string;
   criticality: string;
 }
 
@@ -60,6 +78,33 @@ export class AssetsService {
   getAssetVulnerabilities(assetID: string) {
     return this.httpClient.get<AssetVulnerabilitiesResponse>(
       `${environment.apiUrl}/assets/${assetID}/vulnerabilities`,
+    );
+  }
+
+  assignVulnerability(assetID: string, vulnerabilityID: string) {
+    return this.httpClient.post<Asset>(
+      `${environment.apiUrl}/assets/${assetID}/vulnerabilities/${vulnerabilityID}`,
+      {},
+    );
+  }
+
+  removeVulnerability(assetID: string, vulnerabilityID: string) {
+    return this.httpClient.delete<Asset>(
+      `${environment.apiUrl}/assets/${assetID}/vulnerabilities/${vulnerabilityID}`,
+    );
+  }
+
+  previewCVEScan(assetID: string, selectedCPE?: string) {
+    return this.httpClient.post<AssetMatchPreviewResponse>(
+      `${environment.apiUrl}/assets/${assetID}/match-cpe/preview`,
+      selectedCPE ? { selectedCpe: selectedCPE } : {},
+    );
+  }
+
+  applyCVEScan(assetID: string, selectedCPE: string) {
+    return this.httpClient.post<AssetMatchResponse>(
+      `${environment.apiUrl}/assets/${assetID}/match-cpe/vulnerabilities/apply`,
+      { selectedCpe: selectedCPE },
     );
   }
 

@@ -18,7 +18,7 @@ type AssetMatchService interface {
 		Implementations must enforce asset ownership and must not persist asset,
 		vulnerability, assignment, or risk changes from the AI analysis.
 	*/
-	PreviewAssetMatch(ec *appcontext.GinContext, assetID string) (AssetMatchAnalysis, error)
+	PreviewAssetMatch(ec *appcontext.GinContext, assetID string, selectedCPE string) (AssetMatchPreview, error)
 
 	/*
 		ApplyApprovedCPEMatch attaches NVD vulnerabilities for an administrator-

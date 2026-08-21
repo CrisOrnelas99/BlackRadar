@@ -133,7 +133,7 @@
 
 .vulnerability-filters-toggle,
 .vulnerability-filters-clear {
-  border: 1px solid var(--BlackRadar-color-navy-black);
+  border: 1px solid var(--BlackRadar-color-dark-blue);
   border-radius: var(--brand-radius-md);
   min-height: 2.15rem;
   padding: 0.35rem 0.7rem;
@@ -212,25 +212,18 @@
 }
 
 .vulnerability-create-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: flex-start;
   gap: 1rem;
 }
 
-.vulnerability-create-cancel {
-  flex: 0 0 auto;
-  padding: 0.35rem 0;
-  border: 0;
-  background: transparent;
-  color: var(--BlackRadar-color-light-gray);
-  font: inherit;
-  cursor: pointer;
+.vulnerability-create-header > div {
+  min-width: 0;
 }
 
-.vulnerability-create-cancel:hover {
-  color: var(--brandRadar-color-blue);
+.vulnerability-create-cancel {
+  align-self: start;
 }
 
 .vulnerability-create-header h2 {
@@ -357,8 +350,7 @@
 }
 
 @media (max-width: 520px) {
-  .vulnerabilities-page-header,
-  .vulnerability-create-header {
+  .vulnerabilities-page-header {
     align-items: start;
     flex-direction: column;
   }

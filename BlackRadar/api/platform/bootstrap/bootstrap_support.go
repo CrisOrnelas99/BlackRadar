@@ -27,11 +27,15 @@ const (
 	bootstrapEmail    = "system_admin@example.invalid"
 	bootstrapFullName = "System Admin"
 
-	bootstrapAssetName        = "Test Device"
-	bootstrapAssetType        = "Device"
-	bootstrapAssetOS          = "Linux"
+	bootstrapAssetName        = "Microsoft Windows App Client"
+	bootstrapAssetType        = "Application"
+	bootstrapAssetOS          = "Windows"
+	bootstrapAssetVendor      = "Microsoft"
+	bootstrapAssetProduct     = "Windows App"
+	bootstrapAssetVersion     = "2.0.1313"
 	bootstrapAssetOwner       = "system_admin"
-	bootstrapAssetCriticality = "High"
+	bootstrapAssetCriticality = "Medium"
+	bootstrapAssetRiskLevel   = "Low"
 
 	bootstrapCVEID              = "CVE-2021-44228"
 	bootstrapVulnerabilityTitle = "Apache Log4j Remote Code Execution"
@@ -73,7 +77,7 @@ func seedDevData(
 			return err
 		}
 
-		asset, err := seedBootstrapAsset(
+		_, err = seedBootstrapAsset(
 			tx,
 			user.ID,
 		)
@@ -86,14 +90,6 @@ func seedDevData(
 			user.ID,
 		)
 		if err != nil {
-			return err
-		}
-
-		if err := assignBootstrapVulnerability(
-			tx,
-			asset,
-			vulnerability,
-		); err != nil {
 			return err
 		}
 
@@ -182,17 +178,18 @@ func clearBootstrapData(tx *gorm.DB) error {
 		return fmt.Errorf("delete bootstrap DynamoDB asset assessment: %w", err)
 	}
 
-	if err := tx.Unscoped().
-		Where("id = ?", bootstrapUserID).
-		Delete(&model.User{}).
+	if err := tx.
+		Where("user_id = ?", bootstrapUserID).
+		Delete(&model.RefreshSession{}).
 		Error; err != nil {
-		return fmt.Errorf("delete bootstrap user: %w", err)
+		return fmt.Errorf("delete bootstrap refresh sessions: %w", err)
 	}
 
 	return nil
 }
 
-// seedBootstrapUser creates the bootstrap administrator.
+// seedBootstrapUser creates or refreshes the bootstrap administrator without
+// deleting user-owned development data.
 func seedBootstrapUser(
 	tx *gorm.DB,
 	password string,
@@ -208,7 +205,43 @@ func seedBootstrapUser(
 		)
 	}
 
-	user := model.User{
+	user := newBootstrapUser(string(passwordHash))
+	result := tx.Unscoped().
+		Model(&model.User{}).
+		Where("id = ?", user.ID).
+		Updates(map[string]any{
+			"full_name":            user.FullName,
+			"username":             user.Username,
+			"email":                user.Email,
+			"role":                 user.Role,
+			"password_hash":        user.PasswordHash,
+			"failed_login_count":   0,
+			"last_failed_login_at": nil,
+			"locked_until":         nil,
+			"deleted_at":           nil,
+		})
+	if result.Error != nil {
+		return model.User{}, fmt.Errorf(
+			"refresh bootstrap user: %w",
+			result.Error,
+		)
+	}
+
+	if result.RowsAffected == 0 {
+		if err := tx.Create(&user).Error; err != nil {
+			return model.User{}, fmt.Errorf(
+				"create bootstrap user: %w",
+				err,
+			)
+		}
+	}
+
+	return user, nil
+}
+
+// newBootstrapUser builds the fixed local development administrator.
+func newBootstrapUser(passwordHash string) model.User {
+	return model.User{
 		Model: model.Model{
 			ID: bootstrapUserID,
 		},
@@ -216,17 +249,8 @@ func seedBootstrapUser(
 		Username:     bootstrapUsername,
 		Email:        normalize(bootstrapEmail),
 		Role:         model.RoleAdmin,
-		PasswordHash: string(passwordHash),
+		PasswordHash: passwordHash,
 	}
-
-	if err := tx.Create(&user).Error; err != nil {
-		return model.User{}, fmt.Errorf(
-			"create bootstrap user: %w",
-			err,
-		)
-	}
-
-	return user, nil
 }
 
 // seedBootstrapAsset creates the sample asset and its assessment.
@@ -248,21 +272,7 @@ func seedBootstrapAsset(
 		)
 	}
 
-	operatingSystem := bootstrapAssetOS
-
-	asset := model.Asset{
-		Model: model.Model{
-			ID: bootstrapAssetID,
-		},
-		UserID:            userID,
-		AssetAssessmentID: &assessment.ID,
-		Name:              bootstrapAssetName,
-		Type:              bootstrapAssetType,
-		OperatingSystem:   &operatingSystem,
-		Owner:             bootstrapAssetOwner,
-		Criticality:       bootstrapAssetCriticality,
-		RiskLevel:         nil,
-	}
+	asset := newBootstrapAsset(userID, assessment.ID)
 
 	if err := tx.Create(&asset).Error; err != nil {
 		return model.Asset{}, fmt.Errorf(
@@ -274,6 +284,27 @@ func seedBootstrapAsset(
 	asset.Assessment = &assessment
 
 	return asset, nil
+}
+
+// newBootstrapAsset builds the unassigned Windows App test asset.
+func newBootstrapAsset(userID string, assessmentID string) model.Asset {
+	operatingSystem := bootstrapAssetOS
+	return model.Asset{
+		Model: model.Model{
+			ID: bootstrapAssetID,
+		},
+		UserID:            userID,
+		AssetAssessmentID: &assessmentID,
+		Name:              bootstrapAssetName,
+		Type:              bootstrapAssetType,
+		OperatingSystem:   &operatingSystem,
+		Vendor:            stringPointer(bootstrapAssetVendor),
+		Product:           stringPointer(bootstrapAssetProduct),
+		Version:           stringPointer(bootstrapAssetVersion),
+		Owner:             bootstrapAssetOwner,
+		Criticality:       bootstrapAssetCriticality,
+		RiskLevel:         stringPointer(bootstrapAssetRiskLevel),
+	}
 }
 
 // seedBootstrapVulnerability creates the sample vulnerability.

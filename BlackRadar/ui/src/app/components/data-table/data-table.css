@@ -71,7 +71,8 @@
   text-underline-offset: 0.2rem;
 }
 
-.data-table-action-delete {
+.data-table-action-delete,
+.data-table-action-unlink {
   display: inline-grid;
   place-items: center;
   width: 1.8rem;
@@ -87,17 +88,20 @@
   cursor: pointer;
 }
 
-.data-table-action-delete:hover {
+.data-table-action-delete:hover,
+.data-table-action-unlink:hover {
   border-color: var(--BlackRadar-color-error);
   color: var(--BlackRadar-color-error);
 }
 
-.data-table-action-delete:focus-visible {
+.data-table-action-delete:focus-visible,
+.data-table-action-unlink:focus-visible {
   outline: 3px solid var(--data-table-outline);
   outline-offset: 3px;
 }
 
-.data-table-action-delete svg {
+.data-table-action-delete svg,
+.data-table-action-unlink svg {
   width: 1rem;
   height: 1rem;
   fill: none;

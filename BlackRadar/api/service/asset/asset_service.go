@@ -5,6 +5,7 @@ import (
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetrepository "blackradar/api/repository/asset"
+	assetriskservice "blackradar/api/service/asset_risk"
 	auditservice "blackradar/api/service/audit"
 )
 
@@ -65,6 +66,7 @@ func (s *assetServiceImpl) CreateAsset(ec *appcontext.GinContext, asset model.As
 
 func (s *assetServiceImpl) createAsset(ec *appcontext.GinContext, asset model.Asset, action string) (model.Asset, error) {
 	asset = normalizeAssetDisplayFields(asset)
+	asset.RiskLevel = assetriskservice.CalculateRiskLevel(asset.Criticality, nil)
 	if err := validateAsset(asset); err != nil {
 		return model.Asset{}, ErrInvalidAssetData
 	}

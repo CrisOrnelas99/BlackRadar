@@ -22,11 +22,11 @@ These routes are currently admin-only and user-scoped.
 
 ## 🧱 Data Shape
 
-The record contains `cveId`, title, severity, description, status, ownership, and audit metadata. CVE IDs are normalized and validated. Duplicate CVE records are rejected within the user’s scope.
+The record contains `cveId`, title, severity, description, status, ownership, audit metadata, and an optional `nvdPublishedAt` timestamp for CVE data imported from NVD. CVE IDs are normalized and validated. Duplicate CVE records are rejected within the user’s scope.
 
 ## 🔄 Lifecycle
 
-Creation validates and persists a local record. Reads return only records in the authenticated user’s scope. Updates preserve the record identity and refresh the risk of every actively assigned asset. Deletes remove active relationships, clean up the local record, and refresh affected assets within the transaction boundary.
+Creation validates and persists a local record. Approved CPE scans create or refresh local CVE records by CVE ID and preserve the local status while recording NVD's publication timestamp when available. Reads return only records in the authenticated user’s scope. Updates preserve the record identity and refresh the risk of every actively assigned asset. Deleting a vulnerability removes its active relationships and refreshes affected assets within the transaction boundary.
 
 The vulnerability service owns role checks, validation, duplicate rules, and orchestration. The repository owns persistence and database constraints.
 
@@ -65,4 +65,5 @@ See [asset-vulnerability-assignment.md](asset-vulnerability-assignment.md) and [
 - **CVE:** A standardized identifier for a publicly disclosed vulnerability.
 - **Severity:** The normalized impact classification stored on a vulnerability.
 - **Local vulnerability:** Application-owned persisted vulnerability data.
+- **NVD published at:** The publication timestamp supplied by NVD for an imported CVE, when available.
 - **Affected asset:** An asset with an active relationship to the vulnerability.

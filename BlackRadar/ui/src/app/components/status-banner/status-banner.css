@@ -29,3 +29,8 @@
   color: var(--BlackRadar-color-dark-blue);
   border: 1px solid rgba(145, 213, 144, 0.42);
 }
+.status-banner--warning {
+  background: rgba(245, 185, 66, 0.24);
+  color: #8a4b00;
+  border: 1px solid rgba(245, 185, 66, 0.52);
+}

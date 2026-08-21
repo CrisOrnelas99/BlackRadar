@@ -69,8 +69,15 @@ func NewCPEClientWithHTTPClientAndQuota(baseURL string, apiKey string, httpClien
 
 // SearchCandidates returns CPE candidates for a normalized search request.
 func (c *CPEClient) SearchCandidates(ctx context.Context, request CPEMatchRequest) ([]CPECandidate, error) {
+	hasKeywordSearch := strings.TrimSpace(request.KeywordSearch) != ""
+	hasCPEMatchString := strings.TrimSpace(request.CPEMatchString) != ""
+	if hasKeywordSearch == hasCPEMatchString {
+		return nil, ErrInvalidCPESearch
+	}
+
 	keywordSearch := normalizeCPEKeywordSearch(request.KeywordSearch)
-	if keywordSearch == "" {
+	cpeMatchString := normalizeCPEMatchString(request.CPEMatchString)
+	if (hasKeywordSearch && keywordSearch == "") || (hasCPEMatchString && cpeMatchString == "") {
 		return nil, ErrInvalidCPESearch
 	}
 	if !c.limiter.Allow(time.Now()) {
@@ -85,7 +92,10 @@ func (c *CPEClient) SearchCandidates(ctx context.Context, request CPEMatchReques
 		}
 	}
 
-	requestURL, err := c.searchURL(keywordSearch)
+	requestURL, err := c.searchURL(CPEMatchRequest{
+		CPEMatchString: cpeMatchString,
+		KeywordSearch:  keywordSearch,
+	})
 	if err != nil {
 		return nil, err
 	}

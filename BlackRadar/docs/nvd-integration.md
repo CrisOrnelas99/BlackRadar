@@ -24,6 +24,8 @@ NVD responses are converted into safe internal DTOs. Raw provider bodies and hea
 
 Direct CVE lookup validates and normalizes the identifier before requesting the official NVD endpoint. CPE and CVE searches are invoked internally by matching workflows and remain bounded by server-controlled limits.
 
+When an approved CPE scan imports or refreshes a local CVE record, the backend maps NVD's publication timestamp to `nvdPublishedAt`. The timestamp is optional because NVD may not provide it; it is not replaced with an application-generated date.
+
 The browser never supplies a provider URL, API key, unrestricted query, or authoritative vulnerability record.
 
 ## ⏱️ Reliability Controls

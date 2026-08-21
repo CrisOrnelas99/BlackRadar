@@ -148,7 +148,7 @@ export class VulnerabilitiesPage {
     },
     {
       key: 'delete',
-      label: '',
+      label: 'Remove',
       cellValue: () => '',
       cellType: 'delete',
       deleteLabel: 'Delete vulnerability',

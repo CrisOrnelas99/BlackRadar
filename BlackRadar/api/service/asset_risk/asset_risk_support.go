@@ -22,21 +22,30 @@ func translateAssetRiskRepositoryError(err error) error {
 	}
 }
 
-// CalculateRiskLevel returns nil for an asset without active vulnerabilities.
-func CalculateRiskLevel(vulnerabilities []model.Vulnerability) *string {
+// CalculateRiskLevel combines asset criticality with the highest active vulnerability severity.
+func CalculateRiskLevel(criticality string, vulnerabilities []model.Vulnerability) *string {
 	if len(vulnerabilities) == 0 {
-		return nil
+		riskLevel := "Low"
+		return &riskLevel
 	}
 
-	riskLevel := "Low"
+	assetRank := riskRank(riskLevelFromCriticality(criticality))
+	highestVulnerabilityRank := riskRank("Low")
 	for _, vulnerability := range vulnerabilities {
-		current := riskLevelFromSeverity(vulnerability.Severity)
-		if riskRank(current) > riskRank(riskLevel) {
-			riskLevel = current
+		currentRank := riskRank(riskLevelFromSeverity(vulnerability.Severity))
+		if currentRank > highestVulnerabilityRank {
+			highestVulnerabilityRank = currentRank
 		}
 	}
 
+	// Add one before integer division to round .5 values upward.
+	riskLevel := riskLevelFromRank((assetRank + highestVulnerabilityRank + 1) / 2)
 	return &riskLevel
+}
+
+// riskLevelFromCriticality normalizes an asset's criticality to a risk level.
+func riskLevelFromCriticality(criticality string) string {
+	return riskLevelFromSeverity(criticality)
 }
 
 // riskLevelFromSeverity maps a vulnerability severity to an asset risk level.
@@ -66,5 +75,19 @@ func riskRank(riskLevel string) int {
 		return 1
 	default:
 		return 0
+	}
+}
+
+// riskLevelFromRank maps a numeric risk score back to its display level.
+func riskLevelFromRank(rank int) string {
+	switch rank {
+	case 4:
+		return "Critical"
+	case 3:
+		return "High"
+	case 2:
+		return "Medium"
+	default:
+		return "Low"
 	}
 }

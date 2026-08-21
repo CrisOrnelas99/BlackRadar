@@ -94,6 +94,9 @@ type AssetMatchResponse struct {
 type AssetMatchPreviewResponse struct {
 	ProductFingerprint string                 `json:"productFingerprint"`
 	SelectedCPE        string                 `json:"selectedCpe,omitempty"`
+	CVECount           int                    `json:"cveCount"`
+	CVEIDs             []string               `json:"cveIds"`
+	CVEDataAvailable   bool                   `json:"cveDataAvailable"`
 	Confidence         float64                `json:"confidence,omitempty"`
 	ReviewStatus       string                 `json:"reviewStatus"`
 	ReviewNotes        string                 `json:"reviewNotes,omitempty"`
@@ -109,6 +112,11 @@ type CPECandidateResponse struct {
 
 // ApplyAssetMatchRequest identifies the NVD CPE explicitly approved for persistence.
 type ApplyAssetMatchRequest struct {
+	SelectedCPE string `json:"selectedCpe"`
+}
+
+// PreviewAssetMatchRequest optionally selects one CPE candidate for CVE counting.
+type PreviewAssetMatchRequest struct {
 	SelectedCPE string `json:"selectedCpe"`
 }
 
@@ -190,10 +198,19 @@ func ToAssetMatchResponseDTO(asset model.Asset) AssetMatchResponse {
 }
 
 // ToAssetMatchPreviewResponseDTO converts a non-persistent analysis into its HTTP response.
-func ToAssetMatchPreviewResponseDTO(analysis assetmatchservice.AssetMatchAnalysis) AssetMatchPreviewResponse {
+func ToAssetMatchPreviewResponseDTO(preview assetmatchservice.AssetMatchPreview) AssetMatchPreviewResponse {
+	analysis := preview.Analysis
+	cveIDs := preview.CVEIDs
+	if cveIDs == nil {
+		cveIDs = []string{}
+	}
+
 	return AssetMatchPreviewResponse{
 		ProductFingerprint: analysis.ProductFingerprint,
 		SelectedCPE:        analysis.SelectedCPE,
+		CVECount:           preview.CVECount,
+		CVEIDs:             cveIDs,
+		CVEDataAvailable:   preview.CVEDataAvailable,
 		Confidence:         analysis.Confidence,
 		ReviewStatus:       analysis.ReviewStatus,
 		ReviewNotes:        analysis.ReviewNotes,

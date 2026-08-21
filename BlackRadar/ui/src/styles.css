@@ -13,7 +13,28 @@
   text-underline-offset: 0.2rem;
 }
 
-.semantic-level-critical,
+.page-cancel {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0.35rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--BlackRadar-color-light-gray);
+  font: inherit;
+  cursor: pointer;
+}
+
+.page-cancel:hover:not(:disabled) {
+  color: var(--brandRadar-color-blue);
+  text-decoration: underline;
+  text-underline-offset: 0.2rem;
+}
+
+.semantic-level-critical {
+  color: var(--BlackRadar-color-severe);
+  font-weight: 700;
+}
+
 .semantic-level-high {
   color: var(--BlackRadar-color-error);
   font-weight: 700;

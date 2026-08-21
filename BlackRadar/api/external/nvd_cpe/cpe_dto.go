@@ -1,9 +1,10 @@
 // Package cpeclient dto defines CPE request and response contracts used by services.
 package cpeclient
 
-// CPEMatchRequest describes the normalized search terms used for NVD CPE lookup.
+// CPEMatchRequest describes one backend-generated NVD CPE lookup.
 type CPEMatchRequest struct {
-	KeywordSearch string `json:"keywordSearch"`
+	CPEMatchString string `json:"cpeMatchString,omitempty"`
+	KeywordSearch  string `json:"keywordSearch,omitempty"`
 }
 
 // CPECandidate represents one NVD CPE candidate returned by the backend.
