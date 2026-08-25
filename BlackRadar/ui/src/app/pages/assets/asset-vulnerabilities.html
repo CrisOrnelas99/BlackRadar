@@ -111,14 +111,10 @@
             <div id="asset-vulnerabilities-scan-panel" class="asset-vulnerabilities-scan-panel">
               <h3>CVE scan</h3>
               @if (isScanning()) {
-                <div
-                  class="asset-vulnerabilities-scan-progress"
-                  role="progressbar"
-                  aria-label="CVE scan in progress"
-                  aria-valuetext="Scanning NVD for matching CVEs"
-                >
-                  <div class="asset-vulnerabilities-scan-progress-indicator"></div>
-                </div>
+                <app-loading-progress
+                  label="CVE scan in progress"
+                  valueText="Scanning NVD for matching CVEs"
+                />
                 <p class="asset-vulnerabilities-scan-status" role="status">Scanning NVD...</p>
               } @else if (scanResult(); as result) {
                 <p class="asset-vulnerabilities-scan-summary">

@@ -283,11 +283,11 @@ describe('AssetVulnerabilitiesPage', () => {
     fixture.detectChanges();
 
     const progress = fixture.nativeElement.querySelector(
-      '.asset-vulnerabilities-scan-progress',
+      'app-loading-progress .loading-progress',
     ) as HTMLElement;
     expect(progress.getAttribute('role')).toBe('progressbar');
     expect(progress.getAttribute('aria-valuetext')).toBe('Scanning NVD for matching CVEs');
-    expect(progress.querySelector('.asset-vulnerabilities-scan-progress-indicator')).not.toBeNull();
+    expect(progress.querySelector('.loading-progress-indicator')).not.toBeNull();
     scanPreview.error(new Error('Request failed'));
   });
 

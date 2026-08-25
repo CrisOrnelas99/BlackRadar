@@ -4,7 +4,9 @@ package health
 import (
 	"context"
 	"net/http"
+	"time"
 
+	servicehealth "blackradar/api/service/health"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,6 +17,33 @@ type ReadinessChecker interface {
 		an error when the application is not ready to serve requests.
 	*/
 	Ping(context.Context) error
+}
+
+type componentStatus struct {
+	Status string `json:"status"`
+}
+type summaryResponse struct {
+	Overall     string          `json:"overall"`
+	CheckedAt   time.Time       `json:"checkedAt"`
+	Application componentStatus `json:"application"`
+	Database    componentStatus `json:"database"`
+	AI          componentStatus `json:"ai"`
+	NVD         componentStatus `json:"nvd"`
+}
+
+// Summary returns a safe administrator-only dependency summary.
+func Summary(summaryChecker *servicehealth.SummaryChecker) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		summary := summaryChecker.Check(c.Request.Context())
+		c.JSON(http.StatusOK, summaryResponse{
+			Overall:     string(summary.Overall),
+			CheckedAt:   time.Now().UTC(),
+			Application: componentStatus{Status: string(summary.Application)},
+			Database:    componentStatus{Status: string(summary.Database)},
+			AI:          componentStatus{Status: string(summary.AI)},
+			NVD:         componentStatus{Status: string(summary.NVD)},
+		})
+	}
 }
 
 // Health returns a basic status response for health checks.

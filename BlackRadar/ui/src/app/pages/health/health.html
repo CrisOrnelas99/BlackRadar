@@ -1,0 +1,116 @@
+@if (session(); as currentSession) {
+  <app-top-menu [session]="currentSession" currentUrl="/health"></app-top-menu>
+}
+<section class="health-shell" aria-labelledby="health-heading">
+  <header>
+    <div>
+      <h1 id="health-heading">
+        <svg class="health-heading-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M4.5 9.5a10.5 10.5 0 0 1 15 0M7.5 12.5a6.2 6.2 0 0 1 9 0M10.5 15.5a2 2 0 0 1 3 0M12 19h.01"
+          /></svg
+        >System health <span class="health-live-label">Live dependency checks</span>
+      </h1>
+      <p>Monitor the services BlackRadar relies on.</p>
+    </div>
+    <button (click)="refresh()" [disabled]="isLoading()">
+      {{ isLoading() ? 'Checking…' : 'Refresh' }}
+    </button>
+  </header>
+  @if (isLoading()) {
+    <app-loading-progress
+      label="System health check in progress"
+      valueText="Checking BlackRadar dependencies"
+    />
+  }
+  @if (hasError()) {
+    <p class="health-message">Health information is unavailable. Try again.</p>
+  }
+  @if (summary(); as health) {
+    <section class="health-system-card">
+      <p
+        class="health-overall"
+        [class.health-overall--unavailable]="health.overall === 'unavailable'"
+      >
+        {{
+          health.overall === 'healthy'
+            ? 'All monitored services are healthy'
+            : 'One or more services are unavailable'
+        }}
+        · Checked {{ health.checkedAt | date: 'short' }}
+      </p>
+      <div class="health-map" [class.health-map--unavailable]="health.overall === 'unavailable'">
+        <div class="health-internet">
+          <strong>Internet</strong>
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="8.5" />
+            <path
+              d="M3.5 12h17M12 3.5c2.4 2.4 3.6 5.2 3.6 8.5S14.4 18.1 12 20.5c-2.4-2.4-3.6-5.2-3.6-8.5S9.6 5.9 12 3.5Z"
+            />
+          </svg>
+        </div>
+        <div class="health-internet-link" aria-hidden="true"><i></i></div>
+        <div class="health-node health-node--database">
+          <div class="health-dependency-indicator">
+            <svg class="health-node-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <ellipse cx="12" cy="5.5" rx="7" ry="3" />
+              <path
+                d="M5 5.5v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6M5 11.5v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"
+              />
+            </svg>
+            <span
+              class="health-dot"
+              [class.health-dot--bad]="health.database.status === 'unavailable'"
+            ></span>
+          </div>
+          <h2>PostgreSQL</h2>
+          <p>Database connection</p>
+        </div>
+        <div class="health-line health-line--database" aria-hidden="true"><i></i></div>
+        <div class="health-node health-node--app">
+          <svg class="health-node-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3 19 6v5c0 4.5-2.8 8.1-7 10-4.2-1.9-7-5.5-7-10V6l7-3Z" />
+            <path d="M12 8v4M12 16h.01" />
+          </svg>
+          <span class="health-dot"></span>
+          <h2>BlackRadar API</h2>
+          <strong>{{ label(health.application.status) }}</strong>
+          <p>Application responding</p>
+        </div>
+        <div class="health-app-link" aria-hidden="true"><i></i></div>
+        <div class="health-node health-node--nvd">
+          <div class="health-dependency-indicator">
+            <svg class="health-node-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5" />
+              <path d="M12 7.5a4.5 4.5 0 1 0 4.5 4.5" />
+              <path d="M12 11.5h.01" />
+            </svg>
+            <span
+              class="health-dot"
+              [class.health-dot--bad]="health.nvd.status === 'unavailable'"
+            ></span>
+          </div>
+          <h2>NVD</h2>
+          <strong>{{ label(health.nvd.status) }}</strong>
+          <p>Vulnerability data</p>
+        </div>
+        <div class="health-line health-line--ai" aria-hidden="true"><i></i></div>
+        <div class="health-node health-node--ai">
+          <div class="health-dependency-indicator">
+            <svg class="health-node-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="m12 3 1.5 5.5L19 10l-5.5 1.5L12 17l-1.5-5.5L5 10l5.5-1.5L12 3Z" />
+              <path d="m18 15 .7 2.3L21 18l-2.3.7L18 21l-.7-2.3L15 18l2.3-.7L18 15Z" />
+            </svg>
+            <span
+              class="health-dot"
+              [class.health-dot--muted]="health.ai.status === 'not_configured'"
+            ></span>
+          </div>
+          <h2>AI provider</h2>
+          <strong>{{ label(health.ai.status) }}</strong>
+          <p>Provider response check</p>
+        </div>
+      </div>
+    </section>
+  }
+</section>

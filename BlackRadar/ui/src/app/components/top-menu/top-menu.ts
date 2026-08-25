@@ -62,6 +62,22 @@ export class TopMenuComponent {
       isActive: (currentUrl) => currentUrl.startsWith('/profile'),
     },
   ];
+  readonly adminAccountNavigationItems: ReadonlyArray<NavigationItem> = [
+    ...this.accountNavigationItems,
+    {
+      key: 'health',
+      label: 'System health',
+      path: '/health',
+      isActive: (currentUrl) => currentUrl.startsWith('/health'),
+    },
+  ];
+
+  get visibleAccountNavigationItems(): ReadonlyArray<NavigationItem> {
+    if (this.session().user.role === 'admin') {
+      return this.adminAccountNavigationItems;
+    }
+    return this.accountNavigationItems;
+  }
 
   isNavigationMenuOpen = false;
 
