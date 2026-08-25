@@ -1,0 +1,353 @@
+:host {
+  display: block;
+  min-height: 100vh;
+  font-family: var(--brand-font-body);
+}
+.health-shell {
+  padding: 2rem clamp(1rem, 4vw, 3rem);
+  background: #fff;
+  color: var(--BlackRadar-color-navy-black);
+  min-height: 100vh;
+}
+.health-shell header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+.health-shell h1 {
+  margin: 0;
+  color: var(--BlackRadar-color-dark-blue);
+  font-family: var(--brand-font-title);
+  font-size: 2.4rem;
+}
+.health-shell header h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+.health-live-label {
+  color: var(--BlackRadar-color-warning);
+  font-family: var(--brand-font-body);
+  font-size: 0.85rem;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.health-heading-icon {
+  width: 2rem;
+  height: 2rem;
+  stroke: var(--brandRadar-color-blue);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+.health-shell header p {
+  margin: 0.35rem 0 0;
+  color: var(--BlackRadar-color-light-gray);
+}
+.health-shell button {
+  border: 1px solid var(--BlackRadar-color-dark-blue);
+  border-radius: var(--brand-radius-md);
+  padding: 0.7rem 1rem;
+  background: var(--BlackRadar-color-dark-blue);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.health-overall,
+.health-message {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--BlackRadar-color-navy-black);
+  border-radius: var(--brand-radius-md);
+  background: var(--BlackRadar-color-dark-blue);
+  color: var(--BlackRadar-color-pure-white);
+  font-weight: 700;
+}
+.health-system-card {
+  margin-top: 2rem;
+  overflow: hidden;
+  border: 1px solid var(--BlackRadar-color-dark-blue);
+  border-radius: var(--brand-radius-lg);
+  background: var(--BlackRadar-color-pure-white);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--BlackRadar-color-navy-black) 10%, transparent);
+}
+.health-overall--unavailable,
+.health-message {
+  border-color: var(--BlackRadar-color-navy-black);
+}
+.health-map {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 8rem 1fr 8rem 1fr;
+  grid-template-rows: auto 3rem auto;
+  align-items: center;
+  max-width: 70rem;
+  margin: auto;
+  padding: 8rem 0 3rem;
+}
+.health-internet {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  color: var(--BlackRadar-color-dark-blue);
+  font-size: 0.8rem;
+}
+.health-internet svg {
+  width: 2.5rem;
+  height: 2.5rem;
+  stroke: var(--brandRadar-color-blue);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.health-internet strong {
+  font-family: var(--brand-font-title);
+  font-size: 1rem;
+}
+.health-internet span {
+  color: var(--BlackRadar-color-light-gray);
+}
+.health-internet-link {
+  position: absolute;
+  top: 4.2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0.8rem;
+  height: 4rem;
+  background: transparent;
+  pointer-events: none;
+  overflow: visible;
+}
+.health-internet-link i {
+  position: absolute;
+  left: 0.12rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--brandRadar-color-blue);
+  box-shadow: 0 0 0 0.12rem color-mix(in srgb, var(--BlackRadar-color-success) 70%, transparent);
+  animation: healthVerticalPulse 2.4s linear infinite;
+}
+.health-internet-link i:nth-child(2) {
+  animation-direction: reverse;
+  animation-delay: 0.7s;
+}
+.health-node {
+  position: relative;
+  z-index: 1;
+  padding: 1.5rem;
+  border: 2px solid var(--BlackRadar-color-dark-blue);
+  border-radius: var(--brand-radius-lg);
+  background: #fff;
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--BlackRadar-color-navy-black) 13%, transparent);
+  text-align: center;
+}
+.health-node--app {
+  border-color: var(--brandRadar-color-blue);
+  background: color-mix(in srgb, var(--brandRadar-color-blue) 7%, #fff);
+}
+.health-node--database,
+.health-node--ai,
+.health-node--nvd {
+  border-color: var(--BlackRadar-color-light-blue);
+  justify-self: center;
+  width: 70%;
+  padding: 0.5rem;
+  min-height: 6.5rem;
+  box-sizing: border-box;
+}
+.health-node--database h2,
+.health-node--ai h2,
+.health-node--nvd h2 {
+  font-size: 1rem;
+}
+.health-node--database p,
+.health-node--ai p,
+.health-node--nvd p {
+  margin: 0.15rem 0 0;
+  font-size: 0.7rem;
+}
+.health-node--database .health-node-icon,
+.health-node--ai .health-node-icon,
+.health-node--nvd .health-node-icon {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+.health-node h2,
+.health-node p {
+  margin: 0.4rem 0;
+}
+.health-node h2 {
+  font-family: var(--brand-font-title);
+  color: var(--BlackRadar-color-dark-blue);
+}
+.health-node-icon {
+  width: 2rem;
+  height: 2rem;
+  stroke: var(--brandRadar-color-blue);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+.health-node p {
+  color: var(--BlackRadar-color-light-gray);
+  font-size: 0.85rem;
+}
+.health-dependency-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.health-dependency-indicator .health-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  margin: 0;
+}
+.health-app-link {
+  position: relative;
+  grid-column: 3;
+  grid-row: 2;
+  justify-self: center;
+  width: 0.8rem;
+  height: 3rem;
+  overflow: visible;
+}
+.health-app-link i {
+  position: absolute;
+  left: 0.12rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--brandRadar-color-blue);
+  box-shadow: 0 0 0 0.12rem color-mix(in srgb, var(--BlackRadar-color-success) 70%, transparent);
+  animation: healthAppPulse 2.4s linear infinite;
+}
+.health-node--nvd {
+  grid-column: 3;
+  grid-row: 3;
+}
+.health-dot {
+  display: block;
+  width: 0.8rem;
+  height: 0.8rem;
+  margin: auto;
+  border-radius: 50%;
+  background: var(--BlackRadar-color-success);
+  box-shadow: 0 0 0 0.35rem color-mix(in srgb, var(--BlackRadar-color-success) 20%, transparent);
+}
+.health-dot--bad {
+  background: var(--BlackRadar-color-error);
+  box-shadow: 0 0 0 0.35rem color-mix(in srgb, var(--BlackRadar-color-error) 20%, transparent);
+}
+.health-dot--muted {
+  background: var(--BlackRadar-color-light-gray);
+  box-shadow: none;
+}
+.health-line {
+  position: relative;
+  align-self: center;
+  height: 0.8rem;
+  background: transparent;
+  overflow: visible;
+}
+.health-line i {
+  position: absolute;
+  top: 0.12rem;
+  left: -1rem;
+  display: block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--brandRadar-color-blue);
+  box-shadow: 0 0 0 0.12rem color-mix(in srgb, var(--BlackRadar-color-success) 70%, transparent);
+  animation: healthPulse 2s linear infinite;
+}
+.health-line i + i {
+  animation-direction: reverse;
+  animation-delay: 0.55s;
+}
+.health-line--database i {
+  animation-direction: reverse;
+}
+.health-map--unavailable .health-line i {
+  animation-play-state: paused;
+  opacity: 0.3;
+}
+.health-map--unavailable .health-app-link i {
+  animation-play-state: paused;
+  opacity: 0.3;
+}
+@keyframes healthPulse {
+  from {
+    left: -1rem;
+  }
+  to {
+    left: calc(100% + 2rem);
+  }
+}
+@keyframes healthAppPulse {
+  from {
+    transform: translate(-0.2rem, -0.5rem);
+  }
+  to {
+    transform: translate(-0.2rem, 2.5rem);
+  }
+}
+@keyframes healthVerticalPulse {
+  from {
+    transform: translate(-0.2rem, -0.5rem);
+  }
+  to {
+    transform: translate(-0.2rem, 4rem);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .health-line i,
+  .health-internet-link i {
+    animation: none;
+    transform: translateX(3.5rem);
+  }
+  .health-line i {
+    left: calc(50% - 0.275rem);
+    transform: none;
+  }
+  .health-app-link i {
+    animation: none;
+    transform: translate(-0.2rem, 1.25rem);
+  }
+}
+@media (max-width: 700px) {
+  .health-map {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    gap: 1rem;
+    padding: 1rem 0;
+  }
+  .health-internet-link {
+    display: none;
+  }
+  .health-line {
+    width: 2px;
+    height: 3rem;
+    justify-self: center;
+  }
+  .health-line i {
+    animation: none;
+    left: 0.7rem;
+  }
+  .health-app-link,
+  .health-node--nvd {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .health-shell header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

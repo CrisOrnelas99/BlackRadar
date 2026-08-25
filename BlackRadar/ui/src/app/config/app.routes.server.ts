@@ -7,6 +7,22 @@ export const serverRoutes: ServerRoute[] = [
     renderMode: RenderMode.Client,
   },
   {
+    path: 'health',
+    renderMode: RenderMode.Client,
+  },
+  {
+    path: 'session-expired',
+    renderMode: RenderMode.Client,
+  },
+  {
+    path: 'access-denied',
+    renderMode: RenderMode.Client,
+  },
+  {
+    path: 'server-error',
+    renderMode: RenderMode.Client,
+  },
+  {
     path: 'dashboard',
     renderMode: RenderMode.Client,
   },
@@ -40,6 +56,6 @@ export const serverRoutes: ServerRoute[] = [
   },
   {
     path: '**',
-    renderMode: RenderMode.Prerender,
+    renderMode: RenderMode.Client,
   },
 ];

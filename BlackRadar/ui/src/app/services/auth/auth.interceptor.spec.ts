@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
 
 import { environment } from '../../../environments/environment';
 import { AuthService } from './auth';
@@ -12,6 +13,7 @@ describe('authInterceptor', () => {
   let httpClient: HttpClient;
   let httpTestingController: HttpTestingController;
   let authService: AuthService;
+  const routerMock = { navigateByUrl: vi.fn(() => Promise.resolve(true)) };
 
   // Creates the interceptor test environment before each test.
   beforeEach(() => {
@@ -19,6 +21,7 @@ describe('authInterceptor', () => {
       providers: [
         provideHttpClient(withInterceptors([authInterceptor])),
         provideHttpClientTesting(),
+        { provide: Router, useValue: routerMock },
       ],
     });
 
@@ -41,6 +44,7 @@ describe('authInterceptor', () => {
   // Confirms all expected HTTP requests were completed after each test.
   afterEach(() => {
     httpTestingController.verify();
+    routerMock.navigateByUrl.mockClear();
   });
 
   // Confirms authenticated API requests receive the current bearer token.
@@ -78,5 +82,43 @@ describe('authInterceptor', () => {
     const retriedRequest = httpTestingController.expectOne(`${environment.apiUrl}/assets`);
     expect(retriedRequest.request.headers.get('Authorization')).toBe('Bearer token-456');
     retriedRequest.flush([]);
+  });
+
+  it('should show the session-expired page when refresh fails', () => {
+    httpClient.get(`${environment.apiUrl}/assets`).subscribe({ error: () => undefined });
+
+    httpTestingController
+      .expectOne(`${environment.apiUrl}/assets`)
+      .flush({ error: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
+    httpTestingController
+      .expectOne(`${environment.apiUrl}/auth/refresh`)
+      .flush({ error: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
+
+    expect(authService.isAuthenticated()).toBe(false);
+    expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/session-expired');
+  });
+
+  it('should show the server-error page without clearing the session when refresh is unavailable', () => {
+    httpClient.get(`${environment.apiUrl}/assets`).subscribe({ error: () => undefined });
+
+    httpTestingController
+      .expectOne(`${environment.apiUrl}/assets`)
+      .flush({ error: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
+    httpTestingController
+      .expectOne(`${environment.apiUrl}/auth/refresh`)
+      .flush({ error: 'Unavailable' }, { status: 503, statusText: 'Service Unavailable' });
+
+    expect(authService.isAuthenticated()).toBe(true);
+    expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/server-error');
+  });
+
+  it('should show access denied for an API authorization failure', () => {
+    httpClient.get(`${environment.apiUrl}/assets`).subscribe({ error: () => undefined });
+
+    httpTestingController
+      .expectOne(`${environment.apiUrl}/assets`)
+      .flush({ error: 'Forbidden' }, { status: 403, statusText: 'Forbidden' });
+
+    expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/access-denied');
   });
 });

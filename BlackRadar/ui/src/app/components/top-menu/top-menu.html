@@ -24,7 +24,7 @@
 
         @if (isNavigationMenuOpen) {
           <nav class="top-menu-dropdown" aria-label="Account navigation">
-            @for (item of accountNavigationItems; track item.key) {
+            @for (item of visibleAccountNavigationItems; track item.key) {
               <button
                 type="button"
                 class="top-menu-link"
@@ -33,8 +33,14 @@
               >
                 <span class="top-menu-link-icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" role="presentation">
-                    <circle cx="12" cy="8" r="3.25" />
-                    <path d="M5 21c.7-3.5 3.1-5.5 7-5.5s6.3 2 7 5.5" />
+                    @if (item.key === 'health') {
+                      <path
+                        d="M4.5 9.5a10.5 10.5 0 0 1 15 0M7.5 12.5a6.2 6.2 0 0 1 9 0M10.5 15.5a2 2 0 0 1 3 0M12 19h.01"
+                      />
+                    } @else {
+                      <circle cx="12" cy="8" r="3.25" />
+                      <path d="M5 21c.7-3.5 3.1-5.5 7-5.5s6.3 2 7 5.5" />
+                    }
                   </svg>
                 </span>
                 <span>{{ item.label }}</span>

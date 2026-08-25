@@ -74,7 +74,9 @@ export class DashboardPage {
           unassignedVulnerabilities: vulnerabilities.length - assignedVulnerabilities,
           assetRiskLevels: this.levelCounts(assets.map((asset) => asset.riskLevel || 'Low')),
           vulnerabilitySeverityLevels: this.levelCounts(
-            vulnerabilities.map((vulnerability) => vulnerability.severity),
+            vulnerabilities
+              .filter((vulnerability) => vulnerability.affectedAssetCount > 0)
+              .map((vulnerability) => vulnerability.severity),
           ),
         });
         this.isOverviewLoading.set(false);

@@ -95,6 +95,15 @@ describe('DashboardPage', () => {
     );
   });
 
+  it('counts only assigned vulnerabilities in the severity chart', () => {
+    expect(fixture.componentInstance.overview()?.vulnerabilitySeverityLevels).toEqual({
+      critical: 1,
+      high: 0,
+      medium: 0,
+      low: 0,
+    });
+  });
+
   it('renders a navy-to-blue coverage bar from the current assignment count', () => {
     const component = fixture.componentInstance;
 

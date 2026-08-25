@@ -18,3 +18,15 @@ export const authGuard: CanActivateFn = () => {
     catchError(() => of(router.createUrlTree(['/login']))),
   );
 };
+
+// Redirects authenticated non-administrators away from administrator-only screens.
+export const adminGuard: CanActivateFn = () => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+
+  if (auth.getSession()?.user.role === 'admin') {
+    return true;
+  }
+
+  return router.createUrlTree(['/access-denied']);
+};

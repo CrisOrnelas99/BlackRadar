@@ -48,6 +48,7 @@ import (
 	serviceassetrisk "blackradar/api/service/asset_risk"
 	serviceassetvulnerability "blackradar/api/service/asset_vulnerability"
 	serviceaudit "blackradar/api/service/audit"
+	servicehealth "blackradar/api/service/health"
 	serviceuser "blackradar/api/service/user"
 	servicevulnerability "blackradar/api/service/vulnerability"
 )
@@ -169,7 +170,8 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 	vulnerabilityService := servicevulnerability.NewVulnerabilityService(vulnerabilityRepository, assetRiskService).WithAuditService(auditService)
 
 	userController := controlleruser.NewUserController(userService, cfg.IsProduction())
-	aiController := controllerai.NewAIController(serviceai.NewAIService(openAIClient))
+	aiService := serviceai.NewAIService(openAIClient)
+	aiController := controllerai.NewAIController(aiService)
 	assetController := controllerasset.NewAssetController(assetService, assetVulnerabilityService, assetMatchService)
 	vulnerabilityController := controllervulnerability.NewVulnerabilityController(vulnerabilityService)
 	nvdController := controllernvd.NewNVDController(nvdLookupService)
@@ -216,6 +218,12 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 	adminOnly.Use(permissions.RequireAdmin())
 
 	controlleruser.RegisterAdminRoutes(adminOnly, userController)
+	controllerhealth.RegisterAdminRoutes(adminOnly, servicehealth.Dependencies{
+		Database:     platformdb.NewReadinessChecker(gormDB),
+		AIConfigured: cfg.OpenAIAPIKey != "",
+		AI:           aiService,
+		NVD:          nvdClient,
+	})
 	controllerasset.RegisterRoutes(protected, adminOnly, assetController)
 	controllervulnerability.RegisterRoutes(adminOnly, vulnerabilityController)
 	controllernvd.RegisterRoutes(adminOnly, nvdController)
