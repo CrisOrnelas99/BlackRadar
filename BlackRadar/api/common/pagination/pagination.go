@@ -30,7 +30,7 @@ func (r Request) Validate() error {
 	if r.PageSize < 1 {
 		return ErrInvalidPageSize
 	}
-	if r.Page > math.MaxInt/r.PageSize {
+	if r.Page-1 > math.MaxInt/r.PageSize {
 		return ErrInvalidPage
 	}
 
@@ -59,7 +59,7 @@ func (p Page[T]) TotalPages() int {
 		return 0
 	}
 
-	return int((p.TotalCount + int64(p.PageSize) - 1) / int64(p.PageSize))
+	return int(1 + (p.TotalCount-1)/int64(p.PageSize))
 }
 
 // Metadata returns the navigation details for the page.
