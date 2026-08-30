@@ -5,14 +5,14 @@ import { Router } from '@angular/router';
 
 import { AssetsPage } from './assets';
 import { AuthService, LoginResponse } from '../../services/auth/auth';
-import { Asset, AssetsService } from '../../services/assets/assets';
+import { Asset, AssetListQuery, AssetsService } from '../../services/assets/assets';
 import { BannerService } from '../../services/banner/banner';
 
 describe('AssetsPage', () => {
   let fixture: ComponentFixture<AssetsPage>;
   let component: AssetsPage;
   let assetsServiceMock: {
-    getAssets: ReturnType<typeof vi.fn>;
+    getAssetPage: ReturnType<typeof vi.fn>;
     createAsset: ReturnType<typeof vi.fn>;
     deleteAsset: ReturnType<typeof vi.fn>;
   };
@@ -70,7 +70,18 @@ describe('AssetsPage', () => {
 
   beforeEach(async () => {
     assetsServiceMock = {
-      getAssets: vi.fn(() => of(assets)),
+      getAssetPage: vi.fn((query: AssetListQuery) => {
+        const returnedAssets = query.search?.toLocaleLowerCase() === 'alpha' ? [assets[0]] : assets;
+        return of({
+          assets: returnedAssets,
+          pagination: {
+            page: query.page,
+            pageSize: 6,
+            totalCount: returnedAssets.length,
+            totalPages: 1,
+          },
+        });
+      }),
       createAsset: vi.fn(),
       deleteAsset: vi.fn(() => of(void 0)),
     };
@@ -102,25 +113,70 @@ describe('AssetsPage', () => {
     fixture.detectChanges();
   });
 
-  it('loads assets on init and filters them by the search query', () => {
+  it('loads assets on init and sends search to the paged endpoint', () => {
     expect(component.assets().length).toBe(2);
 
     component.updateSearchQuery('alpha');
 
-    expect(component.filteredAssets().map((asset) => asset.id)).toEqual(['asset-1']);
+    expect(assetsServiceMock.getAssetPage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, search: 'alpha' }),
+    );
+    expect(component.assets().map((asset) => asset.id)).toEqual(['asset-1']);
+  });
+
+  it('requests the selected table page', () => {
+    component.changePage(2);
+
+    expect(assetsServiceMock.getAssetPage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 2 }),
+    );
+    expect(component.currentPage()).toBe(2);
+  });
+
+  it('resets to the first page when the search changes', () => {
+    component.changePage(2);
+    component.updateSearchQuery('alpha');
+
+    expect(component.currentPage()).toBe(1);
+    expect(assetsServiceMock.getAssetPage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, search: 'alpha' }),
+    );
+  });
+
+  it('sends Asset filters and sorting to the paged endpoint', () => {
+    component.filtersForm.patchValue({
+      vendor: 'Dell',
+      vulnerabilityMode: 'atLeast',
+      vulnerabilityValue: '2',
+      sortField: 'vulnerabilityCount',
+      sortDirection: 'desc',
+    });
+
+    expect(assetsServiceMock.getAssetPage).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        page: 1,
+        vendor: 'Dell',
+        vulnerabilityMode: 'atLeast',
+        vulnerabilityValue: 2,
+        sortField: 'vulnerabilityCount',
+        sortDirection: 'desc',
+      }),
+    );
   });
 
   it('uses the asset id as the stable row key', () => {
     expect(component.assetRowKey(assets[0])).toBe('asset-1');
   });
 
-  it('removes a deleted asset from the local list and shows a success banner', () => {
+  it('reloads the current page after deletion and shows a success banner', () => {
     component.assetPendingDeletion.set(assets[0]);
 
     component.confirmAssetDeletion();
 
     expect(assetsServiceMock.deleteAsset).toHaveBeenCalledWith('asset-1');
-    expect(component.assets().map((asset) => asset.id)).toEqual(['asset-2']);
+    expect(assetsServiceMock.getAssetPage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1 }),
+    );
     expect(bannerServiceMock.show).toHaveBeenCalledWith('Asset deleted successfully.', 'success');
   });
 

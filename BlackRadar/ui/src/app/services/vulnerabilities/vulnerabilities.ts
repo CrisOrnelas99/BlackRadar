@@ -67,6 +67,12 @@ export class VulnerabilitiesService {
     );
   }
 
+  getAvailableAssets(vulnerabilityID: string) {
+    return this.httpClient.get<AffectedAsset[]>(
+      `${environment.apiUrl}/vulnerabilities/${vulnerabilityID}/available-assets`,
+    );
+  }
+
   updateVulnerability(vulnerabilityID: string, request: UpdateVulnerabilityRequest) {
     return this.httpClient.put<Vulnerability>(
       `${environment.apiUrl}/vulnerabilities/${vulnerabilityID}`,

@@ -63,6 +63,7 @@ func (e InternalError) Error() string {
 
 var (
 	ErrInvalidAssetData      = &ValidationError{Message: "invalid asset data"}
+	ErrInvalidAssetListQuery = &ValidationError{Message: "invalid asset list query"}
 	ErrDuplicateAsset        = &ConflictError{Message: "asset already exists"}
 	ErrAssetPermissionDenied = &ForbiddenError{Message: "asset permission denied"}
 	ErrAssetNotFound         = &NotFoundError{Message: "asset not found"}

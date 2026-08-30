@@ -31,6 +31,45 @@ describe('AssetsService', () => {
     request.flush({});
   });
 
+  it('requests one asset inventory page', () => {
+    service
+      .getAssetPage({
+        page: 2,
+        search: 'server',
+        criticality: 'High',
+        vulnerabilityMode: 'atLeast',
+        vulnerabilityValue: 2,
+        sortField: 'vulnerabilityCount',
+        sortDirection: 'desc',
+      })
+      .subscribe();
+
+    const request = httpTestingController.expectOne(
+      `${environment.apiUrl}/assets?page=2&search=server&criticality=High&vulnerabilityMode=atLeast&sortField=vulnerabilityCount&sortDirection=desc&vulnerabilityValue=2`,
+    );
+    expect(request.request.method).toBe('GET');
+    request.flush({
+      assets: [],
+      pagination: { page: 2, pageSize: 6, totalCount: 10, totalPages: 2 },
+    });
+  });
+
+  it('requests the Asset dashboard summary', () => {
+    service.getAssetSummary().subscribe();
+
+    const request = httpTestingController.expectOne(`${environment.apiUrl}/assets/summary`);
+    expect(request.request.method).toBe('GET');
+    request.flush({
+      totalCount: 2,
+      unscannedCount: 1,
+      withVulnerabilitiesCount: 1,
+      lowRiskCount: 1,
+      mediumRiskCount: 0,
+      highRiskCount: 1,
+      criticalRiskCount: 0,
+    });
+  });
+
   it('assigns an existing vulnerability to an asset', () => {
     service.assignVulnerability('asset-1', 'vulnerability-1').subscribe();
 

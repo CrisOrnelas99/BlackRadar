@@ -39,11 +39,16 @@ describe('DashboardPage', () => {
         {
           provide: AssetsService,
           useValue: {
-            getAssets: vi.fn(() =>
-              of([
-                { id: 'asset-1', vulnerabilityCount: 2, riskLevel: 'High', hasCveScan: true },
-                { id: 'asset-2', vulnerabilityCount: 0, riskLevel: 'Low', hasCveScan: false },
-              ]),
+            getAssetSummary: vi.fn(() =>
+              of({
+                totalCount: 2,
+                unscannedCount: 1,
+                withVulnerabilitiesCount: 1,
+                lowRiskCount: 1,
+                mediumRiskCount: 0,
+                highRiskCount: 1,
+                criticalRiskCount: 0,
+              }),
             ),
           },
         },

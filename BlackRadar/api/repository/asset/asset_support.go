@@ -4,6 +4,7 @@ package repository
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	commonid "blackradar/api/common/id"
 	"blackradar/api/model"
@@ -12,6 +13,110 @@ import (
 
 	"gorm.io/gorm"
 )
+
+const vulnerabilityCountColumn = "COALESCE(asset_vulnerability_counts.vulnerability_count, 0)"
+
+func assetSummaryDatabase(database *gorm.DB, userID string) *gorm.DB {
+	return database.Table("assets").
+		Select(`
+			COUNT(*) AS total_count,
+			COALESCE(SUM(CASE WHEN COALESCE(asset_assessments.selected_cpe, '') = '' THEN 1 ELSE 0 END), 0) AS unscanned_count,
+			COALESCE(SUM(CASE WHEN EXISTS (
+				SELECT 1
+				FROM asset_vulnerabilities av
+				JOIN vulnerabilities v ON v.id = av.vulnerability_id AND v.user_id = assets.user_id AND v.deleted_at IS NULL
+				WHERE av.asset_id = assets.id AND av.deleted_at IS NULL
+			) THEN 1 ELSE 0 END), 0) AS with_vulnerabilities_count,
+			COALESCE(SUM(CASE WHEN LOWER(COALESCE(assets.risk_level, 'Low')) = 'low' THEN 1 ELSE 0 END), 0) AS low_risk_count,
+			COALESCE(SUM(CASE WHEN LOWER(COALESCE(assets.risk_level, 'Low')) = 'medium' THEN 1 ELSE 0 END), 0) AS medium_risk_count,
+			COALESCE(SUM(CASE WHEN LOWER(COALESCE(assets.risk_level, 'Low')) = 'high' THEN 1 ELSE 0 END), 0) AS high_risk_count,
+			COALESCE(SUM(CASE WHEN LOWER(COALESCE(assets.risk_level, 'Low')) = 'critical' THEN 1 ELSE 0 END), 0) AS critical_risk_count`).
+		Joins("LEFT JOIN asset_assessments ON asset_assessments.id = assets.asset_assessment_id AND asset_assessments.deleted_at IS NULL").
+		Where("assets.user_id = ? AND assets.deleted_at IS NULL", userID)
+}
+
+func assetListDatabase(database *gorm.DB, userID string) *gorm.DB {
+	vulnerabilityCounts := database.Session(&gorm.Session{NewDB: true}).
+		Table("asset_vulnerabilities av").
+		Select("av.asset_id, COUNT(*) AS vulnerability_count").
+		Joins("JOIN vulnerabilities v ON v.id = av.vulnerability_id AND v.user_id = ? AND v.deleted_at IS NULL", userID).
+		Where("av.deleted_at IS NULL").
+		Group("av.asset_id")
+
+	return database.Model(&model.Asset{}).
+		Joins("LEFT JOIN (?) asset_vulnerability_counts ON asset_vulnerability_counts.asset_id = assets.id", vulnerabilityCounts).
+		Where("assets.user_id = ?", userID)
+}
+
+func applyAssetListFilters(database *gorm.DB, query model.AssetListQuery) *gorm.DB {
+	if query.Search != "" {
+		database = database.Where(`LOWER(assets.name) LIKE ? ESCAPE '\'`, assetSearchPattern(query.Search))
+	}
+	filters := []struct {
+		column string
+		value  string
+	}{
+		{column: "assets.criticality", value: query.Criticality},
+		{column: "COALESCE(assets.risk_level, 'Low')", value: query.RiskLevel},
+		{column: "assets.type", value: query.Type},
+		{column: "assets.owner", value: query.Owner},
+		{column: "COALESCE(assets.operating_system, '')", value: query.OperatingSystem},
+		{column: "COALESCE(assets.vendor, '')", value: query.Vendor},
+		{column: "COALESCE(assets.product, '')", value: query.Product},
+		{column: "COALESCE(assets.version, '')", value: query.Version},
+	}
+	for _, filter := range filters {
+		if filter.value != "" {
+			database = database.Where("LOWER("+filter.column+") = LOWER(?)", filter.value)
+		}
+	}
+
+	if query.VulnerabilityValue == nil || query.VulnerabilityMode == model.AssetVulnerabilityFilterAny {
+		return database
+	}
+	operator := "="
+	switch query.VulnerabilityMode {
+	case model.AssetVulnerabilityFilterAtLeast:
+		operator = ">="
+	case model.AssetVulnerabilityFilterAtMost:
+		operator = "<="
+	}
+	return database.Where(vulnerabilityCountColumn+" "+operator+" ?", *query.VulnerabilityValue)
+}
+
+func assetSearchPattern(value string) string {
+	escaped := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(strings.ToLower(value))
+	return "%" + escaped + "%"
+}
+
+func assetListOrder(query model.AssetListQuery) string {
+	column := "LOWER(assets.name)"
+	switch query.SortField {
+	case model.AssetSortCriticality:
+		column = "LOWER(assets.criticality)"
+	case model.AssetSortRiskLevel:
+		column = "LOWER(COALESCE(assets.risk_level, 'Low'))"
+	case model.AssetSortVulnerabilityCount:
+		column = vulnerabilityCountColumn
+	case model.AssetSortType:
+		column = "LOWER(assets.type)"
+	case model.AssetSortOwner:
+		column = "LOWER(assets.owner)"
+	case model.AssetSortOperatingSystem:
+		column = "LOWER(COALESCE(assets.operating_system, ''))"
+	case model.AssetSortVendor:
+		column = "LOWER(COALESCE(assets.vendor, ''))"
+	case model.AssetSortProduct:
+		column = "LOWER(COALESCE(assets.product, ''))"
+	case model.AssetSortVersion:
+		column = "LOWER(COALESCE(assets.version, ''))"
+	}
+	direction := "ASC"
+	if query.SortDirection == model.AssetSortDescending {
+		direction = "DESC"
+	}
+	return column + " " + direction
+}
 
 // dbForContext returns the request-scoped database when present, otherwise the repository database.
 func (r *AssetRepository) dbForContext(ec *appcontext.GinContext) *gorm.DB {

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	commonid "blackradar/api/common/id"
+	"blackradar/api/common/pagination"
 	"blackradar/api/model"
 	platformdb "blackradar/api/platform/db"
 	appcontext "blackradar/api/platform/requestcontext"
@@ -24,21 +25,36 @@ func NewAssetRepository(db *gorm.DB) *AssetRepository {
 	return &AssetRepository{db: db}
 }
 
-// FindAllByUser returns all assets owned by the specified user.
-func (r *AssetRepository) FindAllByUser(ec *appcontext.GinContext, userID string) ([]model.Asset, error) {
-	var assets []model.Asset
-	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
-		Preload("Assessment").
-		Where("user_id = ?", userID).
-		Order("id").
-		Find(&assets).Error
+// FindByUser returns one filtered and ordered page of assets and its scoped count.
+func (r *AssetRepository) FindByUser(ec *appcontext.GinContext, userID string, query model.AssetListQuery) (pagination.Page[model.Asset], error) {
+	request := query.Pagination
+	result := pagination.Page[model.Asset]{Page: request.Page, PageSize: request.PageSize, Items: []model.Asset{}}
+	database := assetListDatabase(r.dbForContext(ec).WithContext(ec.RequestContext()), userID)
+	database = applyAssetListFilters(database, query)
+	if err := database.Model(&model.Asset{}).Count(&result.TotalCount).Error; err != nil {
+		return pagination.Page[model.Asset]{}, fmt.Errorf("%w: count assets: %w", ErrPersistenceFailure, err)
+	}
+	if result.TotalCount == 0 {
+		return result, nil
+	}
+	if err := database.Preload("Assessment").Order(assetListOrder(query)).Order("assets.id ASC").Offset((request.Page - 1) * request.PageSize).Limit(request.PageSize).Find(&result.Items).Error; err != nil {
+		return pagination.Page[model.Asset]{}, fmt.Errorf("%w: read asset page: %w", ErrPersistenceFailure, err)
+	}
+	if err := r.loadVulnerabilityCounts(ec, result.Items, userID); err != nil {
+		return pagination.Page[model.Asset]{}, err
+	}
+	return result, nil
+}
+
+// SummarizeByUser returns dashboard aggregate counts for a user's active assets.
+func (r *AssetRepository) SummarizeByUser(ec *appcontext.GinContext, userID string) (model.AssetSummary, error) {
+	var summary model.AssetSummary
+	err := assetSummaryDatabase(r.dbForContext(ec).WithContext(ec.RequestContext()), userID).Scan(&summary).Error
 	if err != nil {
-		return nil, fmt.Errorf("%w: read assets: %w", ErrPersistenceFailure, err)
+		return model.AssetSummary{}, fmt.Errorf("%w: summarize assets: %w", ErrPersistenceFailure, err)
 	}
-	if err := r.loadVulnerabilityCounts(ec, assets, userID); err != nil {
-		return nil, err
-	}
-	return assets, nil
+
+	return summary, nil
 }
 
 // loadVulnerabilityCounts adds active vulnerability counts to owned assets.

@@ -11,6 +11,7 @@ import {
   DataTableComponent,
 } from '../../components/data-table/data-table';
 import { TopMenuComponent } from '../../components/top-menu/top-menu';
+import { PaginationComponent } from '../../components/pagination/pagination';
 import { LoadingProgressComponent } from '../../components/loading-progress/loading-progress';
 import { AuthService } from '../../services/auth/auth';
 import { BannerService } from '../../services/banner/banner';
@@ -34,6 +35,7 @@ import { semanticLevelClass } from '../../utils/semantic-level';
     ConfirmationDialogComponent,
     DataTableComponent,
     LoadingProgressComponent,
+    PaginationComponent,
     RouterLink,
     TopMenuComponent,
   ],

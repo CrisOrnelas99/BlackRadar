@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"blackradar/api/common/pagination"
 	vulnerabilitycontroller "blackradar/api/controller/vulnerability"
 	nvdcpeclient "blackradar/api/external/nvd_cpe"
 	"blackradar/api/model"
@@ -62,6 +63,23 @@ type AssetResponse struct {
 	VulnerabilityCount int       `json:"vulnerabilityCount"`
 	CreatedAt          time.Time `json:"createdAt"`
 	UpdatedAt          time.Time `json:"updatedAt"`
+}
+
+// AssetPageResponse exposes a bounded asset list and its navigation metadata.
+type AssetPageResponse struct {
+	Assets     []AssetResponse     `json:"assets"`
+	Pagination pagination.Metadata `json:"pagination"`
+}
+
+// AssetSummaryResponse exposes aggregate Asset counts used by the dashboard.
+type AssetSummaryResponse struct {
+	TotalCount               int64 `json:"totalCount"`
+	UnscannedCount           int64 `json:"unscannedCount"`
+	WithVulnerabilitiesCount int64 `json:"withVulnerabilitiesCount"`
+	LowRiskCount             int64 `json:"lowRiskCount"`
+	MediumRiskCount          int64 `json:"mediumRiskCount"`
+	HighRiskCount            int64 `json:"highRiskCount"`
+	CriticalRiskCount        int64 `json:"criticalRiskCount"`
 }
 
 // AssetWithVulnerabilitiesResponse exposes the minimal asset shape with attached vulnerabilities.
@@ -150,6 +168,24 @@ func ToAssetResponseDTOs(assets []model.Asset) []AssetResponse {
 		result = append(result, ToAssetResponseDTO(asset))
 	}
 	return result
+}
+
+// ToAssetPageResponseDTO converts a repository page into the public asset page response.
+func ToAssetPageResponseDTO(page pagination.Page[model.Asset]) AssetPageResponse {
+	return AssetPageResponse{Assets: ToAssetResponseDTOs(page.Items), Pagination: page.Metadata()}
+}
+
+// ToAssetSummaryResponseDTO converts Asset aggregates into the public dashboard response.
+func ToAssetSummaryResponseDTO(summary model.AssetSummary) AssetSummaryResponse {
+	return AssetSummaryResponse{
+		TotalCount:               summary.TotalCount,
+		UnscannedCount:           summary.UnscannedCount,
+		WithVulnerabilitiesCount: summary.WithVulnerabilitiesCount,
+		LowRiskCount:             summary.LowRiskCount,
+		MediumRiskCount:          summary.MediumRiskCount,
+		HighRiskCount:            summary.HighRiskCount,
+		CriticalRiskCount:        summary.CriticalRiskCount,
+	}
 }
 
 // ToAssetWithVulnerabilitiesResponseDTO converts an asset into the minimal asset response plus vulnerability details.

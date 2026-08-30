@@ -13,8 +13,8 @@
         </svg>
         <h1 id="assets-heading">Assets</h1>
         <span class="assets-page-count">
-          {{ filteredAssets().length }}
-          {{ filteredAssets().length === 1 ? 'asset' : 'assets' }} shown
+          {{ totalCount() }}
+          {{ totalCount() === 1 ? 'asset' : 'assets' }} found
         </span>
       </div>
       <p class="assets-page-subtitle">
@@ -95,67 +95,100 @@
 
         <label class="asset-filter-field" for="asset-filter-type">
           <span>Type</span>
-          <select id="asset-filter-type" [formControl]="filtersForm.controls.type">
-            <option value="">All</option>
+          <input
+            id="asset-filter-type"
+            type="text"
+            list="asset-filter-type-options"
+            placeholder="All"
+            [formControl]="filtersForm.controls.type"
+          />
+          <datalist id="asset-filter-type-options">
             @for (type of typeOptions(); track type) {
-              <option [value]="type">{{ type }}</option>
+              <option [value]="type"></option>
             }
-          </select>
+          </datalist>
         </label>
       </div>
 
       <div class="asset-filters-advanced">
         <label class="asset-filter-field" for="asset-filter-owner">
           <span>Owner</span>
-          <select id="asset-filter-owner" [formControl]="filtersForm.controls.owner">
-            <option value="">All</option>
+          <input
+            id="asset-filter-owner"
+            type="text"
+            list="asset-filter-owner-options"
+            placeholder="All"
+            [formControl]="filtersForm.controls.owner"
+          />
+          <datalist id="asset-filter-owner-options">
             @for (owner of ownerOptions(); track owner) {
-              <option [value]="owner">{{ owner }}</option>
+              <option [value]="owner"></option>
             }
-          </select>
+          </datalist>
         </label>
 
         <label class="asset-filter-field" for="asset-filter-operating-system">
           <span>Operating system</span>
-          <select
+          <input
             id="asset-filter-operating-system"
+            type="text"
+            list="asset-filter-operating-system-options"
+            placeholder="All"
             [formControl]="filtersForm.controls.operatingSystem"
-          >
-            <option value="">All</option>
+          />
+          <datalist id="asset-filter-operating-system-options">
             @for (operatingSystem of operatingSystemOptions(); track operatingSystem) {
-              <option [value]="operatingSystem">{{ operatingSystem }}</option>
+              <option [value]="operatingSystem"></option>
             }
-          </select>
+          </datalist>
         </label>
 
         <label class="asset-filter-field" for="asset-filter-vendor">
           <span>Vendor</span>
-          <select id="asset-filter-vendor" [formControl]="filtersForm.controls.vendor">
-            <option value="">All</option>
+          <input
+            id="asset-filter-vendor"
+            type="text"
+            list="asset-filter-vendor-options"
+            placeholder="All"
+            [formControl]="filtersForm.controls.vendor"
+          />
+          <datalist id="asset-filter-vendor-options">
             @for (vendor of vendorOptions(); track vendor) {
-              <option [value]="vendor">{{ vendor }}</option>
+              <option [value]="vendor"></option>
             }
-          </select>
+          </datalist>
         </label>
 
         <label class="asset-filter-field" for="asset-filter-product">
           <span>Product</span>
-          <select id="asset-filter-product" [formControl]="filtersForm.controls.product">
-            <option value="">All</option>
+          <input
+            id="asset-filter-product"
+            type="text"
+            list="asset-filter-product-options"
+            placeholder="All"
+            [formControl]="filtersForm.controls.product"
+          />
+          <datalist id="asset-filter-product-options">
             @for (product of productOptions(); track product) {
-              <option [value]="product">{{ product }}</option>
+              <option [value]="product"></option>
             }
-          </select>
+          </datalist>
         </label>
 
         <label class="asset-filter-field" for="asset-filter-version">
           <span>Version</span>
-          <select id="asset-filter-version" [formControl]="filtersForm.controls.version">
-            <option value="">All</option>
+          <input
+            id="asset-filter-version"
+            type="text"
+            list="asset-filter-version-options"
+            placeholder="All"
+            [formControl]="filtersForm.controls.version"
+          />
+          <datalist id="asset-filter-version-options">
             @for (version of versionOptions(); track version) {
-              <option [value]="version">{{ version }}</option>
+              <option [value]="version"></option>
             }
-          </select>
+          </datalist>
         </label>
 
         <div class="asset-filter-field asset-filter-field-vulnerabilities">
@@ -417,15 +450,22 @@
         <p class="assets-status" role="alert">Unable to load assets.</p>
       } @else if (assets().length === 0) {
         <p class="assets-status" role="status" aria-atomic="true">No assets found.</p>
-      } @else if (filteredAssets().length === 0) {
-        <p class="assets-status" role="status" aria-atomic="true">No matching assets found.</p>
       } @else {
         <app-data-table
           [columns]="assetColumns"
-          [rows]="filteredAssets()"
+          [rows]="assets()"
           [rowKey]="assetRowKey"
           (cellAction)="handleTableAction($event)"
         ></app-data-table>
+      }
+      @if (!isLoading() && !hasLoadError() && assets().length > 0) {
+        <app-pagination
+          [page]="currentPage()"
+          [pageSize]="pageSize()"
+          [totalCount]="totalCount()"
+          [totalPages]="totalPages()"
+          (pageChange)="changePage($event)"
+        ></app-pagination>
       }
     </div>
   </div>

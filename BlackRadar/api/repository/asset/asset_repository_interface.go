@@ -5,19 +5,17 @@ asset services.
 package repository
 
 import (
+	"blackradar/api/common/pagination"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 )
 
 type AssetRepositoryInterface interface {
-	/*
-		FindAllByUser returns all active assets owned by userID.
+	// FindByUser returns one filtered and ordered page of active assets owned by userID.
+	FindByUser(ec *appcontext.GinContext, userID string, query model.AssetListQuery) (pagination.Page[model.Asset], error)
 
-		Implementations must scope the query by userID and avoid returning
-		another user's rows. Repository/database failures should be wrapped with
-		repository sentinel errors.
-	*/
-	FindAllByUser(ec *appcontext.GinContext, userID string) ([]model.Asset, error)
+	// SummarizeByUser returns dashboard aggregate counts for active assets owned by userID.
+	SummarizeByUser(ec *appcontext.GinContext, userID string) (model.AssetSummary, error)
 
 	/*
 		FindByIDForUser returns one active asset matching id and userID.

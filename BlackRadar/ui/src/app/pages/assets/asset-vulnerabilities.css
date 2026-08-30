@@ -108,8 +108,14 @@
   margin-top: 0.5rem;
 }
 
+.asset-vulnerabilities-layout > app-pagination {
+  grid-column: 1;
+  min-width: 0;
+}
+
 .asset-vulnerabilities-manage-card {
   grid-column: 2;
+  grid-row: 1;
   width: 100%;
   box-sizing: border-box;
   padding: 1.5rem;
@@ -429,6 +435,7 @@
 
   .asset-vulnerabilities-manage-card {
     grid-column: 1;
+    grid-row: auto;
   }
 
   .asset-vulnerabilities-manage-actions {

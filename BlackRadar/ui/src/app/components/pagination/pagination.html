@@ -1,0 +1,18 @@
+<nav class="pagination" aria-label="Table pagination">
+  <p class="pagination-summary" aria-live="polite">{{ summary() }}</p>
+  <div class="pagination-controls">
+    <button type="button" (click)="selectPage(page() - 1)" [disabled]="page() <= 1">
+      Previous
+    </button>
+    <span class="pagination-current" aria-current="page"
+      >Page {{ page() }} of {{ displayTotalPages() }}</span
+    >
+    <button
+      type="button"
+      (click)="selectPage(page() + 1)"
+      [disabled]="page() >= displayTotalPages()"
+    >
+      Next
+    </button>
+  </div>
+</nav>

@@ -4,7 +4,9 @@ package controller
 import (
 	"net/http"
 
+	"blackradar/api/common/pagination"
 	shared "blackradar/api/controller/shared"
+	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetservice "blackradar/api/service/asset"
 	assetmatchservice "blackradar/api/service/asset_match"
@@ -27,9 +29,14 @@ func NewAssetController(assetService assetservice.AssetService, assetVulnerabili
 	}
 }
 
-// GetAssets returns all assets for the authenticated user.
+// GetAssets returns one page of assets for the authenticated user.
 func (c *AssetController) GetAssets(ec *appcontext.GinContext) {
-	assets, err := c.assetService.GetAllAssets(ec)
+	query := model.AssetListQuery{Pagination: pagination.Request{Page: 1}}
+	if err := ec.ShouldBindQuery(&query); err != nil {
+		shared.HandleError(ec, http.StatusBadRequest, err, "Invalid asset list parameters")
+		return
+	}
+	assets, err := c.assetService.GetAssetPage(ec, query)
 	if err != nil {
 		if handleAssetServiceError(ec, err) {
 			return
@@ -38,7 +45,20 @@ func (c *AssetController) GetAssets(ec *appcontext.GinContext) {
 		return
 	}
 
-	ec.JSON(http.StatusOK, ToAssetResponseDTOs(assets))
+	ec.JSON(http.StatusOK, ToAssetPageResponseDTO(assets))
+}
+
+// GetAssetSummary returns dashboard aggregate counts for the authenticated user.
+func (c *AssetController) GetAssetSummary(ec *appcontext.GinContext) {
+	summary, err := c.assetService.GetAssetSummary(ec)
+	if err != nil {
+		if handleAssetServiceError(ec, err) {
+			return
+		}
+		shared.HandleError(ec, http.StatusInternalServerError, err, "Error retrieving asset summary")
+		return
+	}
+	ec.JSON(http.StatusOK, ToAssetSummaryResponseDTO(summary))
 }
 
 // GetAsset returns a single asset by ID.

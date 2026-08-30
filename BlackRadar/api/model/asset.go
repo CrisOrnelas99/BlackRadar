@@ -4,8 +4,60 @@ package model
 import (
 	"time"
 
+	"blackradar/api/common/pagination"
 	"gorm.io/gorm"
 )
+
+// Asset list query values are the allowlisted filters and ordering options accepted by the service.
+const (
+	AssetSortName               = "name"
+	AssetSortCriticality        = "criticality"
+	AssetSortRiskLevel          = "riskLevel"
+	AssetSortVulnerabilityCount = "vulnerabilityCount"
+	AssetSortType               = "type"
+	AssetSortOwner              = "owner"
+	AssetSortOperatingSystem    = "operatingSystem"
+	AssetSortVendor             = "vendor"
+	AssetSortProduct            = "product"
+	AssetSortVersion            = "version"
+
+	AssetSortAscending  = "asc"
+	AssetSortDescending = "desc"
+
+	AssetVulnerabilityFilterAny     = "any"
+	AssetVulnerabilityFilterAtLeast = "atLeast"
+	AssetVulnerabilityFilterAtMost  = "atMost"
+	AssetVulnerabilityFilterExactly = "exactly"
+)
+
+// AssetListQuery contains Asset-specific filtering, sorting, and pagination.
+type AssetListQuery struct {
+	Pagination         pagination.Request
+	Search             string `form:"search"`
+	Criticality        string `form:"criticality"`
+	RiskLevel          string `form:"riskLevel"`
+	Type               string `form:"type"`
+	Owner              string `form:"owner"`
+	OperatingSystem    string `form:"operatingSystem"`
+	Vendor             string `form:"vendor"`
+	Product            string `form:"product"`
+	Version            string `form:"version"`
+	VulnerabilityMode  string `form:"vulnerabilityMode"`
+	VulnerabilityValue *int   `form:"vulnerabilityValue"`
+	SortField          string `form:"sortField"`
+	SortDirection      string `form:"sortDirection"`
+}
+
+// AssetSummary contains aggregate Asset inventory counts used by the dashboard.
+type AssetSummary struct {
+	TotalCount               int64
+	UnscannedCount           int64
+	WithVulnerabilitiesCount int64
+	LowRiskCount             int64
+	MediumRiskCount          int64
+	HighRiskCount            int64
+	CriticalRiskCount        int64
+}
 
 // AssetCPEReviewStatus values describe how a product match was handled.
 const (

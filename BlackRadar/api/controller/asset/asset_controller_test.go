@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"blackradar/api/common/pagination"
 	contextmiddleware "blackradar/api/middleware/context"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
@@ -30,8 +31,53 @@ func TestAssetControllerHandlers(t *testing.T) {
 	t.Run("get assets", func(t *testing.T) {
 		ec, _ := newAssetContext(t, http.MethodGet, "/assets", "")
 		controller.GetAssets(ec)
-		if svc.getAllCalls != 1 {
-			t.Fatal("expected GetAllAssets to be called")
+		if svc.getPageCalls != 1 {
+			t.Fatal("expected GetAssetPage to be called")
+		}
+	})
+
+	t.Run("get paged assets", func(t *testing.T) {
+		ec, recorder := newAssetContext(t, http.MethodGet, "/assets?page=2&search=server&criticality=High&vulnerabilityMode=atLeast&vulnerabilityValue=2&sortField=vulnerabilityCount&sortDirection=desc", "")
+		controller.GetAssets(ec)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+		}
+		var response AssetPageResponse
+		if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+			t.Fatalf("failed to decode paged response: %v", err)
+		}
+		if response.Pagination.Page != 2 || response.Pagination.PageSize != pagination.DefaultPageSize || response.Pagination.TotalCount != 1 {
+			t.Fatalf("unexpected paged response: %+v", response)
+		}
+		if len(response.Assets) != 1 {
+			t.Fatalf("expected one asset in the paged response, got %d", len(response.Assets))
+		}
+		if svc.lastListQuery.Pagination.Page != 2 || svc.lastListQuery.Search != "server" || svc.lastListQuery.Criticality != "High" || svc.lastListQuery.SortField != "vulnerabilityCount" || svc.lastListQuery.VulnerabilityValue == nil || *svc.lastListQuery.VulnerabilityValue != 2 {
+			t.Fatalf("unexpected asset list query: %+v", svc.lastListQuery)
+		}
+	})
+
+	t.Run("reject malformed pagination query", func(t *testing.T) {
+		ec, recorder := newAssetContext(t, http.MethodGet, "/assets?page=invalid", "")
+		controller.GetAssets(ec)
+		if recorder.Code != http.StatusBadRequest {
+			t.Fatalf("expected status %d, got %d", http.StatusBadRequest, recorder.Code)
+		}
+	})
+
+	t.Run("get asset summary", func(t *testing.T) {
+		svc.summary = model.AssetSummary{TotalCount: 3, WithVulnerabilitiesCount: 2}
+		ec, recorder := newAssetContext(t, http.MethodGet, "/assets/summary", "")
+		controller.GetAssetSummary(ec)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+		}
+		var response AssetSummaryResponse
+		if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+			t.Fatalf("failed to decode summary response: %v", err)
+		}
+		if response.TotalCount != 3 || response.WithVulnerabilitiesCount != 2 {
+			t.Fatalf("unexpected Asset summary: %+v", response)
 		}
 	})
 
@@ -148,8 +194,15 @@ func TestRegisterRoutes(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected assets status %d, got %d", http.StatusOK, recorder.Code)
 	}
-	if service.getAllCalls != 1 {
-		t.Fatalf("expected GetAllAssets to be called once, got %d", service.getAllCalls)
+	if service.getPageCalls != 1 {
+		t.Fatalf("expected GetAssetPage to be called once, got %d", service.getPageCalls)
+	}
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodGet, "/api/assets/summary", nil)
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected Asset summary status %d, got %d", http.StatusOK, recorder.Code)
 	}
 
 	recorder = httptest.NewRecorder()
@@ -332,7 +385,9 @@ type fakeAssetService struct {
 	asset                        model.Asset
 	vulnerabilities              []model.Vulnerability
 	err                          error
-	getAllCalls                  int
+	getPageCalls                 int
+	lastListQuery                model.AssetListQuery
+	summary                      model.AssetSummary
 	createCalls                  int
 	getAssetVulnerabilitiesCalls int
 	getAssetVulnerabilitiesID    string
@@ -361,9 +416,13 @@ func (f *fakeAssetMatchService) ApplyApprovedCPEMatch(ec *appcontext.GinContext,
 	return f.asset, f.err
 }
 
-func (f *fakeAssetService) GetAllAssets(ec *appcontext.GinContext) ([]model.Asset, error) {
-	f.getAllCalls++
-	return f.assets, f.err
+func (f *fakeAssetService) GetAssetPage(ec *appcontext.GinContext, query model.AssetListQuery) (pagination.Page[model.Asset], error) {
+	f.getPageCalls++
+	f.lastListQuery = query
+	return pagination.Page[model.Asset]{Items: f.assets, Page: query.Pagination.Page, PageSize: pagination.DefaultPageSize, TotalCount: int64(len(f.assets))}, f.err
+}
+func (f *fakeAssetService) GetAssetSummary(ec *appcontext.GinContext) (model.AssetSummary, error) {
+	return f.summary, f.err
 }
 func (f *fakeAssetService) GetAsset(ec *appcontext.GinContext, id string) (model.Asset, error) {
 	return f.asset, f.err

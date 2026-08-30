@@ -30,4 +30,14 @@ describe('VulnerabilitiesService', () => {
     expect(request.request.method).toBe('GET');
     request.flush({});
   });
+
+  it('requests assets available to a vulnerability', () => {
+    service.getAvailableAssets('vulnerability-1').subscribe();
+
+    const request = httpTestingController.expectOne(
+      `${environment.apiUrl}/vulnerabilities/vulnerability-1/available-assets`,
+    );
+    expect(request.request.method).toBe('GET');
+    request.flush([]);
+  });
 });
