@@ -18,6 +18,8 @@ Ownership, audit fields, risk state, and assessment identifiers are backend-cont
 
 ```text
 GET    /api/assets
+GET    /api/assets?page=1&search=server&sortField=name&sortDirection=asc
+GET    /api/assets/summary
 GET    /api/assets/:id
 POST   /api/assets
 PUT    /api/assets/:id
@@ -25,6 +27,8 @@ DELETE /api/assets/:id
 ```
 
 Relationship and matching routes are documented separately in [asset-vulnerability-assignment.md](asset-vulnerability-assignment.md) and [ai-cpe-and-cve-matching.md](ai-cpe-and-cve-matching.md).
+
+The asset list response contains `assets` and `pagination`. The backend applies filters and sorting before counting and selecting the requested page, with six rows per page. See [pagination.md](pagination.md) for the shared contract and UI behavior.
 
 ## 🔄 Lifecycle
 
