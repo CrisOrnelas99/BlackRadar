@@ -6,15 +6,15 @@ import (
 	"math"
 )
 
-// DefaultPageSize is the consistent number of data rows returned by table pages.
-const DefaultPageSize = 6
-
 var (
 	// ErrInvalidPage identifies a page number that cannot be queried safely.
 	ErrInvalidPage = errors.New("page must be greater than zero")
 	// ErrInvalidPageSize identifies a page size that cannot be queried safely.
 	ErrInvalidPageSize = errors.New("page size must be greater than zero")
 )
+
+// DefaultPageSize is the consistent number of data rows returned by table pages.
+const DefaultPageSize = 6
 
 // Request identifies a validated, bounded page to retrieve.
 type Request struct {
@@ -30,7 +30,7 @@ func (r Request) Validate() error {
 	if r.PageSize < 1 {
 		return ErrInvalidPageSize
 	}
-	if r.Page-1 > math.MaxInt/r.PageSize {
+	if r.Page > math.MaxInt/r.PageSize {
 		return ErrInvalidPage
 	}
 
@@ -59,7 +59,7 @@ func (p Page[T]) TotalPages() int {
 		return 0
 	}
 
-	return int(1 + (p.TotalCount-1)/int64(p.PageSize))
+	return int((p.TotalCount + int64(p.PageSize) - 1) / int64(p.PageSize))
 }
 
 // Metadata returns the navigation details for the page.
