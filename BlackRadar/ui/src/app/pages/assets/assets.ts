@@ -330,6 +330,12 @@ export class AssetsPage {
     this.hasLoadError.set(false);
     this.assetLoadSubscription = this.assetsService.getAssetPage(this.assetListQuery()).subscribe({
       next: (response) => {
+        if (response.assets.length === 0 && response.pagination.page > 1) {
+          this.currentPage.set(Math.max(1, response.pagination.totalPages));
+          this.loadAssets();
+          return;
+        }
+
         this.assets.set(response.assets);
         this.currentPage.set(response.pagination.page);
         this.pageSize.set(response.pagination.pageSize);

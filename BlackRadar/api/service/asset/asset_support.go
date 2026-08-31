@@ -67,6 +67,9 @@ func normalizeAssetListQuery(query model.AssetListQuery) (model.AssetListQuery, 
 	case "", model.AssetVulnerabilityFilterAny:
 		query.VulnerabilityMode = model.AssetVulnerabilityFilterAny
 	case model.AssetVulnerabilityFilterAtLeast, model.AssetVulnerabilityFilterAtMost, model.AssetVulnerabilityFilterExactly:
+		if query.VulnerabilityValue == nil {
+			return model.AssetListQuery{}, ErrInvalidAssetListQuery
+		}
 	default:
 		return model.AssetListQuery{}, ErrInvalidAssetListQuery
 	}

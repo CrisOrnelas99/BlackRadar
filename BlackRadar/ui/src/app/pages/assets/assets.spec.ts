@@ -133,6 +133,29 @@ describe('AssetsPage', () => {
     expect(component.currentPage()).toBe(2);
   });
 
+  it('reloads the last populated page when the selected page is empty', () => {
+    assetsServiceMock.getAssetPage.mockImplementation((query: AssetListQuery) => {
+      if (query.page > 1) {
+        return of({
+          assets: [],
+          pagination: { page: query.page, pageSize: 6, totalCount: 2, totalPages: 1 },
+        });
+      }
+      return of({
+        assets,
+        pagination: { page: 1, pageSize: 6, totalCount: assets.length, totalPages: 1 },
+      });
+    });
+
+    component.changePage(2);
+
+    expect(assetsServiceMock.getAssetPage).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1 }),
+    );
+    expect(component.currentPage()).toBe(1);
+    expect(component.assets()).toEqual(assets);
+  });
+
   it('resets to the first page when the search changes', () => {
     component.changePage(2);
     component.updateSearchQuery('alpha');

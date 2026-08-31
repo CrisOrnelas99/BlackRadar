@@ -199,7 +199,7 @@ func TestRegisterRoutes(t *testing.T) {
 	}
 
 	recorder = httptest.NewRecorder()
-	request = httptest.NewRequest(http.MethodGet, "/api/assets/summary", nil)
+	request = httptest.NewRequestWithContext(request.Context(), http.MethodGet, "/api/assets/summary", nil)
 	engine.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected Asset summary status %d, got %d", http.StatusOK, recorder.Code)

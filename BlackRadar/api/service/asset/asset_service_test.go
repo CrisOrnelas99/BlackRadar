@@ -295,6 +295,18 @@ func TestAssetServiceGetAssetPageRejectsInvalidQuery(t *testing.T) {
 	if _, err := svc.GetAssetPage(ctx, model.AssetListQuery{}); !errors.Is(err, pagination.ErrInvalidPage) {
 		t.Fatalf("expected pagination error to remain classifiable, got %v", err)
 	}
+	for _, mode := range []string{
+		model.AssetVulnerabilityFilterAtLeast,
+		model.AssetVulnerabilityFilterAtMost,
+		model.AssetVulnerabilityFilterExactly,
+	} {
+		if _, err := svc.GetAssetPage(ctx, model.AssetListQuery{
+			Pagination:        pagination.Request{Page: 1},
+			VulnerabilityMode: mode,
+		}); !errors.Is(err, ErrInvalidAssetListQuery) {
+			t.Fatalf("expected %s without vulnerability value to be rejected, got %v", mode, err)
+		}
+	}
 	if len(repo.pageQueries) != 0 {
 		t.Fatal("expected invalid query not to reach the repository")
 	}
