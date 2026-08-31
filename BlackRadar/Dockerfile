@@ -10,7 +10,7 @@ RUN go build -o blackradar .
 FROM alpine:3.24
 
 WORKDIR /app
-RUN apk add --no-cache ca-certificates && update-ca-certificates
+RUN apk upgrade --no-cache && apk add --no-cache ca-certificates && update-ca-certificates
 RUN addgroup -S blackradar && adduser -S -G blackradar blackradar
 COPY --from=build /app/blackradar /app/blackradar
 USER blackradar
