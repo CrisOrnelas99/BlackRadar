@@ -26,6 +26,8 @@ Underlying causes are wrapped with `%w` so services and tests can use `errors.Is
 
 Services convert lower-level errors into business categories such as validation, conflict, forbidden, not found, dependency, or internal failure. They own the workflow meaning and transaction outcome.
 
+For the paged asset list, the service also validates page input, applies the fixed page-size policy, and normalizes a page beyond the final result to the last available page. The shared pagination helper exposes small sentinel errors for invalid page requests; callers classify them instead of comparing error messages.
+
 ### 🌐 Controller Boundary
 
 Controllers classify service errors and call the shared `HandleError` path. They do not import repository implementations or decide how database errors map to HTTP behavior.

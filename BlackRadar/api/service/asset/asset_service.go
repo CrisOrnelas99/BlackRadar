@@ -2,6 +2,7 @@
 package service
 
 import (
+	"blackradar/api/common/pagination"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetrepository "blackradar/api/repository/asset"
@@ -26,14 +27,37 @@ func NewAssetService(assetRepository assetrepository.AssetRepositoryInterface, a
 	return service
 }
 
-// GetAllAssets returns all assets owned by the authenticated user.
-func (s *assetServiceImpl) GetAllAssets(ec *appcontext.GinContext) ([]model.Asset, error) {
+// GetAssetPage returns one bounded page of assets owned by the authenticated user.
+func (s *assetServiceImpl) GetAssetPage(ec *appcontext.GinContext, query model.AssetListQuery) (pagination.Page[model.Asset], error) {
 	userID, err := authenticatedUserID(ec)
 	if err != nil {
-		return nil, err
+		return pagination.Page[model.Asset]{}, err
 	}
-	assets, err := s.assetRepository.FindAllByUser(ec, userID)
+	query, err = normalizeAssetListQuery(query)
+	if err != nil {
+		return pagination.Page[model.Asset]{}, err
+	}
+	assets, err := s.assetRepository.FindByUser(ec, userID, query)
+	if err != nil {
+		return pagination.Page[model.Asset]{}, translateAssetRepositoryError(err)
+	}
+	totalPages := assets.TotalPages()
+	if totalPages > 0 && assets.Page > totalPages {
+		query.Pagination.Page = totalPages
+		assets, err = s.assetRepository.FindByUser(ec, userID, query)
+	}
 	return assets, translateAssetRepositoryError(err)
+}
+
+// GetAssetSummary returns dashboard aggregate counts for the authenticated user's assets.
+func (s *assetServiceImpl) GetAssetSummary(ec *appcontext.GinContext) (model.AssetSummary, error) {
+	userID, err := authenticatedUserID(ec)
+	if err != nil {
+		return model.AssetSummary{}, err
+	}
+
+	summary, err := s.assetRepository.SummarizeByUser(ec, userID)
+	return summary, translateAssetRepositoryError(err)
 }
 
 // GetAsset returns a single asset owned by the authenticated user.

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"unicode"
 
+	"blackradar/api/common/pagination"
 	"blackradar/api/model"
 	platformdb "blackradar/api/platform/db"
 	appcontext "blackradar/api/platform/requestcontext"
@@ -38,8 +39,71 @@ var displayAcronyms = map[string]string{
 
 const (
 	maxAssetDescriptionLength = 5000
+	maxAssetListTextLength    = 200
 	defaultAssetOwner         = "Unassigned"
 )
+
+func normalizeAssetListQuery(query model.AssetListQuery) (model.AssetListQuery, error) {
+	query.Pagination.PageSize = pagination.DefaultPageSize
+	if err := query.Pagination.Validate(); err != nil {
+		return model.AssetListQuery{}, fmt.Errorf("%w: %w", ErrInvalidAssetListQuery, err)
+	}
+
+	query.Search = strings.TrimSpace(query.Search)
+	query.Criticality = strings.TrimSpace(query.Criticality)
+	query.RiskLevel = strings.TrimSpace(query.RiskLevel)
+	query.Type = strings.TrimSpace(query.Type)
+	query.Owner = strings.TrimSpace(query.Owner)
+	query.OperatingSystem = strings.TrimSpace(query.OperatingSystem)
+	query.Vendor = strings.TrimSpace(query.Vendor)
+	query.Product = strings.TrimSpace(query.Product)
+	query.Version = strings.TrimSpace(query.Version)
+
+	if assetListTextTooLong(query) || (query.VulnerabilityValue != nil && *query.VulnerabilityValue < 0) {
+		return model.AssetListQuery{}, ErrInvalidAssetListQuery
+	}
+
+	switch query.VulnerabilityMode {
+	case "", model.AssetVulnerabilityFilterAny:
+		query.VulnerabilityMode = model.AssetVulnerabilityFilterAny
+	case model.AssetVulnerabilityFilterAtLeast, model.AssetVulnerabilityFilterAtMost, model.AssetVulnerabilityFilterExactly:
+		if query.VulnerabilityValue == nil {
+			return model.AssetListQuery{}, ErrInvalidAssetListQuery
+		}
+	default:
+		return model.AssetListQuery{}, ErrInvalidAssetListQuery
+	}
+
+	switch query.SortField {
+	case "", model.AssetSortName:
+		query.SortField = model.AssetSortName
+	case model.AssetSortCriticality, model.AssetSortRiskLevel, model.AssetSortVulnerabilityCount,
+		model.AssetSortType, model.AssetSortOwner, model.AssetSortOperatingSystem,
+		model.AssetSortVendor, model.AssetSortProduct, model.AssetSortVersion:
+	default:
+		return model.AssetListQuery{}, ErrInvalidAssetListQuery
+	}
+
+	switch query.SortDirection {
+	case "", model.AssetSortAscending:
+		query.SortDirection = model.AssetSortAscending
+	case model.AssetSortDescending:
+	default:
+		return model.AssetListQuery{}, ErrInvalidAssetListQuery
+	}
+
+	return query, nil
+}
+
+func assetListTextTooLong(query model.AssetListQuery) bool {
+	values := []string{query.Search, query.Criticality, query.RiskLevel, query.Type, query.Owner, query.OperatingSystem, query.Vendor, query.Product, query.Version}
+	for _, value := range values {
+		if len(value) > maxAssetListTextLength {
+			return true
+		}
+	}
+	return false
+}
 
 func runAssetAuditTransaction(ec *appcontext.GinContext, operation func(*appcontext.GinContext) error) error {
 	return platformdb.WithinRequestTransaction(ec, operation)

@@ -12,6 +12,7 @@ import {
 } from '../../components/data-table/data-table';
 import { ConfirmationDialogComponent } from '../../components/confirmation-dialog/confirmation-dialog';
 import { TableToolbarComponent } from '../../components/table-toolbar/table-toolbar';
+import { PaginationComponent } from '../../components/pagination/pagination';
 import { TopMenuComponent } from '../../components/top-menu/top-menu';
 import { AuthService } from '../../services/auth/auth';
 import {
@@ -31,6 +32,7 @@ type SortDirection = 'asc' | 'desc';
   imports: [
     ConfirmationDialogComponent,
     DataTableComponent,
+    PaginationComponent,
     ReactiveFormsModule,
     TableToolbarComponent,
     TopMenuComponent,

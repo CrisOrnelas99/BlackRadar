@@ -110,6 +110,7 @@
 
 .asset-vulnerabilities-manage-card {
   grid-column: 2;
+  grid-row: 1;
   width: 100%;
   box-sizing: border-box;
   padding: 1.5rem;
@@ -429,6 +430,7 @@
 
   .asset-vulnerabilities-manage-card {
     grid-column: 1;
+    grid-row: auto;
   }
 
   .asset-vulnerabilities-manage-actions {

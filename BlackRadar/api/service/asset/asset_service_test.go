@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"blackradar/api/common/pagination"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 	assetrepo "blackradar/api/repository/asset"
@@ -26,8 +27,8 @@ func TestAssetService(t *testing.T) {
 	svc := NewAssetService(repo)
 	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
 
-	if _, err := svc.GetAllAssets(ctx); err != nil {
-		t.Fatalf("expected GetAllAssets to succeed, got %v", err)
+	if _, err := svc.GetAssetSummary(ctx); err != nil {
+		t.Fatalf("expected GetAssetSummary to succeed, got %v", err)
 	}
 	vulnerabilities, err := svc.GetAssetVulnerabilities(ctx, "00000000-0000-4000-8000-000000000001")
 	if err != nil {
@@ -249,6 +250,68 @@ func TestAssetServiceRejectsWrongUser(t *testing.T) {
 	}
 }
 
+func TestAssetServiceGetAssetPageNormalizesQueryAndClampsPage(t *testing.T) {
+	count := int64(17)
+	repo := &fakeAssetRepository{assets: []model.Asset{sampleAsset()}, pageTotalCount: &count}
+	svc := NewAssetService(repo)
+	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
+	vulnerabilityValue := 2
+
+	page, err := svc.GetAssetPage(ctx, model.AssetListQuery{
+		Pagination:         pagination.Request{Page: 5},
+		Search:             "  server  ",
+		Vendor:             "  Dell  ",
+		VulnerabilityMode:  "atLeast",
+		VulnerabilityValue: &vulnerabilityValue,
+		SortField:          "vulnerabilityCount",
+		SortDirection:      "desc",
+	})
+	if err != nil {
+		t.Fatalf("expected paged query to succeed, got %v", err)
+	}
+	if page.Page != 3 {
+		t.Fatalf("expected out-of-range page to clamp to 3, got %d", page.Page)
+	}
+	if len(repo.pageQueries) != 2 {
+		t.Fatalf("expected initial and clamped repository queries, got %d", len(repo.pageQueries))
+	}
+	query := repo.pageQueries[0]
+	if query.Pagination.PageSize != pagination.DefaultPageSize || query.Search != "server" || query.Vendor != "Dell" {
+		t.Fatalf("unexpected normalized list query: %+v", query)
+	}
+	if query.SortField != model.AssetSortVulnerabilityCount || query.SortDirection != model.AssetSortDescending || query.VulnerabilityMode != model.AssetVulnerabilityFilterAtLeast {
+		t.Fatalf("expected allowlisted query values, got %+v", query)
+	}
+}
+
+func TestAssetServiceGetAssetPageRejectsInvalidQuery(t *testing.T) {
+	repo := &fakeAssetRepository{}
+	svc := NewAssetService(repo)
+	ctx := newServiceContext(t, "00000000-0000-4000-8000-000000000042")
+
+	if _, err := svc.GetAssetPage(ctx, model.AssetListQuery{Pagination: pagination.Request{Page: 1}, SortField: "deletedAt"}); !errors.Is(err, ErrInvalidAssetListQuery) {
+		t.Fatalf("expected invalid sort field to be rejected, got %v", err)
+	}
+	if _, err := svc.GetAssetPage(ctx, model.AssetListQuery{}); !errors.Is(err, pagination.ErrInvalidPage) {
+		t.Fatalf("expected pagination error to remain classifiable, got %v", err)
+	}
+	for _, mode := range []string{
+		model.AssetVulnerabilityFilterAtLeast,
+		model.AssetVulnerabilityFilterAtMost,
+		model.AssetVulnerabilityFilterExactly,
+	} {
+		if _, err := svc.GetAssetPage(ctx, model.AssetListQuery{
+			Pagination:        pagination.Request{Page: 1},
+			VulnerabilityMode: mode,
+		}); !errors.Is(err, ErrInvalidAssetListQuery) {
+			t.Fatalf("expected %s without vulnerability value to be rejected, got %v", mode, err)
+		}
+	}
+	if len(repo.pageQueries) != 0 {
+		t.Fatal("expected invalid query not to reach the repository")
+	}
+}
+
 type fakeAssetRepository struct {
 	assets          []model.Asset
 	asset           model.Asset
@@ -257,14 +320,25 @@ type fakeAssetRepository struct {
 	signatureExists bool
 	expectedUserID  string
 	findByIDCalls   int
+	pageQueries     []model.AssetListQuery
+	pageTotalCount  *int64
+	summary         model.AssetSummary
 }
 
-// FindAllByUser returns the configured fake asset list.
-func (f *fakeAssetRepository) FindAllByUser(ec *appcontext.GinContext, userID string) ([]model.Asset, error) {
+func (f *fakeAssetRepository) FindByUser(ec *appcontext.GinContext, userID string, query model.AssetListQuery) (pagination.Page[model.Asset], error) {
+	f.pageQueries = append(f.pageQueries, query)
 	if f.expectedUserID != "" && userID != f.expectedUserID {
-		return nil, assetrepo.ErrRecordNotFound
+		return pagination.Page[model.Asset]{}, assetrepo.ErrRecordNotFound
 	}
-	return f.assets, f.findErr
+	totalCount := int64(len(f.assets))
+	if f.pageTotalCount != nil {
+		totalCount = *f.pageTotalCount
+	}
+	return pagination.Page[model.Asset]{Items: f.assets, Page: query.Pagination.Page, PageSize: query.Pagination.PageSize, TotalCount: totalCount}, f.findErr
+}
+
+func (f *fakeAssetRepository) SummarizeByUser(ec *appcontext.GinContext, userID string) (model.AssetSummary, error) {
+	return f.summary, f.findErr
 }
 
 // FindByIDForUser returns the configured fake asset.
@@ -329,6 +403,10 @@ func (f *fakeVulnerabilityRepository) FindByIDForUser(ec *appcontext.GinContext,
 }
 
 func (f *fakeVulnerabilityRepository) FindAffectedAssetsForUser(ec *appcontext.GinContext, vulnerabilityID string, userID string) ([]model.Asset, error) {
+	return nil, nil
+}
+
+func (f *fakeVulnerabilityRepository) FindAvailableAssetsForUser(ec *appcontext.GinContext, vulnerabilityID string, userID string) ([]model.Asset, error) {
 	return nil, nil
 }
 

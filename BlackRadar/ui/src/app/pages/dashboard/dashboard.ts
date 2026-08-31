@@ -52,27 +52,28 @@ export class DashboardPage {
 
   private loadOverview(): void {
     forkJoin({
-      assets: this.assetsService.getAssets(),
+      assetSummary: this.assetsService.getAssetSummary(),
       vulnerabilities: this.vulnerabilitiesService.getVulnerabilities(),
     }).subscribe({
-      next: ({ assets, vulnerabilities }) => {
-        const assetsWithVulnerabilities = assets.filter(
-          (asset) => asset.vulnerabilityCount > 0,
-        ).length;
-        const unscannedAssets = assets.filter((asset) => !asset.hasCveScan).length;
+      next: ({ assetSummary, vulnerabilities }) => {
         const assignedVulnerabilities = vulnerabilities.filter(
           (vulnerability) => vulnerability.affectedAssetCount > 0,
         ).length;
 
         this.overview.set({
-          assetCount: assets.length,
-          unscannedAssets,
-          assetsWithVulnerabilities,
-          unaffectedAssets: assets.length - assetsWithVulnerabilities,
+          assetCount: assetSummary.totalCount,
+          unscannedAssets: assetSummary.unscannedCount,
+          assetsWithVulnerabilities: assetSummary.withVulnerabilitiesCount,
+          unaffectedAssets: assetSummary.totalCount - assetSummary.withVulnerabilitiesCount,
           vulnerabilityCount: vulnerabilities.length,
           assignedVulnerabilities,
           unassignedVulnerabilities: vulnerabilities.length - assignedVulnerabilities,
-          assetRiskLevels: this.levelCounts(assets.map((asset) => asset.riskLevel || 'Low')),
+          assetRiskLevels: {
+            low: assetSummary.lowRiskCount,
+            medium: assetSummary.mediumRiskCount,
+            high: assetSummary.highRiskCount,
+            critical: assetSummary.criticalRiskCount,
+          },
           vulnerabilitySeverityLevels: this.levelCounts(
             vulnerabilities
               .filter((vulnerability) => vulnerability.affectedAssetCount > 0)

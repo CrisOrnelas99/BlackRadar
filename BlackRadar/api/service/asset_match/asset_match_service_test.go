@@ -1126,6 +1126,10 @@ func (f *fakeVulnerabilityRepository) FindAffectedAssetsForUser(ec *appcontext.G
 	return nil, nil
 }
 
+func (f *fakeVulnerabilityRepository) FindAvailableAssetsForUser(ec *appcontext.GinContext, vulnerabilityID string, userID string) ([]model.Asset, error) {
+	return nil, nil
+}
+
 func (f *fakeVulnerabilityRepository) ExistsByCVEIDForUser(ec *appcontext.GinContext, cveID string, userID string) (bool, error) {
 	return false, nil
 }

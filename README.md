@@ -9,6 +9,7 @@ It keeps ownership, authorization, risk calculation, NVD access, and AI-assisted
 - Create, edit, and manage user-scoped assets and vulnerabilities.
 - Attach and remove vulnerabilities from assets, with asset risk recalculated from active assignments.
 - Browse attached vulnerabilities for an asset and affected assets for a vulnerability.
+- Browse the asset inventory through server-side pagination with filtering, sorting, and total-count metadata.
 - Scan an asset's product identity for NVD CPE candidates, approve a CPE, and attach bounded NVD CVE results.
 - Reuse existing CVE records and restore a previously removed asset-vulnerability relationship when an approved scan finds it again.
 - Persist NVD publication timestamps for imported CVEs and show them in vulnerability details.
@@ -107,8 +108,8 @@ AssetManagementRisk/
 | Area             | Current endpoints                                                                                        |
 | ---------------- | -------------------------------------------------------------------------------------------------------- |
 | Authentication   | `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`                                |
-| Dashboard        | Uses `GET /api/assets` and `GET /api/vulnerabilities` for the current overview                           |
-| Assets           | `GET`, `POST /api/assets`; `GET`, `PUT`, `DELETE /api/assets/{id}`                                       |
+| Dashboard        | Uses `GET /api/assets/summary` and `GET /api/vulnerabilities` for the current overview                  |
+| Assets           | `GET /api/assets?page=1`, `GET /api/assets/summary`, `POST /api/assets`; `GET`, `PUT`, `DELETE /api/assets/{id}` |
 | Vulnerabilities  | `GET`, `POST /api/vulnerabilities`; `GET`, `PUT`, `DELETE /api/vulnerabilities/{id}`                     |
 | Relationships    | `GET /api/assets/{id}/vulnerabilities`; `GET /api/vulnerabilities/{id}/assets`; assign and remove routes |
 | CPE/CVE matching | `POST /api/assets/{id}/match-cpe/preview`; `POST /api/assets/{id}/match-cpe/vulnerabilities/apply`       |
@@ -176,6 +177,7 @@ For focused feature work, run the smallest relevant test package or component sp
 - [CPE and CVE matching](BlackRadar/docs/ai-cpe-and-cve-matching.md)
 - [Asset risk](BlackRadar/docs/asset-risk.md)
 - [Frontend architecture](BlackRadar/docs/frontend-angular.md)
+- [Pagination](BlackRadar/docs/pagination.md)
 - [Infrastructure](BlackRadar/docs/infrastructure.md)
 
 ## Concepts

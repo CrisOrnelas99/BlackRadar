@@ -5,20 +5,17 @@ controllers.
 package service
 
 import (
+	"blackradar/api/common/pagination"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 )
 
 type AssetService interface {
-	/*
-		GetAllAssets returns all assets owned by the authenticated user.
+	// GetAssetPage returns one validated, bounded page of assets owned by the authenticated user.
+	GetAssetPage(ec *appcontext.GinContext, query model.AssetListQuery) (pagination.Page[model.Asset], error)
 
-		Implementations should read the user identity from the request context,
-		call the asset repository with user-scoped inputs, and translate
-		repository failures into service-layer errors for the controller to map
-		to HTTP responses.
-	*/
-	GetAllAssets(ec *appcontext.GinContext) ([]model.Asset, error)
+	// GetAssetSummary returns dashboard aggregate counts for the authenticated user's assets.
+	GetAssetSummary(ec *appcontext.GinContext) (model.AssetSummary, error)
 
 	/*
 		GetAsset returns one asset owned by the authenticated user.

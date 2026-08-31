@@ -1,5 +1,5 @@
 // Loads the authenticated user's assets from the backend asset endpoint.
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 
 import { environment } from '../../../environments/environment';
@@ -25,6 +25,59 @@ export interface Asset {
 
 export interface AssetVulnerabilitiesResponse extends Asset {
   vulnerabilities?: Vulnerability[];
+}
+
+export interface Pagination {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
+export interface AssetPageResponse {
+  assets: Asset[];
+  pagination: Pagination;
+}
+
+export interface AssetSummary {
+  totalCount: number;
+  unscannedCount: number;
+  withVulnerabilitiesCount: number;
+  lowRiskCount: number;
+  mediumRiskCount: number;
+  highRiskCount: number;
+  criticalRiskCount: number;
+}
+
+export type VulnerabilityFilterMode = 'any' | 'atLeast' | 'atMost' | 'exactly';
+export type AssetSortField =
+  | 'name'
+  | 'criticality'
+  | 'riskLevel'
+  | 'vulnerabilityCount'
+  | 'type'
+  | 'owner'
+  | 'operatingSystem'
+  | 'vendor'
+  | 'product'
+  | 'version';
+export type SortDirection = 'asc' | 'desc';
+
+export interface AssetListQuery {
+  page: number;
+  search?: string;
+  criticality?: string;
+  riskLevel?: string;
+  type?: string;
+  owner?: string;
+  operatingSystem?: string;
+  vendor?: string;
+  product?: string;
+  version?: string;
+  vulnerabilityMode?: VulnerabilityFilterMode;
+  vulnerabilityValue?: number;
+  sortField?: AssetSortField;
+  sortDirection?: SortDirection;
 }
 
 export interface AssetMatchPreviewResponse {
@@ -66,9 +119,43 @@ export class AssetsService {
   // Creates the service with the shared HTTP client.
   constructor(private readonly httpClient: HttpClient) {}
 
-  // Returns all assets visible to the authenticated user.
-  getAssets() {
-    return this.httpClient.get<Asset[]>(`${environment.apiUrl}/assets`);
+  // Returns one server-owned page of assets for the inventory table.
+  getAssetPage(query: AssetListQuery) {
+    return this.httpClient.get<AssetPageResponse>(`${environment.apiUrl}/assets`, {
+      params: this.assetListParams(query),
+    });
+  }
+
+  // Returns aggregate Asset counts used by the dashboard.
+  getAssetSummary() {
+    return this.httpClient.get<AssetSummary>(`${environment.apiUrl}/assets/summary`);
+  }
+
+  private assetListParams(query: AssetListQuery): HttpParams {
+    let params = new HttpParams().set('page', query.page);
+    const textValues: Array<[string, string | undefined]> = [
+      ['search', query.search],
+      ['criticality', query.criticality],
+      ['riskLevel', query.riskLevel],
+      ['type', query.type],
+      ['owner', query.owner],
+      ['operatingSystem', query.operatingSystem],
+      ['vendor', query.vendor],
+      ['product', query.product],
+      ['version', query.version],
+      ['vulnerabilityMode', query.vulnerabilityMode],
+      ['sortField', query.sortField],
+      ['sortDirection', query.sortDirection],
+    ];
+    for (const [name, value] of textValues) {
+      if (value?.trim()) {
+        params = params.set(name, value.trim());
+      }
+    }
+    if (query.vulnerabilityValue !== undefined) {
+      params = params.set('vulnerabilityValue', query.vulnerabilityValue);
+    }
+    return params;
   }
 
   // Returns one asset visible to the authenticated user.

@@ -11,6 +11,7 @@ import (
 // RegisterRoutes registers asset routes.
 func RegisterRoutes(protected *gin.RouterGroup, adminOnly *gin.RouterGroup, controller *AssetController) {
 	protected.GET("/assets", appcontext.Wrap(controller.GetAssets))
+	protected.GET("/assets/summary", appcontext.Wrap(controller.GetAssetSummary))
 	protected.GET("/assets/:id/vulnerabilities", appcontext.Wrap(controller.GetAssetVulnerabilities))
 	protected.GET("/assets/:id", appcontext.Wrap(controller.GetAsset))
 	protected.POST("/assets", appcontext.Wrap(controller.CreateAsset))
