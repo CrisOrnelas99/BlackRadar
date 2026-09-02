@@ -44,12 +44,12 @@ type AssetRepositoryInterface interface {
 	ExistsBySignatureForUser(ec *appcontext.GinContext, asset model.Asset, userID string) (bool, error)
 
 	/*
-	CreateForUser persists a new asset in userID's organization and returns the created
-		row with generated identifiers.
+		CreateForUser persists a new asset in userID's organization and returns the created
+			row with generated identifiers.
 
-		Implementations should enforce persistence constraints, set ownership at
-		the database boundary, and return repository sentinel errors for duplicate,
-		foreign-key, check-constraint, or persistence failures.
+			Implementations should enforce persistence constraints, set ownership at
+			the database boundary, and return repository sentinel errors for duplicate,
+			foreign-key, check-constraint, or persistence failures.
 	*/
 	CreateForUser(ec *appcontext.GinContext, userID string, asset model.Asset) (model.Asset, error)
 
