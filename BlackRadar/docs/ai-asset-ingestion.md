@@ -25,7 +25,7 @@ large text or file -> backend extraction -> candidate assets -> user review -> p
 - Add safe file-content input.
 - Extract multiple candidate assets rather than one asset per request.
 - Add a review and correction step before persistence.
-- Preserve user ownership and duplicate checks through the normal asset service.
+- Preserve creator identity, organization scope, and duplicate checks through the normal asset service.
 
 The current backend still supports AI-assisted product fingerprinting and NVD CPE/CVE matching for saved assets. Those workflows are separate from future batch asset ingestion.
 

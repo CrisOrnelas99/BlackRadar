@@ -77,7 +77,7 @@ func (r *AssetRepository) loadVulnerabilityCounts(ec *appcontext.GinContext, ass
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Table("asset_vulnerabilities av").
 		Select("av.asset_id, COUNT(*) AS count").
-		Joins("JOIN vulnerabilities v ON v.id = av.vulnerability_id AND v.user_id = ? AND v.deleted_at IS NULL", userID).
+		Joins("JOIN vulnerabilities v ON v.id = av.vulnerability_id AND v.organization_id = (SELECT organization_id FROM users WHERE id = ?) AND v.deleted_at IS NULL", userID).
 		Where("av.asset_id IN ? AND av.deleted_at IS NULL", assetIDs).
 		Group("av.asset_id").
 		Scan(&counts).Error
@@ -96,12 +96,12 @@ func (r *AssetRepository) loadVulnerabilityCounts(ec *appcontext.GinContext, ass
 	return nil
 }
 
-// FindByIDForUser returns a single asset owned by the specified user.
+// FindByIDForUser returns an asset in the specified user's organization.
 func (r *AssetRepository) FindByIDForUser(ec *appcontext.GinContext, id string, userID string) (model.Asset, error) {
 	var asset model.Asset
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Preload("Assessment").
-		Where("user_id = ? AND id = ?", userID, id).
+		Where("organization_id = (SELECT organization_id FROM users WHERE id = ?) AND id = ?", userID, id).
 		First(&asset).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.Asset{}, ErrRecordNotFound
@@ -138,7 +138,7 @@ func (r *AssetRepository) ExistsBySignatureForUser(ec *appcontext.GinContext, as
 	var count int64
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Model(&model.Asset{}).
-		Where(`user_id = ?
+		Where(`organization_id = (SELECT organization_id FROM users WHERE id = ?)
 			AND LOWER(name) = ?
 			AND LOWER(type) = ?
 			AND LOWER(owner) = ?
@@ -166,12 +166,13 @@ func (r *AssetRepository) ExistsBySignatureForUser(ec *appcontext.GinContext, as
 	return count > 0, nil
 }
 
-// CreateForUser creates a new asset owned by the specified user.
+// CreateForUser creates an asset in the specified user's organization.
 func (r *AssetRepository) CreateForUser(ec *appcontext.GinContext, userID string, asset model.Asset) (model.Asset, error) {
 	if userID == "" || asset.Name == "" || asset.Type == "" || asset.Owner == "" || asset.Criticality == "" {
 		return model.Asset{}, ErrNotNullViolation
 	}
 	asset.UserID = userID
+	asset.OrganizationID = model.SingleOrganizationID
 
 	for attempt := 0; attempt < 3; attempt++ {
 		identifier, err := commonid.New()
@@ -217,7 +218,7 @@ func (r *AssetRepository) CreateForUser(ec *appcontext.GinContext, userID string
 	return model.Asset{}, fmt.Errorf("%w: exhausted random id retries", ErrPrimaryKeyViolation)
 }
 
-// UpdateForUser updates an asset owned by the specified user.
+// UpdateForUser updates an asset in the specified user's organization.
 func (r *AssetRepository) UpdateForUser(ec *appcontext.GinContext, id string, userID string, updates model.Asset) (model.Asset, error) {
 	if updates.Name == "" || updates.Type == "" || updates.Owner == "" || updates.Criticality == "" {
 		return model.Asset{}, ErrNotNullViolation
@@ -241,7 +242,7 @@ func (r *AssetRepository) UpdateForUser(ec *appcontext.GinContext, id string, us
 	setUpdatedBy(ec, &asset.Model)
 
 	result := r.dbForContext(ec).WithContext(ec.RequestContext()).
-		Where("id = ? AND user_id = ?", asset.ID, userID).
+		Where("id = ? AND organization_id = (SELECT organization_id FROM users WHERE id = ?)", asset.ID, userID).
 		Save(&asset)
 	err = result.Error
 	if err != nil {
@@ -260,7 +261,7 @@ func (r *AssetRepository) UpdateForUser(ec *appcontext.GinContext, id string, us
 	return r.FindByIDForUser(ec, id, userID)
 }
 
-// DeleteForUser deletes an asset owned by the specified user.
+// DeleteForUser deletes an asset in the specified user's organization.
 func (r *AssetRepository) DeleteForUser(ec *appcontext.GinContext, id string, userID string) (model.Asset, error) {
 	asset, err := r.FindByIDForUser(ec, id, userID)
 	if err != nil {
@@ -273,7 +274,7 @@ func (r *AssetRepository) DeleteForUser(ec *appcontext.GinContext, id string, us
 			Update("deleted_at", gorm.Expr("NOW()")).Error; err != nil {
 			return err
 		}
-		result := tx.Where("id = ? AND user_id = ?", asset.ID, userID).Delete(&model.Asset{})
+		result := tx.Where("id = ? AND organization_id = (SELECT organization_id FROM users WHERE id = ?)", asset.ID, userID).Delete(&model.Asset{})
 		if result.Error != nil {
 			return result.Error
 		}

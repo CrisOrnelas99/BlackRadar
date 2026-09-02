@@ -61,4 +61,7 @@ var (
 	ErrInvalidRefreshToken      = &UnauthorizedError{Message: "invalid refresh token"}
 	ErrUserDependency           = &DependencyError{Message: "user dependency unavailable"}
 	ErrUserInternal             = &InternalError{Message: "user service error"}
+	ErrInvalidUserManagement    = &ValidationError{Message: "invalid user management request"}
+	ErrLastActiveAdmin          = &ConflictError{Message: "cannot deactivate or demote the last administrator"}
+	ErrProtectedAdminAccount    = &ConflictError{Message: "administrator accounts cannot be changed by user management"}
 )

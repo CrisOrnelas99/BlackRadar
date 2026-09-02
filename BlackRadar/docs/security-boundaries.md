@@ -12,7 +12,7 @@ Trusted decisions come from server-side state:
 
 - authenticated principal and session state
 - backend authorization checks
-- database ownership predicates
+- database organization-scope predicates
 - validated domain data
 - bounded, backend-controlled external results
 
@@ -33,11 +33,11 @@ The controller binds requests and maps responses. The service enforces ownership
 
 ## Ownership
 
-Current ownership is user-scoped. The authenticated user ID comes from the server-side principal; it is never accepted as authoritative request data.
+Current data visibility is organization-scoped. The authenticated user ID comes from the server-side principal; it is never accepted as authoritative request data. The current deployment has one organization, and every active user belongs to it.
 
 Alice must not be able to access Bob’s asset, vulnerability, or relationship by guessing an identifier. Queries therefore scope the relevant record by both its identifier and Alice’s authenticated user ID.
 
-Organization tenancy is planned and must not be implied by the current implementation.
+Department and multi-organization membership, switching, and isolation are future work. They must replace the current single-organization resolver before multiple organizations share a database.
 
 ## External Integrations
 
@@ -66,7 +66,7 @@ See [api-error-handling.md](api-error-handling.md) for the error contract.
 ## Invariants
 
 - Authorization is enforced by the backend.
-- Ownership is derived from authenticated server state.
+- Organization scope is derived from authenticated server state.
 - Sensitive writes are validated and transactional where required.
 - Soft-deleted records are excluded from active workflows.
 - Secrets, tokens, SQL, and provider payloads are not exposed to clients.

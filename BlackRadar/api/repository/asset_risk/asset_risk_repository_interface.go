@@ -11,10 +11,11 @@ import (
 
 type AssetRiskRepositoryInterface interface {
 	/*
-		FindAssetCriticalityForUser loads the criticality for an owned asset.
+		FindAssetCriticalityForUser loads the criticality for an asset in the
+		user's organization.
 
 		Implementations must scope the lookup by assetID and userID and return
-		ErrRecordNotFound when the asset is not owned by the user.
+		ErrRecordNotFound when the asset is not in the user's organization.
 	*/
 	FindAssetCriticalityForUser(ec *appcontext.GinContext, assetID string, userID string) (string, error)
 
@@ -31,8 +32,8 @@ type AssetRiskRepositoryInterface interface {
 	FindActiveVulnerabilitiesForUser(ec *appcontext.GinContext, assetID string, userID string) ([]model.Vulnerability, error)
 
 	/*
-		FindAssignedAssetIDsForVulnerability returns asset IDs owned by userID
-		that have an active relationship to vulnerabilityID.
+		FindAssignedAssetIDsForVulnerability returns asset IDs in userID's
+		organization that have an active relationship to vulnerabilityID.
 
 		Implementations must exclude soft-deleted bridge rows, filter the asset
 		owner by userID, and return deterministic identifiers suitable for
@@ -43,7 +44,7 @@ type AssetRiskRepositoryInterface interface {
 
 	/*
 		UpdateRiskLevelForUser persists the already-calculated risk level for an
-		asset owned by userID.
+		asset in userID's organization.
 
 		The repository must not decide how severity maps to risk. It must apply
 		the supplied value with an ownership predicate, use the request-scoped

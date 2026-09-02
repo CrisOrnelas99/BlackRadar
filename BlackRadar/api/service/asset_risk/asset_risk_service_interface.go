@@ -10,7 +10,7 @@ import (
 type AssetRiskService interface {
 	/*
 		RefreshAssetRisk recalculates and persists the derived risk level for one
-		asset owned by the authenticated user.
+		asset in the authenticated user's organization.
 
 		The implementation must read the user ID from ec rather than from a
 		request payload, load only active asset-vulnerability relationships, and
@@ -27,7 +27,7 @@ type AssetRiskService interface {
 	RefreshAssetRisk(ec *appcontext.GinContext, assetID string) error
 
 	/*
-		RefreshRisksForVulnerability recalculates every active, user-owned asset
+		RefreshRisksForVulnerability recalculates every active, organization-scoped asset
 		relationship for vulnerabilityID.
 
 		This is used when a vulnerability's severity or active state changes.

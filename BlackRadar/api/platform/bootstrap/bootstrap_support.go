@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	bootstrapUserID  = "77000000-0000-4000-8000-000000000001"
+	bootstrapUserID  = model.SystemAdminID
 	bootstrapAssetID = "77000000-0000-4000-8000-000000000002"
 
 	bootstrapVulnerabilityID = "77000000-0000-4000-8000-000000000003"
@@ -189,7 +189,7 @@ func clearBootstrapData(tx *gorm.DB) error {
 }
 
 // seedBootstrapUser creates or refreshes the bootstrap administrator without
-// deleting user-owned development data.
+// deleting organization-scoped development data.
 func seedBootstrapUser(
 	tx *gorm.DB,
 	password string,
@@ -214,6 +214,7 @@ func seedBootstrapUser(
 			"username":             user.Username,
 			"email":                user.Email,
 			"role":                 user.Role,
+			"organization_id":      model.SingleOrganizationID,
 			"password_hash":        user.PasswordHash,
 			"failed_login_count":   0,
 			"last_failed_login_at": nil,
@@ -245,11 +246,12 @@ func newBootstrapUser(passwordHash string) model.User {
 		Model: model.Model{
 			ID: bootstrapUserID,
 		},
-		FullName:     bootstrapFullName,
-		Username:     bootstrapUsername,
-		Email:        normalize(bootstrapEmail),
-		Role:         model.RoleAdmin,
-		PasswordHash: passwordHash,
+		OrganizationID: model.SingleOrganizationID,
+		FullName:       bootstrapFullName,
+		Username:       bootstrapUsername,
+		Email:          normalize(bootstrapEmail),
+		Role:           model.RoleAdmin,
+		PasswordHash:   passwordHash,
 	}
 }
 
@@ -294,6 +296,7 @@ func newBootstrapAsset(userID string, assessmentID string) model.Asset {
 			ID: bootstrapAssetID,
 		},
 		UserID:            userID,
+		OrganizationID:    model.SingleOrganizationID,
 		AssetAssessmentID: &assessmentID,
 		Name:              bootstrapAssetName,
 		Type:              bootstrapAssetType,
@@ -316,12 +319,13 @@ func seedBootstrapVulnerability(
 		Model: model.Model{
 			ID: bootstrapVulnerabilityID,
 		},
-		UserID:      userID,
-		CVEID:       bootstrapCVEID,
-		Title:       bootstrapVulnerabilityTitle,
-		Severity:    bootstrapSeverity,
-		Description: bootstrapDescription,
-		Status:      bootstrapStatus,
+		UserID:         userID,
+		OrganizationID: model.SingleOrganizationID,
+		CVEID:          bootstrapCVEID,
+		Title:          bootstrapVulnerabilityTitle,
+		Severity:       bootstrapSeverity,
+		Description:    bootstrapDescription,
+		Status:         bootstrapStatus,
 	}
 
 	if err := tx.Create(&vulnerability).Error; err != nil {
@@ -360,6 +364,7 @@ func seedBootstrapDynamoDBAsset(
 			ID: bootstrapDynamoDBAssetID,
 		},
 		UserID:            userID,
+		OrganizationID:    model.SingleOrganizationID,
 		AssetAssessmentID: &assessment.ID,
 		Name:              bootstrapDynamoDBAssetName,
 		Type:              bootstrapDynamoDBAssetType,
@@ -388,12 +393,13 @@ func seedBootstrapDynamoDBVulnerability(
 		Model: model.Model{
 			ID: bootstrapDynamoDBVulnerabilityID,
 		},
-		UserID:      userID,
-		CVEID:       bootstrapDynamoDBCVEID,
-		Title:       bootstrapDynamoDBVulnerabilityTitle,
-		Severity:    bootstrapDynamoDBSeverity,
-		Description: bootstrapDynamoDBDescription,
-		Status:      bootstrapDynamoDBStatus,
+		UserID:         userID,
+		OrganizationID: model.SingleOrganizationID,
+		CVEID:          bootstrapDynamoDBCVEID,
+		Title:          bootstrapDynamoDBVulnerabilityTitle,
+		Severity:       bootstrapDynamoDBSeverity,
+		Description:    bootstrapDynamoDBDescription,
+		Status:         bootstrapDynamoDBStatus,
 	}
 
 	if err := tx.Create(&vulnerability).Error; err != nil {

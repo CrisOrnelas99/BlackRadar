@@ -18,7 +18,11 @@ func RegisterRoutes(router *gin.RouterGroup, controller *UserController) {
 
 // RegisterAdminRoutes registers administrator-only user management routes.
 func RegisterAdminRoutes(router *gin.RouterGroup, controller *UserController) {
+	router.GET("/users", appcontext.Wrap(controller.ListUsers))
+	router.GET("/users/:id", appcontext.Wrap(controller.GetUserForManagement))
 	router.POST("/users", appcontext.Wrap(controller.CreateUser))
+	router.PATCH("/users/:id/role", appcontext.Wrap(controller.ChangeUserRole))
+	router.PATCH("/users/:id/status", appcontext.Wrap(controller.ChangeUserStatus))
 }
 
 // RegisterProtectedRoutes registers authenticated self-service user routes.

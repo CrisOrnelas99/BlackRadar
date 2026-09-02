@@ -23,7 +23,7 @@ asset-risk service
   -> PostgreSQL assets.risk_level
 ```
 
-The service owns calculation and orchestration. The repository loads active, user-scoped vulnerabilities and persists the result. The request-scoped transaction is reused when risk is part of a larger workflow.
+The service owns calculation and orchestration. The repository loads active, organization-scoped vulnerabilities and persists the result. The request-scoped transaction is reused when risk is part of a larger workflow.
 
 ## 🔄 Refresh Events
 

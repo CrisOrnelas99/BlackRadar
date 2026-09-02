@@ -2,7 +2,7 @@
 
 ## 🧭 Overview
 
-A vulnerability is a user-owned record describing a security issue, commonly identified by a CVE. It stores normalized local data so asset workflows do not depend on a live provider response for every read.
+A vulnerability is an organization-scoped record describing a security issue, commonly identified by a CVE. It stores normalized local data so asset workflows do not depend on a live provider response for every read.
 
 ## 🎯 Purpose
 
@@ -18,7 +18,7 @@ PUT    /api/vulnerabilities/:id
 DELETE /api/vulnerabilities/:id
 ```
 
-These routes are currently admin-only and user-scoped.
+Mutation routes are admin-only. Reads are available to authenticated users in the current organization.
 
 ## 🧱 Data Shape
 
@@ -47,7 +47,7 @@ See [asset-vulnerability-assignment.md](asset-vulnerability-assignment.md) and [
 
 ## 🛡️ Security Invariants
 
-- Vulnerability ownership is derived from the authenticated principal.
+- Vulnerability organization scope is derived from the authenticated principal.
 - Admin authorization is enforced by middleware and service/repository checks.
 - NVD data is validated before becoming local application state.
 - Raw provider or database errors do not become browser responses.
@@ -56,7 +56,7 @@ See [asset-vulnerability-assignment.md](asset-vulnerability-assignment.md) and [
 ## 🚧 Current Limitations
 
 - Vulnerability management is admin-only.
-- Ownership is user-scoped rather than organization-scoped.
+- The current deployment uses one organization; department and multi-organization isolation are future work.
 - Status is stored but does not currently represent a complete remediation workflow.
 - Audit events, exceptions, work orders, and automated refresh are future capabilities.
 

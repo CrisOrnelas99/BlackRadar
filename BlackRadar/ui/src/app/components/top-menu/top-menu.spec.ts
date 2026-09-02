@@ -89,6 +89,18 @@ describe('TopMenuComponent', () => {
     expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/login');
   });
 
+  it('requires confirmation before signing the user out', async () => {
+    component.requestSignOut();
+
+    expect(component.isSignOutConfirmationOpen).toBe(true);
+    expect(authServiceMock.logout).not.toHaveBeenCalled();
+
+    await component.confirmSignOut();
+
+    expect(authServiceMock.logout).toHaveBeenCalledTimes(1);
+    expect(component.isSignOutConfirmationOpen).toBe(false);
+  });
+
   it('shows an error banner when sign out fails', async () => {
     authServiceMock.logout.mockReturnValueOnce(throwError(() => new Error('logout failed')));
 

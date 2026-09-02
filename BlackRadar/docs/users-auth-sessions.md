@@ -60,7 +60,7 @@ The authenticated user summary includes the full name, username, and email. The 
 
 ## 🚧 Current Limitations
 
-- Organization membership is not part of the current authentication contract.
+- The current deployment assigns every active account to one organization; department and multi-organization membership are future work.
 - Production deployments must keep refresh cookies `Secure`, use restrictive CORS origins, and add CSRF protection before relaxing same-site cookie behavior.
 - Device/session management UI and audit history are future work.
 

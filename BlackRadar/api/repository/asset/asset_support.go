@@ -24,7 +24,7 @@ func assetSummaryDatabase(database *gorm.DB, userID string) *gorm.DB {
 			COALESCE(SUM(CASE WHEN EXISTS (
 				SELECT 1
 				FROM asset_vulnerabilities av
-				JOIN vulnerabilities v ON v.id = av.vulnerability_id AND v.user_id = assets.user_id AND v.deleted_at IS NULL
+				JOIN vulnerabilities v ON v.id = av.vulnerability_id AND v.organization_id = assets.organization_id AND v.deleted_at IS NULL
 				WHERE av.asset_id = assets.id AND av.deleted_at IS NULL
 			) THEN 1 ELSE 0 END), 0) AS with_vulnerabilities_count,
 			COALESCE(SUM(CASE WHEN LOWER(COALESCE(assets.risk_level, 'Low')) = 'low' THEN 1 ELSE 0 END), 0) AS low_risk_count,
@@ -32,20 +32,20 @@ func assetSummaryDatabase(database *gorm.DB, userID string) *gorm.DB {
 			COALESCE(SUM(CASE WHEN LOWER(COALESCE(assets.risk_level, 'Low')) = 'high' THEN 1 ELSE 0 END), 0) AS high_risk_count,
 			COALESCE(SUM(CASE WHEN LOWER(COALESCE(assets.risk_level, 'Low')) = 'critical' THEN 1 ELSE 0 END), 0) AS critical_risk_count`).
 		Joins("LEFT JOIN asset_assessments ON asset_assessments.id = assets.asset_assessment_id AND asset_assessments.deleted_at IS NULL").
-		Where("assets.user_id = ? AND assets.deleted_at IS NULL", userID)
+		Where("assets.organization_id = (SELECT organization_id FROM users WHERE id = ?) AND assets.deleted_at IS NULL", userID)
 }
 
 func assetListDatabase(database *gorm.DB, userID string) *gorm.DB {
 	vulnerabilityCounts := database.Session(&gorm.Session{NewDB: true}).
 		Table("asset_vulnerabilities av").
 		Select("av.asset_id, COUNT(*) AS vulnerability_count").
-		Joins("JOIN vulnerabilities v ON v.id = av.vulnerability_id AND v.user_id = ? AND v.deleted_at IS NULL", userID).
+		Joins("JOIN vulnerabilities v ON v.id = av.vulnerability_id AND v.organization_id = (SELECT organization_id FROM users WHERE id = ?) AND v.deleted_at IS NULL", userID).
 		Where("av.deleted_at IS NULL").
 		Group("av.asset_id")
 
 	return database.Model(&model.Asset{}).
 		Joins("LEFT JOIN (?) asset_vulnerability_counts ON asset_vulnerability_counts.asset_id = assets.id", vulnerabilityCounts).
-		Where("assets.user_id = ?", userID)
+		Where("assets.organization_id = (SELECT organization_id FROM users WHERE id = ?)", userID)
 }
 
 func applyAssetListFilters(database *gorm.DB, query model.AssetListQuery) *gorm.DB {
@@ -142,7 +142,7 @@ func (r *AssetRepository) FindVulnerabilitiesForAsset(ec *appcontext.GinContext,
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Model(&model.Vulnerability{}).
 		Joins("JOIN asset_vulnerabilities av ON av.vulnerability_id = vulnerabilities.id AND av.deleted_at IS NULL").
-		Where("av.asset_id = ? AND vulnerabilities.user_id = ? AND vulnerabilities.deleted_at IS NULL", assetID, userID).
+		Where("av.asset_id = ? AND vulnerabilities.organization_id = (SELECT organization_id FROM users WHERE id = ?) AND vulnerabilities.deleted_at IS NULL", assetID, userID).
 		Order("vulnerabilities.id").
 		Find(&vulnerabilities).Error
 	if err != nil {
@@ -174,7 +174,7 @@ func (r *AssetRepository) loadAffectedAssetCounts(ec *appcontext.GinContext, vul
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Table("asset_vulnerabilities av").
 		Select("av.vulnerability_id, COUNT(*) AS count").
-		Joins("JOIN assets a ON a.id = av.asset_id AND a.user_id = ? AND a.deleted_at IS NULL", userID).
+		Joins("JOIN assets a ON a.id = av.asset_id AND a.organization_id = (SELECT organization_id FROM users WHERE id = ?) AND a.deleted_at IS NULL", userID).
 		Where("av.vulnerability_id IN ? AND av.deleted_at IS NULL", vulnerabilityIDs).
 		Group("av.vulnerability_id").
 		Scan(&counts).Error

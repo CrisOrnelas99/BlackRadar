@@ -1,0 +1,184 @@
+@if (session(); as currentSession) {
+  <app-top-menu [session]="currentSession" currentUrl="/users"></app-top-menu>
+}
+
+<section class="users-page-shell" aria-labelledby="users-heading">
+  <div class="users-page-header">
+    <div class="users-page-heading">
+      <div class="users-page-title-row">
+        <svg class="page-heading-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="9" cy="8" r="3" />
+          <path
+            d="M3 21c.6-3.5 2.6-5.5 6-5.5s5.4 2 6 5.5M16 5.5a2.5 2.5 0 0 1 0 5M16 15.5c2.7.1 4.3 2 5 5.5"
+          />
+        </svg>
+        <h1 id="users-heading">User management</h1>
+        <span class="users-page-count">
+          {{ totalCount() }} {{ totalCount() === 1 ? 'user' : 'users' }} found
+        </span>
+      </div>
+      <p class="users-page-subtitle">
+        Create accounts and manage access for the people using BlackRadar.
+      </p>
+    </div>
+  </div>
+
+  <div class="users-content-grid">
+    <div class="users-table-section">
+      @if (isLoading()) {
+        <p class="users-status" role="status" aria-atomic="true">Loading users...</p>
+      } @else if (hasLoadError()) {
+        <p class="users-status" role="alert">Unable to load users.</p>
+      } @else if (users().length === 0) {
+        <p class="users-status" role="status" aria-atomic="true">No users found.</p>
+      } @else {
+        <div class="users-table-wrapper">
+          <table class="users-table">
+            <caption class="sr-only">
+              BlackRadar user accounts
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Username</th>
+                <th scope="col">Email</th>
+                <th scope="col">Role</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (user of users(); track user.id) {
+                <tr>
+                  <td class="users-name">
+                    <a
+                      [routerLink]="
+                        user.id === session()?.user?.id ? '/profile' : ['/profile', user.id]
+                      "
+                    >
+                      {{ user.fullName }}
+                    </a>
+                  </td>
+                  <td>{{ user.username }}</td>
+                  <td>{{ user.email }}</td>
+                  <td>{{ roleLabel(user.role) }}</td>
+                  <td>
+                    <span class="users-status-badge" [class]="statusClass(user.accountStatus)">
+                      {{ statusLabel(user.accountStatus) }}
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+      @if (!isLoading() && !hasLoadError() && users().length > 0) {
+        <app-pagination
+          [page]="currentPage()"
+          [pageSize]="pageSize()"
+          [totalCount]="totalCount()"
+          [totalPages]="totalPages()"
+          (pageChange)="changePage($event)"
+        ></app-pagination>
+      }
+    </div>
+  </div>
+
+  <div class="users-create-column">
+    <section class="users-create-card" aria-labelledby="user-create-heading">
+      @if (!isCreateOpen()) {
+        <div class="users-create-intro">
+          <h2 id="user-create-heading">Create a user</h2>
+          <p>Add an account with standard user access. You can change its role later.</p>
+          <button class="users-create-open" type="button" (click)="openCreatePanel()">
+            Create a user
+          </button>
+        </div>
+      } @else {
+        <form [formGroup]="createForm" (ngSubmit)="submitCreate()" novalidate>
+          <div class="users-create-header">
+            <div>
+              <h2 id="user-create-heading">Create a user</h2>
+              <p>Add an account with standard user access. You can change its role later.</p>
+            </div>
+            <button
+              class="page-cancel"
+              type="button"
+              [disabled]="isCreating()"
+              (click)="closeCreatePanel()"
+            >
+              Cancel
+            </button>
+          </div>
+          <div class="users-create-fields">
+            <label class="users-field" for="user-full-name">
+              <span>Full name <span class="users-required">(required)</span></span>
+              <input
+                id="user-full-name"
+                type="text"
+                formControlName="fullName"
+                autocomplete="name"
+                required
+                aria-required="true"
+              />
+            </label>
+            <label class="users-field" for="user-username">
+              <span>Username <span class="users-required">(required)</span></span>
+              <input
+                id="user-username"
+                type="text"
+                formControlName="username"
+                autocomplete="username"
+                required
+                aria-required="true"
+              />
+            </label>
+            <label class="users-field" for="user-email">
+              <span>Email <span class="users-required">(required)</span></span>
+              <input
+                id="user-email"
+                type="email"
+                formControlName="email"
+                autocomplete="email"
+                required
+                aria-required="true"
+              />
+            </label>
+            <label class="users-field" for="user-password">
+              <span>Password <span class="users-required">(required)</span></span>
+              <input
+                id="user-password"
+                type="password"
+                formControlName="password"
+                autocomplete="new-password"
+                required
+                aria-required="true"
+              />
+            </label>
+          </div>
+          <button class="users-create-submit" type="submit" [disabled]="isCreating()">
+            {{ isCreating() ? 'Creating...' : 'Create user' }}
+          </button>
+        </form>
+      }
+    </section>
+  </div>
+
+  @if (isCreateConfirmationOpen()) {
+    <app-confirmation-dialog
+      [dialogId]="'user-create-confirm-heading'"
+      [title]="'Create user?'"
+      [message]="
+        'Create ' +
+        (createForm.controls.fullName.value || createForm.controls.username.value) +
+        ' with standard user access?'
+      "
+      [confirmLabel]="isCreating() ? 'Creating...' : 'Create user'"
+      [confirmTone]="'success'"
+      [confirmDisabled]="isCreating()"
+      [cancelDisabled]="isCreating()"
+      (cancel)="cancelCreate()"
+      (confirm)="confirmCreate()"
+    ></app-confirmation-dialog>
+  }
+</section>

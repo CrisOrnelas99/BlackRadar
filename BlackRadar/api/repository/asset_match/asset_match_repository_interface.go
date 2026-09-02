@@ -15,7 +15,7 @@ type AssetMatchRepositoryInterface interface {
 		state needed for matching.
 
 		Implementations must scope by both identifiers and return ErrRecordNotFound
-		when the asset does not exist or is not owned by userID.
+		when the asset does not exist in userID's organization.
 	*/
 	FindByIDForUser(ec *appcontext.GinContext, id string, userID string) (model.Asset, error)
 

@@ -34,12 +34,12 @@ func NewAssetMatchRepository(db *gorm.DB) *AssetMatchRepository {
 	return &AssetMatchRepository{db: db}
 }
 
-// FindByIDForUser returns a single asset owned by the specified user.
+// FindByIDForUser returns an asset in the specified user's organization.
 func (r *AssetMatchRepository) FindByIDForUser(ec *appcontext.GinContext, id string, userID string) (model.Asset, error) {
 	var asset model.Asset
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Preload("Assessment").
-		Where("user_id = ? AND id = ?", userID, id).
+		Where("organization_id = (SELECT organization_id FROM users WHERE id = ?) AND id = ?", userID, id).
 		First(&asset).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.Asset{}, ErrRecordNotFound

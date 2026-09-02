@@ -6,7 +6,7 @@ It keeps ownership, authorization, risk calculation, NVD access, and AI-assisted
 
 ## What works today
 
-- Create, edit, and manage user-scoped assets and vulnerabilities.
+- Create, edit, and manage organization-scoped assets and vulnerabilities.
 - Attach and remove vulnerabilities from assets, with asset risk recalculated from active assignments.
 - Browse attached vulnerabilities for an asset and affected assets for a vulnerability.
 - Browse the asset inventory through server-side pagination with filtering, sorting, and total-count metadata.
@@ -17,7 +17,7 @@ It keeps ownership, authorization, risk calculation, NVD access, and AI-assisted
 
 ## Who, what, when, where, why, and how
 
-- **Who:** Administrators manage assets and vulnerability relationships; each user sees only their own assets and vulnerabilities.
+- **Who:** Users in the organization share the same assets and vulnerabilities; administrator-only actions still control privileged management workflows.
 - **What:** BlackRadar records assets, local vulnerability data, and the active relationships between them.
 - **When:** Use it when you need to understand which known vulnerabilities affect a product and how they change an asset's risk.
 - **Why:** A CVE record alone does not indicate exposure. The asset-vulnerability relationship makes the risk specific and actionable.

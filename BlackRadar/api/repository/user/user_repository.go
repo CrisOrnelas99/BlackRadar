@@ -8,10 +8,12 @@ import (
 	"time"
 
 	commonid "blackradar/api/common/id"
+	"blackradar/api/common/pagination"
 	"blackradar/api/model"
 	platformdb "blackradar/api/platform/db"
 	appcontext "blackradar/api/platform/requestcontext"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // UserRepository persists user records.
@@ -32,6 +34,25 @@ type RefreshSessionRepository struct {
 // NewRefreshSessionRepository creates a refresh session repository backed by the supplied database.
 func NewRefreshSessionRepository(db *gorm.DB) *RefreshSessionRepository {
 	return &RefreshSessionRepository{db: db}
+}
+
+// ListUsers returns active and deactivated user accounts in stable creation order.
+func (r *UserRepository) ListUsers(ec *appcontext.GinContext, request pagination.Request) (pagination.Page[model.User], error) {
+	if err := RequireAdmin(ec, r.dbForContext(ec)); err != nil {
+		return pagination.Page[model.User]{}, err
+	}
+	result := pagination.Page[model.User]{Page: request.Page, PageSize: request.PageSize, Items: []model.User{}}
+	database := r.dbForContext(ec).WithContext(ec.RequestContext()).Model(&model.User{})
+	if err := database.Count(&result.TotalCount).Error; err != nil {
+		return pagination.Page[model.User]{}, fmt.Errorf("%w: count users: %w", ErrPersistenceFailure, err)
+	}
+	if result.TotalCount == 0 {
+		return result, nil
+	}
+	if err := database.Select("id, full_name, username, email, role, account_status, created_at, updated_at").Order("created_at ASC, id ASC").Offset((request.Page - 1) * request.PageSize).Limit(request.PageSize).Find(&result.Items).Error; err != nil {
+		return pagination.Page[model.User]{}, fmt.Errorf("%w: read user page: %w", ErrPersistenceFailure, err)
+	}
+	return result, nil
 }
 
 // ExistsByUsername reports whether a username already exists.
@@ -83,6 +104,7 @@ func (r *UserRepository) CreateUser(ec *appcontext.GinContext, user model.User) 
 	if user.Username == "" || user.Email == "" || user.PasswordHash == "" {
 		return model.User{}, ErrNotNullViolation
 	}
+	user.OrganizationID = model.SingleOrganizationID
 
 	for attempt := 0; attempt < 3; attempt++ {
 		identifier, err := commonid.New()
@@ -113,6 +135,44 @@ func (r *UserRepository) CreateUser(ec *appcontext.GinContext, user model.User) 
 	}
 
 	return model.User{}, fmt.Errorf("%w: exhausted random id retries", ErrPrimaryKeyViolation)
+}
+
+// UpdateRole changes a managed user's role.
+func (r *UserRepository) UpdateRole(ec *appcontext.GinContext, userID string, role string, updatedByID string) (model.User, error) {
+	if err := RequireAdmin(ec, r.dbForContext(ec)); err != nil {
+		return model.User{}, err
+	}
+	result := r.dbForContext(ec).WithContext(ec.RequestContext()).Model(&model.User{}).Where("id = ?", strings.TrimSpace(userID)).Updates(map[string]any{"role": role, "updated_by_id": updatedByID})
+	if result.Error != nil {
+		return model.User{}, fmt.Errorf("%w: update user role: %w", ErrPersistenceFailure, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return model.User{}, ErrRecordNotFound
+	}
+	return r.FindByIDForManagement(ec, userID)
+}
+
+// UpdateAccountStatus changes a managed user's account status.
+func (r *UserRepository) UpdateAccountStatus(ec *appcontext.GinContext, userID string, status string, updatedByID string) (model.User, error) {
+	if err := RequireAdmin(ec, r.dbForContext(ec)); err != nil {
+		return model.User{}, err
+	}
+	result := r.dbForContext(ec).WithContext(ec.RequestContext()).Model(&model.User{}).Where("id = ?", strings.TrimSpace(userID)).Updates(map[string]any{"account_status": status, "updated_by_id": updatedByID})
+	if result.Error != nil {
+		return model.User{}, fmt.Errorf("%w: update account status: %w", ErrPersistenceFailure, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return model.User{}, ErrRecordNotFound
+	}
+	return r.FindByIDForManagement(ec, userID)
+}
+
+func (r *UserRepository) CountActiveAdmins(ec *appcontext.GinContext) (int64, error) {
+	var admins []struct{ ID string }
+	if err := r.dbForContext(ec).WithContext(ec.RequestContext()).Model(&model.User{}).Select("id").Where("role = ? AND account_status = ?", model.RoleAdmin, model.AccountStatusActive).Clauses(clause.Locking{Strength: "UPDATE"}).Find(&admins).Error; err != nil {
+		return 0, fmt.Errorf("%w: count active admins: %w", ErrPersistenceFailure, err)
+	}
+	return int64(len(admins)), nil
 }
 
 // UpdateProfile updates the mutable profile fields for one active user.
@@ -146,7 +206,7 @@ func (r *UserRepository) UpdateProfile(ec *appcontext.GinContext, userID string,
 // FindByUsername returns a user that matches the supplied username.
 func (r *UserRepository) FindByUsername(ec *appcontext.GinContext, username string) (model.User, error) {
 	var user model.User
-	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("username = ?", strings.TrimSpace(username)).First(&user).Error
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("username = ? AND account_status = ?", strings.TrimSpace(username), model.AccountStatusActive).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.User{}, ErrRecordNotFound
 	}
@@ -159,7 +219,7 @@ func (r *UserRepository) FindByUsername(ec *appcontext.GinContext, username stri
 // FindByID returns a user that matches the supplied immutable identifier.
 func (r *UserRepository) FindByID(ec *appcontext.GinContext, id string) (model.User, error) {
 	var user model.User
-	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("id = ?", strings.TrimSpace(id)).First(&user).Error
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("id = ? AND account_status = ?", strings.TrimSpace(id), model.AccountStatusActive).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.User{}, ErrRecordNotFound
 	}
@@ -169,10 +229,23 @@ func (r *UserRepository) FindByID(ec *appcontext.GinContext, id string) (model.U
 	return user, nil
 }
 
+// FindByIDForManagement returns an active or deactivated account.
+func (r *UserRepository) FindByIDForManagement(ec *appcontext.GinContext, id string) (model.User, error) {
+	var user model.User
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("id = ?", strings.TrimSpace(id)).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return model.User{}, ErrRecordNotFound
+	}
+	if err != nil {
+		return model.User{}, fmt.Errorf("%w: read managed user by id: %w", ErrPersistenceFailure, err)
+	}
+	return user, nil
+}
+
 // FindByEmail returns a user that matches the supplied email.
 func (r *UserRepository) FindByEmail(ec *appcontext.GinContext, email string) (model.User, error) {
 	var user model.User
-	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("email = ?", strings.ToLower(strings.TrimSpace(email))).First(&user).Error
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).Where("email = ? AND account_status = ?", strings.ToLower(strings.TrimSpace(email)), model.AccountStatusActive).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return model.User{}, ErrRecordNotFound
 	}

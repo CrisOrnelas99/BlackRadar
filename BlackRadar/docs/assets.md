@@ -2,7 +2,7 @@
 
 ## 🧭 Overview
 
-An asset is a user-owned inventory record representing a device, application, service, or other managed technology. The feature combines identity, product metadata, business criticality, assessment metadata, and derived risk state.
+An asset is an organization-scoped inventory record representing a device, application, service, or other managed technology. The feature combines identity, product metadata, business criticality, assessment metadata, and derived risk state.
 
 ## 🎯 Purpose
 
@@ -34,7 +34,7 @@ The asset list response contains `assets` and `pagination`. The backend applies 
 
 Manual creation validates and persists the submitted asset. Single-asset AI creation is not part of the current API. Future AI ingestion is reserved for batch text or file workflows with review before persistence.
 
-Reads and updates are scoped to the authenticated user. Deletes are transactional and clean up related assessment and relationship state according to the persistence rules.
+Reads, updates, and deletes are scoped to the authenticated user’s organization. The authenticated user remains the creator/audit identity, while all users in the current organization share visibility.
 
 Asset risk is derived from active assigned vulnerabilities. Asset creation does not invent risk, and AI ingestion does not attach CVEs automatically.
 
@@ -50,10 +50,10 @@ The asset service owns validation, normalization, ownership, and duplicate check
 
 ## 🛡️ Security Invariants
 
-- Ownership comes from authenticated server state.
+- Organization scope comes from authenticated server state.
 - Input is validated before persistence or external processing.
 - AI matching output is treated as untrusted advisory data.
-- Duplicate identity records are rejected within the user’s scope.
+- Duplicate identity records are rejected within the organization scope.
 - Browser input cannot set risk, role, user ID, or assessment ownership.
 
 Shared trust and error rules are defined in [security-boundaries.md](security-boundaries.md) and [api-error-handling.md](api-error-handling.md).
@@ -69,11 +69,11 @@ Shared trust and error rules are defined in [security-boundaries.md](security-bo
 
 ## 🚧 Current Limitations
 
-- Ownership is user-scoped rather than organization-scoped.
+- The current deployment uses one organization; department and multi-organization isolation are future work.
 - The frontend asset workflow is still evolving.
 - Batch AI ingestion from large text or uploaded files is future work and must include review before persistence.
 - Risk score and risk level are separate concepts; the current asset-risk service derives `riskLevel`, not `AssetAssessment.RiskScore`.
-- Audit history, remediation workflows, and organization-wide asset views are future work.
+- Department-aware views, audit history, and remediation workflows are future work.
 
 ## 🔑 Key Terms
 
