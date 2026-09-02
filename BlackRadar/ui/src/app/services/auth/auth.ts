@@ -17,6 +17,7 @@ export interface LoginResponse {
     username: string;
     email: string;
     role?: string;
+    isSystemAdmin?: boolean;
     createdAt?: string;
     updatedAt?: string;
   };

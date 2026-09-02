@@ -11,23 +11,23 @@ import (
 )
 
 type AssetRepositoryInterface interface {
-	// FindByUser returns one filtered and ordered page of active assets owned by userID.
+	// FindByUser returns one filtered and ordered page of active assets in userID's organization.
 	FindByUser(ec *appcontext.GinContext, userID string, query model.AssetListQuery) (pagination.Page[model.Asset], error)
 
-	// SummarizeByUser returns dashboard aggregate counts for active assets owned by userID.
+	// SummarizeByUser returns dashboard aggregate counts for active assets in userID's organization.
 	SummarizeByUser(ec *appcontext.GinContext, userID string) (model.AssetSummary, error)
 
 	/*
 		FindByIDForUser returns one active asset matching id and userID.
 
 		Implementations must require both identifiers in the lookup and return
-		ErrRecordNotFound when the asset does not exist or is not owned by userID.
+		ErrRecordNotFound when the asset does not exist in userID's organization.
 	*/
 	FindByIDForUser(ec *appcontext.GinContext, id string, userID string) (model.Asset, error)
 
 	/*
 		FindVulnerabilitiesForAsset returns active vulnerabilities attached to
-		an asset owned by userID.
+		an asset in userID's organization.
 
 		Implementations must scope both the asset and vulnerability records to
 		userID and exclude soft-deleted assignments.
@@ -44,12 +44,12 @@ type AssetRepositoryInterface interface {
 	ExistsBySignatureForUser(ec *appcontext.GinContext, asset model.Asset, userID string) (bool, error)
 
 	/*
-		CreateForUser persists a new asset owned by userID and returns the created
-		row with generated identifiers.
+		CreateForUser persists a new asset in userID's organization and returns the created
+			row with generated identifiers.
 
-		Implementations should enforce persistence constraints, set ownership at
-		the database boundary, and return repository sentinel errors for duplicate,
-		foreign-key, check-constraint, or persistence failures.
+			Implementations should enforce persistence constraints, set ownership at
+			the database boundary, and return repository sentinel errors for duplicate,
+			foreign-key, check-constraint, or persistence failures.
 	*/
 	CreateForUser(ec *appcontext.GinContext, userID string, asset model.Asset) (model.Asset, error)
 

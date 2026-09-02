@@ -39,7 +39,7 @@ func RequireAdmin(ec *appcontext.GinContext, db *gorm.DB) error {
 
 	var user model.User
 	err = db.WithContext(ec.RequestContext()).
-		Where("id = ?", userID).
+		Where("id = ? AND account_status = ?", userID, model.AccountStatusActive).
 		First(&user).Error
 	if err != nil {
 		return ErrPermissionDenied

@@ -28,6 +28,10 @@ func handleUserServiceError(ec *appcontext.GinContext, err error) bool {
 	switch {
 	case errors.As(err, &validationErr):
 		return shared.HandleError(ec, http.StatusBadRequest, err, err.Error())
+	case errors.Is(err, userservice.ErrProtectedAdminAccount):
+		return shared.HandleError(ec, http.StatusForbidden, err, "Administrator accounts cannot be changed here.")
+	case errors.Is(err, userservice.ErrLastActiveAdmin):
+		return shared.HandleError(ec, http.StatusConflict, err, "The last active administrator cannot be removed.")
 	case errors.As(err, &conflictErr):
 		return shared.HandleError(ec, http.StatusConflict, err, "User already exists.")
 	case errors.Is(err, userservice.ErrLoginBackoff):

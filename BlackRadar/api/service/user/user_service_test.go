@@ -14,6 +14,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	commonjwt "blackradar/api/common/jwt"
+	"blackradar/api/common/pagination"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 	userrepo "blackradar/api/repository/user"
@@ -55,6 +56,92 @@ func TestUserService(t *testing.T) {
 	}
 	if !loginResponse.RefreshTokenExpiresAt.After(loginResponse.TokenExpiresAt) {
 		t.Fatalf("expected refresh token expiry to outlast access token expiry")
+	}
+}
+
+func TestUserServiceAdminAccountChanges(t *testing.T) {
+	repo := &fakeUserRepository{user: model.User{Model: model.Model{ID: testUserIDSeven}, Role: model.RoleUser, AccountStatus: model.AccountStatusActive}, activeAdminCount: 2}
+	svc := NewUserService(newTestJWTManager(t), repo, &fakeRefreshSessionRepository{})
+	svc.transactionRunner = testTransactionRunner{}
+	ctx := newUserServiceContext(t)
+	ctx.SetUserID(testUserID)
+	ctx.SetUserRole(model.RoleAdmin)
+
+	if _, err := svc.ChangeUserStatus(ctx, testUserIDSeven, model.AccountStatusDeactivated); err != nil {
+		t.Fatalf("expected status change to succeed, got %v", err)
+	}
+	if repo.updatedStatus != model.AccountStatusDeactivated {
+		t.Fatalf("expected status %q, got %q", model.AccountStatusDeactivated, repo.updatedStatus)
+	}
+
+	if _, err := svc.ChangeUserRole(ctx, testUserIDSeven, model.RoleAdmin); err != nil {
+		t.Fatalf("expected role change to succeed, got %v", err)
+	}
+	if repo.updatedRole != model.RoleAdmin {
+		t.Fatalf("expected role %q, got %q", model.RoleAdmin, repo.updatedRole)
+	}
+}
+
+func TestUserServiceRejectsProtectedAdministratorChanges(t *testing.T) {
+	repo := &fakeUserRepository{user: model.User{Model: model.Model{ID: testUserIDSeven}, Role: model.RoleAdmin, AccountStatus: model.AccountStatusActive}, activeAdminCount: 1}
+	svc := NewUserService(newTestJWTManager(t), repo, &fakeRefreshSessionRepository{})
+	svc.transactionRunner = testTransactionRunner{}
+	ctx := newUserServiceContext(t)
+	ctx.SetUserRole(model.RoleAdmin)
+
+	if _, err := svc.ChangeUserRole(ctx, testUserIDSeven, model.RoleUser); !errors.Is(err, ErrProtectedAdminAccount) {
+		t.Fatalf("expected administrator role protection, got %v", err)
+	}
+	if _, err := svc.ChangeUserStatus(ctx, testUserIDSeven, model.AccountStatusDeactivated); !errors.Is(err, ErrProtectedAdminAccount) {
+		t.Fatalf("expected administrator status protection, got %v", err)
+	}
+}
+
+func TestUserServiceRejectsAdministratorAccountChanges(t *testing.T) {
+	repo := &fakeUserRepository{user: model.User{Model: model.Model{ID: testUserIDSeven}, Role: model.RoleAdmin, AccountStatus: model.AccountStatusActive}, activeAdminCount: 2}
+	svc := NewUserService(newTestJWTManager(t), repo, &fakeRefreshSessionRepository{})
+	svc.transactionRunner = testTransactionRunner{}
+	ctx := newUserServiceContext(t)
+	ctx.SetUserID(testUserID)
+	ctx.SetUserRole(model.RoleAdmin)
+
+	if _, err := svc.ChangeUserRole(ctx, testUserIDSeven, model.RoleUser); !errors.Is(err, ErrProtectedAdminAccount) {
+		t.Fatalf("expected administrator role change to be rejected, got %v", err)
+	}
+	if _, err := svc.ChangeUserStatus(ctx, testUserIDSeven, model.AccountStatusDeactivated); !errors.Is(err, ErrProtectedAdminAccount) {
+		t.Fatalf("expected administrator status change to be rejected, got %v", err)
+	}
+}
+
+func TestSystemAdminCanChangeAnotherAdministrator(t *testing.T) {
+	repo := &fakeUserRepository{user: model.User{Model: model.Model{ID: testUserIDSeven}, Role: model.RoleAdmin, AccountStatus: model.AccountStatusActive}, activeAdminCount: 2}
+	svc := NewUserService(newTestJWTManager(t), repo, &fakeRefreshSessionRepository{})
+	svc.transactionRunner = testTransactionRunner{}
+	ctx := newUserServiceContext(t)
+	ctx.SetUserID(model.SystemAdminID)
+	ctx.SetUserRole(model.RoleAdmin)
+
+	if _, err := svc.ChangeUserRole(ctx, testUserIDSeven, model.RoleUser); err != nil {
+		t.Fatalf("expected system admin role change to succeed, got %v", err)
+	}
+	if _, err := svc.ChangeUserStatus(ctx, testUserIDSeven, model.AccountStatusDeactivated); err != nil {
+		t.Fatalf("expected system admin status change to succeed, got %v", err)
+	}
+}
+
+func TestUserServiceRejectsSelfAccountChanges(t *testing.T) {
+	repo := &fakeUserRepository{user: model.User{Model: model.Model{ID: testUserID}, Role: model.RoleUser, AccountStatus: model.AccountStatusActive}, activeAdminCount: 2}
+	svc := NewUserService(newTestJWTManager(t), repo, &fakeRefreshSessionRepository{})
+	svc.transactionRunner = testTransactionRunner{}
+	ctx := newUserServiceContext(t)
+	ctx.SetUserID(testUserID)
+	ctx.SetUserRole(model.RoleAdmin)
+
+	if _, err := svc.ChangeUserRole(ctx, testUserID, model.RoleAdmin); !errors.Is(err, ErrProtectedAdminAccount) {
+		t.Fatalf("expected self role change to be rejected, got %v", err)
+	}
+	if _, err := svc.ChangeUserStatus(ctx, testUserID, model.AccountStatusDeactivated); !errors.Is(err, ErrProtectedAdminAccount) {
+		t.Fatalf("expected self status change to be rejected, got %v", err)
 	}
 }
 
@@ -374,6 +461,33 @@ type fakeUserRepository struct {
 	emailLookupCalls     int
 	createCalled         bool
 	updateBackoffErr     error
+	users                []model.User
+	activeAdminCount     int64
+	updatedRole          string
+	updatedStatus        string
+}
+
+type testTransactionRunner struct{}
+
+func (testTransactionRunner) Run(ec *appcontext.GinContext, operation func(*appcontext.GinContext) error) error {
+	return operation(ec)
+}
+
+func (f *fakeUserRepository) ListUsers(ec *appcontext.GinContext, request pagination.Request) (pagination.Page[model.User], error) {
+	return pagination.Page[model.User]{Items: f.users, Page: request.Page, PageSize: request.PageSize, TotalCount: int64(len(f.users))}, nil
+}
+func (f *fakeUserRepository) UpdateRole(ec *appcontext.GinContext, userID string, role string, updatedByID string) (model.User, error) {
+	f.updatedRole = role
+	f.user.Role = role
+	return f.user, nil
+}
+func (f *fakeUserRepository) UpdateAccountStatus(ec *appcontext.GinContext, userID string, status string, updatedByID string) (model.User, error) {
+	f.updatedStatus = status
+	f.user.AccountStatus = status
+	return f.user, nil
+}
+func (f *fakeUserRepository) CountActiveAdmins(ec *appcontext.GinContext) (int64, error) {
+	return f.activeAdminCount, nil
 }
 
 // ExistsByUsername reports whether the fake user exists.
@@ -432,6 +546,16 @@ func (f *fakeUserRepository) FindByUsername(ec *appcontext.GinContext, username 
 
 // FindByID returns the configured fake user by immutable identifier.
 func (f *fakeUserRepository) FindByID(ec *appcontext.GinContext, id string) (model.User, error) {
+	if f.findErr != nil {
+		return model.User{}, f.findErr
+	}
+	if f.user.ID == "" || f.user.ID != id {
+		return model.User{}, userrepo.ErrRecordNotFound
+	}
+	return f.user, nil
+}
+
+func (f *fakeUserRepository) FindByIDForManagement(ec *appcontext.GinContext, id string) (model.User, error) {
 	if f.findErr != nil {
 		return model.User{}, f.findErr
 	}

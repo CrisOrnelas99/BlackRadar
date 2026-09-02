@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"blackradar/api/common/pagination"
 	contextmiddleware "blackradar/api/middleware/context"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
@@ -87,6 +88,25 @@ func TestUserControllerHandlers(t *testing.T) {
 					t.Fatalf("expected generic conflict response, got %s", body)
 				}
 			})
+		}
+	})
+
+	t.Run("last administrator conflict is specific", func(t *testing.T) {
+		svc.createUserErr = userservice.ErrLastActiveAdmin
+		ec, recorder := newUserContext(t, http.MethodPost, "/users", `{"fullName":"Analyst User","username":"analyst","email":"analyst@example.com","password":"Password1!"}`)
+		ec.Request.Header.Set("Content-Type", "application/json")
+
+		controller.CreateUser(ec)
+
+		if recorder.Code != http.StatusConflict {
+			t.Fatalf("expected %d, got %d", http.StatusConflict, recorder.Code)
+		}
+		var response map[string]any
+		if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+			t.Fatalf("failed to decode conflict response: %v", err)
+		}
+		if got := response["message"]; got != "The last active administrator cannot be removed." {
+			t.Fatalf("unexpected last-admin message: %#v", got)
 		}
 	})
 
@@ -239,6 +259,29 @@ func TestRegisterAdminRoutes(t *testing.T) {
 	if service.createUserCalls != 1 {
 		t.Fatalf("expected CreateUser to be called once, got %d", service.createUserCalls)
 	}
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodGet, "/api/users", nil)
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK || service.listUsersCalls != 1 {
+		t.Fatalf("expected user list route to succeed, status=%d calls=%d", recorder.Code, service.listUsersCalls)
+	}
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodPatch, "/api/users/00000000-0000-4000-8000-000000000007/role", strings.NewReader(`{"role":"admin"}`))
+	request.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK || service.changeRoleCalls != 1 {
+		t.Fatalf("expected role route to succeed, status=%d calls=%d", recorder.Code, service.changeRoleCalls)
+	}
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodPatch, "/api/users/00000000-0000-4000-8000-000000000007/status", strings.NewReader(`{"accountStatus":"deactivated"}`))
+	request.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK || service.changeStatusCalls != 1 {
+		t.Fatalf("expected status route to succeed, status=%d calls=%d", recorder.Code, service.changeStatusCalls)
+	}
 }
 
 type fakeUserService struct {
@@ -255,6 +298,26 @@ type fakeUserService struct {
 	updateProfileResponse model.User
 	updateProfileErr      error
 	updateProfileCalls    int
+	users                 []model.User
+	listUsersCalls        int
+	changeRoleCalls       int
+	changeStatusCalls     int
+}
+
+func (f *fakeUserService) ListUsers(ec *appcontext.GinContext, query model.UserListQuery) (pagination.Page[model.User], error) {
+	f.listUsersCalls++
+	return pagination.Page[model.User]{Items: f.users, Page: query.Pagination.Page, PageSize: query.Pagination.PageSize, TotalCount: int64(len(f.users))}, nil
+}
+func (f *fakeUserService) GetUserForManagement(ec *appcontext.GinContext, userID string) (model.User, error) {
+	return model.User{Model: model.Model{ID: userID}}, nil
+}
+func (f *fakeUserService) ChangeUserRole(ec *appcontext.GinContext, userID string, role string) (model.User, error) {
+	f.changeRoleCalls++
+	return model.User{Model: model.Model{ID: userID}, Role: role}, nil
+}
+func (f *fakeUserService) ChangeUserStatus(ec *appcontext.GinContext, userID string, status string) (model.User, error) {
+	f.changeStatusCalls++
+	return model.User{Model: model.Model{ID: userID}, AccountStatus: status}, nil
 }
 
 func (f *fakeUserService) CreateUser(ec *appcontext.GinContext, request userservice.CreateUserInput) (model.User, error) {

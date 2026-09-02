@@ -2,7 +2,7 @@
 
 ## 🧭 Overview
 
-BlackRadar uses PostgreSQL with GORM for persistence. Database behavior is organized around user-scoped records, explicit relationships, derived asset state, and soft deletion for recoverable or audit-relevant data.
+BlackRadar uses PostgreSQL with GORM for persistence. Database behavior is organized around organization-scoped records, explicit relationships, derived asset state, and soft deletion for recoverable or audit-relevant data.
 
 ## 🧱 Core Schema
 
@@ -12,12 +12,13 @@ The primary tables are:
 - `refresh_sessions`: server-side refresh-session state
 - `assets`: inventory records and derived `risk_level`
 - `asset_assessments`: risk score and CPE matching metadata
-- `vulnerabilities`: user-owned vulnerability records
+- `organizations`: the current single-organization tenant boundary
+- `vulnerabilities`: organization-scoped vulnerability records
 - `asset_vulnerabilities`: the asset-to-vulnerability relationship
 
 The relationship table is the source of active assignment state. It contains `asset_id`, `vulnerability_id`, `created_at`, and `deleted_at`.
 
-Assets and vulnerabilities require a server-owned `user_id`. Repository validation and database `NOT NULL` constraints work together so an owned record cannot be persisted without an ownership boundary. Record IDs are generated server-side; create request data cannot choose them.
+Assets and vulnerabilities retain a server-owned `user_id` creator/audit field and require an `organization_id` scope. Repository validation and database `NOT NULL` constraints work together so a record cannot be persisted without both identities. Record IDs are generated server-side; create request data cannot choose them.
 
 ## 🧬 Model Boundaries
 

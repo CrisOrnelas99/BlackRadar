@@ -12,6 +12,7 @@ import { VulnerabilityAssetsPage } from '../pages/vulnerabilities/vulnerability-
 import { ProfilePage } from '../pages/profile/profile';
 import { ErrorPage, ErrorPageDefinition } from '../pages/error-page/error-page';
 import { HealthPage } from '../pages/health/health';
+import { UsersPage } from '../pages/users/users';
 
 const errorPages: Record<
   'session-expired' | 'access-denied' | 'server-error' | 'not-found',
@@ -52,6 +53,7 @@ export const routes: Routes = [
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
   { path: 'login', component: LoginPage },
   { path: 'health', component: HealthPage, canActivate: [authGuard, adminGuard] },
+  { path: 'users', component: UsersPage, canActivate: [authGuard, adminGuard] },
   {
     path: 'session-expired',
     component: ErrorPage,
@@ -74,6 +76,7 @@ export const routes: Routes = [
     canActivate: [authGuard],
   },
   { path: 'vulnerabilities/:id', component: VulnerabilityDetailsPage, canActivate: [authGuard] },
+  { path: 'profile/:id', component: ProfilePage, canActivate: [authGuard, adminGuard] },
   { path: 'profile', component: ProfilePage, canActivate: [authGuard] },
   { path: '**', component: ErrorPage, data: { errorPage: errorPages['not-found'] } },
 ];

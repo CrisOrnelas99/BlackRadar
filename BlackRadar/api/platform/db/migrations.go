@@ -67,6 +67,7 @@ func RunMigrations(ctx context.Context, database *gorm.DB) error {
 // autoMigrateSchema runs the GORM-managed schema updates for the current models.
 func autoMigrateSchema(ctx context.Context, database *gorm.DB) error {
 	if err := database.WithContext(ctx).AutoMigrate(
+		&model.Organization{},
 		&model.User{},
 		&model.Vulnerability{},
 		&model.AssetAssessment{},
@@ -107,11 +108,26 @@ func executeStatements(
 // schemaStatements returns the ordered index, constraint, and column updates
 // required by the current runtime schema.
 func schemaStatements() []string {
+	organizationID := model.SingleOrganizationID
+
 	return []string{
+		fmt.Sprintf(`INSERT INTO organizations (id, name, slug, created_at, updated_at)
+			VALUES ('%s', 'BlackRadar Organization', 'blackradar', NOW(), NOW())
+			ON CONFLICT (id) DO NOTHING`, organizationID),
+		fmt.Sprintf(`UPDATE users SET organization_id = '%s' WHERE organization_id IS NULL`, organizationID),
+		fmt.Sprintf(`UPDATE assets SET organization_id = '%s' WHERE organization_id IS NULL`, organizationID),
+		fmt.Sprintf(`UPDATE vulnerabilities SET organization_id = '%s' WHERE organization_id IS NULL`, organizationID),
+		`ALTER TABLE users ALTER COLUMN organization_id SET NOT NULL`,
+		`ALTER TABLE assets ALTER COLUMN organization_id SET NOT NULL`,
+		`ALTER TABLE vulnerabilities ALTER COLUMN organization_id SET NOT NULL`,
+		`CREATE INDEX IF NOT EXISTS idx_users_organization_id ON users (organization_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_assets_organization_id ON assets (organization_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_vulnerabilities_organization_id ON vulnerabilities (organization_id)`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_count INTEGER NOT NULL DEFAULT 0`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_failed_login_at TIMESTAMPTZ`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS account_status TEXT NOT NULL DEFAULT 'active'`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_active ON users (username) WHERE deleted_at IS NULL`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_active ON users (email) WHERE deleted_at IS NULL`,
 		`CREATE INDEX IF NOT EXISTS idx_assets_user_id ON assets (user_id)`,
@@ -124,10 +140,57 @@ func schemaStatements() []string {
 		`CREATE INDEX IF NOT EXISTS idx_refresh_sessions_user_id ON refresh_sessions (user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_events_actor_occurred_at ON audit_events (actor_user_id, occurred_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_events_resource_occurred_at ON audit_events (resource_type, resource_id, occurred_at DESC)`,
+		// Duplicate CVEs are merged into the earliest record so existing asset
+		// relationships remain valid when the organization-wide unique index is added.
+		`WITH ranked_vulnerabilities AS (
+			SELECT id,
+				FIRST_VALUE(id) OVER (
+					PARTITION BY organization_id, cve_id
+					ORDER BY created_at ASC, id ASC
+				) AS canonical_id,
+				ROW_NUMBER() OVER (
+					PARTITION BY organization_id, cve_id
+					ORDER BY created_at ASC, id ASC
+				) AS duplicate_rank
+			FROM vulnerabilities
+			WHERE deleted_at IS NULL AND cve_id <> ''
+		), remappable_relationships AS (
+			SELECT av.ctid, ranked.canonical_id
+			FROM asset_vulnerabilities av
+			JOIN ranked_vulnerabilities ranked ON ranked.id = av.vulnerability_id
+			WHERE ranked.duplicate_rank > 1
+				AND av.deleted_at IS NULL
+				AND NOT EXISTS (
+					SELECT 1
+					FROM asset_vulnerabilities existing
+					WHERE existing.asset_id = av.asset_id
+						AND existing.vulnerability_id = ranked.canonical_id
+						AND existing.deleted_at IS NULL
+				)
+		)
+		UPDATE asset_vulnerabilities av
+		SET vulnerability_id = remappable.canonical_id
+		FROM remappable_relationships remappable
+		WHERE av.ctid = remappable.ctid`,
 		`WITH ranked_vulnerabilities AS (
 			SELECT id,
 				ROW_NUMBER() OVER (
-					PARTITION BY user_id, cve_id
+					PARTITION BY organization_id, cve_id
+					ORDER BY created_at ASC, id ASC
+				) AS duplicate_rank
+			FROM vulnerabilities
+			WHERE deleted_at IS NULL AND cve_id <> ''
+		)
+		UPDATE asset_vulnerabilities av
+		SET deleted_at = NOW()
+		FROM ranked_vulnerabilities ranked
+		WHERE ranked.id = av.vulnerability_id
+			AND ranked.duplicate_rank > 1
+			AND av.deleted_at IS NULL`,
+		`WITH ranked_vulnerabilities AS (
+			SELECT id,
+				ROW_NUMBER() OVER (
+					PARTITION BY organization_id, cve_id
 					ORDER BY created_at ASC, id ASC
 				) AS duplicate_rank
 			FROM vulnerabilities
@@ -139,11 +202,16 @@ func schemaStatements() []string {
 			SELECT id FROM ranked_vulnerabilities WHERE duplicate_rank > 1
 		)`,
 		`DROP INDEX IF EXISTS idx_vulnerabilities_user_cve_id`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_vulnerabilities_user_cve_id ON vulnerabilities (user_id, cve_id) WHERE deleted_at IS NULL AND cve_id <> ''`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_vulnerabilities_organization_cve_id ON vulnerabilities (organization_id, cve_id) WHERE deleted_at IS NULL AND cve_id <> ''`,
 		constraintStatement(
 			"chk_users_role",
 			"users",
 			`ALTER TABLE users ADD CONSTRAINT chk_users_role CHECK (role IN ('admin', 'user'))`,
+		),
+		constraintStatement(
+			"chk_users_account_status",
+			"users",
+			`ALTER TABLE users ADD CONSTRAINT chk_users_account_status CHECK (account_status IN ('active', 'deactivated'))`,
 		),
 		constraintStatement(
 			"chk_vulnerabilities_severity",
@@ -159,6 +227,21 @@ func schemaStatements() []string {
 			"fk_assets_user",
 			"assets",
 			`ALTER TABLE assets ADD CONSTRAINT fk_assets_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE`,
+		),
+		constraintStatement(
+			"fk_users_organization",
+			"users",
+			`ALTER TABLE users ADD CONSTRAINT fk_users_organization FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT`,
+		),
+		constraintStatement(
+			"fk_assets_organization",
+			"assets",
+			`ALTER TABLE assets ADD CONSTRAINT fk_assets_organization FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT`,
+		),
+		constraintStatement(
+			"fk_vulnerabilities_organization",
+			"vulnerabilities",
+			`ALTER TABLE vulnerabilities ADD CONSTRAINT fk_vulnerabilities_organization FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT`,
 		),
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS vendor TEXT`,
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS product TEXT`,

@@ -7,11 +7,25 @@ package repository
 import (
 	"time"
 
+	"blackradar/api/common/pagination"
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 )
 
 type UserRepositoryInterface interface {
+	/*
+		ListUsers returns all non-soft-deleted user accounts, including both
+		active and deactivated accounts, in stable creation order with the user ID
+		as a deterministic tie-breaker.
+
+		Implementations should use the request-scoped database session when one is
+		available, preserve the account-status value for administrator review, and
+		return only repository sentinel errors wrapped with their persistence cause
+		when the query fails. Authentication-only fields remain repository data and
+		must be excluded by the controller response DTO.
+	*/
+	ListUsers(ec *appcontext.GinContext, request pagination.Request) (pagination.Page[model.User], error)
+
 	/*
 		ExistsByUsername reports whether an active user already exists for
 		username.
@@ -23,7 +37,14 @@ type UserRepositoryInterface interface {
 	*/
 	ExistsByUsername(ec *appcontext.GinContext, username string) (bool, error)
 
-	// ExistsByUsernameExceptID reports whether another active user uses username.
+	/*
+		ExistsByUsernameExceptID reports whether another active account uses
+		username, excluding the supplied account ID during profile updates.
+
+		Implementations should apply the repository's username normalization and
+		active, non-soft-deleted account scope without returning account data.
+		Database failures should be represented by repository sentinel errors.
+	*/
 	ExistsByUsernameExceptID(ec *appcontext.GinContext, username string, userID string) (bool, error)
 
 	/*
@@ -35,7 +56,14 @@ type UserRepositoryInterface interface {
 	*/
 	ExistsByEmail(ec *appcontext.GinContext, email string) (bool, error)
 
-	// ExistsByEmailExceptID reports whether another active user uses email.
+	/*
+		ExistsByEmailExceptID reports whether another active account uses email,
+		excluding the supplied account ID during profile updates.
+
+		Implementations should apply the same case-normalized email lookup used by
+		registration and login, avoid returning account data, and preserve
+		repository sentinel errors for database failures.
+	*/
 	ExistsByEmailExceptID(ec *appcontext.GinContext, email string, userID string) (bool, error)
 
 	/*
@@ -49,7 +77,47 @@ type UserRepositoryInterface interface {
 	*/
 	CreateUser(ec *appcontext.GinContext, user model.User) (model.User, error)
 
-	// UpdateProfile updates only mutable profile fields for the authenticated user.
+	/*
+		UpdateRole persists a managed account's role change and records the
+		administrator responsible for the update.
+
+		Implementations should use the request-scoped transaction when available,
+		update only the role and updater fields, preserve account credentials and
+		status, and return the updated managed account. Privileged authorization
+		must be revalidated against the current active administrator in the
+		database, and persistence failures must use repository sentinel errors.
+	*/
+	UpdateRole(ec *appcontext.GinContext, userID string, role string, updatedByID string) (model.User, error)
+
+	/*
+		UpdateAccountStatus persists a managed account's active or deactivated
+		status and records the administrator responsible for the update.
+
+		Implementations should use the request-scoped transaction when available,
+		update only the account-status and updater fields, preserve the account row
+		for history, revalidate the active administrator, and return the updated
+		managed account. Persistence failures must use repository sentinel errors.
+	*/
+	UpdateAccountStatus(ec *appcontext.GinContext, userID string, status string, updatedByID string) (model.User, error)
+
+	/*
+		CountActiveAdmins returns the number of active administrator accounts for
+		last-administrator protection.
+
+		Implementations should run within the supplied transaction and lock the
+		relevant administrator rows when the database supports it, so concurrent
+		role or status changes cannot remove the final active administrator.
+	*/
+	CountActiveAdmins(ec *appcontext.GinContext) (int64, error)
+
+	/*
+		UpdateProfile updates only the mutable profile fields for the authenticated
+		account identified by the request context.
+
+		Implementations must enforce request ownership, leave role, status,
+		credentials, and security state unchanged, and return the updated account
+		without exposing authentication-only fields through controller DTOs.
+	*/
 	UpdateProfile(ec *appcontext.GinContext, userID string, user model.User) (model.User, error)
 
 	/*
@@ -70,6 +138,18 @@ type UserRepositoryInterface interface {
 		cause.
 	*/
 	FindByID(ec *appcontext.GinContext, id string) (model.User, error)
+
+	/*
+		FindByIDForManagement returns one non-soft-deleted account regardless of
+		whether its account status is active or deactivated.
+
+		Implementations should use the request-scoped database when present,
+		revalidate that the requester is an active administrator, preserve the
+		account's status for management decisions, and return ErrRecordNotFound
+		when the account does not exist. Password hashes and other sensitive fields
+		remain repository data and must be excluded from API response mapping.
+	*/
+	FindByIDForManagement(ec *appcontext.GinContext, id string) (model.User, error)
 
 	/*
 		FindByEmail returns the active user matching email.

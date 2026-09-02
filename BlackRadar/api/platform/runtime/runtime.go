@@ -225,7 +225,7 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 		NVD:          nvdClient,
 	})
 	controllerasset.RegisterRoutes(protected, adminOnly, assetController)
-	controllervulnerability.RegisterRoutes(adminOnly, vulnerabilityController)
+	controllervulnerability.RegisterRoutes(protected, adminOnly, vulnerabilityController)
 	controllernvd.RegisterRoutes(adminOnly, nvdController)
 	controllerai.RegisterRoutes(adminOnly, aiController)
 

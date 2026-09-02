@@ -44,7 +44,7 @@ func TestAssetListQueryBuildsScopedFiltersAndOrdering(t *testing.T) {
 	})
 
 	for _, expected := range []string{
-		"assets.user_id",
+		"assets.organization_id",
 		"LOWER(assets.name) LIKE",
 		"LOWER(assets.criticality)",
 		"LOWER(COALESCE(assets.vendor, ''))",
@@ -76,7 +76,7 @@ func TestAssetSummaryQueryUsesScopedDatabaseAggregates(t *testing.T) {
 	})
 
 	for _, expected := range []string{
-		"assets.user_id",
+		"assets.organization_id",
 		"unscanned_count",
 		"with_vulnerabilities_count",
 		"critical_risk_count",

@@ -27,7 +27,7 @@ func (r *AssetMatchRepository) loadActiveVulnerabilitiesForAsset(ec *appcontext.
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Model(&model.Vulnerability{}).
 		Joins("JOIN asset_vulnerabilities av ON av.vulnerability_id = vulnerabilities.id AND av.deleted_at IS NULL").
-		Where("av.asset_id = ? AND vulnerabilities.user_id = ?", asset.ID, userID).
+		Where("av.asset_id = ? AND vulnerabilities.organization_id = (SELECT organization_id FROM users WHERE id = ?)", asset.ID, userID).
 		Order("vulnerabilities.id").
 		Find(&vulnerabilities).Error
 	if err != nil {

@@ -12,6 +12,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
+	"blackradar/api/common/pagination"
 	"blackradar/api/model"
 	"blackradar/api/platform/config"
 	platformdb "blackradar/api/platform/db"
@@ -35,6 +36,36 @@ func normalizeCreateUserInput(request CreateUserInput) CreateUserInput {
 	request.Email = strings.ToLower(strings.TrimSpace(request.Email))
 	request.Password = strings.TrimSpace(request.Password)
 	return request
+}
+
+func validRole(role string) bool { return role == model.RoleAdmin || role == model.RoleUser }
+
+func validAccountStatus(status string) bool {
+	return status == model.AccountStatusActive || status == model.AccountStatusDeactivated
+}
+
+func normalizeUserListQuery(query model.UserListQuery) (model.UserListQuery, error) {
+	query.Pagination.PageSize = pagination.DefaultPageSize
+	if err := query.Pagination.Validate(); err != nil {
+		return model.UserListQuery{}, fmt.Errorf("%w: %w", ErrInvalidUserManagement, err)
+	}
+	return query, nil
+}
+
+func translateUserManagementRepositoryError(err error) error {
+	if errors.Is(err, userrepository.ErrRecordNotFound) {
+		return ErrInvalidUserManagement
+	}
+	return translateUserRepositoryError(err)
+}
+
+// runUserManagementTransaction keeps account mutations and session revocation atomic.
+func (s *userServiceImpl) runUserManagementTransaction(ec *appcontext.GinContext, operation func(*appcontext.GinContext) error) error {
+	runner := s.transactionRunner
+	if runner == nil {
+		runner = platformdb.RequestTransactionRunner{}
+	}
+	return runner.Run(ec, operation)
 }
 
 // normalizeProfileUpdateInput trims profile fields and lowercases email.

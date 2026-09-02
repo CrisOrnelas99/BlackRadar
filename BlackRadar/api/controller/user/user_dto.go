@@ -4,6 +4,7 @@ package controller
 import (
 	"time"
 
+	"blackradar/api/common/pagination"
 	"blackradar/api/model"
 	userservice "blackradar/api/service/user"
 )
@@ -14,6 +15,16 @@ type CreateUserRequest struct {
 	Username string `json:"username"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+// ChangeUserRoleRequest contains an administrator-approved role change.
+type ChangeUserRoleRequest struct {
+	Role string `json:"role"`
+}
+
+// ChangeUserStatusRequest contains an administrator-approved status change.
+type ChangeUserStatusRequest struct {
+	AccountStatus string `json:"accountStatus"`
 }
 
 // LoginRequest contains the credentials used to authenticate a user.
@@ -31,13 +42,21 @@ type UpdateProfileRequest struct {
 
 // UserResponse exposes the user fields safe for API responses.
 type UserResponse struct {
-	ID        string    `json:"id"`
-	FullName  string    `json:"fullName"`
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID            string    `json:"id"`
+	FullName      string    `json:"fullName"`
+	Username      string    `json:"username"`
+	Email         string    `json:"email"`
+	Role          string    `json:"role"`
+	AccountStatus string    `json:"accountStatus"`
+	IsSystemAdmin bool      `json:"isSystemAdmin"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
+}
+
+// UserPageResponse exposes safe user summaries with bounded navigation metadata.
+type UserPageResponse struct {
+	Users      []UserResponse      `json:"users"`
+	Pagination pagination.Metadata `json:"pagination"`
 }
 
 // LoginResponse returns the issued token and the authenticated user summary.
@@ -78,13 +97,15 @@ func (r UpdateProfileRequest) ToServiceInput() userservice.UpdateProfileInput {
 // ToUserResponse converts the persistence user model into a response DTO.
 func ToUserResponse(user model.User) UserResponse {
 	return UserResponse{
-		ID:        user.ID,
-		FullName:  user.FullName,
-		Username:  user.Username,
-		Email:     user.Email,
-		Role:      user.Role,
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
+		ID:            user.ID,
+		FullName:      user.FullName,
+		Username:      user.Username,
+		Email:         user.Email,
+		Role:          user.Role,
+		AccountStatus: user.AccountStatus,
+		IsSystemAdmin: user.ID == model.SystemAdminID,
+		CreatedAt:     user.CreatedAt,
+		UpdatedAt:     user.UpdatedAt,
 	}
 }
 

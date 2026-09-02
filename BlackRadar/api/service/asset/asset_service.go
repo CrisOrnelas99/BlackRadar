@@ -27,7 +27,7 @@ func NewAssetService(assetRepository assetrepository.AssetRepositoryInterface, a
 	return service
 }
 
-// GetAssetPage returns one bounded page of assets owned by the authenticated user.
+// GetAssetPage returns one bounded page of assets in the authenticated user's organization.
 func (s *assetServiceImpl) GetAssetPage(ec *appcontext.GinContext, query model.AssetListQuery) (pagination.Page[model.Asset], error) {
 	userID, err := authenticatedUserID(ec)
 	if err != nil {
@@ -60,7 +60,7 @@ func (s *assetServiceImpl) GetAssetSummary(ec *appcontext.GinContext) (model.Ass
 	return summary, translateAssetRepositoryError(err)
 }
 
-// GetAsset returns a single asset owned by the authenticated user.
+// GetAsset returns a single asset in the authenticated user's organization.
 func (s *assetServiceImpl) GetAsset(ec *appcontext.GinContext, id string) (model.Asset, error) {
 	userID, err := authenticatedUserID(ec)
 	if err != nil {
@@ -152,7 +152,7 @@ func (s *assetServiceImpl) UpdateAsset(ec *appcontext.GinContext, id string, ass
 	return updated, err
 }
 
-// DeleteAsset removes an asset owned by the authenticated user.
+// DeleteAsset removes an asset in the authenticated user's organization.
 func (s *assetServiceImpl) DeleteAsset(ec *appcontext.GinContext, id string) (model.Asset, error) {
 	userID, err := authenticatedUserID(ec)
 	if err != nil {

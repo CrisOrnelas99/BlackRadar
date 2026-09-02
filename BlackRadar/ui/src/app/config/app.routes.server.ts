@@ -11,6 +11,10 @@ export const serverRoutes: ServerRoute[] = [
     renderMode: RenderMode.Client,
   },
   {
+    path: 'users',
+    renderMode: RenderMode.Client,
+  },
+  {
     path: 'session-expired',
     renderMode: RenderMode.Client,
   },

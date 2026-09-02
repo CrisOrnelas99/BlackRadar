@@ -12,6 +12,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	commonjwt "blackradar/api/common/jwt"
+	"blackradar/api/common/pagination"
 	commontoken "blackradar/api/common/token"
 	"blackradar/api/model"
 	"blackradar/api/platform/config"
@@ -214,6 +215,32 @@ func NewUserService(jwtManager *commonjwt.Manager, userRepository userrepository
 	return service
 }
 
+// ListUsers returns account records for administrator-only safe response mapping.
+func (s *userServiceImpl) ListUsers(ec *appcontext.GinContext, query model.UserListQuery) (pagination.Page[model.User], error) {
+	query, err := normalizeUserListQuery(query)
+	if err != nil {
+		return pagination.Page[model.User]{}, err
+	}
+	users, err := s.userRepository.ListUsers(ec, query.Pagination)
+	if err != nil {
+		return pagination.Page[model.User]{}, translateUserRepositoryError(err)
+	}
+	if totalPages := users.TotalPages(); totalPages > 0 && users.Page > totalPages {
+		query.Pagination.Page = totalPages
+		users, err = s.userRepository.ListUsers(ec, query.Pagination)
+	}
+	return users, nil
+}
+
+// GetUserForManagement returns one active or deactivated account for administrators.
+func (s *userServiceImpl) GetUserForManagement(ec *appcontext.GinContext, userID string) (model.User, error) {
+	user, err := s.userRepository.FindByIDForManagement(ec, userID)
+	if err != nil {
+		return model.User{}, translateUserManagementRepositoryError(err)
+	}
+	return user, nil
+}
+
 // CreateUser validates and provisions a standard user account.
 func (s *userServiceImpl) CreateUser(ec *appcontext.GinContext, request CreateUserInput) (model.User, error) {
 	request = normalizeCreateUserInput(request)
@@ -242,18 +269,106 @@ func (s *userServiceImpl) CreateUser(ec *appcontext.GinContext, request CreateUs
 		return model.User{}, fmt.Errorf("%w: hash password: %w", ErrUserInternal, err)
 	}
 
-	user, err := s.userRepository.CreateUser(ec, model.User{
-		FullName:     request.FullName,
-		Username:     request.Username,
-		Email:        request.Email,
-		Role:         model.RoleUser,
-		PasswordHash: string(hash),
-	})
+	newUser := model.User{
+		FullName:      request.FullName,
+		Username:      request.Username,
+		Email:         request.Email,
+		Role:          model.RoleUser,
+		AccountStatus: model.AccountStatusActive,
+		PasswordHash:  string(hash),
+	}
+	user, err := s.userRepository.CreateUser(ec, newUser)
 	if err != nil {
 		return model.User{}, translateUserRepositoryError(err)
 	}
-
 	return user, nil
+}
+
+// ChangeUserRole updates an account role while preserving administrator invariants.
+func (s *userServiceImpl) ChangeUserRole(ec *appcontext.GinContext, userID string, role string) (model.User, error) {
+	actorID, err := ec.UserID()
+	if err != nil || !validRole(role) {
+		return model.User{}, ErrInvalidUserManagement
+	}
+	var updated model.User
+	err = s.runUserManagementTransaction(ec, func(txContext *appcontext.GinContext) error {
+		target, findErr := s.userRepository.FindByIDForManagement(txContext, userID)
+		if findErr != nil {
+			return translateUserManagementRepositoryError(findErr)
+		}
+		if target.ID == actorID || (target.Role == model.RoleAdmin && actorID != model.SystemAdminID) {
+			return ErrProtectedAdminAccount
+		}
+		if target.Role == role {
+			updated = target
+			return nil
+		}
+		if target.Role == model.RoleAdmin && role != model.RoleAdmin {
+			count, countErr := s.userRepository.CountActiveAdmins(txContext)
+			if countErr != nil {
+				return translateUserRepositoryError(countErr)
+			}
+			if count <= 1 {
+				return ErrLastActiveAdmin
+			}
+		}
+		var updateErr error
+		updated, updateErr = s.userRepository.UpdateRole(txContext, userID, role, actorID)
+		if updateErr != nil {
+			return translateUserManagementRepositoryError(updateErr)
+		}
+		return nil
+	})
+	if err != nil {
+		return model.User{}, err
+	}
+	return updated, nil
+}
+
+// ChangeUserStatus activates or deactivates an account.
+func (s *userServiceImpl) ChangeUserStatus(ec *appcontext.GinContext, userID string, status string) (model.User, error) {
+	actorID, err := ec.UserID()
+	if err != nil || !validAccountStatus(status) {
+		return model.User{}, ErrInvalidUserManagement
+	}
+	var updated model.User
+	err = s.runUserManagementTransaction(ec, func(txContext *appcontext.GinContext) error {
+		target, findErr := s.userRepository.FindByIDForManagement(txContext, userID)
+		if findErr != nil {
+			return translateUserManagementRepositoryError(findErr)
+		}
+		if target.ID == actorID || (target.Role == model.RoleAdmin && actorID != model.SystemAdminID) {
+			return ErrProtectedAdminAccount
+		}
+		if target.AccountStatus == status {
+			updated = target
+			return nil
+		}
+		if target.Role == model.RoleAdmin && target.AccountStatus == model.AccountStatusActive && status == model.AccountStatusDeactivated {
+			count, countErr := s.userRepository.CountActiveAdmins(txContext)
+			if countErr != nil {
+				return translateUserRepositoryError(countErr)
+			}
+			if count <= 1 {
+				return ErrLastActiveAdmin
+			}
+		}
+		var updateErr error
+		updated, updateErr = s.userRepository.UpdateAccountStatus(txContext, userID, status, actorID)
+		if updateErr != nil {
+			return translateUserManagementRepositoryError(updateErr)
+		}
+		if status == model.AccountStatusDeactivated {
+			if revokeErr := s.refreshSessionRepository.RevokeActiveSessionsForUser(txContext, userID); revokeErr != nil {
+				return translateUserRepositoryError(revokeErr)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return model.User{}, err
+	}
+	return updated, nil
 }
 
 // UpdateProfile validates and updates the authenticated user's profile.

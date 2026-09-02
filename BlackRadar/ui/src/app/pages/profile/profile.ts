@@ -1,24 +1,50 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { forkJoin } from 'rxjs';
 
 import { ConfirmationDialogComponent } from '../../components/confirmation-dialog/confirmation-dialog';
 import { TopMenuComponent } from '../../components/top-menu/top-menu';
 import { AuthService } from '../../services/auth/auth';
 import { BannerService } from '../../services/banner/banner';
+import { ManagedUser, UserAccountStatus, UserRole, UsersService } from '../../services/users/users';
 
 @Component({
   selector: 'app-profile-page',
   standalone: true,
-  imports: [ConfirmationDialogComponent, DatePipe, ReactiveFormsModule, TopMenuComponent],
+  imports: [
+    ConfirmationDialogComponent,
+    DatePipe,
+    ReactiveFormsModule,
+    RouterLink,
+    TopMenuComponent,
+  ],
   templateUrl: './profile.html',
   styleUrl: './profile.css',
 })
 export class ProfilePage {
   private readonly authService = inject(AuthService);
+  private readonly activatedRoute = inject(ActivatedRoute);
   private readonly bannerService = inject(BannerService);
+  private readonly usersService = inject(UsersService);
 
   readonly session = this.authService.session;
+  readonly viewedUser = signal<ManagedUser | null>(null);
+  readonly profileUser = computed(() => this.viewedUser() ?? this.session()?.user ?? null);
+  readonly isViewingUser = computed(() => this.viewedUser() !== null);
+  readonly canEditViewedUser = computed(() => {
+    const user = this.viewedUser();
+    const currentUser = this.session()?.user;
+    return (
+      user?.role === 'user' || (currentUser?.isSystemAdmin === true && user?.id !== currentUser.id)
+    );
+  });
+  readonly hasViewedUserError = signal(false);
+  readonly editUserForm = inject(NonNullableFormBuilder).group({
+    role: ['user' as UserRole],
+    accountStatus: ['active' as UserAccountStatus],
+  });
   readonly isEditing = signal(false);
   readonly isSaving = signal(false);
   readonly isSaveConfirmationOpen = signal(false);
@@ -35,6 +61,19 @@ export class ProfilePage {
     'Manage users',
   ];
   readonly userPermissions = ['View the dashboard', 'View assets', 'View vulnerabilities'];
+
+  constructor() {
+    const userId = this.activatedRoute.snapshot.paramMap.get('id');
+    if (userId) {
+      this.usersService.getUser(userId).subscribe({
+        next: (user) => {
+          this.viewedUser.set(user);
+          this.editUserForm.reset({ role: user.role, accountStatus: user.accountStatus });
+        },
+        error: () => this.hasViewedUserError.set(true),
+      });
+    }
+  }
 
   permissionsFor(role: string | undefined): readonly string[] {
     return role === 'admin' ? this.adminPermissions : this.userPermissions;
@@ -67,6 +106,10 @@ export class ProfilePage {
     }
 
     this.bannerService.clear();
+    if (this.isViewingUser()) {
+      this.isSaveConfirmationOpen.set(true);
+      return;
+    }
     if (this.editForm.invalid) {
       this.editForm.markAllAsTouched();
       this.bannerService.show('Complete all required fields.', 'validation');
@@ -88,6 +131,10 @@ export class ProfilePage {
     }
 
     this.isSaveConfirmationOpen.set(false);
+    if (this.isViewingUser()) {
+      this.saveViewedUserChanges();
+      return;
+    }
     this.isSaving.set(true);
     const formValue = this.editForm.getRawValue();
 
@@ -109,5 +156,38 @@ export class ProfilePage {
           this.bannerService.show('Unable to update profile. Try again.', 'validation');
         },
       });
+  }
+
+  openUserEditor(): void {
+    const user = this.viewedUser();
+    if (!user) return;
+    this.editUserForm.reset({ role: user.role, accountStatus: user.accountStatus });
+    this.bannerService.clear();
+    this.isEditing.set(true);
+  }
+
+  private saveViewedUserChanges(): void {
+    const user = this.viewedUser();
+    if (!user) return;
+
+    this.isSaving.set(true);
+    forkJoin({
+      role: this.usersService.changeRole(user.id, this.editUserForm.controls.role.value),
+      status: this.usersService.changeStatus(
+        user.id,
+        this.editUserForm.controls.accountStatus.value,
+      ),
+    }).subscribe({
+      next: ({ role, status }) => {
+        this.viewedUser.set({ ...status, role: role.role });
+        this.isSaving.set(false);
+        this.isEditing.set(false);
+        this.bannerService.show('User account updated successfully.', 'success');
+      },
+      error: () => {
+        this.isSaving.set(false);
+        this.bannerService.show('Unable to update user status. Try again.', 'validation');
+      },
+    });
   }
 }

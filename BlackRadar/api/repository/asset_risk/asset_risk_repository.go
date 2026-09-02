@@ -25,7 +25,7 @@ func (r *AssetRiskRepository) FindAssetCriticalityForUser(ec *appcontext.GinCont
 	var criticality string
 	result := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Model(&model.Asset{}).
-		Where("id = ? AND user_id = ?", assetID, userID).
+		Where("id = ? AND organization_id = (SELECT organization_id FROM users WHERE id = ?)", assetID, userID).
 		Pluck("criticality", &criticality)
 	if result.Error != nil {
 		return "", fmt.Errorf("%w: load asset criticality: %w", ErrPersistenceFailure, result.Error)
@@ -42,8 +42,8 @@ func (r *AssetRiskRepository) FindActiveVulnerabilitiesForUser(ec *appcontext.Gi
 	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Model(&model.Vulnerability{}).
 		Joins("JOIN asset_vulnerabilities av ON av.vulnerability_id = vulnerabilities.id AND av.deleted_at IS NULL").
-		Joins("JOIN assets a ON a.id = av.asset_id AND a.user_id = ?", userID).
-		Where("av.asset_id = ? AND vulnerabilities.user_id = ?", assetID, userID).
+		Joins("JOIN assets a ON a.id = av.asset_id AND a.organization_id = (SELECT organization_id FROM users WHERE id = ?)", userID).
+		Where("av.asset_id = ? AND vulnerabilities.organization_id = (SELECT organization_id FROM users WHERE id = ?)", assetID, userID).
 		Order("vulnerabilities.id").
 		Find(&vulnerabilities).Error
 	if err != nil {
@@ -59,7 +59,7 @@ func (r *AssetRiskRepository) FindAssignedAssetIDsForVulnerability(ec *appcontex
 		Table("assets").
 		Select("assets.id").
 		Joins("JOIN asset_vulnerabilities av ON av.asset_id = assets.id AND av.deleted_at IS NULL").
-		Where("assets.user_id = ? AND av.vulnerability_id = ?", userID, vulnerabilityID).
+		Where("assets.organization_id = (SELECT organization_id FROM users WHERE id = ?) AND av.vulnerability_id = ?", userID, vulnerabilityID).
 		Order("assets.id").
 		Pluck("assets.id", &assetIDs).Error
 	if err != nil {
@@ -72,7 +72,7 @@ func (r *AssetRiskRepository) FindAssignedAssetIDsForVulnerability(ec *appcontex
 func (r *AssetRiskRepository) UpdateRiskLevelForUser(ec *appcontext.GinContext, assetID string, userID string, riskLevel *string) error {
 	result := r.dbForContext(ec).WithContext(ec.RequestContext()).
 		Model(&model.Asset{}).
-		Where("id = ? AND user_id = ?", assetID, userID).
+		Where("id = ? AND organization_id = (SELECT organization_id FROM users WHERE id = ?)", assetID, userID).
 		Update("risk_level", riskLevel)
 	if result.Error != nil {
 		return fmt.Errorf("%w: update risk level: %w", ErrPersistenceFailure, result.Error)

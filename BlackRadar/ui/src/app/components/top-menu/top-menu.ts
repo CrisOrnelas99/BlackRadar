@@ -12,6 +12,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { BannerService } from '../../services/banner/banner';
 import { AuthService, LoginResponse } from '../../services/auth/auth';
+import { ConfirmationDialogComponent } from '../confirmation-dialog/confirmation-dialog';
 
 interface NavigationItem {
   key: string;
@@ -23,6 +24,7 @@ interface NavigationItem {
 @Component({
   selector: 'app-top-menu',
   standalone: true,
+  imports: [ConfirmationDialogComponent],
   templateUrl: './top-menu.html',
   encapsulation: ViewEncapsulation.None,
 })
@@ -65,6 +67,12 @@ export class TopMenuComponent {
   readonly adminAccountNavigationItems: ReadonlyArray<NavigationItem> = [
     ...this.accountNavigationItems,
     {
+      key: 'users',
+      label: 'User management',
+      path: '/users',
+      isActive: (currentUrl) => currentUrl.startsWith('/users'),
+    },
+    {
       key: 'health',
       label: 'System health',
       path: '/health',
@@ -80,6 +88,7 @@ export class TopMenuComponent {
   }
 
   isNavigationMenuOpen = false;
+  isSignOutConfirmationOpen = false;
 
   // Returns the person label shown in the top-right trigger.
   get displayName(): string {
@@ -101,6 +110,19 @@ export class TopMenuComponent {
     }
 
     await this.router.navigateByUrl(path);
+  }
+
+  requestSignOut(): void {
+    this.isSignOutConfirmationOpen = true;
+  }
+
+  cancelSignOut(): void {
+    this.isSignOutConfirmationOpen = false;
+  }
+
+  async confirmSignOut(): Promise<void> {
+    this.isSignOutConfirmationOpen = false;
+    await this.signOut();
   }
 
   // Clears the session, announces the logout, and returns the user to the login page.
