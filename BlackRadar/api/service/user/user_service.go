@@ -290,13 +290,23 @@ func (s *userServiceImpl) ChangeUserRole(ec *appcontext.GinContext, userID strin
 	if err != nil || !validRole(role) {
 		return model.User{}, ErrInvalidUserManagement
 	}
+	actorRole, err := ec.UserRole()
+	if err != nil {
+		return model.User{}, ErrInvalidUserManagement
+	}
 	var updated model.User
 	err = s.runUserManagementTransaction(ec, func(txContext *appcontext.GinContext) error {
 		target, findErr := s.userRepository.FindByIDForManagement(txContext, userID)
 		if findErr != nil {
 			return translateUserManagementRepositoryError(findErr)
 		}
-		if target.ID == actorID || (target.Role == model.RoleAdmin && actorID != model.SystemAdminID) {
+		if target.ID == actorID || target.Role == model.RoleMaster {
+			return ErrProtectedAdminAccount
+		}
+		if target.Role == model.RoleAdmin && actorRole != model.RoleMaster {
+			return ErrProtectedAdminAccount
+		}
+		if role == model.RoleAdmin && actorRole != model.RoleMaster {
 			return ErrProtectedAdminAccount
 		}
 		if target.Role == role {
@@ -331,13 +341,20 @@ func (s *userServiceImpl) ChangeUserStatus(ec *appcontext.GinContext, userID str
 	if err != nil || !validAccountStatus(status) {
 		return model.User{}, ErrInvalidUserManagement
 	}
+	actorRole, err := ec.UserRole()
+	if err != nil {
+		return model.User{}, ErrInvalidUserManagement
+	}
 	var updated model.User
 	err = s.runUserManagementTransaction(ec, func(txContext *appcontext.GinContext) error {
 		target, findErr := s.userRepository.FindByIDForManagement(txContext, userID)
 		if findErr != nil {
 			return translateUserManagementRepositoryError(findErr)
 		}
-		if target.ID == actorID || (target.Role == model.RoleAdmin && actorID != model.SystemAdminID) {
+		if target.ID == actorID || target.Role == model.RoleMaster {
+			return ErrProtectedAdminAccount
+		}
+		if target.Role == model.RoleAdmin && actorRole != model.RoleMaster {
 			return ErrProtectedAdminAccount
 		}
 		if target.AccountStatus == status {

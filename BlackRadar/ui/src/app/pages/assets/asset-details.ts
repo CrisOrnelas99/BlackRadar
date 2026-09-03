@@ -1,6 +1,6 @@
 // Authenticated page that displays all currently available details for one asset.
 import { CommonModule } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { EMPTY, map, switchMap } from 'rxjs';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -34,6 +34,9 @@ export class AssetDetailsPage {
   private readonly router = inject(Router);
 
   readonly session = this.authService.session;
+  readonly canManageAssets = computed(() => {
+    return this.session()?.user.permissions?.includes('manage_own_assets') ?? false;
+  });
   readonly asset = signal<Asset | null>(null);
   readonly isLoading = signal(true);
   readonly hasLoadError = signal(false);

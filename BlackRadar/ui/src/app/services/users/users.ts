@@ -3,7 +3,8 @@ import { Injectable, inject } from '@angular/core';
 
 import { environment } from '../../../environments/environment';
 
-export type UserRole = 'admin' | 'user';
+export type UserRole = 'master' | 'admin' | 'user';
+export type UserPermission = string;
 export type UserAccountStatus = 'active' | 'deactivated';
 
 export interface Pagination {
@@ -20,7 +21,7 @@ export interface ManagedUser {
   email: string;
   role: UserRole;
   accountStatus: UserAccountStatus;
-  isSystemAdmin: boolean;
+  permissions?: UserPermission[];
   createdAt: string;
   updatedAt: string;
 }

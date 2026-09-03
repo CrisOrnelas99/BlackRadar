@@ -37,7 +37,8 @@ export class ProfilePage {
     const user = this.viewedUser();
     const currentUser = this.session()?.user;
     return (
-      user?.role === 'user' || (currentUser?.isSystemAdmin === true && user?.id !== currentUser.id)
+      user?.role === 'user' ||
+      (currentUser?.role === 'master' && user?.role === 'admin' && user?.id !== currentUser.id)
     );
   });
   readonly hasViewedUserError = signal(false);
@@ -54,14 +55,6 @@ export class ProfilePage {
     email: ['', [Validators.required, Validators.email]],
   });
 
-  readonly adminPermissions = [
-    'View the dashboard',
-    'View and manage assets',
-    'View and manage vulnerabilities',
-    'Manage users',
-  ];
-  readonly userPermissions = ['View the dashboard', 'View assets', 'View vulnerabilities'];
-
   constructor() {
     const userId = this.activatedRoute.snapshot.paramMap.get('id');
     if (userId) {
@@ -75,12 +68,24 @@ export class ProfilePage {
     }
   }
 
-  permissionsFor(role: string | undefined): readonly string[] {
-    return role === 'admin' ? this.adminPermissions : this.userPermissions;
+  roleLabel(role: string | undefined): string {
+    if (role === 'master') return 'System administrator';
+    return role === 'admin' ? 'Administrator' : 'User';
   }
 
-  roleLabel(role: string | undefined): string {
-    return role === 'admin' ? 'Administrator' : 'User';
+  permissionLabel(permission: string): string {
+    const labels: Record<string, string> = {
+      view_dashboard: 'View the dashboard',
+      manage_own_assets: 'View and manage owned assets',
+      view_own_vulnerabilities: 'View owned vulnerability data',
+      manage_users: 'Manage user accounts',
+      manage_administrators: 'Manage administrator accounts',
+      manage_vulnerabilities: 'Manage vulnerability records',
+      manage_relationships: 'Manage asset and vulnerability relationships',
+      approve_cpe_matching: 'Approve CPE matching',
+      view_system_health: 'View system health',
+    };
+    return labels[permission] ?? permission;
   }
 
   openEditor(): void {

@@ -81,7 +81,7 @@ export class TopMenuComponent {
   ];
 
   get visibleAccountNavigationItems(): ReadonlyArray<NavigationItem> {
-    if (this.session().user.role === 'admin') {
+    if (this.session().user.role === 'admin' || this.session().user.role === 'master') {
       return this.adminAccountNavigationItems;
     }
     return this.accountNavigationItems;

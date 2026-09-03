@@ -74,15 +74,15 @@
         <section class="profile-permissions" aria-labelledby="profile-permissions-heading">
           <h3 id="profile-permissions-heading">Permissions</h3>
           <ul>
-            @for (permission of permissionsFor(profileUser.role); track permission) {
-              <li>{{ permission }}</li>
+            @for (permission of profileUser.permissions ?? []; track permission) {
+              <li>{{ permissionLabel(permission) }}</li>
             }
           </ul>
         </section>
       </article>
 
       <div class="profile-edit-column">
-        @if (session()?.user?.role === 'admin') {
+        @if (session()?.user?.role === 'admin' || session()?.user?.role === 'master') {
           <nav class="profile-back-nav" aria-label="User management navigation">
             <a routerLink="/users">Back to Users</a>
           </nav>

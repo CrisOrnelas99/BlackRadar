@@ -9,8 +9,9 @@ import (
 
 // Role names used by the application authorization model.
 const (
-	RoleAdmin = "admin"
-	RoleUser  = "user"
+	RoleAdmin  = "admin"
+	RoleMaster = "master"
+	RoleUser   = "user"
 
 	SystemAdminID = "77000000-0000-4000-8000-000000000001"
 

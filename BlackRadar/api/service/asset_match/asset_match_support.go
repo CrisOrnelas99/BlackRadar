@@ -1167,7 +1167,7 @@ func authenticatedRole(ec *appcontext.GinContext) (string, error) {
 
 // canManageVulnerabilities reports whether the role can manage vulnerability assignments.
 func canManageVulnerabilities(role string) bool {
-	return role == model.RoleAdmin
+	return model.HasPermission(role, model.PermissionApproveCPE)
 }
 
 // normalizeCVEID trims and uppercases a CVE identifier before lookup.

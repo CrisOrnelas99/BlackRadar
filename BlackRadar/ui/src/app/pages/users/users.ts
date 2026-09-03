@@ -138,7 +138,12 @@ export class UsersPage implements OnInit {
   }
 
   roleLabel(role: string): string {
+    if (role === 'master') return 'System administrator';
     return role === 'admin' ? 'Administrator' : 'Standard user';
+  }
+
+  canOpenUserProfile(user: ManagedUser): boolean {
+    return user.role !== 'master' || this.session()?.user.role === 'master';
   }
 
   statusLabel(status: UserAccountStatus): string {

@@ -26,8 +26,8 @@ func (r *RefreshSessionRepository) dbForContext(ec *appcontext.GinContext) *gorm
 	return r.db
 }
 
-// RequireAdmin verifies the current request user is still an active admin in PostgreSQL.
-func RequireAdmin(ec *appcontext.GinContext, db *gorm.DB) error {
+// RequirePermission verifies the current request user is still active and has a capability.
+func RequirePermission(ec *appcontext.GinContext, db *gorm.DB, permission model.Permission) error {
 	if ec == nil || db == nil {
 		return ErrPermissionDenied
 	}
@@ -44,7 +44,7 @@ func RequireAdmin(ec *appcontext.GinContext, db *gorm.DB) error {
 	if err != nil {
 		return ErrPermissionDenied
 	}
-	if user.Role != model.RoleAdmin {
+	if !model.HasPermission(user.Role, permission) {
 		return ErrPermissionDenied
 	}
 	return nil

@@ -11,10 +11,10 @@ import (
 	requestcontext "blackradar/api/platform/requestcontext"
 )
 
-// RequireAdmin allows only authenticated users with the administrator role.
+// RequirePermission allows only authenticated users with the requested capability.
 //
 // Authentication middleware must run before this middleware.
-func RequireAdmin() gin.HandlerFunc {
+func RequirePermission(permission model.Permission) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		ec, err := requestcontext.FromGinContext(ctx)
 		if err != nil {
@@ -42,11 +42,12 @@ func RequireAdmin() gin.HandlerFunc {
 			return
 		}
 
-		if principal.Role != model.RoleAdmin {
+		if !model.HasPermission(principal.Role, permission) {
 			ec.Logger().Warn(
-				"administrator permission denied",
+				"permission denied",
 				slog.String("user_id", principal.UserID),
 				slog.String("role", principal.Role),
+				slog.String("permission", string(permission)),
 			)
 			abortForbidden(ctx)
 			return

@@ -39,6 +39,7 @@ describe('AssetVulnerabilitiesPage', () => {
       fullName: 'System Admin',
       username: 'system_admin',
       email: 'system_admin@example.invalid',
+      role: 'admin',
     },
     token: 'token',
     tokenExpiresAt: '2026-08-11T12:00:00Z',

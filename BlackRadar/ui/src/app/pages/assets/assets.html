@@ -213,199 +213,205 @@
     }
   </section>
 
-  <form
-    class="asset-create-card asset-create-card-expanded"
-    [formGroup]="createForm"
-    (ngSubmit)="createAsset()"
-    novalidate
-  >
-    @if (!isCreateOpen()) {
-      <div class="asset-create-intro">
-        <h2>Add an asset to your inventory</h2>
-        <p>Enter the details for an asset you found.</p>
-        <div class="asset-create-intro-actions">
-          <button
-            type="button"
-            class="asset-create-mode-button asset-create-mode-button-ai"
-            (click)="selectCreateMode('ai')"
-          >
-            <span>AI batch import</span>
-            <span class="asset-create-sparkle" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <use href="#asset-ai-sparkle" />
-              </svg>
-            </span>
-          </button>
-          <button
-            class="asset-create-mode-button"
-            type="button"
-            (click)="selectCreateMode('manual')"
-          >
-            Manual
-          </button>
-        </div>
-      </div>
-    } @else {
-      <div class="asset-create-header">
-        <div>
+  @if (canManageAssets()) {
+    <form
+      class="asset-create-card asset-create-card-expanded"
+      [formGroup]="createForm"
+      (ngSubmit)="createAsset()"
+      novalidate
+    >
+      @if (!isCreateOpen()) {
+        <div class="asset-create-intro">
           <h2>Add an asset to your inventory</h2>
           <p>Enter the details for an asset you found.</p>
-        </div>
-        <button class="page-cancel asset-create-cancel" type="button" (click)="closeCreatePanel()">
-          Cancel
-        </button>
-      </div>
-      <div class="asset-create-mode-actions">
-        @if (createMode() !== 'ai') {
-          <button
-            type="button"
-            class="asset-create-mode-button asset-create-mode-button-ai"
-            [attr.aria-expanded]="createMode() === 'ai'"
-            (click)="selectCreateMode('ai')"
-          >
-            <span>AI batch import</span>
-            <span class="asset-create-sparkle" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <use href="#asset-ai-sparkle" />
-              </svg>
-            </span>
-          </button>
-        }
-        @if (createMode() !== 'manual') {
-          <button
-            type="button"
-            class="asset-create-mode-button"
-            [attr.aria-expanded]="createMode() === 'manual'"
-            (click)="selectCreateMode('manual')"
-          >
-            Manual
-          </button>
-        }
-      </div>
-
-      @if (createMode() !== 'ai') {
-        <div class="asset-create-fields" id="asset-manual-fields">
-          <div class="asset-field asset-field-wide">
-            <label for="asset-name">Name <span class="asset-required">(required)</span></label>
-            <input
-              id="asset-name"
-              type="text"
-              formControlName="name"
-              autocomplete="off"
-              required
-              aria-required="true"
-            />
-          </div>
-
-          <div class="asset-field">
-            <label for="asset-type">Type <span class="asset-required">(required)</span></label>
-            <input
-              id="asset-type"
-              type="text"
-              formControlName="type"
-              autocomplete="off"
-              required
-              aria-required="true"
-            />
-          </div>
-
-          <div class="asset-field">
-            <label for="asset-owner">Owner</label>
-            <input
-              id="asset-owner"
-              type="text"
-              formControlName="owner"
-              autocomplete="organization"
-            />
-          </div>
-
-          <div class="asset-field">
-            <label for="asset-criticality">
-              Criticality <span class="asset-required">(required)</span>
-            </label>
-            <select
-              id="asset-criticality"
-              formControlName="criticality"
-              required
-              aria-required="true"
+          <div class="asset-create-intro-actions">
+            <button
+              type="button"
+              class="asset-create-mode-button asset-create-mode-button-ai"
+              (click)="selectCreateMode('ai')"
             >
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
-              <option value="Critical">Critical</option>
-            </select>
-          </div>
-
-          <div class="asset-field">
-            <label for="asset-vendor">
-              Vendor <span class="asset-required">(required)</span>
-            </label>
-            <input
-              id="asset-vendor"
-              type="text"
-              formControlName="vendor"
-              autocomplete="off"
-              required
-              aria-required="true"
-            />
-          </div>
-
-          <div class="asset-field">
-            <label for="asset-operating-system">Operating system</label>
-            <input
-              id="asset-operating-system"
-              type="text"
-              formControlName="operatingSystem"
-              autocomplete="off"
-            />
-          </div>
-
-          <div class="asset-field">
-            <label for="asset-product">
-              Product <span class="asset-required">(required)</span>
-            </label>
-            <input
-              id="asset-product"
-              type="text"
-              formControlName="product"
-              autocomplete="off"
-              required
-              aria-required="true"
-            />
-          </div>
-
-          <div class="asset-field asset-field-wide">
-            <label for="asset-description">Description</label>
-            <textarea id="asset-description" formControlName="description" rows="4"></textarea>
-          </div>
-
-          <div class="asset-field">
-            <label for="asset-version">
-              Version <span class="asset-required">(required)</span>
-            </label>
-            <input
-              id="asset-version"
-              type="text"
-              formControlName="version"
-              autocomplete="off"
-              required
-              aria-required="true"
-            />
+              <span>AI batch import</span>
+              <span class="asset-create-sparkle" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <use href="#asset-ai-sparkle" />
+                </svg>
+              </span>
+            </button>
+            <button
+              class="asset-create-mode-button"
+              type="button"
+              (click)="selectCreateMode('manual')"
+            >
+              Manual
+            </button>
           </div>
         </div>
-
-        <button class="asset-create-submit" type="submit" [disabled]="isCreating()">
-          {{ isCreating() ? 'Creating...' : 'Create asset' }}
-        </button>
-      }
-
-      @if (createMode() === 'ai') {
-        <div class="asset-ai-coming-soon" id="asset-ai-batch-fields">
-          <p>Coming soon.</p>
+      } @else {
+        <div class="asset-create-header">
+          <div>
+            <h2>Add an asset to your inventory</h2>
+            <p>Enter the details for an asset you found.</p>
+          </div>
+          <button
+            class="page-cancel asset-create-cancel"
+            type="button"
+            (click)="closeCreatePanel()"
+          >
+            Cancel
+          </button>
         </div>
+        <div class="asset-create-mode-actions">
+          @if (createMode() !== 'ai') {
+            <button
+              type="button"
+              class="asset-create-mode-button asset-create-mode-button-ai"
+              [attr.aria-expanded]="createMode() === 'ai'"
+              (click)="selectCreateMode('ai')"
+            >
+              <span>AI batch import</span>
+              <span class="asset-create-sparkle" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <use href="#asset-ai-sparkle" />
+                </svg>
+              </span>
+            </button>
+          }
+          @if (createMode() !== 'manual') {
+            <button
+              type="button"
+              class="asset-create-mode-button"
+              [attr.aria-expanded]="createMode() === 'manual'"
+              (click)="selectCreateMode('manual')"
+            >
+              Manual
+            </button>
+          }
+        </div>
+
+        @if (createMode() !== 'ai') {
+          <div class="asset-create-fields" id="asset-manual-fields">
+            <div class="asset-field asset-field-wide">
+              <label for="asset-name">Name <span class="asset-required">(required)</span></label>
+              <input
+                id="asset-name"
+                type="text"
+                formControlName="name"
+                autocomplete="off"
+                required
+                aria-required="true"
+              />
+            </div>
+
+            <div class="asset-field">
+              <label for="asset-type">Type <span class="asset-required">(required)</span></label>
+              <input
+                id="asset-type"
+                type="text"
+                formControlName="type"
+                autocomplete="off"
+                required
+                aria-required="true"
+              />
+            </div>
+
+            <div class="asset-field">
+              <label for="asset-owner">Owner</label>
+              <input
+                id="asset-owner"
+                type="text"
+                formControlName="owner"
+                autocomplete="organization"
+              />
+            </div>
+
+            <div class="asset-field">
+              <label for="asset-criticality">
+                Criticality <span class="asset-required">(required)</span>
+              </label>
+              <select
+                id="asset-criticality"
+                formControlName="criticality"
+                required
+                aria-required="true"
+              >
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+                <option value="Critical">Critical</option>
+              </select>
+            </div>
+
+            <div class="asset-field">
+              <label for="asset-vendor">
+                Vendor <span class="asset-required">(required)</span>
+              </label>
+              <input
+                id="asset-vendor"
+                type="text"
+                formControlName="vendor"
+                autocomplete="off"
+                required
+                aria-required="true"
+              />
+            </div>
+
+            <div class="asset-field">
+              <label for="asset-operating-system">Operating system</label>
+              <input
+                id="asset-operating-system"
+                type="text"
+                formControlName="operatingSystem"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="asset-field">
+              <label for="asset-product">
+                Product <span class="asset-required">(required)</span>
+              </label>
+              <input
+                id="asset-product"
+                type="text"
+                formControlName="product"
+                autocomplete="off"
+                required
+                aria-required="true"
+              />
+            </div>
+
+            <div class="asset-field asset-field-wide">
+              <label for="asset-description">Description</label>
+              <textarea id="asset-description" formControlName="description" rows="4"></textarea>
+            </div>
+
+            <div class="asset-field">
+              <label for="asset-version">
+                Version <span class="asset-required">(required)</span>
+              </label>
+              <input
+                id="asset-version"
+                type="text"
+                formControlName="version"
+                autocomplete="off"
+                required
+                aria-required="true"
+              />
+            </div>
+          </div>
+
+          <button class="asset-create-submit" type="submit" [disabled]="isCreating()">
+            {{ isCreating() ? 'Creating...' : 'Create asset' }}
+          </button>
+        }
+
+        @if (createMode() === 'ai') {
+          <div class="asset-ai-coming-soon" id="asset-ai-batch-fields">
+            <p>Coming soon.</p>
+          </div>
+        }
       }
-    }
-  </form>
+    </form>
+  }
 
   <svg class="asset-create-icons" aria-hidden="true" focusable="false">
     <defs>
@@ -429,7 +435,7 @@
     </defs>
   </svg>
 
-  @if (isCreateConfirmationOpen()) {
+  @if (canManageAssets() && isCreateConfirmationOpen()) {
     <app-confirmation-dialog
       [dialogId]="'asset-create-confirm-heading'"
       [title]="'Create asset?'"
@@ -452,7 +458,7 @@
         <p class="assets-status" role="status" aria-atomic="true">No assets found.</p>
       } @else {
         <app-data-table
-          [columns]="assetColumns"
+          [columns]="visibleAssetColumns()"
           [rows]="assets()"
           [rowKey]="assetRowKey"
           (cellAction)="handleTableAction($event)"

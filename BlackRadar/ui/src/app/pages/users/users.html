@@ -50,13 +50,17 @@
               @for (user of users(); track user.id) {
                 <tr>
                   <td class="users-name">
-                    <a
-                      [routerLink]="
-                        user.id === session()?.user?.id ? '/profile' : ['/profile', user.id]
-                      "
-                    >
-                      {{ user.fullName }}
-                    </a>
+                    @if (canOpenUserProfile(user)) {
+                      <a
+                        [routerLink]="
+                          user.id === session()?.user?.id ? '/profile' : ['/profile', user.id]
+                        "
+                      >
+                        {{ user.fullName }}
+                      </a>
+                    } @else {
+                      <span>{{ user.fullName }}</span>
+                    }
                   </td>
                   <td>{{ user.username }}</td>
                   <td>{{ user.email }}</td>

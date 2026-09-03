@@ -48,6 +48,10 @@ export class VulnerabilitiesPage {
   private readonly vulnerabilitiesService = inject(VulnerabilitiesService);
 
   readonly session = this.authService.session;
+  readonly canManageVulnerabilities = computed(() => {
+    const role = this.session()?.user.role;
+    return role === 'admin' || role === 'master';
+  });
   readonly vulnerabilities = signal<Vulnerability[]>([]);
   readonly isLoading = signal(true);
   readonly hasLoadError = signal(false);
@@ -157,6 +161,11 @@ export class VulnerabilitiesPage {
       width: '3.5rem',
     },
   ];
+  readonly visibleVulnerabilityColumns = computed(() =>
+    this.canManageVulnerabilities()
+      ? this.vulnerabilityColumns
+      : this.vulnerabilityColumns.filter((column) => column.key !== 'delete'),
+  );
   readonly vulnerabilityRowKey = (vulnerability: Vulnerability): string => vulnerability.id;
 
   constructor() {
