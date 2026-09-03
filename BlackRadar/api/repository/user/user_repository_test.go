@@ -99,7 +99,7 @@ func TestActiveRefreshSessionQueryRequiresUnexpiredSession(t *testing.T) {
 }
 
 func TestRequireAdminRejectsMissingInputs(t *testing.T) {
-	if err := RequireAdmin(nil, nil); !errors.Is(err, ErrPermissionDenied) {
+	if err := RequirePermission(nil, nil, model.PermissionManageUsers); !errors.Is(err, ErrPermissionDenied) {
 		t.Fatalf("expected forbidden for missing inputs, got %v", err)
 	}
 }

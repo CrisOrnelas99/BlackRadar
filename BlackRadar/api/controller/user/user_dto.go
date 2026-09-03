@@ -42,15 +42,15 @@ type UpdateProfileRequest struct {
 
 // UserResponse exposes the user fields safe for API responses.
 type UserResponse struct {
-	ID            string    `json:"id"`
-	FullName      string    `json:"fullName"`
-	Username      string    `json:"username"`
-	Email         string    `json:"email"`
-	Role          string    `json:"role"`
-	AccountStatus string    `json:"accountStatus"`
-	IsSystemAdmin bool      `json:"isSystemAdmin"`
-	CreatedAt     time.Time `json:"createdAt"`
-	UpdatedAt     time.Time `json:"updatedAt"`
+	ID            string             `json:"id"`
+	FullName      string             `json:"fullName"`
+	Username      string             `json:"username"`
+	Email         string             `json:"email"`
+	Role          string             `json:"role"`
+	AccountStatus string             `json:"accountStatus"`
+	Permissions   []model.Permission `json:"permissions"`
+	CreatedAt     time.Time          `json:"createdAt"`
+	UpdatedAt     time.Time          `json:"updatedAt"`
 }
 
 // UserPageResponse exposes safe user summaries with bounded navigation metadata.
@@ -103,7 +103,7 @@ func ToUserResponse(user model.User) UserResponse {
 		Email:         user.Email,
 		Role:          user.Role,
 		AccountStatus: user.AccountStatus,
-		IsSystemAdmin: user.ID == model.SystemAdminID,
+		Permissions:   model.PermissionsForRole(user.Role),
 		CreatedAt:     user.CreatedAt,
 		UpdatedAt:     user.UpdatedAt,
 	}

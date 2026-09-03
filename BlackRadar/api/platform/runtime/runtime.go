@@ -31,6 +31,7 @@ import (
 	jwtmiddleware "blackradar/api/middleware/jwt"
 	"blackradar/api/middleware/permissions"
 	securityheaders "blackradar/api/middleware/security_headers"
+	"blackradar/api/model"
 	"blackradar/api/platform/bootstrap"
 	"blackradar/api/platform/config"
 	platformdb "blackradar/api/platform/db"
@@ -214,20 +215,24 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 	protected := engine.Group("/api")
 	protected.Use(authenticationMiddleware)
 	controlleruser.RegisterProtectedRoutes(protected, userController)
-	adminOnly := protected.Group("")
-	adminOnly.Use(permissions.RequireAdmin())
+	manageUsers := protected.Group("")
+	manageUsers.Use(permissions.RequirePermission(model.PermissionManageUsers))
+	viewSystemHealth := protected.Group("")
+	viewSystemHealth.Use(permissions.RequirePermission(model.PermissionViewSystemHealth))
 
-	controlleruser.RegisterAdminRoutes(adminOnly, userController)
-	controllerhealth.RegisterAdminRoutes(adminOnly, servicehealth.Dependencies{
+	controlleruser.RegisterAdminRoutes(manageUsers, userController)
+	controllerhealth.RegisterAdminRoutes(viewSystemHealth, servicehealth.Dependencies{
 		Database:     platformdb.NewReadinessChecker(gormDB),
 		AIConfigured: cfg.OpenAIAPIKey != "",
 		AI:           aiService,
 		NVD:          nvdClient,
 	})
-	controllerasset.RegisterRoutes(protected, adminOnly, assetController)
-	controllervulnerability.RegisterRoutes(protected, adminOnly, vulnerabilityController)
-	controllernvd.RegisterRoutes(adminOnly, nvdController)
-	controllerai.RegisterRoutes(adminOnly, aiController)
+	controllerasset.RegisterRoutes(protected, assetController)
+	controllervulnerability.RegisterRoutes(protected, vulnerabilityController)
+	manageVulnerabilities := protected.Group("")
+	manageVulnerabilities.Use(permissions.RequirePermission(model.PermissionManageVulnerabilities))
+	controllernvd.RegisterRoutes(manageVulnerabilities, nvdController)
+	controllerai.RegisterRoutes(viewSystemHealth, aiController)
 
 	return engine, nil
 }

@@ -28,6 +28,8 @@ describe('AssetsPage', () => {
       fullName: 'System Admin',
       username: 'system_admin',
       email: 'system_admin@example.invalid',
+      role: 'admin',
+      permissions: ['manage_own_assets'],
     },
     token: 'token',
     tokenExpiresAt: '2026-08-11T12:00:00Z',
@@ -189,6 +191,18 @@ describe('AssetsPage', () => {
 
   it('uses the asset id as the stable row key', () => {
     expect(component.assetRowKey(assets[0])).toBe('asset-1');
+  });
+
+  it('keeps asset management visible when the session grants the asset permission', () => {
+    component.session.set({
+      ...session,
+      user: { ...session.user, role: 'user', permissions: ['manage_own_assets'] },
+    });
+    fixture.detectChanges();
+
+    expect(component.canManageAssets()).toBe(true);
+    expect(fixture.nativeElement.querySelector('.asset-create-card')).not.toBeNull();
+    expect(component.visibleAssetColumns().some((column) => column.key === 'delete')).toBe(true);
   });
 
   it('reloads the current page after deletion and shows a success banner', () => {

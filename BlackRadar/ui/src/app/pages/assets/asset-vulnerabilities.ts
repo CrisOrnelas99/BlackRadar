@@ -50,6 +50,10 @@ export class AssetVulnerabilitiesPage {
   private readonly vulnerabilitiesService = inject(VulnerabilitiesService);
 
   readonly session = this.authService.session;
+  readonly canManageVulnerabilities = computed(() => {
+    const role = this.session()?.user.role;
+    return role === 'admin' || role === 'master';
+  });
   readonly asset = signal<Asset | null>(null);
   readonly vulnerabilities = signal<Vulnerability[]>([]);
   readonly allVulnerabilities = signal<Vulnerability[]>([]);
@@ -114,6 +118,11 @@ export class AssetVulnerabilitiesPage {
       width: '3.5rem',
     },
   ];
+  readonly visibleVulnerabilityColumns = computed(() =>
+    this.canManageVulnerabilities()
+      ? this.vulnerabilityColumns
+      : this.vulnerabilityColumns.filter((column) => column.key !== 'detach'),
+  );
   readonly vulnerabilityRowKey = (vulnerability: Vulnerability): string => vulnerability.id;
 
   constructor() {

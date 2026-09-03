@@ -56,6 +56,16 @@ describe('UsersPage', () => {
             createdAt: '2026-08-31T00:00:00Z',
             updatedAt: '2026-08-31T00:00:00Z',
           },
+          {
+            id: 'master-1',
+            fullName: 'System Admin',
+            username: 'system_admin',
+            email: 'system-admin@example.com',
+            role: 'master',
+            accountStatus: 'active',
+            createdAt: '2026-08-31T00:00:00Z',
+            updatedAt: '2026-08-31T00:00:00Z',
+          },
         ],
         pagination: { page: 1, pageSize: 6, totalCount: 1, totalPages: 1 },
       });
@@ -71,6 +81,10 @@ describe('UsersPage', () => {
     expect(fixture.nativeElement.querySelector('app-pagination')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('.users-name a').getAttribute('href')).toBe(
       '/profile',
+    );
+    expect(fixture.nativeElement.querySelectorAll('.users-name a')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('.users-name span').textContent).toContain(
+      'System Admin',
     );
   });
 

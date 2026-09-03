@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"blackradar/api/model"
 	"blackradar/api/platform/config"
 )
 
@@ -138,7 +139,7 @@ func TestNewBootstrapUserUsesFixedLocalAdministratorIdentity(t *testing.T) {
 	if user.FullName != bootstrapFullName || user.Username != bootstrapUsername {
 		t.Fatalf("unexpected bootstrap user identity: %#v", user)
 	}
-	if user.Email != bootstrapEmail || user.Role != "admin" {
+	if user.Email != bootstrapEmail || user.Role != model.RoleMaster {
 		t.Fatalf("unexpected bootstrap user access fields: email=%q role=%q", user.Email, user.Role)
 	}
 	if user.PasswordHash != "test-password-hash" {

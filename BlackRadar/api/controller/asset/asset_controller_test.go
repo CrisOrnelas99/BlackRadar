@@ -185,8 +185,18 @@ func TestRegisterRoutes(t *testing.T) {
 	controller := NewAssetController(service, assetVulnerabilityService, assetMatchService)
 	engine := gin.New()
 	engine.Use(contextmiddleware.RequestContext(nil))
+	engine.Use(func(ctx *gin.Context) {
+		ec, err := appcontext.FromGinContext(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := ec.SetPrincipal(appcontext.Principal{UserID: "test-master", Role: model.RoleMaster}); err != nil {
+			t.Fatal(err)
+		}
+		ctx.Next()
+	})
 	group := engine.Group("/api")
-	RegisterRoutes(group, group, controller)
+	RegisterRoutes(group, controller)
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api/assets", nil)

@@ -28,6 +28,8 @@ describe('AssetDetailsPage', () => {
       fullName: 'System Admin',
       username: 'system_admin',
       email: 'system_admin@example.invalid',
+      role: 'admin',
+      permissions: ['manage_own_assets'],
     },
     token: 'token',
     tokenExpiresAt: '2026-08-11T12:00:00Z',
@@ -110,6 +112,17 @@ describe('AssetDetailsPage', () => {
     component.editForm.controls.product.setValue('');
 
     expect(component.editForm.invalid).toBe(true);
+  });
+
+  it('keeps asset editing visible when the session grants the asset permission', () => {
+    component.session.set({
+      ...session,
+      user: { ...session.user, role: 'user', permissions: ['manage_own_assets'] },
+    });
+    fixture.detectChanges();
+
+    expect(component.canManageAssets()).toBe(true);
+    expect(fixture.nativeElement.querySelector('.asset-edit-card')).not.toBeNull();
   });
 
   it('rejects whitespace-only CPE identity fields', () => {

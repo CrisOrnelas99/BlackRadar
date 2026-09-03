@@ -38,7 +38,7 @@ func NewRefreshSessionRepository(db *gorm.DB) *RefreshSessionRepository {
 
 // ListUsers returns active and deactivated user accounts in stable creation order.
 func (r *UserRepository) ListUsers(ec *appcontext.GinContext, request pagination.Request) (pagination.Page[model.User], error) {
-	if err := RequireAdmin(ec, r.dbForContext(ec)); err != nil {
+	if err := RequirePermission(ec, r.dbForContext(ec), model.PermissionManageUsers); err != nil {
 		return pagination.Page[model.User]{}, err
 	}
 	result := pagination.Page[model.User]{Page: request.Page, PageSize: request.PageSize, Items: []model.User{}}
@@ -139,7 +139,7 @@ func (r *UserRepository) CreateUser(ec *appcontext.GinContext, user model.User) 
 
 // UpdateRole changes a managed user's role.
 func (r *UserRepository) UpdateRole(ec *appcontext.GinContext, userID string, role string, updatedByID string) (model.User, error) {
-	if err := RequireAdmin(ec, r.dbForContext(ec)); err != nil {
+	if err := RequirePermission(ec, r.dbForContext(ec), model.PermissionManageUsers); err != nil {
 		return model.User{}, err
 	}
 	result := r.dbForContext(ec).WithContext(ec.RequestContext()).Model(&model.User{}).Where("id = ?", strings.TrimSpace(userID)).Updates(map[string]any{"role": role, "updated_by_id": updatedByID})
@@ -154,7 +154,7 @@ func (r *UserRepository) UpdateRole(ec *appcontext.GinContext, userID string, ro
 
 // UpdateAccountStatus changes a managed user's account status.
 func (r *UserRepository) UpdateAccountStatus(ec *appcontext.GinContext, userID string, status string, updatedByID string) (model.User, error) {
-	if err := RequireAdmin(ec, r.dbForContext(ec)); err != nil {
+	if err := RequirePermission(ec, r.dbForContext(ec), model.PermissionManageUsers); err != nil {
 		return model.User{}, err
 	}
 	result := r.dbForContext(ec).WithContext(ec.RequestContext()).Model(&model.User{}).Where("id = ?", strings.TrimSpace(userID)).Updates(map[string]any{"account_status": status, "updated_by_id": updatedByID})

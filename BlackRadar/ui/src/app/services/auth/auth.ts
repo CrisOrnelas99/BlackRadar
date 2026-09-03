@@ -4,6 +4,7 @@ import { Injectable, signal } from '@angular/core';
 import { Observable, finalize, shareReplay, tap, timeout } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
+import type { UserPermission } from '../users/users';
 
 export interface LoginRequest {
   userOrEmail: string;
@@ -17,7 +18,7 @@ export interface LoginResponse {
     username: string;
     email: string;
     role?: string;
-    isSystemAdmin?: boolean;
+    permissions?: UserPermission[];
     createdAt?: string;
     updatedAt?: string;
   };

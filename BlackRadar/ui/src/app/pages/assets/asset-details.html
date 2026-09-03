@@ -101,117 +101,119 @@
       </article>
 
       <div class="asset-details-edit-column">
-        <section class="asset-edit-card" aria-labelledby="asset-edit-heading">
-          @if (!isEditing()) {
-            <div class="asset-edit-intro">
-              <h2 id="asset-edit-heading">Edit asset</h2>
-              <p>Update the saved details for this asset.</p>
-              <div class="asset-edit-intro-actions">
-                <button class="asset-edit-open" type="button" (click)="openEditor()">
-                  Edit asset
-                </button>
-                <button class="asset-delete-button" type="button" (click)="requestDeletion()">
-                  Delete asset
-                </button>
-              </div>
-            </div>
-          } @else {
-            <form [formGroup]="editForm" (ngSubmit)="saveAsset()" novalidate>
-              <div class="asset-edit-header">
-                <div>
-                  <h2 id="asset-edit-heading">Edit asset</h2>
-                  <p>Change only the values that need updating.</p>
+        @if (canManageAssets()) {
+          <section class="asset-edit-card" aria-labelledby="asset-edit-heading">
+            @if (!isEditing()) {
+              <div class="asset-edit-intro">
+                <h2 id="asset-edit-heading">Edit asset</h2>
+                <p>Update the saved details for this asset.</p>
+                <div class="asset-edit-intro-actions">
+                  <button class="asset-edit-open" type="button" (click)="openEditor()">
+                    Edit asset
+                  </button>
+                  <button class="asset-delete-button" type="button" (click)="requestDeletion()">
+                    Delete asset
+                  </button>
                 </div>
-                <button
-                  class="page-cancel asset-edit-cancel"
-                  type="button"
-                  [disabled]="isSaving()"
-                  (click)="closeEditor()"
-                >
-                  Cancel
-                </button>
               </div>
+            } @else {
+              <form [formGroup]="editForm" (ngSubmit)="saveAsset()" novalidate>
+                <div class="asset-edit-header">
+                  <div>
+                    <h2 id="asset-edit-heading">Edit asset</h2>
+                    <p>Change only the values that need updating.</p>
+                  </div>
+                  <button
+                    class="page-cancel asset-edit-cancel"
+                    type="button"
+                    [disabled]="isSaving()"
+                    (click)="closeEditor()"
+                  >
+                    Cancel
+                  </button>
+                </div>
 
-              <div class="asset-edit-fields">
-                <div class="asset-field asset-field-wide">
-                  <label for="edit-asset-description">Description</label>
-                  <textarea
-                    id="edit-asset-description"
-                    formControlName="description"
-                    rows="4"
-                  ></textarea>
+                <div class="asset-edit-fields">
+                  <div class="asset-field asset-field-wide">
+                    <label for="edit-asset-description">Description</label>
+                    <textarea
+                      id="edit-asset-description"
+                      formControlName="description"
+                      rows="4"
+                    ></textarea>
+                  </div>
+                  <div class="asset-field asset-field-wide">
+                    <label for="edit-asset-name">
+                      Name <span class="asset-required">(required)</span>
+                    </label>
+                    <input id="edit-asset-name" type="text" formControlName="name" required />
+                  </div>
+                  <div class="asset-field">
+                    <label for="edit-asset-type">
+                      Type <span class="asset-required">(required)</span>
+                    </label>
+                    <input id="edit-asset-type" type="text" formControlName="type" required />
+                  </div>
+                  <div class="asset-field">
+                    <label for="edit-asset-owner"> Owner </label>
+                    <input id="edit-asset-owner" type="text" formControlName="owner" />
+                  </div>
+                  <div class="asset-field">
+                    <label for="edit-asset-criticality">
+                      Criticality <span class="asset-required">(required)</span>
+                    </label>
+                    <select id="edit-asset-criticality" formControlName="criticality" required>
+                      <option value="Low">Low</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
+                      <option value="Critical">Critical</option>
+                    </select>
+                  </div>
+                  <div class="asset-field">
+                    <label for="edit-asset-operating-system">Operating system</label>
+                    <input
+                      id="edit-asset-operating-system"
+                      type="text"
+                      formControlName="operatingSystem"
+                    />
+                  </div>
+                  <div class="asset-field">
+                    <label for="edit-asset-vendor">
+                      Vendor <span class="asset-required">(required)</span>
+                    </label>
+                    <input id="edit-asset-vendor" type="text" formControlName="vendor" required />
+                  </div>
+                  <div class="asset-field">
+                    <label for="edit-asset-product">
+                      Product <span class="asset-required">(required)</span>
+                    </label>
+                    <input id="edit-asset-product" type="text" formControlName="product" required />
+                  </div>
+                  <div class="asset-field">
+                    <label for="edit-asset-version">
+                      Version <span class="asset-required">(required)</span>
+                    </label>
+                    <input id="edit-asset-version" type="text" formControlName="version" required />
+                  </div>
                 </div>
-                <div class="asset-field asset-field-wide">
-                  <label for="edit-asset-name">
-                    Name <span class="asset-required">(required)</span>
-                  </label>
-                  <input id="edit-asset-name" type="text" formControlName="name" required />
-                </div>
-                <div class="asset-field">
-                  <label for="edit-asset-type">
-                    Type <span class="asset-required">(required)</span>
-                  </label>
-                  <input id="edit-asset-type" type="text" formControlName="type" required />
-                </div>
-                <div class="asset-field">
-                  <label for="edit-asset-owner"> Owner </label>
-                  <input id="edit-asset-owner" type="text" formControlName="owner" />
-                </div>
-                <div class="asset-field">
-                  <label for="edit-asset-criticality">
-                    Criticality <span class="asset-required">(required)</span>
-                  </label>
-                  <select id="edit-asset-criticality" formControlName="criticality" required>
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                    <option value="Critical">Critical</option>
-                  </select>
-                </div>
-                <div class="asset-field">
-                  <label for="edit-asset-operating-system">Operating system</label>
-                  <input
-                    id="edit-asset-operating-system"
-                    type="text"
-                    formControlName="operatingSystem"
-                  />
-                </div>
-                <div class="asset-field">
-                  <label for="edit-asset-vendor">
-                    Vendor <span class="asset-required">(required)</span>
-                  </label>
-                  <input id="edit-asset-vendor" type="text" formControlName="vendor" required />
-                </div>
-                <div class="asset-field">
-                  <label for="edit-asset-product">
-                    Product <span class="asset-required">(required)</span>
-                  </label>
-                  <input id="edit-asset-product" type="text" formControlName="product" required />
-                </div>
-                <div class="asset-field">
-                  <label for="edit-asset-version">
-                    Version <span class="asset-required">(required)</span>
-                  </label>
-                  <input id="edit-asset-version" type="text" formControlName="version" required />
-                </div>
-              </div>
 
-              <div class="asset-edit-actions">
-                <button
-                  class="asset-delete-button"
-                  type="button"
-                  [disabled]="isSaving()"
-                  (click)="requestDeletion()"
-                >
-                  Delete asset
-                </button>
-                <button class="asset-edit-submit" type="submit" [disabled]="isSaving()">
-                  {{ isSaving() ? 'Saving...' : 'Save changes' }}
-                </button>
-              </div>
-            </form>
-          }
-        </section>
+                <div class="asset-edit-actions">
+                  <button
+                    class="asset-delete-button"
+                    type="button"
+                    [disabled]="isSaving()"
+                    (click)="requestDeletion()"
+                  >
+                    Delete asset
+                  </button>
+                  <button class="asset-edit-submit" type="submit" [disabled]="isSaving()">
+                    {{ isSaving() ? 'Saving...' : 'Save changes' }}
+                  </button>
+                </div>
+              </form>
+            }
+          </section>
+        }
         <a
           class="relationship-navigation-link"
           [routerLink]="['/assets', asset()?.id, 'vulnerabilities']"

@@ -61,6 +61,11 @@ func RunMigrations(ctx context.Context, database *gorm.DB) error {
 		return err
 	}
 
+	if err := database.WithContext(ctx).
+		Exec("UPDATE users SET role = ? WHERE id = ?", model.RoleMaster, model.SystemAdminID).Error; err != nil {
+		return fmt.Errorf("system administrator role update failed: %w", err)
+	}
+
 	return nil
 }
 
@@ -140,6 +145,7 @@ func schemaStatements() []string {
 		`CREATE INDEX IF NOT EXISTS idx_refresh_sessions_user_id ON refresh_sessions (user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_events_actor_occurred_at ON audit_events (actor_user_id, occurred_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_audit_events_resource_occurred_at ON audit_events (resource_type, resource_id, occurred_at DESC)`,
+		`ALTER TABLE asset_vulnerabilities ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
 		// Duplicate CVEs are merged into the earliest record so existing asset
 		// relationships remain valid when the organization-wide unique index is added.
 		`WITH ranked_vulnerabilities AS (
@@ -203,11 +209,7 @@ func schemaStatements() []string {
 		)`,
 		`DROP INDEX IF EXISTS idx_vulnerabilities_user_cve_id`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_vulnerabilities_organization_cve_id ON vulnerabilities (organization_id, cve_id) WHERE deleted_at IS NULL AND cve_id <> ''`,
-		constraintStatement(
-			"chk_users_role",
-			"users",
-			`ALTER TABLE users ADD CONSTRAINT chk_users_role CHECK (role IN ('admin', 'user'))`,
-		),
+		roleConstraintStatement(),
 		constraintStatement(
 			"chk_users_account_status",
 			"users",
@@ -256,7 +258,6 @@ func schemaStatements() []string {
 		`ALTER TABLE asset_assessments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
 		`ALTER TABLE asset_assessments ADD COLUMN IF NOT EXISTS updated_by_id UUID`,
 		`ALTER TABLE asset_vulnerabilities ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ`,
-		`ALTER TABLE asset_vulnerabilities ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
 		`UPDATE asset_vulnerabilities SET created_at = COALESCE(created_at, NOW()) WHERE created_at IS NULL`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_asset_vulnerabilities_active ON asset_vulnerabilities (asset_id, vulnerability_id) WHERE deleted_at IS NULL`,
 		constraintStatement(
@@ -391,4 +392,27 @@ func constraintStatement(
 		tableName,
 		alterStatement,
 	)
+}
+
+// roleConstraintStatement replaces the older role constraint when it does not
+// yet allow the master role.
+func roleConstraintStatement() string {
+	return `DO $$
+	DECLARE
+		role_constraint_definition TEXT;
+	BEGIN
+		SELECT pg_get_constraintdef(oid)
+		INTO role_constraint_definition
+		FROM pg_constraint
+		WHERE conname = 'chk_users_role'
+		  AND conrelid = 'users'::regclass;
+
+		IF role_constraint_definition IS NULL
+		   OR role_constraint_definition NOT LIKE '%master%' THEN
+			IF role_constraint_definition IS NOT NULL THEN
+				ALTER TABLE users DROP CONSTRAINT chk_users_role;
+			END IF;
+			ALTER TABLE users ADD CONSTRAINT chk_users_role CHECK (role IN ('master', 'admin', 'user'));
+		END IF;
+	END $$`
 }

@@ -250,7 +250,7 @@ func newBootstrapUser(passwordHash string) model.User {
 		FullName:       bootstrapFullName,
 		Username:       bootstrapUsername,
 		Email:          normalize(bootstrapEmail),
-		Role:           model.RoleAdmin,
+		Role:           model.RoleMaster,
 		PasswordHash:   passwordHash,
 	}
 }

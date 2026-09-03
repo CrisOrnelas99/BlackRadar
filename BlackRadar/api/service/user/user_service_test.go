@@ -65,7 +65,7 @@ func TestUserServiceAdminAccountChanges(t *testing.T) {
 	svc.transactionRunner = testTransactionRunner{}
 	ctx := newUserServiceContext(t)
 	ctx.SetUserID(testUserID)
-	ctx.SetUserRole(model.RoleAdmin)
+	ctx.SetUserRole(model.RoleMaster)
 
 	if _, err := svc.ChangeUserStatus(ctx, testUserIDSeven, model.AccountStatusDeactivated); err != nil {
 		t.Fatalf("expected status change to succeed, got %v", err)
@@ -119,7 +119,7 @@ func TestSystemAdminCanChangeAnotherAdministrator(t *testing.T) {
 	svc.transactionRunner = testTransactionRunner{}
 	ctx := newUserServiceContext(t)
 	ctx.SetUserID(model.SystemAdminID)
-	ctx.SetUserRole(model.RoleAdmin)
+	ctx.SetUserRole(model.RoleMaster)
 
 	if _, err := svc.ChangeUserRole(ctx, testUserIDSeven, model.RoleUser); err != nil {
 		t.Fatalf("expected system admin role change to succeed, got %v", err)

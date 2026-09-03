@@ -35,6 +35,7 @@ func TestTableNamesRemainStable(t *testing.T) {
 func TestModelConstantsRemainStable(t *testing.T) {
 	expected := map[string]string{
 		"role admin":       "admin",
+		"role master":      "master",
 		"role user":        "user",
 		"cpe accepted":     "accepted",
 		"cpe needs review": "needs_review",
@@ -42,6 +43,7 @@ func TestModelConstantsRemainStable(t *testing.T) {
 	}
 	actual := map[string]string{
 		"role admin":       RoleAdmin,
+		"role master":      RoleMaster,
 		"role user":        RoleUser,
 		"cpe accepted":     AssetCPEReviewStatusAccepted,
 		"cpe needs review": AssetCPEReviewStatusNeedsReview,

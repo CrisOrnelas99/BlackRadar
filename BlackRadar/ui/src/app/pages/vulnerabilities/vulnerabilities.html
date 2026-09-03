@@ -109,7 +109,7 @@
       </p>
     } @else {
       <app-data-table
-        [columns]="vulnerabilityColumns"
+        [columns]="visibleVulnerabilityColumns()"
         [rows]="filteredVulnerabilities()"
         [rowKey]="vulnerabilityRowKey"
         (cellAction)="handleTableAction($event)"
@@ -125,115 +125,122 @@
     }
   </div>
 
-  <form
-    class="vulnerability-create-card vulnerability-create-card-expanded"
-    [formGroup]="createForm"
-    (ngSubmit)="createVulnerability()"
-    novalidate
-  >
-    @if (!isCreateOpen()) {
-      <div class="vulnerability-create-intro">
-        <h2>Add a vulnerability to your inventory</h2>
-        <p>Enter the details for a vulnerability you found.</p>
-        <button
-          #createTrigger
-          class="vulnerability-create-open"
-          type="button"
-          (click)="openCreatePanel()"
-        >
-          Add vulnerability
-        </button>
-      </div>
-    } @else {
-      <div class="vulnerability-create-header">
-        <div>
+  @if (canManageVulnerabilities()) {
+    <form
+      class="vulnerability-create-card vulnerability-create-card-expanded"
+      [formGroup]="createForm"
+      (ngSubmit)="createVulnerability()"
+      novalidate
+    >
+      @if (!isCreateOpen()) {
+        <div class="vulnerability-create-intro">
           <h2>Add a vulnerability to your inventory</h2>
           <p>Enter the details for a vulnerability you found.</p>
-        </div>
-        <button
-          class="page-cancel vulnerability-create-cancel"
-          type="button"
-          (click)="closeCreatePanel()"
-        >
-          Cancel
-        </button>
-      </div>
-
-      <div class="vulnerability-create-fields" id="vulnerability-create-fields">
-        <div class="vulnerability-field">
-          <label for="vulnerability-cve-id">CVE ID</label>
-          <input
-            #firstCreateControl
-            id="vulnerability-cve-id"
-            type="text"
-            formControlName="cveId"
-            autocomplete="off"
-            placeholder="CVE-2026-0001"
-          />
-        </div>
-
-        <div class="vulnerability-field">
-          <label for="vulnerability-severity">
-            Severity <span class="vulnerability-required">(required)</span>
-          </label>
-          <select
-            id="vulnerability-severity"
-            formControlName="severity"
-            required
-            aria-required="true"
+          <button
+            #createTrigger
+            class="vulnerability-create-open"
+            type="button"
+            (click)="openCreatePanel()"
           >
-            @for (severity of severityOptions; track severity) {
-              <option [value]="severity">{{ severity }}</option>
-            }
-          </select>
+            Add vulnerability
+          </button>
+        </div>
+      } @else {
+        <div class="vulnerability-create-header">
+          <div>
+            <h2>Add a vulnerability to your inventory</h2>
+            <p>Enter the details for a vulnerability you found.</p>
+          </div>
+          <button
+            class="page-cancel vulnerability-create-cancel"
+            type="button"
+            (click)="closeCreatePanel()"
+          >
+            Cancel
+          </button>
         </div>
 
-        <div class="vulnerability-field vulnerability-field-wide">
-          <label for="vulnerability-title">
-            Title <span class="vulnerability-required">(required)</span>
-          </label>
-          <input
-            id="vulnerability-title"
-            type="text"
-            formControlName="title"
-            autocomplete="off"
-            required
-            aria-required="true"
-          />
+        <div class="vulnerability-create-fields" id="vulnerability-create-fields">
+          <div class="vulnerability-field">
+            <label for="vulnerability-cve-id">CVE ID</label>
+            <input
+              #firstCreateControl
+              id="vulnerability-cve-id"
+              type="text"
+              formControlName="cveId"
+              autocomplete="off"
+              placeholder="CVE-2026-0001"
+            />
+          </div>
+
+          <div class="vulnerability-field">
+            <label for="vulnerability-severity">
+              Severity <span class="vulnerability-required">(required)</span>
+            </label>
+            <select
+              id="vulnerability-severity"
+              formControlName="severity"
+              required
+              aria-required="true"
+            >
+              @for (severity of severityOptions; track severity) {
+                <option [value]="severity">{{ severity }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="vulnerability-field vulnerability-field-wide">
+            <label for="vulnerability-title">
+              Title <span class="vulnerability-required">(required)</span>
+            </label>
+            <input
+              id="vulnerability-title"
+              type="text"
+              formControlName="title"
+              autocomplete="off"
+              required
+              aria-required="true"
+            />
+          </div>
+
+          <div class="vulnerability-field vulnerability-field-wide">
+            <label for="vulnerability-description">
+              Description <span class="vulnerability-required">(required)</span>
+            </label>
+            <textarea
+              id="vulnerability-description"
+              formControlName="description"
+              rows="4"
+              required
+              aria-required="true"
+            ></textarea>
+          </div>
+
+          <div class="vulnerability-field">
+            <label for="vulnerability-status">
+              Status <span class="vulnerability-required">(required)</span>
+            </label>
+            <select
+              id="vulnerability-status"
+              formControlName="status"
+              required
+              aria-required="true"
+            >
+              @for (status of statusOptions; track status) {
+                <option [value]="status">{{ status }}</option>
+              }
+            </select>
+          </div>
         </div>
 
-        <div class="vulnerability-field vulnerability-field-wide">
-          <label for="vulnerability-description">
-            Description <span class="vulnerability-required">(required)</span>
-          </label>
-          <textarea
-            id="vulnerability-description"
-            formControlName="description"
-            rows="4"
-            required
-            aria-required="true"
-          ></textarea>
-        </div>
+        <button class="vulnerability-create-submit" type="submit" [disabled]="isCreating()">
+          {{ isCreating() ? 'Creating...' : 'Create vulnerability' }}
+        </button>
+      }
+    </form>
+  }
 
-        <div class="vulnerability-field">
-          <label for="vulnerability-status">
-            Status <span class="vulnerability-required">(required)</span>
-          </label>
-          <select id="vulnerability-status" formControlName="status" required aria-required="true">
-            @for (status of statusOptions; track status) {
-              <option [value]="status">{{ status }}</option>
-            }
-          </select>
-        </div>
-      </div>
-
-      <button class="vulnerability-create-submit" type="submit" [disabled]="isCreating()">
-        {{ isCreating() ? 'Creating...' : 'Create vulnerability' }}
-      </button>
-    }
-  </form>
-
-  @if (isCreateConfirmationOpen()) {
+  @if (canManageVulnerabilities() && isCreateConfirmationOpen()) {
     <app-confirmation-dialog
       [dialogId]="'vulnerability-create-confirm-heading'"
       [title]="'Create vulnerability?'"

@@ -52,6 +52,9 @@ export class AssetsPage {
   private assetLoadSubscription?: Subscription;
 
   readonly session = this.authService.session;
+  readonly canManageAssets = computed(() => {
+    return this.session()?.user.permissions?.includes('manage_own_assets') ?? false;
+  });
   readonly assets = signal<Asset[]>([]);
   readonly currentPage = signal(1);
   readonly pageSize = signal(6);
@@ -136,6 +139,11 @@ export class AssetsPage {
       width: '3.5rem',
     },
   ];
+  readonly visibleAssetColumns = computed(() =>
+    this.canManageAssets()
+      ? this.assetColumns
+      : this.assetColumns.filter((column) => column.key !== 'delete'),
+  );
   readonly assetRowKey = (asset: Asset): string => asset.id;
 
   constructor() {

@@ -12,10 +12,10 @@ import (
 	requestcontext "blackradar/api/platform/requestcontext"
 )
 
-func TestRequireAdminRejectsMissingRequestContext(t *testing.T) {
+func TestRequirePermissionRejectsMissingRequestContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.Use(RequireAdmin())
+	router.Use(RequirePermission(model.PermissionManageUsers))
 	router.GET("/admin", func(ctx *gin.Context) {
 		t.Fatal("handler should not run")
 	})
@@ -30,11 +30,11 @@ func TestRequireAdminRejectsMissingRequestContext(t *testing.T) {
 	}
 }
 
-func TestRequireAdminRejectsMissingPrincipal(t *testing.T) {
+func TestRequirePermissionRejectsMissingPrincipal(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	router.Use(contextmiddleware.RequestContext(nil))
-	router.Use(RequireAdmin())
+	router.Use(RequirePermission(model.PermissionManageUsers))
 	router.GET("/admin", func(ctx *gin.Context) {
 		t.Fatal("handler should not run")
 	})
@@ -52,12 +52,12 @@ func TestRequireAdminRejectsMissingPrincipal(t *testing.T) {
 	}
 }
 
-func TestRequireAdminRejectsNonAdminPrincipal(t *testing.T) {
+func TestRequirePermissionRejectsNonAdminPrincipal(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	router.Use(contextmiddleware.RequestContext(nil))
 	router.Use(setPrincipal(model.RoleUser))
-	router.Use(RequireAdmin())
+	router.Use(RequirePermission(model.PermissionManageUsers))
 	router.GET("/admin", func(ctx *gin.Context) {
 		t.Fatal("handler should not run")
 	})
@@ -72,12 +72,12 @@ func TestRequireAdminRejectsNonAdminPrincipal(t *testing.T) {
 	}
 }
 
-func TestRequireAdminAllowsAdminPrincipal(t *testing.T) {
+func TestRequirePermissionAllowsAdminPrincipal(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	router.Use(contextmiddleware.RequestContext(nil))
 	router.Use(setPrincipal(model.RoleAdmin))
-	router.Use(RequireAdmin())
+	router.Use(RequirePermission(model.PermissionManageUsers))
 
 	handlerCalled := false
 	router.GET("/admin", func(ctx *gin.Context) {
@@ -92,6 +92,21 @@ func TestRequireAdminAllowsAdminPrincipal(t *testing.T) {
 	}
 	if !handlerCalled {
 		t.Fatal("expected handler to be called")
+	}
+}
+
+func TestRequirePermissionAllowsMasterPrincipal(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(contextmiddleware.RequestContext(nil))
+	router.Use(setPrincipal(model.RoleMaster))
+	router.Use(RequirePermission(model.PermissionManageUsers))
+	router.GET("/admin", func(ctx *gin.Context) { ctx.Status(http.StatusOK) })
+
+	recorder := performRequest(router, http.MethodGet, "/admin")
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
 }
 
