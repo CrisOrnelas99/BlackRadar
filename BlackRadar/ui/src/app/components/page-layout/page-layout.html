@@ -1,0 +1,25 @@
+@if (backLink(); as link) {
+  <app-page-back-link [label]="backLabel() || 'Back to previous page'" [link]="link" />
+}
+
+<div class="page-layout-frame">
+  <header class="page-layout-header">
+    <ng-content select="[page-layout-heading]"></ng-content>
+    <ng-content select="[page-layout-toolbar]"></ng-content>
+  </header>
+
+  <div class="page-layout-content">
+    <main class="page-layout-main">
+      <ng-content select="[page-layout-main]"></ng-content>
+    </main>
+    <aside class="page-layout-side">
+      <ng-content select="[page-layout-side]"></ng-content>
+    </aside>
+  </div>
+
+  <footer class="page-layout-pagination">
+    <ng-content select="[page-layout-pagination]"></ng-content>
+  </footer>
+
+  <ng-content></ng-content>
+</div>

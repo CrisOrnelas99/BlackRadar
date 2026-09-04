@@ -71,21 +71,19 @@ describe('UsersPage', () => {
       });
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.users-table').textContent).toContain(
+    expect(fixture.nativeElement.querySelector('.data-table').textContent).toContain(
       'Taylor Admin',
     );
-    expect(fixture.nativeElement.querySelector('.users-table').textContent).toContain(
+    expect(fixture.nativeElement.querySelector('.data-table').textContent).toContain(
       'Administrator',
     );
-    expect(fixture.nativeElement.querySelector('.users-table').textContent).not.toContain('2026');
+    expect(fixture.nativeElement.querySelector('.data-table').textContent).not.toContain('2026');
     expect(fixture.nativeElement.querySelector('app-pagination')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.users-name a').getAttribute('href')).toBe(
-      '/profile',
+    expect(fixture.nativeElement.querySelectorAll('.data-table-action')).toHaveLength(1);
+    expect(fixture.nativeElement.querySelector('.data-table-action').textContent).toContain(
+      'Taylor Admin',
     );
-    expect(fixture.nativeElement.querySelectorAll('.users-name a')).toHaveLength(1);
-    expect(fixture.nativeElement.querySelector('.users-name span').textContent).toContain(
-      'System Admin',
-    );
+    expect(fixture.nativeElement.querySelector('thead th').textContent).toContain('Status');
   });
 
   it('shows the empty state when no accounts exist', () => {

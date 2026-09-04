@@ -1,4 +1,3 @@
-import { Location } from '@angular/common';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
@@ -31,7 +30,6 @@ describe('AssetVulnerabilitiesPage', () => {
   let vulnerabilitiesServiceMock: { getVulnerabilities: ReturnType<typeof vi.fn> };
   let bannerServiceMock: { show: ReturnType<typeof vi.fn> };
   let router: Router;
-  let location: { back: ReturnType<typeof vi.fn> };
 
   const session: LoginResponse = {
     user: {
@@ -124,8 +122,6 @@ describe('AssetVulnerabilitiesPage', () => {
       getVulnerabilities: vi.fn(() => of([vulnerability, availableVulnerability])),
     };
     bannerServiceMock = { show: vi.fn() };
-    location = { back: vi.fn() };
-
     await TestBed.configureTestingModule({
       imports: [AssetVulnerabilitiesPage],
       providers: [
@@ -138,7 +134,6 @@ describe('AssetVulnerabilitiesPage', () => {
         { provide: AssetsService, useValue: assetsServiceMock },
         { provide: BannerService, useValue: bannerServiceMock },
         { provide: VulnerabilitiesService, useValue: vulnerabilitiesServiceMock },
-        { provide: Location, useValue: location },
       ],
     }).compileComponents();
 
@@ -173,10 +168,21 @@ describe('AssetVulnerabilitiesPage', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/vulnerabilities', 'vulnerability-1', 'assets']);
   });
 
-  it('uses browser history for the back button', () => {
-    component.goBack();
+  it('links back to the parent asset', () => {
+    const backLink = fixture.nativeElement.querySelector('.page-back-link') as HTMLAnchorElement;
 
-    expect(location.back).toHaveBeenCalledTimes(1);
+    expect(backLink.textContent).toContain('Back to Asset');
+    expect(backLink.getAttribute('href')).toBe('/assets/asset-1');
+  });
+
+  it('shows an empty state when filters remove all attached vulnerabilities', () => {
+    component.updateSearchQuery('does-not-match');
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('app-data-table')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain(
+      'No matching attached vulnerabilities found.',
+    );
   });
 
   it('shows only unattached vulnerabilities in the attach panel', () => {

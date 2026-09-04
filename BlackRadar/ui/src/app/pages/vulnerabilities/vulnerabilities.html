@@ -2,7 +2,7 @@
   <app-top-menu [session]="currentSession" currentUrl="/vulnerabilities"></app-top-menu>
 }
 
-<section class="vulnerabilities-page-shell" aria-labelledby="vulnerabilities-heading">
+<app-page-layout class="vulnerabilities-page-shell" aria-labelledby="vulnerabilities-heading">
   <div class="vulnerabilities-page-header">
     <div class="vulnerabilities-page-heading">
       <div class="vulnerabilities-page-title-row">
@@ -29,20 +29,14 @@
       (searchChange)="updateSearchQuery($event)"
     >
       <div class="table-toolbar-actions vulnerability-filters-secondary-actions">
-        <button class="vulnerability-filters-toggle" type="button" (click)="toggleSort()">
-          {{ isSortOpen() ? 'Hide sorting' : 'Sorting' }}
-        </button>
         <button class="vulnerability-filters-toggle" type="button" (click)="toggleFilters()">
           {{ isFiltersOpen() ? 'Hide filters' : 'Filters' }}
-        </button>
-        <button class="vulnerability-filters-clear" type="button" (click)="clearFilters()">
-          Clear filters
         </button>
       </div>
     </app-table-toolbar>
   </div>
 
-  <section class="vulnerability-filters-panel" aria-label="Vulnerability filters and sorting">
+  <section class="vulnerability-filters-panel" aria-label="Vulnerability filters">
     @if (isFiltersOpen()) {
       <div class="vulnerability-filters-primary">
         <label class="vulnerability-filter-field" for="vulnerability-filter-severity">
@@ -65,30 +59,10 @@
           </select>
         </label>
       </div>
-    }
-    @if (isSortOpen()) {
-      <div class="vulnerability-filters-sort">
-        <label class="vulnerability-filter-field" for="vulnerability-sort-field">
-          <span>Sort by</span>
-          <select id="vulnerability-sort-field" [formControl]="filtersForm.controls.sortField">
-            <option value="title">Title</option>
-            <option value="cveId">CVE ID</option>
-            <option value="severity">Severity</option>
-            <option value="status">Status</option>
-            <option value="affectedAssetCount">Affected assets</option>
-          </select>
-        </label>
-        <label class="vulnerability-filter-field" for="vulnerability-sort-direction">
-          <span>Order</span>
-          <select
-            id="vulnerability-sort-direction"
-            [formControl]="filtersForm.controls.sortDirection"
-          >
-            <option value="asc">Ascending</option>
-            <option value="desc">Descending</option>
-          </select>
-        </label>
-      </div>
+
+      <button class="vulnerability-filters-clear" type="button" (click)="clearFilters()">
+        Clear filters
+      </button>
     }
   </section>
 
@@ -112,7 +86,10 @@
         [columns]="visibleVulnerabilityColumns()"
         [rows]="filteredVulnerabilities()"
         [rowKey]="vulnerabilityRowKey"
+        [sortField]="activeSortField()"
+        [sortDirection]="activeSortDirection()"
         (cellAction)="handleTableAction($event)"
+        (sortChange)="handleSortChange($event)"
       ></app-data-table>
     }
     @if (!isLoading() && !hasLoadError() && filteredVulnerabilities().length > 0) {
@@ -270,4 +247,4 @@
       (confirm)="confirmVulnerabilityDeletion()"
     ></app-confirmation-dialog>
   }
-</section>
+</app-page-layout>

@@ -49,6 +49,32 @@ func normalizeUserListQuery(query model.UserListQuery) (model.UserListQuery, err
 	if err := query.Pagination.Validate(); err != nil {
 		return model.UserListQuery{}, fmt.Errorf("%w: %w", ErrInvalidUserManagement, err)
 	}
+	query.Search = strings.TrimSpace(query.Search)
+	query.Role = strings.TrimSpace(query.Role)
+	query.AccountStatus = strings.TrimSpace(query.AccountStatus)
+	if len(query.Search) > 200 {
+		return model.UserListQuery{}, ErrInvalidUserManagement
+	}
+	if query.Role != "" && !validRole(query.Role) && query.Role != model.RoleMaster {
+		return model.UserListQuery{}, ErrInvalidUserManagement
+	}
+	if query.AccountStatus != "" && !validAccountStatus(query.AccountStatus) {
+		return model.UserListQuery{}, ErrInvalidUserManagement
+	}
+	switch query.SortField {
+	case "", model.UserSortName:
+		query.SortField = model.UserSortName
+	case model.UserSortUsername, model.UserSortEmail, model.UserSortRole, model.UserSortStatus:
+	default:
+		return model.UserListQuery{}, ErrInvalidUserManagement
+	}
+	switch query.SortDirection {
+	case "", model.UserSortAscending:
+		query.SortDirection = model.UserSortAscending
+	case model.UserSortDescending:
+	default:
+		return model.UserListQuery{}, ErrInvalidUserManagement
+	}
 	return query, nil
 }
 

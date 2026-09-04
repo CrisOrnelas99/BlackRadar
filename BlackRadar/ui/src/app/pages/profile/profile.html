@@ -4,7 +4,14 @@
   @if (hasViewedUserError()) {
     <p class="profile-page-status" role="alert">Unable to load this user profile.</p>
   } @else if (profileUser(); as profileUser) {
-    <section class="profile-page" aria-labelledby="profile-heading">
+    <app-page-layout
+      class="profile-page"
+      [backLabel]="'Back to Users'"
+      [backLink]="
+        session()?.user?.role === 'admin' || session()?.user?.role === 'master' ? '/users' : null
+      "
+      aria-labelledby="profile-heading"
+    >
       <header class="profile-page-header">
         <div class="profile-page-title">
           <div class="profile-page-title-row">
@@ -82,12 +89,6 @@
       </article>
 
       <div class="profile-edit-column">
-        @if (session()?.user?.role === 'admin' || session()?.user?.role === 'master') {
-          <nav class="profile-back-nav" aria-label="User management navigation">
-            <a routerLink="/users">Back to Users</a>
-          </nav>
-        }
-
         @if (!isViewingUser()) {
           <section class="profile-edit-card" aria-labelledby="profile-edit-heading">
             @if (!isEditing()) {
@@ -218,7 +219,7 @@
           </section>
         }
       </div>
-    </section>
+    </app-page-layout>
   }
 
   @if (isSaveConfirmationOpen()) {

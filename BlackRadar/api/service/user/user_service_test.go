@@ -473,8 +473,8 @@ func (testTransactionRunner) Run(ec *appcontext.GinContext, operation func(*appc
 	return operation(ec)
 }
 
-func (f *fakeUserRepository) ListUsers(ec *appcontext.GinContext, request pagination.Request) (pagination.Page[model.User], error) {
-	return pagination.Page[model.User]{Items: f.users, Page: request.Page, PageSize: request.PageSize, TotalCount: int64(len(f.users))}, nil
+func (f *fakeUserRepository) ListUsers(ec *appcontext.GinContext, query model.UserListQuery) (pagination.Page[model.User], error) {
+	return pagination.Page[model.User]{Items: f.users, Page: query.Pagination.Page, PageSize: query.Pagination.PageSize, TotalCount: int64(len(f.users))}, nil
 }
 func (f *fakeUserRepository) UpdateRole(ec *appcontext.GinContext, userID string, role string, updatedByID string) (model.User, error) {
 	f.updatedRole = role

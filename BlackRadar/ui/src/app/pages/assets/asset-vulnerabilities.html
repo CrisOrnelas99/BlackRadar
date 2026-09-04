@@ -5,9 +5,14 @@
   ></app-top-menu>
 }
 
-<section class="asset-vulnerabilities-page" aria-labelledby="asset-vulnerabilities-heading">
+<app-page-layout
+  class="asset-vulnerabilities-page"
+  [backLabel]="'Back to Asset'"
+  [backLink]="['/assets', asset()?.id || '']"
+  aria-labelledby="asset-vulnerabilities-heading"
+>
   <header class="asset-vulnerabilities-page-header">
-    <div>
+    <div class="asset-vulnerabilities-heading">
       <div class="asset-vulnerabilities-title-row">
         <span class="asset-vulnerabilities-direction-icons" aria-hidden="true">
           <svg class="context-direction-icon" viewBox="0 0 24 24" fill="none">
@@ -36,12 +41,55 @@
           }}</a
           >.
         </p>
-        <button class="asset-vulnerabilities-back-link" type="button" (click)="goBack()">
-          Back
-        </button>
       </div>
     </div>
+    <app-table-toolbar
+      [searchLabel]="'Title or CVE ID'"
+      [searchId]="'attached-vulnerability-search-query'"
+      [searchPlaceholder]="'Search attached vulnerabilities'"
+      [searchValue]="searchQuery()"
+      (searchChange)="updateSearchQuery($event)"
+    >
+      <div class="table-toolbar-actions relationship-filters-actions">
+        <button class="relationship-filters-toggle" type="button" (click)="toggleFilters()">
+          {{ isFiltersOpen() ? 'Hide filters' : 'Filters' }}
+        </button>
+      </div>
+    </app-table-toolbar>
   </header>
+
+  @if (isFiltersOpen()) {
+    <section class="relationship-filters-panel" aria-label="Attached vulnerability filters">
+      <label class="relationship-filter-field" for="attached-vulnerability-filter-severity">
+        <span>Severity</span>
+        <select
+          id="attached-vulnerability-filter-severity"
+          [formControl]="filtersForm.controls.severity"
+        >
+          <option value="">All severities</option>
+          <option value="Low">Low</option>
+          <option value="Medium">Medium</option>
+          <option value="High">High</option>
+          <option value="Critical">Critical</option>
+        </select>
+      </label>
+      <label class="relationship-filter-field" for="attached-vulnerability-filter-status">
+        <span>Status</span>
+        <select
+          id="attached-vulnerability-filter-status"
+          [formControl]="filtersForm.controls.status"
+        >
+          <option value="">All statuses</option>
+          <option value="Open">Open</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Fixed">Fixed</option>
+        </select>
+      </label>
+      <button class="relationship-filters-clear" type="button" (click)="clearFilters()">
+        Clear filters
+      </button>
+    </section>
+  }
 
   @if (isLoading()) {
     <p class="asset-vulnerabilities-status" role="status" aria-atomic="true">
@@ -51,13 +99,26 @@
     <p class="asset-vulnerabilities-status" role="alert">Unable to load asset vulnerabilities.</p>
   } @else {
     <div class="asset-vulnerabilities-layout">
-      @if (vulnerabilities().length > 0) {
+      @if (filteredVulnerabilities().length > 0) {
         <app-data-table
           [columns]="visibleVulnerabilityColumns()"
-          [rows]="vulnerabilities()"
+          [rows]="filteredVulnerabilities()"
           [rowKey]="vulnerabilityRowKey"
+          [sortField]="sortField()"
+          [sortDirection]="sortDirection()"
           (cellAction)="handleTableAction($event)"
+          (sortChange)="handleSortChange($event)"
         ></app-data-table>
+        <app-pagination
+          [page]="1"
+          [pageSize]="filteredVulnerabilities().length"
+          [totalCount]="filteredVulnerabilities().length"
+          [totalPages]="1"
+        ></app-pagination>
+      } @else {
+        <p class="asset-vulnerabilities-status" role="status" aria-atomic="true">
+          No matching attached vulnerabilities found.
+        </p>
       }
       @if (canManageVulnerabilities()) {
         <section
@@ -207,7 +268,7 @@
       }
     </div>
   }
-</section>
+</app-page-layout>
 
 <svg class="asset-vulnerabilities-scan-icons" aria-hidden="true" focusable="false">
   <defs>

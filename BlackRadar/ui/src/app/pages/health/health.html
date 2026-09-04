@@ -1,7 +1,7 @@
 @if (session(); as currentSession) {
   <app-top-menu [session]="currentSession" currentUrl="/health"></app-top-menu>
 }
-<section class="health-shell" aria-labelledby="health-heading">
+<app-page-layout class="health-shell" aria-labelledby="health-heading">
   <header>
     <div>
       <h1 id="health-heading">
@@ -113,4 +113,4 @@
       </div>
     </section>
   }
-</section>
+</app-page-layout>

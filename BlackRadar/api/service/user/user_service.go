@@ -221,13 +221,13 @@ func (s *userServiceImpl) ListUsers(ec *appcontext.GinContext, query model.UserL
 	if err != nil {
 		return pagination.Page[model.User]{}, err
 	}
-	users, err := s.userRepository.ListUsers(ec, query.Pagination)
+	users, err := s.userRepository.ListUsers(ec, query)
 	if err != nil {
 		return pagination.Page[model.User]{}, translateUserRepositoryError(err)
 	}
 	if totalPages := users.TotalPages(); totalPages > 0 && users.Page > totalPages {
 		query.Pagination.Page = totalPages
-		users, err = s.userRepository.ListUsers(ec, query.Pagination)
+		users, err = s.userRepository.ListUsers(ec, query)
 	}
 	return users, nil
 }

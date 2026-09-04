@@ -6,6 +6,7 @@ import { EMPTY, map, switchMap } from 'rxjs';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { ConfirmationDialogComponent } from '../../components/confirmation-dialog/confirmation-dialog';
+import { PageLayoutComponent } from '../../components/page-layout/page-layout';
 import { TopMenuComponent } from '../../components/top-menu/top-menu';
 import { AuthService } from '../../services/auth/auth';
 import { Asset, AssetsService, ManualAssetRequest } from '../../services/assets/assets';
@@ -18,6 +19,7 @@ import { semanticLevelClass } from '../../utils/semantic-level';
   imports: [
     CommonModule,
     ConfirmationDialogComponent,
+    PageLayoutComponent,
     ReactiveFormsModule,
     RouterLink,
     TopMenuComponent,

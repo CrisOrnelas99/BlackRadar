@@ -131,6 +131,10 @@
   min-width: 0;
 }
 
+.vulnerability-filters-clear {
+  justify-self: end;
+}
+
 .vulnerability-filters-toggle,
 .vulnerability-filters-clear {
   border: 1px solid var(--BlackRadar-color-dark-blue);
@@ -152,13 +156,6 @@
     var(--BlackRadar-color-navy-black) 8%,
     var(--BlackRadar-color-pure-white)
   );
-}
-
-.vulnerability-filters-sort {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  padding-top: 0.15rem;
 }
 
 .vulnerability-create-card {
@@ -364,8 +361,7 @@
     grid-template-columns: 1fr;
   }
 
-  .vulnerability-filters-primary,
-  .vulnerability-filters-sort {
+  .vulnerability-filters-primary {
     grid-template-columns: 1fr;
   }
 

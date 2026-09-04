@@ -24,7 +24,7 @@ type UserRepositoryInterface interface {
 		when the query fails. Authentication-only fields remain repository data and
 		must be excluded by the controller response DTO.
 	*/
-	ListUsers(ec *appcontext.GinContext, request pagination.Request) (pagination.Page[model.User], error)
+	ListUsers(ec *appcontext.GinContext, query model.UserListQuery) (pagination.Page[model.User], error)
 
 	/*
 		ExistsByUsername reports whether an active user already exists for

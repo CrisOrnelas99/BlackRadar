@@ -1,17 +1,23 @@
 // Authenticated page that lists vulnerabilities attached to one asset.
-import { CommonModule, Location } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { EMPTY, catchError, map, of, switchMap, tap } from 'rxjs';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { EMPTY, catchError, map, of, startWith, switchMap, tap } from 'rxjs';
 
 import { ConfirmationDialogComponent } from '../../components/confirmation-dialog/confirmation-dialog';
 import {
   DataTableCellAction,
   DataTableColumn,
   DataTableComponent,
+  DataTableSortChange,
 } from '../../components/data-table/data-table';
 import { TopMenuComponent } from '../../components/top-menu/top-menu';
+import { TableToolbarComponent } from '../../components/table-toolbar/table-toolbar';
 import { LoadingProgressComponent } from '../../components/loading-progress/loading-progress';
+import { PaginationComponent } from '../../components/pagination/pagination';
+import { PageLayoutComponent } from '../../components/page-layout/page-layout';
 import { AuthService } from '../../services/auth/auth';
 import { BannerService } from '../../services/banner/banner';
 import {
@@ -26,6 +32,10 @@ import {
 } from '../../services/vulnerabilities/vulnerabilities';
 import { semanticLevelClass } from '../../utils/semantic-level';
 
+type RelationshipVulnerabilitySortField =
+  'status' | 'title' | 'severity' | 'cveId' | 'affectedAssetCount';
+type SortDirection = 'asc' | 'desc';
+
 @Component({
   selector: 'app-asset-vulnerabilities-page',
   standalone: true,
@@ -34,7 +44,11 @@ import { semanticLevelClass } from '../../utils/semantic-level';
     ConfirmationDialogComponent,
     DataTableComponent,
     LoadingProgressComponent,
+    PaginationComponent,
+    PageLayoutComponent,
+    ReactiveFormsModule,
     RouterLink,
+    TableToolbarComponent,
     TopMenuComponent,
   ],
   templateUrl: './asset-vulnerabilities.html',
@@ -45,8 +59,8 @@ export class AssetVulnerabilitiesPage {
   private readonly assetsService = inject(AssetsService);
   private readonly authService = inject(AuthService);
   private readonly bannerService = inject(BannerService);
-  private readonly location = inject(Location);
   private readonly router = inject(Router);
+  private readonly formBuilder = inject(FormBuilder);
   private readonly vulnerabilitiesService = inject(VulnerabilitiesService);
 
   readonly session = this.authService.session;
@@ -56,6 +70,42 @@ export class AssetVulnerabilitiesPage {
   });
   readonly asset = signal<Asset | null>(null);
   readonly vulnerabilities = signal<Vulnerability[]>([]);
+  readonly searchQuery = signal('');
+  readonly isFiltersOpen = signal(false);
+  readonly filtersForm = this.formBuilder.nonNullable.group({
+    severity: [''],
+    status: [''],
+  });
+  readonly filtersFormValue = toSignal(
+    this.filtersForm.valueChanges.pipe(startWith(this.filtersForm.getRawValue())),
+    { initialValue: this.filtersForm.getRawValue() },
+  );
+  readonly sortField = signal<RelationshipVulnerabilitySortField>('status');
+  readonly sortDirection = signal<SortDirection>('asc');
+  readonly filteredVulnerabilities = computed(() => {
+    const query = this.searchQuery().trim().toLocaleLowerCase();
+    const filters = this.filtersFormValue();
+    const filtered = this.vulnerabilities().filter((vulnerability) => {
+      const searchableText = `${vulnerability.title} ${vulnerability.cveId}`.toLocaleLowerCase();
+      return (
+        (query === '' || searchableText.includes(query)) &&
+        (filters.severity === '' || vulnerability.severity === filters.severity) &&
+        (filters.status === '' || vulnerability.status === filters.status)
+      );
+    });
+    const field = this.sortField();
+    const direction = this.sortDirection();
+    return [...filtered].sort((left, right) => {
+      const comparison =
+        field === 'affectedAssetCount'
+          ? left.affectedAssetCount - right.affectedAssetCount
+          : String(left[field] ?? '').localeCompare(String(right[field] ?? ''), undefined, {
+              numeric: true,
+              sensitivity: 'base',
+            });
+      return direction === 'asc' ? comparison : comparison * -1;
+    });
+  });
   readonly allVulnerabilities = signal<Vulnerability[]>([]);
   readonly isAttachPanelOpen = signal(false);
   readonly pendingAttachment = signal<Vulnerability | null>(null);
@@ -83,6 +133,7 @@ export class AssetVulnerabilitiesPage {
       key: 'status',
       label: 'Status',
       cellValue: (vulnerability) => vulnerability.status,
+      sortable: true,
     },
     {
       key: 'title',
@@ -91,16 +142,19 @@ export class AssetVulnerabilitiesPage {
       cellType: 'link',
       cellLink: (vulnerability) => ['/vulnerabilities', vulnerability.id],
       width: '55%',
+      sortable: true,
     },
     {
       key: 'severity',
       label: 'Severity',
       cellValue: (vulnerability) => vulnerability.severity,
       cellClass: (vulnerability) => semanticLevelClass(vulnerability.severity),
+      sortable: true,
     },
     {
       key: 'cveId',
       label: 'CVE ID',
+      sortable: true,
       cellValue: (vulnerability) => vulnerability.cveId || '—',
     },
     {
@@ -108,6 +162,7 @@ export class AssetVulnerabilitiesPage {
       label: 'Affected assets',
       cellValue: (vulnerability) => String(vulnerability.affectedAssetCount),
       cellType: 'action',
+      sortable: true,
     },
     {
       key: 'detach',
@@ -160,6 +215,20 @@ export class AssetVulnerabilitiesPage {
       });
   }
 
+  updateSearchQuery(query: string): void {
+    this.searchQuery.set(query);
+  }
+
+  toggleFilters(): void {
+    this.isFiltersOpen.update((isOpen) => !isOpen);
+  }
+
+  clearFilters(): void {
+    this.searchQuery.set('');
+    this.isFiltersOpen.set(false);
+    this.filtersForm.reset({ severity: '', status: '' });
+  }
+
   async handleTableAction(action: DataTableCellAction<Vulnerability>): Promise<void> {
     if (action.column.key === 'affectedAssetCount') {
       await this.router.navigate(['/vulnerabilities', action.row.id, 'assets']);
@@ -169,6 +238,15 @@ export class AssetVulnerabilitiesPage {
     if (action.column.key === 'detach') {
       this.requestDetachment(action.row);
     }
+  }
+
+  handleSortChange(change: DataTableSortChange): void {
+    if (!this.isSortField(change.field)) {
+      return;
+    }
+
+    this.sortField.set(change.field);
+    this.sortDirection.set(change.direction);
   }
 
   toggleAttachPanel(): void {
@@ -377,10 +455,6 @@ export class AssetVulnerabilitiesPage {
     });
   }
 
-  goBack(): void {
-    this.location.back();
-  }
-
   private mergeVulnerabilities(updatedVulnerabilities: Vulnerability[]): void {
     const updatedByID = new Map(
       updatedVulnerabilities.map((vulnerability) => [vulnerability.id, vulnerability]),
@@ -411,6 +485,16 @@ export class AssetVulnerabilitiesPage {
     );
     return attachedVulnerabilities.map(
       (vulnerability) => refreshedByID.get(vulnerability.id) ?? vulnerability,
+    );
+  }
+
+  private isSortField(value: string): value is RelationshipVulnerabilitySortField {
+    return (
+      value === 'status' ||
+      value === 'title' ||
+      value === 'severity' ||
+      value === 'cveId' ||
+      value === 'affectedAssetCount'
     );
   }
 }
