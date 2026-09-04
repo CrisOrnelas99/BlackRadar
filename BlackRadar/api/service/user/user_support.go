@@ -52,7 +52,7 @@ func normalizeUserListQuery(query model.UserListQuery) (model.UserListQuery, err
 	query.Search = strings.TrimSpace(query.Search)
 	query.Role = strings.TrimSpace(query.Role)
 	query.AccountStatus = strings.TrimSpace(query.AccountStatus)
-	if len(query.Search) > 200 {
+	if utf8.RuneCountInString(query.Search) > 200 {
 		return model.UserListQuery{}, ErrInvalidUserManagement
 	}
 	if query.Role != "" && !validRole(query.Role) && query.Role != model.RoleMaster {

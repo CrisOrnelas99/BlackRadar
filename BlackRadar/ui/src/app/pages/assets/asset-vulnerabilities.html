@@ -29,8 +29,8 @@
         </span>
         <h1 id="asset-vulnerabilities-heading">Attached Vulnerabilities</h1>
         <span class="asset-vulnerabilities-count">
-          {{ vulnerabilities().length }}
-          {{ vulnerabilities().length === 1 ? 'vulnerability' : 'vulnerabilities' }} shown
+          {{ filteredVulnerabilities().length }}
+          {{ filteredVulnerabilities().length === 1 ? 'vulnerability' : 'vulnerabilities' }} shown
         </span>
       </div>
       <div class="asset-vulnerabilities-description-row">

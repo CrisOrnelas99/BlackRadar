@@ -29,7 +29,13 @@
       (searchChange)="updateSearchQuery($event)"
     >
       <div class="table-toolbar-actions users-filters-actions">
-        <button class="users-filters-toggle" type="button" (click)="toggleFilters()">
+        <button
+          class="users-filters-toggle"
+          type="button"
+          [attr.aria-expanded]="isFiltersOpen()"
+          aria-controls="users-filters-panel"
+          (click)="toggleFilters()"
+        >
           {{ isFiltersOpen() ? 'Hide filters' : 'Filters' }}
         </button>
       </div>
@@ -38,7 +44,7 @@
 
   <div class="users-content-grid">
     @if (isFiltersOpen()) {
-      <section class="users-filters-panel" aria-label="User filters">
+      <section id="users-filters-panel" class="users-filters-panel" aria-label="User filters">
         <label class="users-filter-field" for="user-filter-role">
           <span>Role</span>
           <select id="user-filter-role" [formControl]="filtersForm.controls.role">
