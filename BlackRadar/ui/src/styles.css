@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import './theme.css';
+@import './relationship-pages.css';
 @source "./app/**/*.{html,ts}";
 
 .relationship-count-link {
