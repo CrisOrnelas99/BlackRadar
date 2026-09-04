@@ -14,9 +14,19 @@ import (
 
 type UserRepositoryInterface interface {
 	/*
-		ListUsers returns all non-soft-deleted user accounts, including both
-		active and deactivated accounts, in stable creation order with the user ID
-		as a deterministic tie-breaker.
+		Current behavior: ListUsers returns a page of non-soft-deleted user
+		accounts, including both active and deactivated accounts. Search filters
+		full name, username, and email; Role filters the role; and AccountStatus
+		filters the account status. The requested sort field may be name, username,
+		email, role, or accountStatus, and the requested sort direction may be asc
+		or desc. Empty filter or sort values are normalized by the service to their
+		defaults before this repository method is called.
+
+		The default ordering is full name ascending. Every ordering, including a
+		requested ordering, uses ID ascending as a deterministic tie-breaker.
+
+		Planned behavior: Additional filters or sort fields are not part of the
+		current repository contract and require an explicit contract update.
 
 		Implementations should use the request-scoped database session when one is
 		available, preserve the account-status value for administrator review, and
@@ -24,7 +34,7 @@ type UserRepositoryInterface interface {
 		when the query fails. Authentication-only fields remain repository data and
 		must be excluded by the controller response DTO.
 	*/
-	ListUsers(ec *appcontext.GinContext, request pagination.Request) (pagination.Page[model.User], error)
+	ListUsers(ec *appcontext.GinContext, query model.UserListQuery) (pagination.Page[model.User], error)
 
 	/*
 		ExistsByUsername reports whether an active user already exists for

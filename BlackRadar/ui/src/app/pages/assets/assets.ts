@@ -9,11 +9,13 @@ import { Subscription } from 'rxjs';
 import {
   DataTableCellAction,
   DataTableColumn,
+  DataTableSortChange,
   DataTableComponent,
 } from '../../components/data-table/data-table';
 import { ConfirmationDialogComponent } from '../../components/confirmation-dialog/confirmation-dialog';
 import { TableToolbarComponent } from '../../components/table-toolbar/table-toolbar';
 import { PaginationComponent } from '../../components/pagination/pagination';
+import { PageLayoutComponent } from '../../components/page-layout/page-layout';
 import { TopMenuComponent } from '../../components/top-menu/top-menu';
 import { AuthService } from '../../services/auth/auth';
 import {
@@ -36,6 +38,7 @@ import { semanticLevelClass } from '../../utils/semantic-level';
     ConfirmationDialogComponent,
     DataTableComponent,
     PaginationComponent,
+    PageLayoutComponent,
     ReactiveFormsModule,
     TableToolbarComponent,
     TopMenuComponent,
@@ -62,7 +65,8 @@ export class AssetsPage {
   readonly totalPages = signal(0);
   readonly searchQuery = signal('');
   readonly isAdvancedFiltersOpen = signal(false);
-  readonly isSortOpen = signal(false);
+  readonly sortField = signal<AssetSortField>('name');
+  readonly sortDirection = signal<SortDirection>('asc');
   readonly isLoading = signal(true);
   readonly hasLoadError = signal(false);
   readonly isCreating = signal(false);
@@ -113,23 +117,27 @@ export class AssetsPage {
       cellValue: (asset) => asset.name,
       cellType: 'action',
       width: '55%',
+      sortable: true,
     },
     {
       key: 'riskLevel',
       label: 'Risk level',
       cellValue: (asset) => asset.riskLevel || 'Low',
       cellClass: (asset) => semanticLevelClass(asset.riskLevel || 'Low'),
+      sortable: true,
     },
     {
       key: 'criticality',
       label: 'Criticality',
       cellValue: (asset) => asset.criticality,
+      sortable: true,
     },
     {
       key: 'vulnerabilityCount',
       label: 'Vulnerabilities',
       cellValue: (asset) => String(asset.vulnerabilityCount),
       cellType: 'action',
+      sortable: true,
     },
     {
       key: 'delete',
@@ -225,14 +233,24 @@ export class AssetsPage {
     this.isAdvancedFiltersOpen.update((currentValue) => !currentValue);
   }
 
-  toggleSort(): void {
-    this.isSortOpen.update((currentValue) => !currentValue);
+  handleSortChange(change: DataTableSortChange): void {
+    if (!this.isAssetSortField(change.field)) {
+      return;
+    }
+
+    this.sortField.set(change.field);
+    this.sortDirection.set(change.direction);
+    this.filtersForm.patchValue({
+      sortField: change.field,
+      sortDirection: change.direction,
+    });
   }
 
   clearFilters(): void {
     this.searchQuery.set('');
     this.isAdvancedFiltersOpen.set(false);
-    this.isSortOpen.set(false);
+    this.sortField.set('name');
+    this.sortDirection.set('asc');
     this.filtersForm.reset(
       {
         criticality: '',
@@ -387,5 +405,20 @@ export class AssetsPage {
           .filter((value): value is string => !!value),
       ),
     ].sort((leftValue, rightValue) => leftValue.localeCompare(rightValue));
+  }
+
+  private isAssetSortField(value: string): value is AssetSortField {
+    return (
+      value === 'name' ||
+      value === 'criticality' ||
+      value === 'riskLevel' ||
+      value === 'vulnerabilityCount' ||
+      value === 'type' ||
+      value === 'owner' ||
+      value === 'operatingSystem' ||
+      value === 'vendor' ||
+      value === 'product' ||
+      value === 'version'
+    );
   }
 }

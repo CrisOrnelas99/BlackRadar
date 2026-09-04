@@ -5,7 +5,13 @@
   ></app-top-menu>
 }
 
-<section class="asset-details-page" aria-labelledby="asset-details-heading">
+<app-page-layout
+  class="asset-details-page"
+  role="main"
+  [backLabel]="'Back to Assets'"
+  [backLink]="'/assets'"
+  aria-labelledby="asset-details-heading"
+>
   <header class="asset-details-page-header">
     <div class="asset-details-page-title">
       <div class="asset-details-page-title-row">
@@ -17,13 +23,10 @@
         <h1 id="asset-details-heading">Asset Details</h1>
         <span class="asset-details-asset-id">Asset ID: {{ asset()?.id || 'Not available' }}</span>
       </div>
-      <p class="asset-details-page-subtitle">
-        Review the configuration, ownership, risk, and vulnerabilities associated with this asset.
-      </p>
-    </div>
-    <div class="asset-details-page-meta">
-      <div class="asset-details-assets-link">
-        <a routerLink="/assets">Back to Assets</a>
+      <div class="asset-details-page-subtitle-row">
+        <p class="asset-details-page-subtitle">
+          Review the configuration, ownership, risk, and vulnerabilities associated with this asset.
+        </p>
       </div>
     </div>
   </header>
@@ -265,4 +268,4 @@
       ></app-confirmation-dialog>
     }
   }
-</section>
+</app-page-layout>

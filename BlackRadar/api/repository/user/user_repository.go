@@ -37,22 +37,55 @@ func NewRefreshSessionRepository(db *gorm.DB) *RefreshSessionRepository {
 }
 
 // ListUsers returns active and deactivated user accounts in stable creation order.
-func (r *UserRepository) ListUsers(ec *appcontext.GinContext, request pagination.Request) (pagination.Page[model.User], error) {
+func (r *UserRepository) ListUsers(ec *appcontext.GinContext, query model.UserListQuery) (pagination.Page[model.User], error) {
 	if err := RequirePermission(ec, r.dbForContext(ec), model.PermissionManageUsers); err != nil {
 		return pagination.Page[model.User]{}, err
 	}
+	request := query.Pagination
 	result := pagination.Page[model.User]{Page: request.Page, PageSize: request.PageSize, Items: []model.User{}}
 	database := r.dbForContext(ec).WithContext(ec.RequestContext()).Model(&model.User{})
+	if search := strings.TrimSpace(query.Search); search != "" {
+		database = database.Where("(full_name ILIKE ? OR username ILIKE ? OR email ILIKE ?)", userSearchPattern(search), userSearchPattern(search), userSearchPattern(search))
+	}
+	if query.Role != "" {
+		database = database.Where("role = ?", query.Role)
+	}
+	if query.AccountStatus != "" {
+		database = database.Where("account_status = ?", query.AccountStatus)
+	}
 	if err := database.Count(&result.TotalCount).Error; err != nil {
 		return pagination.Page[model.User]{}, fmt.Errorf("%w: count users: %w", ErrPersistenceFailure, err)
 	}
 	if result.TotalCount == 0 {
 		return result, nil
 	}
-	if err := database.Select("id, full_name, username, email, role, account_status, created_at, updated_at").Order("created_at ASC, id ASC").Offset((request.Page - 1) * request.PageSize).Limit(request.PageSize).Find(&result.Items).Error; err != nil {
+	if err := database.Select("id, full_name, username, email, role, account_status, created_at, updated_at").Order(userListOrder(query)).Order("id ASC").Offset((request.Page - 1) * request.PageSize).Limit(request.PageSize).Find(&result.Items).Error; err != nil {
 		return pagination.Page[model.User]{}, fmt.Errorf("%w: read user page: %w", ErrPersistenceFailure, err)
 	}
 	return result, nil
+}
+
+func userSearchPattern(value string) string {
+	escaped := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(strings.ToLower(value))
+	return "%" + escaped + "%"
+}
+
+func userListOrder(query model.UserListQuery) string {
+	column := "LOWER(full_name)"
+	switch query.SortField {
+	case model.UserSortUsername:
+		column = "LOWER(username)"
+	case model.UserSortEmail:
+		column = "LOWER(email)"
+	case model.UserSortRole:
+		column = "LOWER(role)"
+	case model.UserSortStatus:
+		column = "LOWER(account_status)"
+	}
+	if query.SortDirection == model.UserSortDescending {
+		return column + " DESC"
+	}
+	return column + " ASC"
 }
 
 // ExistsByUsername reports whether a username already exists.

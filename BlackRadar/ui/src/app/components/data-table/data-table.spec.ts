@@ -72,4 +72,25 @@ describe('DataTableComponent', () => {
     expect(link.textContent.trim()).toBe('Primary server');
     expect(link.getAttribute('href')).toBe('/assets/asset-1');
   });
+
+  it('emits ascending and descending changes from sortable header arrows', () => {
+    const sortableColumn: DataTableColumn<TestRow> = {
+      key: 'name',
+      label: 'Name',
+      cellValue: (row) => row.name,
+      sortable: true,
+    };
+    const sortSpy = vi.spyOn(component.sortChange, 'emit');
+    fixture.componentRef.setInput('columns', [sortableColumn]);
+    fixture.componentRef.setInput('sortField', 'name');
+    fixture.componentRef.setInput('sortDirection', 'asc');
+    fixture.detectChanges();
+
+    const sortButton = fixture.nativeElement.querySelector(
+      '.data-table-sort-button',
+    ) as HTMLButtonElement;
+    sortButton.click();
+
+    expect(sortSpy).toHaveBeenCalledWith({ field: 'name', direction: 'desc' });
+  });
 });

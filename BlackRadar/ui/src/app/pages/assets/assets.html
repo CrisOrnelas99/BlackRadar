@@ -2,7 +2,7 @@
   <app-top-menu [session]="currentSession" currentUrl="/assets"></app-top-menu>
 }
 
-<section class="assets-page-shell" aria-labelledby="assets-heading">
+<app-page-layout class="assets-page-shell" aria-labelledby="assets-heading">
   <div class="assets-page-header">
     <div class="assets-page-heading">
       <div class="assets-page-title-row">
@@ -29,48 +29,14 @@
       (searchChange)="updateSearchQuery($event)"
     >
       <div class="table-toolbar-actions asset-filters-secondary-actions">
-        <button class="asset-filters-toggle" type="button" (click)="toggleSort()">
-          {{ isSortOpen() ? 'Hide sorting' : 'Sorting' }}
-        </button>
         <button class="asset-filters-toggle" type="button" (click)="toggleAdvancedFilters()">
           {{ isAdvancedFiltersOpen() ? 'Hide filters' : 'Filters' }}
-        </button>
-        <button class="asset-filters-clear" type="button" (click)="clearFilters()">
-          Clear filters
         </button>
       </div>
     </app-table-toolbar>
   </div>
 
-  <section class="asset-filters-panel" aria-label="Asset filters and sorting">
-    @if (isSortOpen()) {
-      <div class="asset-filters-sort">
-        <label class="asset-filter-field" for="asset-sort-field">
-          <span>Sort by</span>
-          <select id="asset-sort-field" [formControl]="filtersForm.controls.sortField">
-            <option value="name">Name</option>
-            <option value="criticality">Criticality</option>
-            <option value="riskLevel">Risk level</option>
-            <option value="vulnerabilityCount">Vulnerability count</option>
-            <option value="type">Type</option>
-            <option value="owner">Owner</option>
-            <option value="operatingSystem">Operating system</option>
-            <option value="vendor">Vendor</option>
-            <option value="product">Product</option>
-            <option value="version">Version</option>
-          </select>
-        </label>
-
-        <label class="asset-filter-field" for="asset-sort-direction">
-          <span>Order</span>
-          <select id="asset-sort-direction" [formControl]="filtersForm.controls.sortDirection">
-            <option value="asc">Ascending</option>
-            <option value="desc">Descending</option>
-          </select>
-        </label>
-      </div>
-    }
-
+  <section class="asset-filters-panel" aria-label="Asset filters">
     @if (isAdvancedFiltersOpen()) {
       <div class="asset-filters-primary">
         <label class="asset-filter-field" for="asset-filter-criticality">
@@ -209,6 +175,9 @@
             />
           </div>
         </div>
+        <button class="asset-filters-clear" type="button" (click)="clearFilters()">
+          Clear filters
+        </button>
       </div>
     }
   </section>
@@ -461,7 +430,10 @@
           [columns]="visibleAssetColumns()"
           [rows]="assets()"
           [rowKey]="assetRowKey"
+          [sortField]="sortField()"
+          [sortDirection]="sortDirection()"
           (cellAction)="handleTableAction($event)"
+          (sortChange)="handleSortChange($event)"
         ></app-data-table>
       }
       @if (!isLoading() && !hasLoadError() && assets().length > 0) {
@@ -489,4 +461,4 @@
       (confirm)="confirmAssetDeletion()"
     ></app-confirmation-dialog>
   }
-</section>
+</app-page-layout>

@@ -3,7 +3,43 @@
     <thead>
       <tr>
         @for (column of columns(); track column.key) {
-          <th scope="col" [style.width]="column.width">{{ column.label }}</th>
+          <th
+            scope="col"
+            [style.width]="column.width"
+            [attr.aria-sort]="
+              column.sortable && sortField() === column.key ? sortDirection() + 'ending' : null
+            "
+          >
+            <span class="data-table-header-content">
+              {{ column.label }}
+              @if (column.sortable) {
+                <button
+                  type="button"
+                  class="data-table-sort-button"
+                  [attr.aria-label]="sortLabel(column)"
+                  [attr.title]="sortLabel(column)"
+                  (click)="emitSortChange(column)"
+                >
+                  <svg viewBox="0 0 12 16" aria-hidden="true">
+                    <path
+                      class="data-table-sort-arrow-up"
+                      [class.data-table-sort-arrow-active]="
+                        sortField() === column.key && sortDirection() === 'asc'
+                      "
+                      d="m2 6 4-4 4 4"
+                    />
+                    <path
+                      class="data-table-sort-arrow-down"
+                      [class.data-table-sort-arrow-active]="
+                        sortField() === column.key && sortDirection() === 'desc'
+                      "
+                      d="m2 10 4 4 4-4"
+                    />
+                  </svg>
+                </button>
+              }
+            </span>
+          </th>
         }
       </tr>
     </thead>
@@ -12,7 +48,14 @@
         <tr>
           @for (column of columns(); track column.key) {
             <td [style.width]="column.width" [class]="column.cellClass?.(row) || ''">
-              @if (column.cellType === 'action') {
+              @if (column.cellType === 'badge') {
+                <span class="data-table-badge" [class]="column.cellClass?.(row) || ''">
+                  {{ column.cellValue(row) }}
+                </span>
+              } @else if (
+                column.cellType === 'action' &&
+                (column.cellActionEnabled === undefined || column.cellActionEnabled(row))
+              ) {
                 <button
                   type="button"
                   class="data-table-action"

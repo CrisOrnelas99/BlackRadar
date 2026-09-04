@@ -3,6 +3,7 @@ import { Component, inject, signal } from '@angular/core';
 import { forkJoin } from 'rxjs';
 
 import { TopMenuComponent } from '../../components/top-menu/top-menu';
+import { PageLayoutComponent } from '../../components/page-layout/page-layout';
 import { AuthService } from '../../services/auth/auth';
 import { AssetsService } from '../../services/assets/assets';
 import { VulnerabilitiesService } from '../../services/vulnerabilities/vulnerabilities';
@@ -32,7 +33,7 @@ type DashboardOverview = {
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CommonModule, TopMenuComponent],
+  imports: [CommonModule, PageLayoutComponent, TopMenuComponent],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
 })

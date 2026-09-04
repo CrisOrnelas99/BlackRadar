@@ -16,12 +16,19 @@
   align-items: start;
   justify-content: space-between;
   gap: 1rem;
-  width: min(100%, 72rem);
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
 }
 
-.asset-vulnerabilities-page-header > div {
-  width: 100%;
+.asset-vulnerabilities-heading {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.asset-vulnerabilities-page-header app-table-toolbar {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: auto;
 }
 
 .asset-vulnerabilities-title-row {
@@ -35,24 +42,6 @@
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
-}
-
-.context-direction-icon {
-  width: 1.45rem;
-  height: 1.45rem;
-  stroke: var(--brandRadar-color-blue);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.6;
-}
-
-.context-direction-arrow {
-  width: 1.15rem;
-  height: 1.15rem;
-  stroke: var(--BlackRadar-color-light-gray);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.7;
 }
 
 .asset-vulnerabilities-count {
@@ -97,15 +86,21 @@
 .asset-vulnerabilities-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
-  gap: 1.5rem;
-  width: min(100%, 72rem);
-  margin: 0 auto;
+  column-gap: 1.5rem;
+  row-gap: 0;
+  width: 100%;
+  margin: 0;
   align-items: start;
 }
 
 .asset-vulnerabilities-layout > app-data-table {
   min-width: 0;
   margin-top: 0.5rem;
+}
+
+.asset-vulnerabilities-layout > app-pagination {
+  grid-column: 1;
+  min-width: 0;
 }
 
 .asset-vulnerabilities-manage-card {
@@ -201,57 +196,6 @@
   margin: 0;
   color: var(--BlackRadar-color-light-gray);
   font-size: 0.85rem;
-}
-
-.asset-vulnerabilities-scan-progress {
-  height: 0.5rem;
-  margin-bottom: 0.65rem;
-  overflow: hidden;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--BlackRadar-color-light-blue) 65%, transparent);
-}
-
-.asset-vulnerabilities-scan-progress-indicator {
-  width: 100%;
-  height: 100%;
-  transform: scaleX(0);
-  transform-origin: left;
-  animation: asset-vulnerabilities-scan-progress 4s linear infinite;
-}
-
-@keyframes asset-vulnerabilities-scan-progress {
-  0% {
-    transform: scaleX(0);
-    background: var(--BlackRadar-color-severe);
-  }
-
-  25% {
-    transform: scaleX(0.25);
-    background: var(--BlackRadar-color-error);
-  }
-
-  50% {
-    transform: scaleX(0.5);
-    background: var(--BlackRadar-color-warning);
-  }
-
-  75% {
-    transform: scaleX(0.75);
-    background: var(--BlackRadar-color-success);
-  }
-
-  100% {
-    transform: scaleX(1);
-    background: var(--BlackRadar-color-success);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .asset-vulnerabilities-scan-progress-indicator {
-    transform: scaleX(1);
-    animation: none;
-    background: var(--BlackRadar-color-severe);
-  }
 }
 
 .asset-vulnerabilities-scan-candidates {
@@ -388,32 +332,6 @@
   font-size: 0.85rem;
 }
 
-.relationship-context-name {
-  color: var(--brandRadar-color-blue);
-  font-weight: 700;
-}
-
-.asset-vulnerabilities-page-header a,
-.asset-vulnerabilities-back-link {
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: var(--brandRadar-color-blue);
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.asset-vulnerabilities-page-header a:hover,
-.asset-vulnerabilities-back-link:hover {
-  text-decoration: underline;
-  text-underline-offset: 0.2rem;
-}
-
-.asset-vulnerabilities-back-link {
-  margin-right: 0;
-}
-
 .asset-vulnerabilities-status {
   margin: 0;
   color: var(--BlackRadar-color-light-gray);
@@ -422,6 +340,11 @@
 @media (max-width: 44rem) {
   .asset-vulnerabilities-page-header {
     flex-direction: column;
+  }
+
+  .asset-vulnerabilities-page-header app-table-toolbar {
+    width: 100%;
+    margin-left: 0;
   }
 
   .asset-vulnerabilities-layout {

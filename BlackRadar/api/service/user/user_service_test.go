@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -79,6 +80,23 @@ func TestUserServiceAdminAccountChanges(t *testing.T) {
 	}
 	if repo.updatedRole != model.RoleAdmin {
 		t.Fatalf("expected role %q, got %q", model.RoleAdmin, repo.updatedRole)
+	}
+}
+
+func TestUserServiceListUsersPropagatesClampedPageRetryError(t *testing.T) {
+	repo := &fakeUserRepository{
+		listPages: []pagination.Page[model.User]{
+			{Page: 2, PageSize: 1, TotalCount: 1},
+		},
+		listErrors: []error{nil, userrepo.ErrPersistenceFailure},
+	}
+	svc := NewUserService(newTestJWTManager(t), repo, &fakeRefreshSessionRepository{})
+	ctx := newUserServiceContext(t)
+	ctx.SetUserRole(model.RoleMaster)
+
+	_, err := svc.ListUsers(ctx, model.UserListQuery{Pagination: pagination.Request{Page: 2, PageSize: 1}})
+	if !errors.Is(err, ErrUserDependency) {
+		t.Fatalf("expected retry persistence error to translate to user dependency, got %v", err)
 	}
 }
 
@@ -164,6 +182,26 @@ func TestUserServiceSupport(t *testing.T) {
 	}
 	if err := validateCreateUserInput(CreateUserInput{Username: "analyst", Email: "Analyst <analyst@example.com>", Password: "Password1!"}); !errors.Is(err, ErrInvalidCreateUserRequest) {
 		t.Fatalf("expected display-name email to be rejected, got %v", err)
+	}
+}
+
+func TestNormalizeUserListQueryUsesUnicodeCodePointLimit(t *testing.T) {
+	valid, err := normalizeUserListQuery(model.UserListQuery{
+		Pagination: pagination.Request{Page: 1},
+		Search:     strings.Repeat("é", 200),
+	})
+	if err != nil {
+		t.Fatalf("expected 200 Unicode code points to be accepted, got %v", err)
+	}
+	if valid.Search == "" {
+		t.Fatal("expected normalized search value to be preserved")
+	}
+
+	if _, err := normalizeUserListQuery(model.UserListQuery{
+		Pagination: pagination.Request{Page: 1},
+		Search:     strings.Repeat("é", 201),
+	}); !errors.Is(err, ErrInvalidUserManagement) {
+		t.Fatalf("expected more than 200 Unicode code points to be rejected, got %v", err)
 	}
 }
 
@@ -465,6 +503,9 @@ type fakeUserRepository struct {
 	activeAdminCount     int64
 	updatedRole          string
 	updatedStatus        string
+	listPages            []pagination.Page[model.User]
+	listErrors           []error
+	listCalls            int
 }
 
 type testTransactionRunner struct{}
@@ -473,8 +514,16 @@ func (testTransactionRunner) Run(ec *appcontext.GinContext, operation func(*appc
 	return operation(ec)
 }
 
-func (f *fakeUserRepository) ListUsers(ec *appcontext.GinContext, request pagination.Request) (pagination.Page[model.User], error) {
-	return pagination.Page[model.User]{Items: f.users, Page: request.Page, PageSize: request.PageSize, TotalCount: int64(len(f.users))}, nil
+func (f *fakeUserRepository) ListUsers(ec *appcontext.GinContext, query model.UserListQuery) (pagination.Page[model.User], error) {
+	call := f.listCalls
+	f.listCalls++
+	if call < len(f.listErrors) && f.listErrors[call] != nil {
+		return pagination.Page[model.User]{}, f.listErrors[call]
+	}
+	if call < len(f.listPages) {
+		return f.listPages[call], nil
+	}
+	return pagination.Page[model.User]{Items: f.users, Page: query.Pagination.Page, PageSize: query.Pagination.PageSize, TotalCount: int64(len(f.users))}, nil
 }
 func (f *fakeUserRepository) UpdateRole(ec *appcontext.GinContext, userID string, role string, updatedByID string) (model.User, error) {
 	f.updatedRole = role

@@ -4,6 +4,7 @@ import { Component, inject } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { AuthService } from '../../services/auth/auth';
+import { PageLayoutComponent } from '../../components/page-layout/page-layout';
 
 export type ErrorPageDefinition = {
   code: '401' | '403' | '404' | '500';
@@ -17,6 +18,7 @@ export type ErrorPageDefinition = {
 @Component({
   selector: 'app-error-page',
   standalone: true,
+  imports: [PageLayoutComponent],
   templateUrl: './error-page.html',
   styleUrl: './error-page.css',
 })

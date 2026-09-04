@@ -1,0 +1,48 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.page-layout-frame {
+  display: contents;
+  width: 100%;
+}
+
+.page-layout-header,
+.page-layout-content,
+.page-layout-pagination {
+  width: 100%;
+}
+
+.page-layout-header:empty,
+.page-layout-content:has(.page-layout-main:empty):has(.page-layout-side:empty),
+.page-layout-pagination:empty {
+  display: none;
+}
+
+.page-layout-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.page-layout-main,
+.page-layout-side {
+  min-width: 0;
+}
+
+.page-layout-main:empty,
+.page-layout-side:empty {
+  display: none;
+}
+
+.page-layout-main:only-child {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 700px) {
+  .page-layout-content {
+    grid-template-columns: 1fr;
+  }
+}

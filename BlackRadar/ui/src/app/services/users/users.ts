@@ -6,6 +6,17 @@ import { environment } from '../../../environments/environment';
 export type UserRole = 'master' | 'admin' | 'user';
 export type UserPermission = string;
 export type UserAccountStatus = 'active' | 'deactivated';
+export type UserSortField = 'name' | 'username' | 'email' | 'role' | 'accountStatus';
+export type SortDirection = 'asc' | 'desc';
+
+export interface UserListQuery {
+  page: number;
+  search?: string;
+  role?: UserRole;
+  accountStatus?: UserAccountStatus;
+  sortField?: UserSortField;
+  sortDirection?: SortDirection;
+}
 
 export interface Pagination {
   page: number;
@@ -43,8 +54,13 @@ export class UsersService {
   private readonly http = inject(HttpClient);
   private readonly usersUrl = `${environment.apiUrl}/users`;
 
-  getUsers(page: number) {
-    const params = new HttpParams().set('page', page);
+  getUsers(query: UserListQuery) {
+    let params = new HttpParams().set('page', query.page);
+    if (query.search) params = params.set('search', query.search);
+    if (query.role) params = params.set('role', query.role);
+    if (query.accountStatus) params = params.set('accountStatus', query.accountStatus);
+    if (query.sortField) params = params.set('sortField', query.sortField);
+    if (query.sortDirection) params = params.set('sortDirection', query.sortDirection);
     return this.http.get<UserPageResponse>(this.usersUrl, { params });
   }
 

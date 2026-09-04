@@ -19,9 +19,24 @@ const (
 	AccountStatusDeactivated = "deactivated"
 )
 
-// UserListQuery contains the bounded pagination requested for administrator account review.
+const (
+	UserSortName       = "name"
+	UserSortUsername   = "username"
+	UserSortEmail      = "email"
+	UserSortRole       = "role"
+	UserSortStatus     = "accountStatus"
+	UserSortAscending  = "asc"
+	UserSortDescending = "desc"
+)
+
+// UserListQuery contains bounded filtering and sorting requested for administrator account review.
 type UserListQuery struct {
-	Pagination pagination.Request
+	Pagination    pagination.Request
+	Search        string `form:"search"`
+	Role          string `form:"role"`
+	AccountStatus string `form:"accountStatus"`
+	SortField     string `form:"sortField"`
+	SortDirection string `form:"sortDirection"`
 }
 
 // User represents an application account stored in PostgreSQL.

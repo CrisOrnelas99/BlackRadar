@@ -2,7 +2,7 @@
   <app-top-menu [session]="currentSession" currentUrl="/users"></app-top-menu>
 }
 
-<section class="users-page-shell" aria-labelledby="users-heading">
+<app-page-layout class="users-page-shell" aria-labelledby="users-heading">
   <div class="users-page-header">
     <div class="users-page-heading">
       <div class="users-page-title-row">
@@ -21,9 +21,52 @@
         Create accounts and manage access for the people using BlackRadar.
       </p>
     </div>
+    <app-table-toolbar
+      [searchLabel]="'Name, username, or email'"
+      [searchId]="'user-search-query'"
+      [searchPlaceholder]="'Search users'"
+      [searchValue]="searchQuery()"
+      (searchChange)="updateSearchQuery($event)"
+    >
+      <div class="table-toolbar-actions users-filters-actions">
+        <button
+          class="users-filters-toggle"
+          type="button"
+          [attr.aria-expanded]="isFiltersOpen()"
+          aria-controls="users-filters-panel"
+          (click)="toggleFilters()"
+        >
+          {{ isFiltersOpen() ? 'Hide filters' : 'Filters' }}
+        </button>
+      </div>
+    </app-table-toolbar>
   </div>
 
   <div class="users-content-grid">
+    @if (isFiltersOpen()) {
+      <section id="users-filters-panel" class="users-filters-panel" aria-label="User filters">
+        <label class="users-filter-field" for="user-filter-role">
+          <span>Role</span>
+          <select id="user-filter-role" [formControl]="filtersForm.controls.role">
+            <option value="">All roles</option>
+            <option value="user">Standard user</option>
+            <option value="admin">Administrator</option>
+            <option value="master">System administrator</option>
+          </select>
+        </label>
+        <label class="users-filter-field" for="user-filter-status">
+          <span>Status</span>
+          <select id="user-filter-status" [formControl]="filtersForm.controls.accountStatus">
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="deactivated">Deactivated</option>
+          </select>
+        </label>
+        <button class="users-filters-clear" type="button" (click)="clearFilters()">
+          Clear filters
+        </button>
+      </section>
+    }
     <div class="users-table-section">
       @if (isLoading()) {
         <p class="users-status" role="status" aria-atomic="true">Loading users...</p>
@@ -32,49 +75,15 @@
       } @else if (users().length === 0) {
         <p class="users-status" role="status" aria-atomic="true">No users found.</p>
       } @else {
-        <div class="users-table-wrapper">
-          <table class="users-table">
-            <caption class="sr-only">
-              BlackRadar user accounts
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Name</th>
-                <th scope="col">Username</th>
-                <th scope="col">Email</th>
-                <th scope="col">Role</th>
-                <th scope="col">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (user of users(); track user.id) {
-                <tr>
-                  <td class="users-name">
-                    @if (canOpenUserProfile(user)) {
-                      <a
-                        [routerLink]="
-                          user.id === session()?.user?.id ? '/profile' : ['/profile', user.id]
-                        "
-                      >
-                        {{ user.fullName }}
-                      </a>
-                    } @else {
-                      <span>{{ user.fullName }}</span>
-                    }
-                  </td>
-                  <td>{{ user.username }}</td>
-                  <td>{{ user.email }}</td>
-                  <td>{{ roleLabel(user.role) }}</td>
-                  <td>
-                    <span class="users-status-badge" [class]="statusClass(user.accountStatus)">
-                      {{ statusLabel(user.accountStatus) }}
-                    </span>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
+        <app-data-table
+          [columns]="userColumns"
+          [rows]="users()"
+          [rowKey]="userRowKey"
+          [sortField]="sortField()"
+          [sortDirection]="sortDirection()"
+          (cellAction)="handleTableAction($event)"
+          (sortChange)="handleSortChange($event)"
+        ></app-data-table>
       }
       @if (!isLoading() && !hasLoadError() && users().length > 0) {
         <app-pagination
@@ -185,4 +194,4 @@
       (confirm)="confirmCreate()"
     ></app-confirmation-dialog>
   }
-</section>
+</app-page-layout>

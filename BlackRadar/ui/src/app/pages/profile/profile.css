@@ -18,7 +18,8 @@
 
 .profile-page-header {
   display: flex;
-  align-items: end;
+  align-items: stretch;
+  flex-direction: column;
   justify-content: space-between;
   gap: 1.5rem;
   grid-column: 1 / -1;
@@ -36,6 +37,7 @@
 }
 
 .profile-page-title {
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -59,23 +61,6 @@
   align-items: end;
   justify-content: space-between;
   gap: 1.5rem;
-}
-
-.profile-back-nav {
-  order: 1;
-  margin: 0 0 0.75rem;
-  text-align: right;
-}
-
-.profile-back-nav a {
-  color: var(--brandRadar-color-blue);
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.profile-back-nav a:hover {
-  text-decoration: underline;
-  text-underline-offset: 0.2rem;
 }
 
 .profile-user-id {
@@ -312,11 +297,6 @@
     align-items: start;
     flex-direction: column;
     gap: 0.5rem;
-  }
-
-  .profile-page-meta {
-    align-self: flex-start;
-    text-align: left;
   }
 
   .profile-page {

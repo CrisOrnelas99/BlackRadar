@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
 import { ConfirmationDialogComponent } from '../../components/confirmation-dialog/confirmation-dialog';
+import { PageLayoutComponent } from '../../components/page-layout/page-layout';
 import { TopMenuComponent } from '../../components/top-menu/top-menu';
 import { AuthService } from '../../services/auth/auth';
 import { BannerService } from '../../services/banner/banner';
@@ -16,6 +17,7 @@ import { ManagedUser, UserAccountStatus, UserRole, UsersService } from '../../se
   imports: [
     ConfirmationDialogComponent,
     DatePipe,
+    PageLayoutComponent,
     ReactiveFormsModule,
     RouterLink,
     TopMenuComponent,

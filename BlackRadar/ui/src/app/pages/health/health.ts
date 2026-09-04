@@ -4,6 +4,7 @@ import { Component, inject, signal } from '@angular/core';
 import { finalize } from 'rxjs';
 import { TopMenuComponent } from '../../components/top-menu/top-menu';
 import { LoadingProgressComponent } from '../../components/loading-progress/loading-progress';
+import { PageLayoutComponent } from '../../components/page-layout/page-layout';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../services/auth/auth';
 
@@ -20,7 +21,7 @@ type HealthSummary = {
 @Component({
   selector: 'app-health-page',
   standalone: true,
-  imports: [DatePipe, LoadingProgressComponent, TopMenuComponent],
+  imports: [DatePipe, LoadingProgressComponent, PageLayoutComponent, TopMenuComponent],
   templateUrl: './health.html',
   styleUrl: './health.css',
 })

@@ -8,11 +8,13 @@ import { startWith } from 'rxjs';
 import {
   DataTableCellAction,
   DataTableColumn,
+  DataTableSortChange,
   DataTableComponent,
 } from '../../components/data-table/data-table';
 import { ConfirmationDialogComponent } from '../../components/confirmation-dialog/confirmation-dialog';
 import { TableToolbarComponent } from '../../components/table-toolbar/table-toolbar';
 import { PaginationComponent } from '../../components/pagination/pagination';
+import { PageLayoutComponent } from '../../components/page-layout/page-layout';
 import { TopMenuComponent } from '../../components/top-menu/top-menu';
 import { AuthService } from '../../services/auth/auth';
 import {
@@ -33,6 +35,7 @@ type SortDirection = 'asc' | 'desc';
     ConfirmationDialogComponent,
     DataTableComponent,
     PaginationComponent,
+    PageLayoutComponent,
     ReactiveFormsModule,
     TableToolbarComponent,
     TopMenuComponent,
@@ -59,7 +62,6 @@ export class VulnerabilitiesPage {
   readonly vulnerabilityPendingDeletion = signal<Vulnerability | null>(null);
   readonly searchQuery = signal('');
   readonly isFiltersOpen = signal(false);
-  readonly isSortOpen = signal(false);
   readonly isCreating = signal(false);
   readonly isCreateConfirmationOpen = signal(false);
   readonly isCreateOpen = signal(false);
@@ -97,6 +99,12 @@ export class VulnerabilitiesPage {
     this.filtersForm.valueChanges.pipe(startWith(this.filtersForm.getRawValue())),
     { initialValue: this.filtersForm.getRawValue() },
   );
+  readonly activeSortField = computed(() =>
+    this.coerceSortField(this.filtersFormValue().sortField),
+  );
+  readonly activeSortDirection = computed(() =>
+    this.coerceSortDirection(this.filtersFormValue().sortDirection),
+  );
   readonly filteredVulnerabilities = computed(() => {
     const query = this.searchQuery().trim().toLocaleLowerCase();
     const formValue = this.filtersFormValue();
@@ -123,6 +131,7 @@ export class VulnerabilitiesPage {
       key: 'status',
       label: 'Status',
       cellValue: (vulnerability) => vulnerability.status,
+      sortable: true,
     },
     {
       key: 'title',
@@ -131,16 +140,19 @@ export class VulnerabilitiesPage {
       cellType: 'link',
       cellLink: (vulnerability) => ['/vulnerabilities', vulnerability.id],
       width: '55%',
+      sortable: true,
     },
     {
       key: 'severity',
       label: 'Severity',
       cellValue: (vulnerability) => vulnerability.severity,
       cellClass: (vulnerability) => semanticLevelClass(vulnerability.severity),
+      sortable: true,
     },
     {
       key: 'cveId',
       label: 'CVE ID',
+      sortable: true,
       cellValue: (vulnerability) => vulnerability.cveId || '—',
     },
     {
@@ -151,6 +163,7 @@ export class VulnerabilitiesPage {
           ? '—'
           : String(vulnerability.affectedAssetCount),
       cellType: 'action',
+      sortable: true,
     },
     {
       key: 'delete',
@@ -176,10 +189,6 @@ export class VulnerabilitiesPage {
     this.searchQuery.set(query);
   }
 
-  toggleSort(): void {
-    this.isSortOpen.update((isOpen) => !isOpen);
-  }
-
   toggleFilters(): void {
     this.isFiltersOpen.update((isOpen) => !isOpen);
   }
@@ -187,12 +196,22 @@ export class VulnerabilitiesPage {
   clearFilters(): void {
     this.searchQuery.set('');
     this.isFiltersOpen.set(false);
-    this.isSortOpen.set(false);
     this.filtersForm.reset({
       severity: '',
       status: '',
       sortField: 'title',
       sortDirection: 'asc',
+    });
+  }
+
+  handleSortChange(change: DataTableSortChange): void {
+    if (!this.isVulnerabilitySortField(change.field)) {
+      return;
+    }
+
+    this.filtersForm.patchValue({
+      sortField: change.field,
+      sortDirection: change.direction,
     });
   }
 
@@ -339,5 +358,15 @@ export class VulnerabilitiesPage {
 
   private coerceSortDirection(value: unknown): SortDirection {
     return value === 'desc' ? 'desc' : 'asc';
+  }
+
+  private isVulnerabilitySortField(value: string): value is VulnerabilitySortField {
+    return (
+      value === 'cveId' ||
+      value === 'title' ||
+      value === 'severity' ||
+      value === 'status' ||
+      value === 'affectedAssetCount'
+    );
   }
 }
