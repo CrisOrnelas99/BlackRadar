@@ -1,163 +1,117 @@
-// Package controller tests AI diagnostic controller request handling.
+// Package controller tests dashboard AI HTTP response mapping.
 package controller
 
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 
-	shared "blackradar/api/controller/shared"
-	openaiexternal "blackradar/api/external/openai"
 	contextmiddleware "blackradar/api/middleware/context"
+	"blackradar/api/middleware/permissions"
+	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
 	aiservice "blackradar/api/service/ai"
 	textgenerationservice "blackradar/api/service/text_generation"
 )
 
-func TestAIControllerTestProvider(t *testing.T) {
-	controller := NewAIController(aiservice.NewAIService(&fakeTextGenerationService{
-		response: textgenerationservice.TextGenerationResponse{Text: `{"ok":true,"message":"ai provider reachable"}`, FinishReason: "stop"},
-	}))
-	ec, recorder := newAIControllerContext(t)
+func TestGenerateDashboardSummaryReturnsValidatedServiceResult(t *testing.T) {
+	controller := NewAIController(fakeAIService{})
+	ec, recorder := newDashboardControllerContext(t)
 
-	controller.TestProvider(ec)
+	controller.GenerateDashboardSummary(ec)
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
 	}
-	var response AITestResponse
+	var response AIDashboardSummaryResponse
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	if response.Status != "ok" {
-		t.Fatalf("expected status ok, got %q", response.Status)
-	}
-	if response.Provider != "openai" {
-		t.Fatalf("expected provider openai, got %q", response.Provider)
-	}
-	if response.ResponseText == "" {
-		t.Fatal("expected response text")
+	if response.Headline != "Attention needed" || len(response.PriorityFindings) != 1 {
+		t.Fatalf("unexpected dashboard response: %+v", response)
 	}
 }
 
-func TestAIControllerTestProviderMapsProviderError(t *testing.T) {
-	controller := NewAIController(aiservice.NewAIService(&fakeTextGenerationService{err: errors.New("provider unavailable")}))
-	ec, recorder := newAIControllerContext(t)
+func TestRegisterDashboardRoutesRejectsUnauthenticatedRequests(t *testing.T) {
+	engine := newDashboardRouteTestEngine(t, "")
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/dashboard/ai-summary", nil)
 
-	controller.TestProvider(ec)
+	engine.ServeHTTP(recorder, request)
 
-	if recorder.Code != http.StatusBadGateway {
-		t.Fatalf("expected status %d, got %d", http.StatusBadGateway, recorder.Code)
-	}
-	var response shared.ErrorResponse
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-	if response.Code != "UPSTREAM_ERROR" {
-		t.Fatalf("expected upstream error, got %q", response.Code)
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status %d, got %d", http.StatusUnauthorized, recorder.Code)
 	}
 }
 
-func TestAIControllerTestProviderRejectsMissingProvider(t *testing.T) {
-	controller := NewAIController(nil)
-	ec, recorder := newAIControllerContext(t)
+func TestRegisterDashboardRoutesRejectsUsersWithoutDashboardPermission(t *testing.T) {
+	engine := newDashboardRouteTestEngine(t, "unknown")
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/dashboard/ai-summary", nil)
 
-	controller.TestProvider(ec)
+	engine.ServeHTTP(recorder, request)
 
-	if recorder.Code != http.StatusBadGateway {
-		t.Fatalf("expected status %d, got %d", http.StatusBadGateway, recorder.Code)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("expected status %d, got %d", http.StatusForbidden, recorder.Code)
 	}
 }
 
-func TestAIControllerSendMessage(t *testing.T) {
-	controller := NewAIController(aiservice.NewAIService(&fakeTextGenerationService{
-		response: textgenerationservice.TextGenerationResponse{Text: "Hello from OpenAI.", FinishReason: "completed"},
-	}))
-	ec, recorder := newAIMessageControllerContext(t, `{"message":"Say hello."}`)
+type fakeAIService struct{}
 
-	controller.SendMessage(ec)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
-	}
-	var response AIMessageResponse
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-	if response.Provider != "openai" {
-		t.Fatalf("expected provider openai, got %q", response.Provider)
-	}
-	if response.ResponseText != "Hello from OpenAI." {
-		t.Fatalf("expected OpenAI response text, got %q", response.ResponseText)
-	}
+func (fakeAIService) TestProvider(context.Context) (textgenerationservice.TextGenerationResponse, error) {
+	return textgenerationservice.TextGenerationResponse{}, nil
 }
 
-func TestAIControllerSendMessageRejectsBlankMessage(t *testing.T) {
-	controller := NewAIController(aiservice.NewAIService(&fakeTextGenerationService{}))
-	ec, recorder := newAIMessageControllerContext(t, `{"message":"  "}`)
-
-	controller.SendMessage(ec)
-
-	if recorder.Code != http.StatusBadRequest {
-		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, recorder.Code)
-	}
+func (fakeAIService) GenerateDashboardSummary(*appcontext.GinContext) (aiservice.DashboardSummary, error) {
+	return aiservice.DashboardSummary{
+		Headline:          "Attention needed",
+		OverallAssessment: "high",
+		Summary:           "One asset needs review.",
+		PriorityFindings: []aiservice.DashboardFinding{{
+			Priority: 1, AssetID: "asset-1", AssetName: "Production DB",
+			VulnerabilityID: "vulnerability-1", CVEID: "CVE-2024-0001",
+			Explanation: "The asset is affected.", RiskReason: "The vulnerability is high severity.",
+			RecommendedNextStep: "Apply the vendor patch.",
+		}},
+	}, nil
 }
 
-func TestRegisterRoutes(t *testing.T) {
-	controller := NewAIController(aiservice.NewAIService(&fakeTextGenerationService{response: textgenerationservice.TextGenerationResponse{Text: `{"ok":true}`, FinishReason: "stop"}}))
+func newDashboardControllerContext(t *testing.T) (*appcontext.GinContext, *httptest.ResponseRecorder) {
+	t.Helper()
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/dashboard/ai-summary", nil)
+	ec := appcontext.NewGinContext(ctx, "txn-123", slog.New(slog.NewTextHandler(io.Discard, nil)))
+	if err := ec.SetPrincipal(appcontext.Principal{UserID: "user-1", Username: "user", Role: "user"}); err != nil {
+		t.Fatalf("set principal: %v", err)
+	}
+	return ec, recorder
+}
+
+func newDashboardRouteTestEngine(t *testing.T, role string) *gin.Engine {
+	t.Helper()
 	engine := gin.New()
 	engine.Use(contextmiddleware.RequestContext(nil))
-	RegisterRoutes(engine.Group("/api"), controller)
-
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/api/ai/test", nil)
-	engine.ServeHTTP(recorder, request)
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	if role != "" {
+		engine.Use(func(ctx *gin.Context) {
+			ec, err := appcontext.FromGinContext(ctx)
+			if err != nil {
+				t.Fatalf("get request context: %v", err)
+			}
+			if err := ec.SetPrincipal(appcontext.Principal{UserID: "user-1", Username: "user", Role: role}); err != nil {
+				t.Fatalf("set principal: %v", err)
+			}
+			ctx.Next()
+		})
 	}
-}
-
-type fakeTextGenerationService struct {
-	response textgenerationservice.TextGenerationResponse
-	err      error
-}
-
-func (f *fakeTextGenerationService) GenerateText(ctx context.Context, request textgenerationservice.TextGenerationRequest) (textgenerationservice.TextGenerationResponse, error) {
-	if f.err != nil {
-		return textgenerationservice.TextGenerationResponse{}, f.err
-	}
-	return f.response, nil
-}
-
-var _ openaiexternal.OpenAIClientInterface = (*fakeTextGenerationService)(nil)
-
-func newAIControllerContext(t *testing.T) (*appcontext.GinContext, *httptest.ResponseRecorder) {
-	t.Helper()
-
-	recorder := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(recorder)
-	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/ai/test", nil)
-	ec := appcontext.NewGinContext(ctx, "txn-123", slog.New(slog.NewTextHandler(io.Discard, nil)))
-	appcontext.SetGinContext(ctx, ec)
-	return ec, recorder
-}
-
-func newAIMessageControllerContext(t *testing.T, body string) (*appcontext.GinContext, *httptest.ResponseRecorder) {
-	t.Helper()
-
-	recorder := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(recorder)
-	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/ai/message", strings.NewReader(body))
-	ctx.Request.Header.Set("Content-Type", "application/json")
-	ec := appcontext.NewGinContext(ctx, "txn-123", slog.New(slog.NewTextHandler(io.Discard, nil)))
-	appcontext.SetGinContext(ctx, ec)
-	return ec, recorder
+	dashboard := engine.Group("/api")
+	dashboard.Use(permissions.RequirePermission(model.PermissionViewDashboard))
+	RegisterDashboardRoutes(dashboard, NewAIController(fakeAIService{}))
+	return engine
 }

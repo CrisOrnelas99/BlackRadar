@@ -118,6 +118,15 @@ func assetListOrder(query model.AssetListQuery) string {
 	return column + " " + direction
 }
 
+func topRiskAssetOrder() string {
+	return `CASE LOWER(COALESCE(assets.risk_level, 'low'))
+		WHEN 'critical' THEN 4
+		WHEN 'high' THEN 3
+		WHEN 'medium' THEN 2
+		ELSE 1
+	END DESC`
+}
+
 // dbForContext returns the request-scoped database when present, otherwise the repository database.
 func (r *AssetRepository) dbForContext(ec *appcontext.GinContext) *gorm.DB {
 	if ec != nil && ec.Database() != nil {
@@ -152,6 +161,38 @@ func (r *AssetRepository) FindVulnerabilitiesForAsset(ec *appcontext.GinContext,
 		return nil, err
 	}
 	return vulnerabilities, nil
+}
+
+// FindTopVulnerabilitiesForAsset returns the highest-severity active vulnerabilities attached to an owned asset.
+func (r *AssetRepository) FindTopVulnerabilitiesForAsset(ec *appcontext.GinContext, assetID string, userID string, limit int) ([]model.Vulnerability, error) {
+	if limit < 1 {
+		return []model.Vulnerability{}, nil
+	}
+
+	var vulnerabilities []model.Vulnerability
+	err := r.dbForContext(ec).WithContext(ec.RequestContext()).
+		Model(&model.Vulnerability{}).
+		Joins("JOIN asset_vulnerabilities av ON av.vulnerability_id = vulnerabilities.id AND av.deleted_at IS NULL").
+		Joins("JOIN assets a ON a.id = av.asset_id AND a.deleted_at IS NULL").
+		Where("av.asset_id = ? AND a.organization_id = (SELECT organization_id FROM users WHERE id = ?) AND vulnerabilities.organization_id = a.organization_id", assetID, userID).
+		Order(vulnerabilitySeverityOrder()).
+		Order("vulnerabilities.id ASC").
+		Limit(limit).
+		Find(&vulnerabilities).Error
+	if err != nil {
+		return nil, fmt.Errorf("%w: load top asset vulnerabilities: %w", ErrPersistenceFailure, err)
+	}
+	return vulnerabilities, nil
+}
+
+func vulnerabilitySeverityOrder() string {
+	return `CASE LOWER(vulnerabilities.severity)
+		WHEN 'critical' THEN 4
+		WHEN 'high' THEN 3
+		WHEN 'medium' THEN 2
+		WHEN 'low' THEN 1
+		ELSE 0
+	END DESC`
 }
 
 // loadAffectedAssetCounts adds active owned-asset counts to vulnerabilities.
