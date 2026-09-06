@@ -120,19 +120,17 @@ describe('authInterceptor', () => {
     httpTestingController
       .expectOne(`${environment.apiUrl}/dashboard/ai-summary`)
       .flush({ error: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
-    httpTestingController
-      .expectOne(`${environment.apiUrl}/auth/refresh`)
-      .flush({
-        user: {
-          id: '00000000-0000-4000-8000-000000000001',
-          fullName: 'Analyst User',
-          username: 'analyst',
-          email: 'analyst@example.com',
-        },
-        token: 'token-456',
-        tokenExpiresAt: new Date().toISOString(),
-        refreshTokenExpiresAt: new Date().toISOString(),
-      });
+    httpTestingController.expectOne(`${environment.apiUrl}/auth/refresh`).flush({
+      user: {
+        id: '00000000-0000-4000-8000-000000000001',
+        fullName: 'Analyst User',
+        username: 'analyst',
+        email: 'analyst@example.com',
+      },
+      token: 'token-456',
+      tokenExpiresAt: new Date().toISOString(),
+      refreshTokenExpiresAt: new Date().toISOString(),
+    });
 
     const retriedRequest = httpTestingController.expectOne(
       `${environment.apiUrl}/dashboard/ai-summary`,

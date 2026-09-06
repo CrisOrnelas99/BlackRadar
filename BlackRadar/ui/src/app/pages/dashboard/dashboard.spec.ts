@@ -249,7 +249,9 @@ describe('DashboardPage', () => {
     expect(overviewFailureFixture.nativeElement.textContent).toContain(
       'Unable to load dashboard metrics',
     );
-    expect(overviewFailureFixture.nativeElement.querySelector('.dashboard-ai-action')).not.toBeNull();
+    expect(
+      overviewFailureFixture.nativeElement.querySelector('.dashboard-ai-action'),
+    ).not.toBeNull();
     overviewFailureFixture.destroy();
   });
 });
