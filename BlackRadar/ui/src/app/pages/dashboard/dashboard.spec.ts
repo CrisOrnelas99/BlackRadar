@@ -1,16 +1,19 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { Router } from '@angular/router';
-import { of } from 'rxjs';
+import { provideRouter } from '@angular/router';
+import { of, tap, throwError } from 'rxjs';
 
 import { DashboardPage } from './dashboard';
 import { AuthService, LoginResponse } from '../../services/auth/auth';
 import { AssetsService } from '../../services/assets/assets';
 import { BannerService } from '../../services/banner/banner';
 import { VulnerabilitiesService } from '../../services/vulnerabilities/vulnerabilities';
+import { AIService, DashboardSummary } from '../../services/ai/ai';
 
 describe('DashboardPage', () => {
   let fixture: ComponentFixture<DashboardPage>;
+  let getDashboardSummary: ReturnType<typeof vi.fn>;
+  let dashboardSummary: ReturnType<typeof signal<DashboardSummary | null>>;
 
   const session: LoginResponse = {
     user: {
@@ -25,6 +28,8 @@ describe('DashboardPage', () => {
   };
 
   beforeEach(async () => {
+    getDashboardSummary = vi.fn(() => of(null));
+    dashboardSummary = signal<DashboardSummary | null>(null);
     await TestBed.configureTestingModule({
       imports: [DashboardPage],
       providers: [
@@ -63,8 +68,9 @@ describe('DashboardPage', () => {
             ),
           },
         },
+        { provide: AIService, useValue: { dashboardSummary, getDashboardSummary } },
         { provide: BannerService, useValue: { show: vi.fn() } },
-        { provide: Router, useValue: { navigateByUrl: vi.fn(() => Promise.resolve(true)) } },
+        provideRouter([]),
       ],
     }).compileComponents();
 
@@ -115,5 +121,91 @@ describe('DashboardPage', () => {
     expect(component.coverageBarBackground(1, 2)).toBe(
       'linear-gradient(to right, var(--BlackRadar-color-navy-black) 0% 50%, var(--brandRadar-color-blue) 50% 100%)',
     );
+  });
+
+  it('requests and renders the optional AI dashboard summary on demand', () => {
+    getDashboardSummary.mockReturnValue(
+      of<DashboardSummary>({
+        headline: 'One database needs immediate attention',
+        overallAssessment: 'high',
+        summary: 'A high-severity vulnerability affects an important asset.',
+        priorityFindings: [
+          {
+            priority: 1,
+            assetId: 'asset-1',
+            assetName: 'DynamoDB',
+            vulnerabilityId: 'vulnerability-1',
+            cveId: 'CVE-2025-0001',
+            explanation: 'The database is affected by a known injection flaw.',
+            riskReason: 'An attacker could alter or read protected data.',
+            recommendedNextStep: 'Review the affected version and apply the vendor fix.',
+          },
+        ],
+        positiveObservations: ['One asset has no attached vulnerabilities.'],
+        uncertainties: ['The affected version should be verified.'],
+      }).pipe(tap((summary) => dashboardSummary.set(summary))),
+    );
+
+    const button = fixture.nativeElement.querySelector('.dashboard-ai-action') as HTMLButtonElement;
+    button.click();
+    fixture.detectChanges();
+
+    expect(getDashboardSummary).toHaveBeenCalledOnce();
+    expect(fixture.nativeElement.textContent).toContain('One database needs immediate attention');
+    expect(fixture.nativeElement.textContent).toContain('DynamoDB');
+    expect(fixture.nativeElement.textContent).toContain('What is going well');
+    expect(fixture.nativeElement.querySelector('a[href="/assets/asset-1"]')).not.toBeNull();
+
+    const toggleButton = fixture.nativeElement.querySelector(
+      '.dashboard-ai-toggle',
+    ) as HTMLButtonElement;
+    toggleButton.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.dashboard-ai-card--expanded')).toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Refresh summary');
+  });
+
+  it('keeps the generate action when an empty card is expanded', () => {
+    const toggleButton = fixture.nativeElement.querySelector(
+      '.dashboard-ai-toggle',
+    ) as HTMLButtonElement;
+    toggleButton.click();
+    fixture.detectChanges();
+
+    const actionButton = fixture.nativeElement.querySelector(
+      '.dashboard-ai-action',
+    ) as HTMLButtonElement;
+    expect(actionButton.textContent).toContain('Generate AI Risk Summary');
+    expect(actionButton.textContent).not.toContain('Refresh summary');
+  });
+
+  it('keeps the generated summary when the dashboard component is recreated', () => {
+    const summary: DashboardSummary = {
+      headline: 'Cached summary',
+      overallAssessment: 'low',
+      summary: 'The current findings are under control.',
+      priorityFindings: [],
+      positiveObservations: [],
+      uncertainties: [],
+    };
+    dashboardSummary.set(summary);
+
+    const secondFixture = TestBed.createComponent(DashboardPage);
+    secondFixture.detectChanges();
+
+    expect(secondFixture.componentInstance.aiSummary()).toEqual(summary);
+    expect(secondFixture.nativeElement.textContent).toContain('Cached summary');
+    secondFixture.destroy();
+  });
+
+  it('clears the AI loading state when the summary request fails', () => {
+    getDashboardSummary.mockReturnValue(throwError(() => new Error('provider unavailable')));
+    const component = fixture.componentInstance;
+
+    component.generateAISummary();
+
+    expect(component.isAISummaryLoading()).toBe(false);
+    expect(component.hasAISummaryError()).toBe(true);
   });
 });

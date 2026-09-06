@@ -34,7 +34,11 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
         !token ||
         isAuthEndpoint
       ) {
-        if (error instanceof HttpErrorResponse && request.url.startsWith(environment.apiUrl)) {
+        if (
+          error instanceof HttpErrorResponse &&
+          request.url.startsWith(environment.apiUrl) &&
+          !isOptionalAIRequest(request.url)
+        ) {
           navigateForAPIError(router, error.status);
         }
         return throwError(() => error);
@@ -69,6 +73,10 @@ function navigateForAPIError(router: Router, status: number): void {
   if (status >= 500) {
     void router.navigateByUrl('/server-error');
   }
+}
+
+function isOptionalAIRequest(url: string): boolean {
+  return url.endsWith('/dashboard/ai-summary');
 }
 
 function handleRefreshFailure(authService: AuthService, router: Router, status: number): void {

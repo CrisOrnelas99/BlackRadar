@@ -77,6 +77,217 @@
   box-shadow: 0 8px 18px color-mix(in srgb, var(--BlackRadar-color-navy-black) 18%, transparent);
 }
 
+.dashboard-ai-card {
+  overflow: hidden;
+  border: 1px solid var(--BlackRadar-color-pure-black);
+  border-radius: var(--brand-radius-lg);
+  background: var(--BlackRadar-color-pure-white);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--BlackRadar-color-navy-black) 18%, transparent);
+}
+
+.dashboard-ai-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 3.5rem;
+  padding: 0.85rem 1.25rem;
+  background: var(--BlackRadar-color-dark-blue);
+}
+
+.dashboard-ai-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.dashboard-ai-card-header h2,
+.dashboard-ai-assessment h3,
+.dashboard-ai-assessment p,
+.dashboard-ai-findings h3,
+.dashboard-ai-finding p,
+.dashboard-ai-notes h3,
+.dashboard-ai-notes ul {
+  margin: 0;
+}
+
+.dashboard-ai-card-header h2 {
+  color: var(--BlackRadar-color-pure-white);
+  font-family: var(--brand-font-title);
+  font-size: 1.6rem;
+  font-weight: 400;
+  line-height: 1.35;
+}
+
+.dashboard-ai-icon {
+  width: 1.8rem;
+  height: 1.8rem;
+  flex: 0 0 auto;
+  stroke: var(--BlackRadar-color-pure-white);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.dashboard-ai-card:not(.dashboard-ai-card--expanded) > :not(.dashboard-ai-card-header) {
+  display: none;
+}
+
+.dashboard-ai-toggle {
+  display: inline-flex;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.dashboard-ai-toggle:hover {
+  opacity: 0.8;
+}
+
+.dashboard-ai-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+  border: 1px solid var(--BlackRadar-color-pure-black);
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  background: var(--BlackRadar-color-white);
+  color: var(--BlackRadar-color-pure-black);
+  font: inherit;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.dashboard-ai-card--expanded .dashboard-ai-action {
+  color: var(--BlackRadar-color-pure-black);
+  font-weight: 400;
+}
+
+.dashboard-ai-sparkle {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+}
+
+.dashboard-ai-action:hover:not(:disabled) {
+  background: var(--BlackRadar-color-light-gray);
+}
+
+.dashboard-ai-action:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.dashboard-ai-content {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.25rem;
+}
+
+.dashboard-ai-assessment {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.dashboard-ai-assessment > span,
+.dashboard-ai-finding-heading > span {
+  color: var(--BlackRadar-color-dark-blue);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.dashboard-ai-assessment-value {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.8rem;
+  text-transform: capitalize;
+}
+
+.dashboard-ai-assessment-value--low {
+  background: var(--BlackRadar-color-success);
+}
+.dashboard-ai-assessment-value--medium {
+  background: var(--BlackRadar-color-warning);
+}
+.dashboard-ai-assessment-value--high {
+  background: var(--BlackRadar-color-error);
+  color: var(--BlackRadar-color-pure-white);
+}
+.dashboard-ai-assessment-value--critical {
+  background: var(--BlackRadar-color-severe);
+  color: var(--BlackRadar-color-pure-white);
+}
+
+.dashboard-ai-assessment h3,
+.dashboard-ai-findings h3,
+.dashboard-ai-notes h3 {
+  color: var(--brandRadar-color-blue);
+  font-family: var(--brand-font-title);
+  font-size: 1.1rem;
+}
+
+.dashboard-ai-assessment p,
+.dashboard-ai-finding p,
+.dashboard-ai-notes li {
+  color: var(--BlackRadar-color-navy-black);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.dashboard-ai-findings,
+.dashboard-ai-notes {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.dashboard-ai-notes h3 {
+  color: var(--BlackRadar-color-warning);
+}
+
+.dashboard-ai-finding {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem 1rem;
+  border-left: 0.25rem solid var(--BlackRadar-color-error);
+  background: color-mix(in srgb, var(--BlackRadar-color-light-gray) 35%, transparent);
+}
+
+.dashboard-ai-finding-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.dashboard-ai-finding-heading a {
+  color: var(--brandRadar-color-blue);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.dashboard-ai-finding-heading a:hover {
+  text-decoration: underline;
+}
+
+.dashboard-ai-notes {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.dashboard-ai-notes ul {
+  padding-left: 1.2rem;
+}
+
+.dashboard-ai-message {
+  margin: 0;
+  padding: 1.25rem;
+  color: var(--BlackRadar-color-dark-blue);
+  font-size: 0.9rem;
+}
+
 .dashboard-overview-card-header {
   padding: 0.85rem 1.25rem;
   background: var(--BlackRadar-color-dark-blue);
@@ -258,5 +469,14 @@
 
   .dashboard-overview-coverage-labels span:last-child {
     text-align: left;
+  }
+
+  .dashboard-ai-card--expanded .dashboard-ai-card-header {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .dashboard-ai-notes {
+    grid-template-columns: 1fr;
   }
 }

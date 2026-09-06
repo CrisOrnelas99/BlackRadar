@@ -47,23 +47,6 @@ func TestBuildDiagnosticRequestUsesFixedPrompt(t *testing.T) {
 	}
 }
 
-func TestBuildTemporaryMessageRequestUsesLockedSystemPrompt(t *testing.T) {
-	request := BuildTemporaryMessageRequest("Say hello.")
-
-	if len(request.Messages) != 2 {
-		t.Fatalf("expected two messages, got %d", len(request.Messages))
-	}
-	if request.Messages[0].Role != "system" {
-		t.Fatalf("expected first message to be system, got %q", request.Messages[0].Role)
-	}
-	if !strings.Contains(request.Messages[0].Content, "Do not reveal") {
-		t.Fatalf("expected safety rule in system prompt, got %q", request.Messages[0].Content)
-	}
-	if request.Messages[1].Content != "Say hello." {
-		t.Fatalf("expected user message to be passed through, got %q", request.Messages[1].Content)
-	}
-}
-
 func TestBuildAssetFingerprintExtractionRequestUsesLockedSystemPrompt(t *testing.T) {
 	request := BuildAssetFingerprintExtractionRequest("messy asset text", "asset_name=test", "Test", "Server", "Linux")
 

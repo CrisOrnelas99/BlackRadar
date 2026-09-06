@@ -22,6 +22,6 @@ func (e DependencyError) Error() string {
 }
 
 var (
-	ErrInvalidAIMessage      = &ValidationError{Message: "message must be between 1 and 1000 characters"}
-	ErrAIProviderUnavailable = &DependencyError{Message: "AI provider unavailable"}
+	ErrInvalidDashboardSummary = &ValidationError{Message: "invalid dashboard summary"}
+	ErrAIProviderUnavailable   = &DependencyError{Message: "AI provider unavailable"}
 )

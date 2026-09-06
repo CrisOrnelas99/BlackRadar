@@ -57,6 +57,28 @@ func (r *AssetRepository) SummarizeByUser(ec *appcontext.GinContext, userID stri
 	return summary, nil
 }
 
+// FindTopRiskAssetsForUser returns active assets ordered by backend risk priority.
+func (r *AssetRepository) FindTopRiskAssetsForUser(ec *appcontext.GinContext, userID string, limit int) ([]model.Asset, error) {
+	if limit < 1 {
+		return []model.Asset{}, nil
+	}
+
+	var assets []model.Asset
+	err := assetListDatabase(r.dbForContext(ec).WithContext(ec.RequestContext()), userID).
+		Preload("Assessment").
+		Order(topRiskAssetOrder()).
+		Order("assets.id ASC").
+		Limit(limit).
+		Find(&assets).Error
+	if err != nil {
+		return nil, fmt.Errorf("%w: read top risk assets: %w", ErrPersistenceFailure, err)
+	}
+	if err := r.loadVulnerabilityCounts(ec, assets, userID); err != nil {
+		return nil, err
+	}
+	return assets, nil
+}
+
 // loadVulnerabilityCounts adds active vulnerability counts to owned assets.
 func (r *AssetRepository) loadVulnerabilityCounts(ec *appcontext.GinContext, assets []model.Asset, userID string) error {
 	if len(assets) == 0 {

@@ -201,6 +201,138 @@
           </div>
         </article>
       </div>
+
+      <section
+        class="dashboard-ai-card"
+        [class.dashboard-ai-card--expanded]="isAISummaryExpanded()"
+        aria-labelledby="dashboard-ai-heading"
+      >
+        <div class="dashboard-ai-card-header">
+          <div class="dashboard-ai-title-row">
+            <button
+              type="button"
+              class="dashboard-ai-toggle"
+              [attr.aria-expanded]="isAISummaryExpanded()"
+              aria-controls="dashboard-ai-content"
+              aria-label="Expand or minimize AI risk summary"
+              (click)="toggleAISummary()"
+            >
+              <svg class="dashboard-ai-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 7h16M6 12h12M8 17h8" />
+              </svg>
+            </button>
+            <h2 id="dashboard-ai-heading">AI risk summary</h2>
+          </div>
+          <button
+            type="button"
+            class="dashboard-ai-action"
+            [disabled]="isAISummaryLoading()"
+            (click)="generateAISummary()"
+          >
+            {{
+              isAISummaryLoading()
+                ? 'Generating…'
+                : aiSummary()
+                  ? 'Refresh summary'
+                  : 'Generate AI Risk Summary'
+            }}
+            <svg
+              class="dashboard-ai-sparkle"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <defs>
+                <linearGradient id="dashboard-ai-rainbow" x1="0%" y1="50%" x2="100%" y2="50%">
+                  <stop offset="0%" stop-color="#e84a5f" />
+                  <stop offset="25%" stop-color="#f5b942" />
+                  <stop offset="50%" stop-color="#45b97c" />
+                  <stop offset="75%" stop-color="#3a7ca5" />
+                  <stop offset="100%" stop-color="#9b59b6" />
+                </linearGradient>
+              </defs>
+              <path
+                d="M12 2.75 14.1 8.4l5.65 2.1-5.65 2.1L12 18.25l-2.1-5.65-5.65-2.1 5.65-2.1L12 2.75Z"
+                fill="url(#dashboard-ai-rainbow)"
+              />
+              <path
+                d="m18.5 15.5.95 2.55 2.55.95-2.55.95-.95 2.55-.95-2.55-2.55-.95 2.55-.95.95-2.55Z"
+                fill="url(#dashboard-ai-rainbow)"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div id="dashboard-ai-content">
+          @if (hasAISummaryError()) {
+            <p class="dashboard-ai-message" role="alert">
+              The AI risk summary is unavailable right now. Try again later.
+            </p>
+          } @else if (isAISummaryLoading()) {
+            <p class="dashboard-ai-message" role="status">Reviewing your authorized risk data…</p>
+          } @else if (aiSummary(); as summary) {
+            <div class="dashboard-ai-content">
+              <div class="dashboard-ai-assessment">
+                <strong
+                  class="dashboard-ai-assessment-value dashboard-ai-assessment-value--{{
+                    summary.overallAssessment
+                  }}"
+                  >{{ summary.overallAssessment }}</strong
+                >
+                <h3>{{ summary.headline }}</h3>
+                <p>{{ summary.summary }}</p>
+              </div>
+
+              @if (summary.priorityFindings.length > 0) {
+                <div class="dashboard-ai-findings">
+                  <h3>Priority findings</h3>
+                  @for (finding of summary.priorityFindings; track finding.priority) {
+                    <article class="dashboard-ai-finding">
+                      <div class="dashboard-ai-finding-heading">
+                        <span>Priority {{ finding.priority }}</span>
+                        <a [routerLink]="['/assets', finding.assetId]">{{ finding.assetName }}</a>
+                        @if (finding.cveId) {
+                          <a [routerLink]="['/vulnerabilities', finding.vulnerabilityId]">{{
+                            finding.cveId
+                          }}</a>
+                        }
+                      </div>
+                      <p>{{ finding.explanation }}</p>
+                      <p><strong>Why it matters:</strong> {{ finding.riskReason }}</p>
+                      <p><strong>Next step:</strong> {{ finding.recommendedNextStep }}</p>
+                    </article>
+                  }
+                </div>
+              }
+
+              @if (summary.positiveObservations.length > 0 || summary.uncertainties.length > 0) {
+                <div class="dashboard-ai-notes">
+                  @if (summary.positiveObservations.length > 0) {
+                    <div>
+                      <h3>What is going well</h3>
+                      <ul>
+                        @for (observation of summary.positiveObservations; track observation) {
+                          <li>{{ observation }}</li>
+                        }
+                      </ul>
+                    </div>
+                  }
+                  @if (summary.uncertainties.length > 0) {
+                    <div>
+                      <h3>What to verify</h3>
+                      <ul>
+                        @for (uncertainty of summary.uncertainties; track uncertainty) {
+                          <li>{{ uncertainty }}</li>
+                        }
+                      </ul>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </section>
     }
   </section>
 </app-page-layout>

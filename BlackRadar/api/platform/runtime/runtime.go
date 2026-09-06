@@ -171,7 +171,10 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 	vulnerabilityService := servicevulnerability.NewVulnerabilityService(vulnerabilityRepository, assetRiskService).WithAuditService(auditService)
 
 	userController := controlleruser.NewUserController(userService, cfg.IsProduction())
-	aiService := serviceai.NewAIService(openAIClient)
+	aiService := serviceai.NewAIService(openAIClient, serviceai.DashboardRepositories{
+		Assets:          assetRepository,
+		Vulnerabilities: vulnerabilityRepository,
+	})
 	aiController := controllerai.NewAIController(aiService)
 	assetController := controllerasset.NewAssetController(assetService, assetVulnerabilityService, assetMatchService)
 	vulnerabilityController := controllervulnerability.NewVulnerabilityController(vulnerabilityService)
@@ -219,6 +222,8 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 	manageUsers.Use(permissions.RequirePermission(model.PermissionManageUsers))
 	viewSystemHealth := protected.Group("")
 	viewSystemHealth.Use(permissions.RequirePermission(model.PermissionViewSystemHealth))
+	viewDashboard := protected.Group("")
+	viewDashboard.Use(permissions.RequirePermission(model.PermissionViewDashboard))
 
 	controlleruser.RegisterAdminRoutes(manageUsers, userController)
 	controllerhealth.RegisterAdminRoutes(viewSystemHealth, servicehealth.Dependencies{
@@ -232,7 +237,7 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 	manageVulnerabilities := protected.Group("")
 	manageVulnerabilities.Use(permissions.RequirePermission(model.PermissionManageVulnerabilities))
 	controllernvd.RegisterRoutes(manageVulnerabilities, nvdController)
-	controllerai.RegisterRoutes(viewSystemHealth, aiController)
+	controllerai.RegisterDashboardRoutes(viewDashboard, aiController)
 
 	return engine, nil
 }
