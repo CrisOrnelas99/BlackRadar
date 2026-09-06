@@ -2,6 +2,8 @@
 package text_generation
 
 import (
+	"encoding/json"
+
 	cpeclient "blackradar/api/external/nvd_cpe"
 	cveclient "blackradar/api/external/nvd_cve"
 )
@@ -32,27 +34,6 @@ func BuildDiagnosticRequest() TextGenerationRequest {
 			{
 				Role:    "user",
 				Content: `Return exactly: {"ok":true,"message":"ai provider reachable"}`,
-			},
-		},
-	}
-}
-
-// BuildTemporaryMessageRequest constructs a temporary admin-only diagnostic prompt.
-func (textGenerationServiceImpl) BuildTemporaryMessageRequest(message string) TextGenerationRequest {
-	return BuildTemporaryMessageRequest(message)
-}
-
-// BuildTemporaryMessageRequest constructs a temporary admin-only diagnostic prompt.
-func BuildTemporaryMessageRequest(message string) TextGenerationRequest {
-	return TextGenerationRequest{
-		Messages: []TextGenerationMessage{
-			{
-				Role:    "system",
-				Content: temporaryAIMessageSystemPrompt,
-			},
-			{
-				Role:    "user",
-				Content: message,
 			},
 		},
 	}
@@ -146,4 +127,14 @@ func BuildAssetCVEKeywordSearchRequest(fingerprint string, deterministicSearches
 	}
 
 	return buildPromptRequest(assetCVEKeywordSearchSystemPrompt, payload)
+}
+
+// BuildDashboardSummaryRequest constructs the locked prompt for an authorized dashboard snapshot.
+func (textGenerationServiceImpl) BuildDashboardSummaryRequest(snapshot json.RawMessage) TextGenerationRequest {
+	return BuildDashboardSummaryRequest(snapshot)
+}
+
+// BuildDashboardSummaryRequest constructs the locked prompt for an authorized dashboard snapshot.
+func BuildDashboardSummaryRequest(snapshot json.RawMessage) TextGenerationRequest {
+	return buildPromptRequest(dashboardSummarySystemPrompt, snapshot)
 }

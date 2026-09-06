@@ -5,6 +5,8 @@ contract used by services and controllers that create backend-owned AI prompts.
 package text_generation
 
 import (
+	"encoding/json"
+
 	cpeclient "blackradar/api/external/nvd_cpe"
 	cveclient "blackradar/api/external/nvd_cve"
 )
@@ -18,16 +20,6 @@ type TextGenerationService interface {
 		system instructions or sensitive runtime data.
 	*/
 	BuildDiagnosticRequest() TextGenerationRequest
-
-	/*
-		BuildTemporaryMessageRequest constructs the admin-only temporary message
-		prompt.
-
-		Implementations should wrap the supplied message with the locked
-		diagnostic system prompt so user content is treated as input, not as
-		provider-level instructions.
-	*/
-	BuildTemporaryMessageRequest(message string) TextGenerationRequest
 
 	/*
 		BuildAssetFingerprintExtractionRequest constructs the prompt used to
@@ -69,4 +61,16 @@ type TextGenerationService interface {
 		prevent the provider from returning CVE claims or arbitrary prose.
 	*/
 	BuildAssetCVEKeywordSearchRequest(fingerprint string, deterministicSearches []string) TextGenerationRequest
+
+	/*
+		BuildDashboardSummaryRequest constructs the locked prompt for an authorized
+		dashboard snapshot.
+
+		Implementations must keep the instruction block backend-owned, place the
+		snapshot in a separate data message, tell the provider to treat retrieved
+		text as untrusted data, and require the documented JSON-only response shape.
+		The method must not add records, credentials, or provider instructions from
+		the caller beyond the supplied snapshot.
+	*/
+	BuildDashboardSummaryRequest(snapshot json.RawMessage) TextGenerationRequest
 }

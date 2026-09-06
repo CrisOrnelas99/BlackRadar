@@ -1,4 +1,4 @@
-// Package controller routes registers AI HTTP endpoints.
+// Package controller routes registers backend AI HTTP endpoints.
 package controller
 
 import (
@@ -8,9 +8,8 @@ import (
 	appcontext "blackradar/api/platform/requestcontext"
 )
 
-// RegisterRoutes registers AI diagnostic routes.
-func RegisterRoutes(router *gin.RouterGroup, controller *AIController) {
-	ai := router.Group("/ai", ratelimit.AIRateLimit())
-	ai.GET("/test", appcontext.Wrap(controller.TestProvider))
-	ai.POST("/message", appcontext.Wrap(controller.SendMessage))
+// RegisterDashboardRoutes registers authenticated dashboard AI routes.
+func RegisterDashboardRoutes(router *gin.RouterGroup, controller *AIController) {
+	ai := router.Group("/dashboard", ratelimit.AIRateLimit())
+	ai.POST("/ai-summary", appcontext.Wrap(controller.GenerateDashboardSummary))
 }

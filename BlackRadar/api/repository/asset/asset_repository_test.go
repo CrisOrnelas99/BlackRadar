@@ -88,6 +88,31 @@ func TestAssetSummaryQueryUsesScopedDatabaseAggregates(t *testing.T) {
 	}
 }
 
+func TestTopRiskAssetsQueryUsesRiskPriorityAndStableTieBreaker(t *testing.T) {
+	database, err := gorm.Open(
+		postgres.New(postgres.Config{DSN: "host=localhost user=test dbname=test sslmode=disable", PreferSimpleProtocol: true}),
+		&gorm.Config{DryRun: true, DisableAutomaticPing: true},
+	)
+	if err != nil {
+		t.Fatalf("open dry-run database: %v", err)
+	}
+	userID := "00000000-0000-4000-8000-000000000042"
+
+	sql := database.ToSQL(func(tx *gorm.DB) *gorm.DB {
+		return assetListDatabase(tx, userID).
+			Order(topRiskAssetOrder()).
+			Order("assets.id ASC").
+			Limit(5).
+			Find(&[]model.Asset{})
+	})
+
+	for _, expected := range []string{"WHEN 'critical' THEN 4", "WHEN 'high' THEN 3", "WHEN 'medium' THEN 2", "assets.id ASC", "LIMIT 5"} {
+		if !strings.Contains(sql, expected) {
+			t.Fatalf("expected top-risk SQL to contain %q, got %s", expected, sql)
+		}
+	}
+}
+
 // TestAssetRepositoryErrors verifies asset repository errors are storage outcome sentinels.
 func TestAssetRepositoryErrors(t *testing.T) {
 	err := errors.Join(ErrPersistenceFailure, errors.New("database unavailable"))

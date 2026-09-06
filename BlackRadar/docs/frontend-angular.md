@@ -18,7 +18,7 @@ Route guards redirect unauthenticated users for usability. A guarded page is not
 
 ## 🧭 Current Screens
 
-The current application includes authentication, a protected dashboard, asset and vulnerability lists, detail pages, attached-vulnerability and affected-asset relationship pages, and the approved CPE scan workflow. The asset inventory uses the shared `PaginationComponent` with backend page metadata; filters and sorting return the view to page one. Relationship counts and attached-vulnerability results refresh from backend responses after a successful scan. Vulnerability details show NVD's publication timestamp when the imported CVE provides one.
+The current application includes authentication, a protected dashboard, asset and vulnerability lists, detail pages, attached-vulnerability and affected-asset relationship pages, the dashboard AI summary card, and the approved CPE scan workflow. The asset inventory uses the shared `PaginationComponent` with backend page metadata; filters and sorting return the view to page one. Relationship counts and attached-vulnerability results refresh from backend responses after a successful scan. Vulnerability details show NVD's publication timestamp when the imported CVE provides one.
 
 Frontend models should follow the backend response contract. UUID-backed identifiers and nullable risk fields must not be represented as incompatible numeric or mandatory values.
 

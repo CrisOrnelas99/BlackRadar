@@ -1,12 +1,14 @@
 import { CommonModule } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
-import { forkJoin } from 'rxjs';
+import { RouterLink } from '@angular/router';
+import { finalize, forkJoin } from 'rxjs';
 
 import { TopMenuComponent } from '../../components/top-menu/top-menu';
 import { PageLayoutComponent } from '../../components/page-layout/page-layout';
 import { AuthService } from '../../services/auth/auth';
 import { AssetsService } from '../../services/assets/assets';
 import { VulnerabilitiesService } from '../../services/vulnerabilities/vulnerabilities';
+import { AIService } from '../../services/ai/ai';
 
 const dashboardLevels = [
   { key: 'critical', label: 'Critical', color: 'var(--BlackRadar-color-severe)' },
@@ -33,7 +35,7 @@ type DashboardOverview = {
 @Component({
   selector: 'app-dashboard-page',
   standalone: true,
-  imports: [CommonModule, PageLayoutComponent, TopMenuComponent],
+  imports: [CommonModule, PageLayoutComponent, RouterLink, TopMenuComponent],
   templateUrl: './dashboard.html',
   styleUrl: './dashboard.css',
 })
@@ -41,11 +43,16 @@ export class DashboardPage {
   private readonly authService = inject(AuthService);
   private readonly assetsService = inject(AssetsService);
   private readonly vulnerabilitiesService = inject(VulnerabilitiesService);
+  private readonly aiService = inject(AIService);
   readonly session = this.authService.session;
   readonly overview = signal<DashboardOverview | null>(null);
   readonly isOverviewLoading = signal(true);
   readonly hasOverviewLoadError = signal(false);
   readonly metricLevels = dashboardLevels;
+  readonly aiSummary = this.aiService.dashboardSummary;
+  readonly isAISummaryExpanded = signal(this.aiSummary() !== null);
+  readonly isAISummaryLoading = signal(false);
+  readonly hasAISummaryError = signal(false);
 
   constructor() {
     this.loadOverview();
@@ -88,6 +95,28 @@ export class DashboardPage {
         this.isOverviewLoading.set(false);
       },
     });
+  }
+
+  // Expands the optional AI card and requests its explanation without affecting the metrics request.
+  generateAISummary(): void {
+    if (this.isAISummaryLoading()) {
+      return;
+    }
+
+    this.isAISummaryExpanded.set(true);
+    this.isAISummaryLoading.set(true);
+    this.hasAISummaryError.set(false);
+    this.aiService
+      .getDashboardSummary()
+      .pipe(finalize(() => this.isAISummaryLoading.set(false)))
+      .subscribe({
+        error: () => this.hasAISummaryError.set(true),
+      });
+  }
+
+  // Toggles the generated explanation without requesting new data.
+  toggleAISummary(): void {
+    this.isAISummaryExpanded.update((expanded) => !expanded);
   }
 
   pieChartBackground(levelCounts: DashboardLevelCounts): string {

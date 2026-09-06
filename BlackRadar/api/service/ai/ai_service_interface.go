@@ -1,15 +1,16 @@
 /*
-Package ai provides application services for backend-only AI diagnostic workflows.
+Package ai provides application services for backend-only AI workflows.
 */
 package ai
 
 import (
 	"context"
 
+	appcontext "blackradar/api/platform/requestcontext"
 	textgenerationservice "blackradar/api/service/text_generation"
 )
 
-// AIService defines the provider-backed diagnostic workflows exposed by the API.
+// AIService defines provider-backed backend AI workflows.
 type AIService interface {
 	/*
 		TestProvider sends the fixed diagnostic request to the configured provider.
@@ -20,11 +21,15 @@ type AIService interface {
 	TestProvider(ctx context.Context) (textgenerationservice.TextGenerationResponse, error)
 
 	/*
-		SendMessage sends a bounded administrator diagnostic message to the
-		configured provider.
+		GenerateDashboardSummary builds a read-only snapshot from the authenticated
+		user's authorized dashboard data and returns a provider-generated explanation.
 
-		Implementations must validate the message before creating the provider
-		request and must preserve the locked prompt boundary around user content.
+		Implementations must obtain identity and organization scope from ec, use
+		bounded repository reads, and preserve the backend-owned prompt boundary.
+		The result is advisory and must not perform database writes or accept
+		browser-supplied dashboard records. Provider, persistence, authentication,
+		and invalid-model-output failures must be returned to the controller for
+		safe translation.
 	*/
-	SendMessage(ctx context.Context, message string) (textgenerationservice.TextGenerationResponse, error)
+	GenerateDashboardSummary(ec *appcontext.GinContext) (DashboardSummary, error)
 }

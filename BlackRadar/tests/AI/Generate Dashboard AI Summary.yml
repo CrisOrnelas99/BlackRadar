@@ -1,18 +1,16 @@
 info:
-  name: Send AI Message
+  name: Generate Dashboard AI Summary
   type: http
-  seq: 2
+  seq: 1
 
 http:
   method: POST
-  url: http://localhost:8080/api/ai/message
+  url: http://localhost:8080/api/dashboard/ai-summary
   auth: inherit
   body:
     type: json
     data: |
-      {
-        "message": "Say hello in one short sentence."
-      }
+      {}
 
 settings:
   encodeUrl: true

@@ -34,13 +34,23 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
         !token ||
         isAuthEndpoint
       ) {
-        if (error instanceof HttpErrorResponse && request.url.startsWith(environment.apiUrl)) {
+        if (
+          error instanceof HttpErrorResponse &&
+          request.url.startsWith(environment.apiUrl) &&
+          !isOptionalAIRequest(request.url)
+        ) {
           navigateForAPIError(router, error.status);
         }
         return throwError(() => error);
       }
 
       return authService.refreshSession().pipe(
+        catchError((refreshError: unknown) => {
+          if (refreshError instanceof HttpErrorResponse) {
+            handleRefreshFailure(authService, router, refreshError.status);
+          }
+          return throwError(() => refreshError);
+        }),
         switchMap((session) =>
           next(
             request.clone({
@@ -48,14 +58,19 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
                 Authorization: `Bearer ${session.token}`,
               },
             }),
+          ).pipe(
+            catchError((error: unknown) => {
+              if (
+                error instanceof HttpErrorResponse &&
+                request.url.startsWith(environment.apiUrl) &&
+                !isOptionalAIRequest(request.url)
+              ) {
+                navigateForAPIError(router, error.status);
+              }
+              return throwError(() => error);
+            }),
           ),
         ),
-        catchError((refreshError: unknown) => {
-          if (refreshError instanceof HttpErrorResponse) {
-            handleRefreshFailure(authService, router, refreshError.status);
-          }
-          return throwError(() => refreshError);
-        }),
       );
     }),
   );
@@ -69,6 +84,10 @@ function navigateForAPIError(router: Router, status: number): void {
   if (status >= 500) {
     void router.navigateByUrl('/server-error');
   }
+}
+
+function isOptionalAIRequest(url: string): boolean {
+  return url.endsWith('/dashboard/ai-summary');
 }
 
 function handleRefreshFailure(authService: AuthService, router: Router, status: number): void {

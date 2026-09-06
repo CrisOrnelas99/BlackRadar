@@ -35,6 +35,9 @@ func HasPermission(role string, permission Permission) bool {
 	if role == RoleAdmin {
 		return permission != PermissionManageAdministrators && containsPermission(allPermissions, permission)
 	}
+	if role != RoleUser {
+		return false
+	}
 	return permission == PermissionViewDashboard || permission == PermissionManageOwnAssets || permission == PermissionViewOwnVulnerabilities
 }
 
