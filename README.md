@@ -12,6 +12,7 @@ It keeps ownership, authorization, risk calculation, NVD access, and AI-assisted
 - Browse the asset inventory through server-side pagination with filtering, sorting, and total-count metadata.
 - Scan an asset's product identity for NVD CPE candidates, approve a CPE, and attach bounded NVD CVE results.
 - Reuse existing CVE records and restore a previously removed asset-vulnerability relationship when an approved scan finds it again.
+- Generate a backend-owned dashboard AI summary that explains the current security posture from bounded asset and vulnerability evidence.
 - Persist NVD publication timestamps for imported CVEs and show them in vulnerability details.
 - Enforce backend authentication, ownership, administrator-only management actions, input validation, rate limiting, and transaction boundaries.
 
@@ -108,7 +109,7 @@ AssetManagementRisk/
 | Area             | Current endpoints                                                                                        |
 | ---------------- | -------------------------------------------------------------------------------------------------------- |
 | Authentication   | `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`                                |
-| Dashboard        | Uses `GET /api/assets/summary` and `GET /api/vulnerabilities` for the current overview                  |
+| Dashboard        | Uses `GET /api/assets/summary`, `GET /api/vulnerabilities`, and `POST /api/dashboard/ai-summary`       |
 | Assets           | `GET /api/assets?page=1`, `GET /api/assets/summary`, `POST /api/assets`; `GET`, `PUT`, `DELETE /api/assets/{id}` |
 | Vulnerabilities  | `GET`, `POST /api/vulnerabilities`; `GET`, `PUT`, `DELETE /api/vulnerabilities/{id}`                     |
 | Relationships    | `GET /api/assets/{id}/vulnerabilities`; `GET /api/vulnerabilities/{id}/assets`; assign and remove routes |
@@ -144,6 +145,7 @@ AssetManagementRisk/
 <img src="BlackRadar/ui/public/README/affected-assets.png" alt="Affected assets page" width="800" />
 
 See [asset-vulnerability-assignment.md](BlackRadar/docs/asset-vulnerability-assignment.md) and [ai-cpe-and-cve-matching.md](BlackRadar/docs/ai-cpe-and-cve-matching.md) for workflow details and route behavior.
+See [dashboard-ai-summary.md](BlackRadar/docs/dashboard-ai-summary.md) for the dashboard AI workflow.
 
 ## Security model
 
@@ -175,6 +177,7 @@ For focused feature work, run the smallest relevant test package or component sp
 - [NVD integration](BlackRadar/docs/nvd-integration.md)
 - [Asset-vulnerability assignment](BlackRadar/docs/asset-vulnerability-assignment.md)
 - [CPE and CVE matching](BlackRadar/docs/ai-cpe-and-cve-matching.md)
+- [Dashboard AI summary](BlackRadar/docs/dashboard-ai-summary.md)
 - [Asset risk](BlackRadar/docs/asset-risk.md)
 - [Frontend architecture](BlackRadar/docs/frontend-angular.md)
 - [Pagination](BlackRadar/docs/pagination.md)

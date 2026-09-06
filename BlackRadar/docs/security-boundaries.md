@@ -47,6 +47,8 @@ Outbound OpenAI and NVD requests pass through a local burst limiter and a durabl
 
 For AI-assisted asset matching, the backend returns a preview response first and only writes vulnerabilities after an administrator submits the approved CPE. The preview output is advisory, while the apply step is the explicit write boundary.
 
+For the dashboard AI summary, the backend first builds a bounded snapshot from the authenticated user's current asset and vulnerability data, then sends only the redacted snapshot to OpenAI. The browser receives a validated JSON summary and may cache it for the current session user, but it never decides what evidence is eligible for the prompt.
+
 ## Failure Containment
 
 The application uses layered error boundaries. Repository and external failures are translated by services, then mapped by controllers to safe responses. Detailed causes stay in protected logs and error chains, not browser responses.
