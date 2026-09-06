@@ -208,4 +208,48 @@ describe('DashboardPage', () => {
     expect(component.isAISummaryLoading()).toBe(false);
     expect(component.hasAISummaryError()).toBe(true);
   });
+
+  it('keeps the AI action available when the overview request fails', async () => {
+    await TestBed.resetTestingModule()
+      .configureTestingModule({
+        imports: [DashboardPage],
+        providers: [
+          {
+            provide: AuthService,
+            useValue: {
+              session: signal(session),
+              getSession: vi.fn(() => session),
+              logout: vi.fn(),
+            },
+          },
+          {
+            provide: AssetsService,
+            useValue: {
+              getAssetSummary: vi.fn(() => throwError(() => new Error('overview unavailable'))),
+            },
+          },
+          {
+            provide: VulnerabilitiesService,
+            useValue: {
+              getVulnerabilities: vi.fn(() =>
+                of([{ id: 'vulnerability-1', severity: 'Critical', affectedAssetCount: 1 }]),
+              ),
+            },
+          },
+          { provide: AIService, useValue: { dashboardSummary, getDashboardSummary } },
+          { provide: BannerService, useValue: { show: vi.fn() } },
+          provideRouter([]),
+        ],
+      })
+      .compileComponents();
+
+    const overviewFailureFixture = TestBed.createComponent(DashboardPage);
+    overviewFailureFixture.detectChanges();
+
+    expect(overviewFailureFixture.nativeElement.textContent).toContain(
+      'Unable to load dashboard metrics',
+    );
+    expect(overviewFailureFixture.nativeElement.querySelector('.dashboard-ai-action')).not.toBeNull();
+    overviewFailureFixture.destroy();
+  });
 });

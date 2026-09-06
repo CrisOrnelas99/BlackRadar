@@ -41,7 +41,7 @@ func TestGenerateDashboardSummaryReturnsValidatedServiceResult(t *testing.T) {
 func TestRegisterDashboardRoutesRejectsUnauthenticatedRequests(t *testing.T) {
 	engine := newDashboardRouteTestEngine(t, "")
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/api/dashboard/ai-summary", nil)
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/dashboard/ai-summary", nil)
 
 	engine.ServeHTTP(recorder, request)
 
@@ -53,7 +53,7 @@ func TestRegisterDashboardRoutesRejectsUnauthenticatedRequests(t *testing.T) {
 func TestRegisterDashboardRoutesRejectsUsersWithoutDashboardPermission(t *testing.T) {
 	engine := newDashboardRouteTestEngine(t, "unknown")
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/api/dashboard/ai-summary", nil)
+	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/dashboard/ai-summary", nil)
 
 	engine.ServeHTTP(recorder, request)
 
@@ -86,7 +86,7 @@ func newDashboardControllerContext(t *testing.T) (*appcontext.GinContext, *httpt
 	t.Helper()
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
-	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/dashboard/ai-summary", nil)
+	ctx.Request = httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/dashboard/ai-summary", nil)
 	ec := appcontext.NewGinContext(ctx, "txn-123", slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err := ec.SetPrincipal(appcontext.Principal{UserID: "user-1", Username: "user", Role: "user"}); err != nil {
 		t.Fatalf("set principal: %v", err)

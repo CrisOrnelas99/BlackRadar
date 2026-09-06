@@ -112,6 +112,41 @@ describe('authInterceptor', () => {
     expect(routerMock.navigateByUrl).toHaveBeenCalledWith('/server-error');
   });
 
+  it('should not treat optional dashboard ai retry failures as refresh failures', () => {
+    httpClient.post(`${environment.apiUrl}/dashboard/ai-summary`, {}).subscribe({
+      error: () => undefined,
+    });
+
+    httpTestingController
+      .expectOne(`${environment.apiUrl}/dashboard/ai-summary`)
+      .flush({ error: 'Unauthorized' }, { status: 401, statusText: 'Unauthorized' });
+    httpTestingController
+      .expectOne(`${environment.apiUrl}/auth/refresh`)
+      .flush({
+        user: {
+          id: '00000000-0000-4000-8000-000000000001',
+          fullName: 'Analyst User',
+          username: 'analyst',
+          email: 'analyst@example.com',
+        },
+        token: 'token-456',
+        tokenExpiresAt: new Date().toISOString(),
+        refreshTokenExpiresAt: new Date().toISOString(),
+      });
+
+    const retriedRequest = httpTestingController.expectOne(
+      `${environment.apiUrl}/dashboard/ai-summary`,
+    );
+    expect(retriedRequest.request.headers.get('Authorization')).toBe('Bearer token-456');
+    retriedRequest.flush(
+      { error: 'Unavailable' },
+      { status: 503, statusText: 'Service Unavailable' },
+    );
+
+    expect(authService.isAuthenticated()).toBe(true);
+    expect(routerMock.navigateByUrl).not.toHaveBeenCalledWith('/session-expired');
+  });
+
   it('should show access denied for an API authorization failure', () => {
     httpClient.get(`${environment.apiUrl}/assets`).subscribe({ error: () => undefined });
 
