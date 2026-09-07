@@ -5,10 +5,18 @@
   background: var(--BlackRadar-color-pure-white);
 }
 
+html.blackradar-dark-theme :host {
+  background: var(--BlackRadar-color-navy-black);
+}
+
 .asset-vulnerabilities-page {
   display: grid;
   gap: 1.5rem;
   padding: 2.5rem clamp(1rem, 4vw, 3rem);
+}
+
+html.blackradar-dark-theme .asset-vulnerabilities-page {
+  background: var(--BlackRadar-color-navy-black);
 }
 
 .asset-vulnerabilities-page-header {
@@ -18,6 +26,10 @@
   gap: 1rem;
   width: 100%;
   margin: 0;
+}
+
+html.blackradar-dark-theme .asset-vulnerabilities-page-header {
+  background: var(--BlackRadar-color-navy-black);
 }
 
 .asset-vulnerabilities-heading {
@@ -183,6 +195,11 @@ html.blackradar-dark-theme .asset-vulnerabilities-manage-header p {
   margin-top: 0;
   padding-top: 1.25rem;
   border-top: 1px solid color-mix(in srgb, var(--BlackRadar-color-dark-gray) 18%, transparent);
+}
+
+html.blackradar-dark-theme .asset-vulnerabilities-attach-panel,
+html.blackradar-dark-theme .asset-vulnerabilities-scan-panel {
+  background: var(--BlackRadar-color-navy-black) !important;
 }
 
 .asset-vulnerabilities-attach-panel h3,

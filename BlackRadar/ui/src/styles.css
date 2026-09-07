@@ -62,6 +62,14 @@ app-root {
   font-family: var(--brand-font-body);
   background: var(--BlackRadar-color-pure-white);
 }
+
+html.blackradar-dark-theme app-root {
+  background: #000000;
+}
+
+html.blackradar-dark-theme .app-route-shell > :not(router-outlet) {
+  background: #000000;
+}
 app-root {
   --brand-popup-right: 0;
   --brand-banner-top: 4.95rem;
@@ -110,8 +118,19 @@ app-top-menu .top-menu-primary {
   padding: 0.35rem 1.15rem;
   overflow-x: auto;
   background: var(--BlackRadar-color-pure-white);
-  border-bottom: 1px solid color-mix(in srgb, var(--BlackRadar-color-dark-blue) 16%, transparent);
   scrollbar-width: thin;
+}
+
+html.blackradar-dark-theme app-page-layout {
+  background: #000000 !important;
+}
+
+html.blackradar-dark-theme app-page-layout .page-layout-frame,
+html.blackradar-dark-theme app-page-layout .page-layout-header,
+html.blackradar-dark-theme app-page-layout .page-layout-header > *,
+html.blackradar-dark-theme app-page-layout .page-layout-content,
+html.blackradar-dark-theme app-page-layout .page-layout-pagination {
+  background: #000000;
 }
 app-top-menu .top-menu-context-links {
   display: flex;
@@ -433,6 +452,91 @@ html.blackradar-dark-theme
     .dashboard-ai-message
   ) {
   color: var(--BlackRadar-color-light-gray) !important;
+}
+
+html.blackradar-dark-theme app-top-menu .top-menu-shell {
+  background: var(--BlackRadar-color-navy-black);
+}
+
+html.blackradar-dark-theme app-top-menu .top-menu-bar {
+  background: var(--BlackRadar-color-navy-black);
+  color: var(--BlackRadar-color-white);
+}
+
+html.blackradar-dark-theme app-top-menu .top-menu-primary {
+  background: #000000;
+  border-bottom-color: var(--BlackRadar-color-dark-blue);
+}
+
+html.blackradar-dark-theme app-top-menu .top-menu-brand {
+  color: var(--brandRadar-color-blue);
+}
+
+html.blackradar-dark-theme app-top-menu .top-menu-hamburger {
+  border-color: var(--BlackRadar-color-dark-blue);
+  background: var(--BlackRadar-color-pure-white);
+  color: var(--BlackRadar-color-dark-blue);
+}
+
+html.blackradar-dark-theme app-top-menu .top-menu-hamburger:hover {
+  background: color-mix(
+    in srgb,
+    var(--BlackRadar-color-dark-blue) 10%,
+    var(--BlackRadar-color-pure-white)
+  );
+}
+
+html.blackradar-dark-theme app-top-menu .top-menu-name {
+  background: var(--BlackRadar-color-pure-white);
+  color: var(--BlackRadar-color-dark-blue);
+}
+
+html.blackradar-dark-theme app-top-menu .top-menu-logout {
+  background: var(--BlackRadar-color-pure-white);
+  color: var(--BlackRadar-color-dark-blue);
+  border: 1px solid var(--BlackRadar-color-dark-blue);
+}
+
+html.blackradar-dark-theme app-top-menu .top-menu-logout:hover {
+  background: color-mix(
+    in srgb,
+    var(--BlackRadar-color-dark-blue) 12%,
+    var(--BlackRadar-color-pure-white)
+  );
+}
+
+html.blackradar-dark-theme,
+html.blackradar-dark-theme body {
+  background: #000000;
+}
+
+html.blackradar-dark-theme .dashboard-overview-card-content {
+  background: var(--BlackRadar-color-navy-black);
+}
+
+html.blackradar-dark-theme
+  :is(
+    .data-table,
+    .data-table tbody,
+    .data-table tbody tr,
+    .data-table tbody td,
+    .dashboard-ai-card,
+    .health-system-card,
+    .profile-details-card,
+    .asset-details-card,
+    .vulnerability-details-card
+  ) {
+  background: var(--BlackRadar-color-navy-black);
+}
+
+html.blackradar-dark-theme
+  :is(
+    .asset-filters-panel,
+    .vulnerability-filters-panel,
+    .relationship-filters-panel,
+    .users-filters-panel
+  ) {
+  background: #000000;
 }
 
 html.blackradar-dark-theme
@@ -771,6 +875,10 @@ app-login-page .login-shell {
   padding: 1.5rem;
   background: var(--BlackRadar-color-pure-white);
 }
+
+html.blackradar-dark-theme app-login-page .login-shell {
+  background: #000000;
+}
 app-login-page .login-stage {
   position: relative;
   width: min(100%, 35rem);
@@ -786,6 +894,10 @@ app-login-page .login-card {
 }
 app-login-page .login-header {
   text-align: center;
+}
+html.blackradar-dark-theme app-login-page .login-card {
+  border: 0;
+  background: var(--BlackRadar-color-navy-black);
 }
 app-login-page .login-header h1 {
   margin: 0;
@@ -870,6 +982,9 @@ app-login-page .field input {
 app-login-page .field input::placeholder {
   color: var(--BlackRadar-color-light-gray);
 }
+html.blackradar-dark-theme app-login-page .field input {
+  background: var(--BlackRadar-color-white);
+}
 app-login-page .field input:focus {
   outline: none;
   border-color: var(--brandRadar-color-blue);
@@ -904,6 +1019,10 @@ app-login-page .login-button:hover {
 app-login-page .login-button:focus-visible {
   outline: 3px solid rgba(12, 34, 64, 0.25);
   outline-offset: 3px;
+}
+html.blackradar-dark-theme app-login-page .login-button {
+  background: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-navy-black);
 }
 @keyframes appBannerSlideDown {
   from {

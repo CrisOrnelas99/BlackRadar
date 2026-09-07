@@ -5,12 +5,20 @@
   background: var(--BlackRadar-color-pure-white);
 }
 
+html.blackradar-dark-theme :host {
+  background: var(--BlackRadar-color-navy-black);
+}
+
 .dashboard-shell {
   display: grid;
   align-content: start;
   align-items: start;
   padding: 2rem clamp(1rem, 4vw, 3rem) 2.5rem;
   background: var(--BlackRadar-color-pure-white);
+}
+
+html.blackradar-dark-theme .dashboard-shell {
+  background: var(--BlackRadar-color-navy-black);
 }
 
 .dashboard-page-header {
@@ -20,6 +28,10 @@
   gap: 1.5rem;
   width: 100%;
   margin: 0;
+}
+
+html.blackradar-dark-theme .dashboard-page-header {
+  background: var(--BlackRadar-color-navy-black);
 }
 
 .dashboard-page-header h1 {
@@ -71,7 +83,7 @@
 
 .dashboard-overview-card {
   overflow: hidden;
-  border: 1px solid var(--BlackRadar-color-pure-black);
+  border: 0;
   border-radius: var(--brand-radius-lg);
   background: var(--BlackRadar-color-pure-white);
   box-shadow: 0 8px 18px color-mix(in srgb, var(--BlackRadar-color-navy-black) 18%, transparent);
@@ -80,7 +92,7 @@
 .dashboard-ai-card {
   margin-top: 0.75rem;
   overflow: hidden;
-  border: 1px solid var(--BlackRadar-color-pure-black);
+  border: 0;
   border-radius: var(--brand-radius-lg);
   background: var(--BlackRadar-color-pure-white);
   box-shadow: 0 8px 18px color-mix(in srgb, var(--BlackRadar-color-navy-black) 18%, transparent);
@@ -319,6 +331,10 @@
   display: grid;
   gap: 1.25rem;
   padding: 1.25rem 1.25rem 0;
+}
+
+.dashboard-overview-card-content strong {
+  color: var(--BlackRadar-color-pure-black);
 }
 
 .dashboard-overview-title-row {

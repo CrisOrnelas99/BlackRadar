@@ -5,6 +5,10 @@
   background: var(--BlackRadar-color-pure-white);
 }
 
+html.blackradar-dark-theme :host {
+  background: var(--BlackRadar-color-navy-black);
+}
+
 .users-page-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
@@ -12,6 +16,10 @@
   column-gap: 1.5rem;
   align-items: start;
   padding: 2.5rem clamp(1rem, 4vw, 3rem);
+}
+
+html.blackradar-dark-theme .users-page-shell {
+  background: var(--BlackRadar-color-navy-black);
 }
 
 .users-page-header {

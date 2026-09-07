@@ -5,6 +5,10 @@
   background: var(--BlackRadar-color-pure-white);
 }
 
+html.blackradar-dark-theme :host {
+  background: var(--BlackRadar-color-navy-black);
+}
+
 .vulnerabilities-page-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
@@ -14,12 +18,20 @@
   padding: 2.5rem clamp(1rem, 4vw, 3rem);
 }
 
+html.blackradar-dark-theme .vulnerabilities-page-shell {
+  background: var(--BlackRadar-color-navy-black);
+}
+
 .vulnerabilities-page-header {
   display: flex;
   align-items: center;
   gap: 1rem;
   grid-column: 1 / -1;
   grid-row: 1;
+}
+
+html.blackradar-dark-theme .vulnerabilities-page-header {
+  background: var(--BlackRadar-color-navy-black);
 }
 
 .vulnerabilities-page-header app-table-toolbar {

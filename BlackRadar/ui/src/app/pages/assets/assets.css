@@ -5,6 +5,11 @@
   background: var(--BlackRadar-color-pure-white);
   --assets-outline: color-mix(in srgb, var(--brandRadar-color-blue) 32%, transparent);
 }
+
+html.blackradar-dark-theme :host {
+  background: var(--BlackRadar-color-navy-black);
+}
+
 .assets-page-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
@@ -12,6 +17,10 @@
   align-items: start;
   background: var(--BlackRadar-color-pure-white);
   padding: 2.5rem clamp(1rem, 4vw, 3rem);
+}
+
+html.blackradar-dark-theme .assets-page-shell {
+  background: var(--BlackRadar-color-navy-black);
 }
 
 .assets-content-grid {
@@ -353,6 +362,10 @@ html.blackradar-dark-theme .asset-ai-coming-soon p {
   gap: 1rem;
   grid-column: 1 / -1;
   grid-row: 1;
+}
+
+html.blackradar-dark-theme .assets-page-header {
+  background: var(--BlackRadar-color-navy-black);
 }
 
 .assets-page-header app-table-toolbar {
