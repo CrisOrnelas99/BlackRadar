@@ -5,12 +5,7 @@
   ></app-top-menu>
 }
 
-<app-page-layout
-  class="asset-vulnerabilities-page"
-  [backLabel]="'Back to Asset'"
-  [backLink]="['/assets', asset()?.id || '']"
-  aria-labelledby="asset-vulnerabilities-heading"
->
+<app-page-layout class="asset-vulnerabilities-page" aria-labelledby="asset-vulnerabilities-heading">
   <header class="asset-vulnerabilities-page-header">
     <div class="asset-vulnerabilities-heading">
       <div class="asset-vulnerabilities-title-row">

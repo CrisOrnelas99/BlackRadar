@@ -150,8 +150,12 @@
 
 .asset-create-intro p {
   margin: 0.35rem 0 1.25rem;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-size: 0.95rem;
+}
+
+html.blackradar-dark-theme .asset-create-intro p {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .asset-create-intro-actions {
@@ -196,8 +200,12 @@
 
 .asset-create-header p {
   margin: 0.35rem 0 0;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-size: 0.95rem;
+}
+
+html.blackradar-dark-theme .asset-create-header p {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .asset-create-mode-button {
@@ -268,8 +276,12 @@
 
 .asset-ai-coming-soon p {
   margin: 0;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-size: 0.95rem;
+}
+
+html.blackradar-dark-theme .asset-ai-coming-soon p {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .asset-field {
@@ -385,7 +397,11 @@
 
 .assets-status {
   margin: 0;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
+}
+
+html.blackradar-dark-theme .assets-status {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 @media (max-width: 700px) {

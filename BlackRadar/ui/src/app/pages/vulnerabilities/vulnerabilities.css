@@ -187,8 +187,12 @@
 
 .vulnerability-create-intro p {
   margin: 0.35rem 0 1.25rem;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-size: 0.95rem;
+}
+
+html.blackradar-dark-theme .vulnerability-create-intro p {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .vulnerability-create-open {
@@ -233,8 +237,12 @@
 
 .vulnerability-create-header p {
   margin: 0.35rem 0 0;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-size: 0.95rem;
+}
+
+html.blackradar-dark-theme .vulnerability-create-header p {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .vulnerability-create-submit {

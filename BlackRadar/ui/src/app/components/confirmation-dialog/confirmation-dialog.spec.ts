@@ -96,4 +96,15 @@ describe('ConfirmationDialogComponent', () => {
 
     expect(emitCancelSpy).toHaveBeenCalledTimes(1);
   });
+
+  it('applies the danger tone class for destructive confirmations', () => {
+    fixture.componentRef.setInput('confirmTone', 'danger');
+    fixture.detectChanges();
+
+    const confirmButton = fixture.nativeElement.querySelector(
+      '.confirmation-dialog-confirm',
+    ) as HTMLButtonElement;
+
+    expect(confirmButton.classList.contains('confirmation-dialog-confirm-danger')).toBe(true);
+  });
 });

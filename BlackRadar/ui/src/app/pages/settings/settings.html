@@ -1,0 +1,38 @@
+@if (session(); as currentSession) {
+  <app-top-menu [session]="currentSession" currentUrl="/settings"></app-top-menu>
+}
+
+<app-page-layout class="settings-shell" role="main" aria-labelledby="settings-heading">
+  <header class="settings-page-header">
+    <div class="settings-page-title-row">
+      <svg class="page-heading-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path
+          d="M12 3v2M12 19v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M3 12h2M19 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+        />
+        <circle cx="12" cy="12" r="3.5" />
+      </svg>
+      <h1 id="settings-heading">Settings</h1>
+    </div>
+    <p>Choose how BlackRadar appears on this device.</p>
+  </header>
+
+  <section class="settings-card" aria-labelledby="appearance-heading">
+    <div>
+      <h2 id="appearance-heading">Appearance</h2>
+      <p>Use dark mode in low-light environments or keep the current light theme.</p>
+    </div>
+
+    <label class="settings-theme-control">
+      <span>Dark mode</span>
+      <input
+        type="checkbox"
+        role="switch"
+        [checked]="themeService.theme() === 'dark'"
+        [attr.aria-checked]="themeService.theme() === 'dark'"
+        aria-label="Use dark mode"
+        (change)="updateTheme($event)"
+      />
+      <span class="settings-theme-switch" aria-hidden="true"><span></span></span>
+    </label>
+  </section>
+</app-page-layout>

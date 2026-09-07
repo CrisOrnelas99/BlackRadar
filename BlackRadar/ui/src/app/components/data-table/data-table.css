@@ -36,8 +36,8 @@
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--BlackRadar-color-white);
-  background: var(--BlackRadar-color-dark-blue);
+  color: var(--BlackRadar-color-header-text);
+  background: var(--BlackRadar-color-header);
 }
 
 .data-table-header-content {

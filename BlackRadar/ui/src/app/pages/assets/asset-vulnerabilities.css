@@ -137,7 +137,11 @@
 
 .asset-vulnerabilities-manage-header p {
   margin: 0.45rem 0 0;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
+}
+
+html.blackradar-dark-theme .asset-vulnerabilities-manage-header p {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .asset-vulnerabilities-manage-actions {
@@ -194,8 +198,13 @@
 .asset-vulnerabilities-scan-status,
 .asset-vulnerabilities-scan-summary {
   margin: 0;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-size: 0.85rem;
+}
+
+html.blackradar-dark-theme .asset-vulnerabilities-scan-status,
+html.blackradar-dark-theme .asset-vulnerabilities-scan-summary {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .asset-vulnerabilities-scan-candidates {
@@ -245,9 +254,13 @@
 }
 
 .asset-vulnerabilities-scan-candidate-details code {
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-family: var(--brand-font-body);
   font-size: 0.74rem;
+}
+
+html.blackradar-dark-theme .asset-vulnerabilities-scan-candidate-details code {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .asset-vulnerabilities-scan-apply {
@@ -304,8 +317,12 @@
 }
 
 .asset-vulnerabilities-available-details span {
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-size: 0.78rem;
+}
+
+html.blackradar-dark-theme .asset-vulnerabilities-available-details span {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .asset-vulnerabilities-available-attach {
@@ -328,13 +345,21 @@
 
 .asset-vulnerabilities-no-available {
   margin: 0;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-size: 0.85rem;
+}
+
+html.blackradar-dark-theme .asset-vulnerabilities-no-available {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .asset-vulnerabilities-status {
   margin: 0;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
+}
+
+html.blackradar-dark-theme .asset-vulnerabilities-status {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 @media (max-width: 44rem) {

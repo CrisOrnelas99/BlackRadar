@@ -168,13 +168,6 @@ describe('AssetVulnerabilitiesPage', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/vulnerabilities', 'vulnerability-1', 'assets']);
   });
 
-  it('links back to the parent asset', () => {
-    const backLink = fixture.nativeElement.querySelector('.page-back-link') as HTMLAnchorElement;
-
-    expect(backLink.textContent).toContain('Back to Asset');
-    expect(backLink.getAttribute('href')).toBe('/assets/asset-1');
-  });
-
   it('shows an empty state when filters remove all attached vulnerabilities', () => {
     component.updateSearchQuery('does-not-match');
     fixture.detectChanges();
