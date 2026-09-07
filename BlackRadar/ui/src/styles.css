@@ -57,6 +57,8 @@ app-login-page {
   font-family: var(--brand-font-body);
 }
 app-root {
+  --brand-popup-right: 0;
+  --brand-banner-top: 4.95rem;
   display: block;
   min-height: 100vh;
   font-family: var(--brand-font-body);
@@ -69,10 +71,6 @@ html.blackradar-dark-theme app-root {
 
 html.blackradar-dark-theme .app-route-shell > :not(router-outlet) {
   background: #000000;
-}
-app-root {
-  --brand-popup-right: 0;
-  --brand-banner-top: 4.95rem;
 }
 .page-heading-icon {
   width: 2rem;
@@ -161,6 +159,14 @@ app-top-menu .top-menu-logout {
   font: inherit;
 }
 app-top-menu .top-menu-hamburger {
+  display: grid;
+  gap: 0.18rem;
+  place-items: center;
+  width: 2.7rem;
+  height: 2.7rem;
+  border-radius: 0.9rem;
+  padding: 0.55rem;
+  cursor: pointer;
   border: 1px solid var(--menu-line);
   background: var(--menu-soft);
   color: var(--BlackRadar-color-white);
@@ -178,16 +184,6 @@ app-top-menu .top-menu-name {
   border-radius: 999px;
   padding: 0.55rem 0.9rem;
   font-weight: 700;
-}
-app-top-menu .top-menu-hamburger {
-  display: grid;
-  gap: 0.18rem;
-  place-items: center;
-  width: 2.7rem;
-  height: 2.7rem;
-  border-radius: 0.9rem;
-  padding: 0.55rem;
-  cursor: pointer;
 }
 app-top-menu .top-menu-hamburger span {
   display: block;
@@ -279,16 +275,6 @@ app-top-menu .top-menu-link-icon svg {
   stroke-width: 1.9;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-@keyframes topMenuReveal {
-  from {
-    opacity: 0;
-    transform: translateY(-0.35rem);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 @media (max-width: 640px) {
   app-top-menu .top-menu-shell {
@@ -539,17 +525,6 @@ html.blackradar-dark-theme
   background: #000000;
 }
 
-html.blackradar-dark-theme
-  :is(
-    .asset-required,
-    .vulnerability-required,
-    .profile-required,
-    .users-required,
-    .settings-required
-  ) {
-  color: var(--BlackRadar-color-warning) !important;
-}
-
 :is(
   .dashboard-page-subtitle,
   .assets-page-subtitle,
@@ -582,28 +557,6 @@ html.blackradar-dark-theme
 :is(
   .asset-details-page-subtitle,
   .vulnerability-details-page-subtitle,
-  .asset-details-page-subtitle-row p,
-  .vulnerability-details-page-subtitle-row p,
-  .asset-vulnerabilities-description-row p,
-  .vulnerability-assets-description-row p,
-  .profile-page-subtitle-row p
-) {
-  color: var(--BlackRadar-color-light-gray) !important;
-}
-
-:is(
-  .dashboard-page-subtitle,
-  .assets-page-subtitle,
-  .asset-details-page-subtitle,
-  .asset-vulnerabilities-page-subtitle,
-  .vulnerabilities-page-subtitle,
-  .vulnerability-details-page-subtitle,
-  .vulnerability-assets-page-subtitle,
-  .users-page-subtitle,
-  .profile-page-subtitle,
-  .settings-page-header p
-),
-:is(
   .asset-details-page-subtitle-row p,
   .vulnerability-details-page-subtitle-row p,
   .asset-vulnerabilities-description-row p,
@@ -993,6 +946,7 @@ app-login-page .field input:focus {
 }
 
 app-login-page .login-button {
+  width: 75%;
   margin-top: 0.25rem;
   border: 0;
   border-radius: var(--brand-radius-md);
@@ -1007,9 +961,6 @@ app-login-page .login-button {
     transform 160ms ease,
     box-shadow 160ms ease,
     filter 160ms ease;
-}
-app-login-page .login-button {
-  width: 75%;
 }
 app-login-page .login-button:hover {
   transform: translateY(-1px);
