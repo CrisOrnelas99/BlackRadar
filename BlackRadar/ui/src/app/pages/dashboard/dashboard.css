@@ -5,12 +5,20 @@
   background: var(--BlackRadar-color-pure-white);
 }
 
+:host-context(html.blackradar-dark-theme) {
+  background: #000000;
+}
+
 .dashboard-shell {
   display: grid;
   align-content: start;
   align-items: start;
-  padding: 2rem clamp(1rem, 4vw, 3rem) 2.5rem;
+  padding: 1.25rem clamp(1rem, 4vw, 3rem) 2.5rem;
   background: var(--BlackRadar-color-pure-white);
+}
+
+:host-context(html.blackradar-dark-theme) .dashboard-shell {
+  background: #000000;
 }
 
 .dashboard-page-header {
@@ -20,6 +28,10 @@
   gap: 1.5rem;
   width: 100%;
   margin: 0;
+}
+
+:host-context(html.blackradar-dark-theme) .dashboard-page-header {
+  background: #000000;
 }
 
 .dashboard-page-header h1 {
@@ -56,7 +68,7 @@
 }
 
 .dashboard-page-count {
-  color: var(--BlackRadar-color-warning);
+  color: var(--BlackRadar-color-warning) !important;
   font-size: 0.85rem;
   font-weight: 400;
   white-space: nowrap;
@@ -71,15 +83,16 @@
 
 .dashboard-overview-card {
   overflow: hidden;
-  border: 1px solid var(--BlackRadar-color-pure-black);
+  border: 0;
   border-radius: var(--brand-radius-lg);
   background: var(--BlackRadar-color-pure-white);
   box-shadow: 0 8px 18px color-mix(in srgb, var(--BlackRadar-color-navy-black) 18%, transparent);
 }
 
 .dashboard-ai-card {
+  margin-top: 0.75rem;
   overflow: hidden;
-  border: 1px solid var(--BlackRadar-color-pure-black);
+  border: 0;
   border-radius: var(--brand-radius-lg);
   background: var(--BlackRadar-color-pure-white);
   box-shadow: 0 8px 18px color-mix(in srgb, var(--BlackRadar-color-navy-black) 18%, transparent);
@@ -92,7 +105,7 @@
   gap: 1rem;
   min-height: 3.5rem;
   padding: 0.85rem 1.25rem;
-  background: var(--BlackRadar-color-dark-blue);
+  background: var(--BlackRadar-color-header);
 }
 
 .dashboard-ai-title-row {
@@ -112,7 +125,7 @@
 }
 
 .dashboard-ai-card-header h2 {
-  color: var(--BlackRadar-color-pure-white);
+  color: var(--BlackRadar-color-header-text);
   font-family: var(--brand-font-title);
   font-size: 1.6rem;
   font-weight: 400;
@@ -123,7 +136,7 @@
   width: 1.8rem;
   height: 1.8rem;
   flex: 0 0 auto;
-  stroke: var(--BlackRadar-color-pure-white);
+  stroke: var(--BlackRadar-color-header-text);
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.8;
@@ -193,7 +206,7 @@
 
 .dashboard-ai-assessment > span,
 .dashboard-ai-finding-heading > span {
-  color: var(--BlackRadar-color-dark-blue);
+  color: var(--BlackRadar-color-light-gray);
   font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -230,10 +243,31 @@
   font-size: 1.1rem;
 }
 
+.dashboard-overview-chart-heading {
+  display: grid;
+  gap: 0.15rem;
+  margin-bottom: 0.85rem;
+}
+
+.dashboard-overview-chart-heading h3 {
+  color: var(--brandRadar-color-blue);
+}
+
+.dashboard-overview-chart-heading h3,
+.dashboard-overview-chart-description {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.25;
+}
+
+.dashboard-overview-chart-description {
+  color: var(--BlackRadar-color-light-gray);
+}
+
 .dashboard-ai-assessment p,
 .dashboard-ai-finding p,
 .dashboard-ai-notes li {
-  color: var(--BlackRadar-color-navy-black);
+  color: var(--BlackRadar-color-light-gray);
   font-size: 0.88rem;
   line-height: 1.5;
 }
@@ -253,7 +287,7 @@
   gap: 0.35rem;
   padding: 0.85rem 1rem;
   border-left: 0.25rem solid var(--BlackRadar-color-error);
-  background: color-mix(in srgb, var(--BlackRadar-color-light-gray) 35%, transparent);
+  background: var(--BlackRadar-color-white);
 }
 
 .dashboard-ai-finding-heading {
@@ -290,13 +324,17 @@
 
 .dashboard-overview-card-header {
   padding: 0.85rem 1.25rem;
-  background: var(--BlackRadar-color-dark-blue);
+  background: var(--BlackRadar-color-header);
 }
 
 .dashboard-overview-card-content {
   display: grid;
   gap: 1.25rem;
   padding: 1.25rem 1.25rem 0;
+}
+
+.dashboard-overview-card-content strong {
+  color: var(--BlackRadar-color-pure-black);
 }
 
 .dashboard-overview-title-row {
@@ -310,7 +348,7 @@
   width: 1.8rem;
   height: 1.8rem;
   flex: 0 0 auto;
-  stroke: var(--BlackRadar-color-pure-white);
+  stroke: var(--BlackRadar-color-header-text);
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.8;
@@ -318,7 +356,7 @@
 
 .dashboard-overview-label {
   margin: 0;
-  color: var(--BlackRadar-color-pure-white);
+  color: var(--BlackRadar-color-header-text);
   font-family: var(--brand-font-title);
   font-size: 1.6rem;
   font-weight: 400;
@@ -327,7 +365,7 @@
 
 .dashboard-overview-value {
   margin: 0 0 0 auto;
-  color: var(--BlackRadar-color-pure-white);
+  color: var(--BlackRadar-color-header-text);
   font-family: var(--brand-font-title);
   font-size: 2rem;
   font-weight: 400;
@@ -360,7 +398,7 @@
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  color: var(--BlackRadar-color-navy-black);
+  color: var(--BlackRadar-color-light-gray);
   font-size: 0.8rem;
 }
 
@@ -401,7 +439,7 @@
   align-items: center;
   justify-content: start;
   gap: 0.3rem;
-  color: var(--BlackRadar-color-navy-black);
+  color: var(--BlackRadar-color-light-gray);
   font-size: 0.8rem;
 }
 
@@ -411,7 +449,7 @@
 }
 
 .dashboard-overview-chart-percentage {
-  color: var(--BlackRadar-color-navy-black);
+  color: var(--BlackRadar-color-light-gray);
   font-size: 0.75rem;
 }
 

@@ -12,7 +12,7 @@
   align-items: start;
   align-content: start;
   min-height: 100vh;
-  padding: 2.5rem clamp(1rem, 4vw, 3rem);
+  padding: 1.25rem clamp(1rem, 4vw, 3rem) 2.5rem;
   background: var(--BlackRadar-color-pure-white);
 }
 
@@ -51,9 +51,13 @@
 .profile-page-subtitle {
   min-width: 0;
   margin: 0.3rem 0 0;
-  color: var(--BlackRadar-color-dark-blue);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-size: 0.9rem;
   line-height: 1.45;
+}
+
+html.blackradar-dark-theme .profile-page-subtitle {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .profile-page-subtitle-row {
@@ -124,7 +128,11 @@
 .profile-details-grid dd {
   margin: 0;
   overflow-wrap: anywhere;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
+}
+
+html.blackradar-dark-theme .profile-details-grid dd {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .profile-permissions {
@@ -137,7 +145,7 @@
   color: var(--BlackRadar-color-navy-black);
   font-family: var(--brand-font-title);
   font-size: 1.25rem;
-  font-weight: 400;
+  font-weight: 700;
 }
 
 .profile-permissions ul {
@@ -152,7 +160,11 @@
 .profile-permissions li {
   position: relative;
   padding-left: 1rem;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
+}
+
+html.blackradar-dark-theme .profile-permissions li {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .profile-permissions li::before {
@@ -211,7 +223,12 @@
 .profile-edit-intro p,
 .profile-edit-header p {
   margin: 0.45rem 0 1.25rem;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
+}
+
+html.blackradar-dark-theme .profile-edit-intro p,
+html.blackradar-dark-theme .profile-edit-header p {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .profile-edit-header p {

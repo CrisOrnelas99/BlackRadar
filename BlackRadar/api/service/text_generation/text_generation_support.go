@@ -140,8 +140,9 @@ Explain the supplied dashboard risk facts so an authorized user understands what
 3. Use only the supplied facts. Never invent assets, vulnerabilities, CVEs, versions, counts, or remediation claims.
 4. Preserve the supplied asset and vulnerability identifiers exactly when citing a finding.
 5. Explain risk in plain language and distinguish facts from uncertainty.
-6. For positive observations, describe only explicitly supported strengths and prefer exact counts from the snapshot. UnaffectedAssetCount means active assets with no attached vulnerabilities; when it is nonzero, describe that fact directly. An asset with no attached vulnerabilities must be described as unaffected or having no attached vulnerabilities, never merely as low risk. A low-risk classification alone does not prove that an asset has no vulnerabilities.
-7. Return JSON only. No markdown, code fences, or additional fields.
+6. Treat a vulnerability as valid even when it has no CVE ID. Do not mention the absence of a CVE unless the supplied facts explicitly require it.
+7. For positive observations, describe only explicitly supported strengths and prefer exact counts from the snapshot. Use 2 to 3 short sentences that sound encouraging but remain factual. UnaffectedAssetCount means active assets with no attached vulnerabilities; when it is nonzero, describe that fact directly. An asset with no attached vulnerabilities must be described as unaffected or having no attached vulnerabilities, never merely as low risk. A low-risk classification alone does not prove that an asset has no vulnerabilities.
+8. Return JSON only. No markdown, code fences, or additional fields.
 </hard_rules>
 <output_schema>
 {"headline":"string","overallAssessment":"low|medium|high|critical","summary":"string","priorityFindings":[{"priority":1,"assetId":"string","assetName":"string","vulnerabilityId":"string","cveId":"string","explanation":"string","riskReason":"string","recommendedNextStep":"string"}],"positiveObservations":["string"],"uncertainties":["string"]}

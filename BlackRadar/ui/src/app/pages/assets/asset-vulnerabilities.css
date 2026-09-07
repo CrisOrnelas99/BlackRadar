@@ -5,10 +5,18 @@
   background: var(--BlackRadar-color-pure-white);
 }
 
+:host-context(html.blackradar-dark-theme) {
+  background: #000000;
+}
+
 .asset-vulnerabilities-page {
   display: grid;
   gap: 1.5rem;
-  padding: 2.5rem clamp(1rem, 4vw, 3rem);
+  padding: 1.25rem clamp(1rem, 4vw, 3rem) 2.5rem;
+}
+
+:host-context(html.blackradar-dark-theme) .asset-vulnerabilities-page {
+  background: #000000;
 }
 
 .asset-vulnerabilities-page-header {
@@ -18,6 +26,10 @@
   gap: 1rem;
   width: 100%;
   margin: 0;
+}
+
+:host-context(html.blackradar-dark-theme) .asset-vulnerabilities-page-header {
+  background: #000000;
 }
 
 .asset-vulnerabilities-heading {
@@ -137,7 +149,11 @@
 
 .asset-vulnerabilities-manage-header p {
   margin: 0.45rem 0 0;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
+}
+
+html.blackradar-dark-theme .asset-vulnerabilities-manage-header p {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .asset-vulnerabilities-manage-actions {
@@ -181,6 +197,11 @@
   border-top: 1px solid color-mix(in srgb, var(--BlackRadar-color-dark-gray) 18%, transparent);
 }
 
+html.blackradar-dark-theme .asset-vulnerabilities-attach-panel,
+html.blackradar-dark-theme .asset-vulnerabilities-scan-panel {
+  background: var(--BlackRadar-color-navy-black) !important;
+}
+
 .asset-vulnerabilities-attach-panel h3,
 .asset-vulnerabilities-scan-panel h3 {
   margin: 0 0 0.75rem;
@@ -194,8 +215,13 @@
 .asset-vulnerabilities-scan-status,
 .asset-vulnerabilities-scan-summary {
   margin: 0;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-size: 0.85rem;
+}
+
+html.blackradar-dark-theme .asset-vulnerabilities-scan-status,
+html.blackradar-dark-theme .asset-vulnerabilities-scan-summary {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .asset-vulnerabilities-scan-candidates {
@@ -245,9 +271,13 @@
 }
 
 .asset-vulnerabilities-scan-candidate-details code {
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-family: var(--brand-font-body);
   font-size: 0.74rem;
+}
+
+html.blackradar-dark-theme .asset-vulnerabilities-scan-candidate-details code {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .asset-vulnerabilities-scan-apply {
@@ -304,8 +334,12 @@
 }
 
 .asset-vulnerabilities-available-details span {
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-size: 0.78rem;
+}
+
+html.blackradar-dark-theme .asset-vulnerabilities-available-details span {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .asset-vulnerabilities-available-attach {
@@ -328,13 +362,21 @@
 
 .asset-vulnerabilities-no-available {
   margin: 0;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-size: 0.85rem;
+}
+
+html.blackradar-dark-theme .asset-vulnerabilities-no-available {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .asset-vulnerabilities-status {
   margin: 0;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
+}
+
+html.blackradar-dark-theme .asset-vulnerabilities-status {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 @media (max-width: 44rem) {

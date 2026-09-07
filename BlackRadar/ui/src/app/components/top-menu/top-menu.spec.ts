@@ -61,7 +61,7 @@ describe('TopMenuComponent', () => {
     expect(component.displayName).toBe('System Admin');
   });
 
-  it('keeps primary navigation visible and account actions in the hamburger menu', () => {
+  it('shows the data navigation context by default on data pages', () => {
     expect(fixture.nativeElement.querySelector('.top-menu-primary').textContent).toContain(
       'Dashboard',
     );
@@ -71,14 +71,51 @@ describe('TopMenuComponent', () => {
     expect(fixture.nativeElement.querySelector('.top-menu-primary').textContent).toContain(
       'Vulnerabilities',
     );
-    expect(fixture.nativeElement.querySelector('.top-menu-dropdown')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.top-menu-account-link')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.top-menu-logout')).toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.top-menu-actions .top-menu-hamburger'),
+    ).not.toBeNull();
 
     expect(component.primaryNavigationItems.map((item) => item.label)).toEqual([
       'Dashboard',
       'Assets',
       'Vulnerabilities',
     ]);
-    expect(component.accountNavigationItems.map((item) => item.label)).toEqual(['Profile']);
+    expect(component.accountNavigationItems.map((item) => item.label)).toEqual([
+      'Profile',
+      'Settings',
+    ]);
+  });
+
+  it('shows the account navigation context on account pages', () => {
+    fixture.componentRef.setInput('currentUrl', '/settings');
+    fixture.detectChanges();
+
+    const navigation = fixture.nativeElement.querySelector('.top-menu-context-navigation');
+    expect(navigation.textContent).toContain('Profile');
+    expect(navigation.textContent).toContain('Settings');
+    expect(navigation.textContent).toContain('Log out');
+    expect(navigation.textContent).not.toContain('Dashboard');
+  });
+
+  it('switches navigation contexts when the hamburger is selected', () => {
+    const hamburger = fixture.nativeElement.querySelector(
+      '.top-menu-hamburger',
+    ) as HTMLButtonElement;
+    hamburger.click();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.top-menu-account-link')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.top-menu-logout')).not.toBeNull();
+    expect(
+      fixture.nativeElement.querySelector('.top-menu-context-links').textContent,
+    ).not.toContain('Dashboard');
+
+    hamburger.click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.top-menu-account-link')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.top-menu-logout')).toBeNull();
   });
 
   it('signs the user out and navigates to the login page on success', async () => {

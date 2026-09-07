@@ -13,10 +13,37 @@
   --BlackRadar-color-severe: #7e22ce;
   --BlackRadar-color-success: #91d590;
   --BlackRadar-color-warning: #dfa033;
+  --BlackRadar-color-header: var(--BlackRadar-color-dark-blue);
+  --BlackRadar-color-header-text: var(--BlackRadar-color-pure-white);
 
   --brand-font-body: 'Source Sans Pro', 'Segoe UI', Arial, sans-serif;
   --brand-font-title: Georgia, 'Times New Roman', serif;
 
   --brand-radius-lg: 1.5rem;
   --brand-radius-md: 1rem;
+}
+
+html.blackradar-dark-theme {
+  --BlackRadar-color-light-blue: #8fb7d6;
+  --BlackRadar-color-dark-blue: #d8e7f2;
+  --BlackRadar-color-dark-gray: #c2cbd2;
+  --BlackRadar-color-light-gray: #b0bac3;
+  --BlackRadar-color-navy-black: #101820;
+  --BlackRadar-color-white: #263746;
+  --BlackRadar-color-pure-white: #182630;
+  --BlackRadar-color-pure-black: #f3f7fa;
+  --brandRadar-color-blue: #6ea7d0;
+
+  --BlackRadar-color-error: #ff8f8f;
+  --BlackRadar-color-severe: #d6a4ff;
+  --BlackRadar-color-success: #9ee5a0;
+  --BlackRadar-color-warning: #f1bb62;
+  --BlackRadar-color-header: #303a43;
+  --BlackRadar-color-header-text: #f3f7fa;
+}
+
+html,
+body {
+  background: var(--BlackRadar-color-pure-white);
+  color: var(--BlackRadar-color-navy-black);
 }

@@ -1,12 +1,5 @@
 // Shared authenticated top menu that exposes product navigation and account actions.
-import {
-  Component,
-  ElementRef,
-  HostListener,
-  ViewEncapsulation,
-  input,
-  inject,
-} from '@angular/core';
+import { Component, ViewEncapsulation, input, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
@@ -29,7 +22,6 @@ interface NavigationItem {
   encapsulation: ViewEncapsulation.None,
 })
 export class TopMenuComponent {
-  private readonly elementRef = inject(ElementRef<HTMLElement>);
   private readonly authService = inject(AuthService);
   private readonly bannerService = inject(BannerService);
   private readonly router = inject(Router);
@@ -63,6 +55,12 @@ export class TopMenuComponent {
       path: '/profile',
       isActive: (currentUrl) => currentUrl.startsWith('/profile'),
     },
+    {
+      key: 'settings',
+      label: 'Settings',
+      path: '/settings',
+      isActive: (currentUrl) => currentUrl.startsWith('/settings'),
+    },
   ];
   readonly adminAccountNavigationItems: ReadonlyArray<NavigationItem> = [
     ...this.accountNavigationItems,
@@ -87,6 +85,26 @@ export class TopMenuComponent {
     return this.accountNavigationItems;
   }
 
+  get isAccountNavigationContext(): boolean {
+    const url = this.currentUrl();
+    return (
+      url.startsWith('/profile') ||
+      url.startsWith('/settings') ||
+      url.startsWith('/users') ||
+      url.startsWith('/health')
+    );
+  }
+
+  get isShowingAccountNavigation(): boolean {
+    return this.isNavigationMenuOpen !== this.isAccountNavigationContext;
+  }
+
+  get visibleNavigationItems(): ReadonlyArray<NavigationItem> {
+    return this.isShowingAccountNavigation
+      ? this.visibleAccountNavigationItems
+      : this.primaryNavigationItems;
+  }
+
   isNavigationMenuOpen = false;
   isSignOutConfirmationOpen = false;
 
@@ -97,7 +115,7 @@ export class TopMenuComponent {
     );
   }
 
-  // Toggles the page-navigation dropdown.
+  // Switches between the data and account navigation contexts.
   toggleNavigationMenu(): void {
     this.isNavigationMenuOpen = !this.isNavigationMenuOpen;
   }
@@ -137,28 +155,7 @@ export class TopMenuComponent {
     }
   }
 
-  // Closes open panels when the user clicks outside the menu host.
-  @HostListener('document:click', ['$event'])
-  handleDocumentClick(event: MouseEvent): void {
-    const target = event.target;
-    if (!(target instanceof Node)) {
-      return;
-    }
-
-    if (this.elementRef.nativeElement.contains(target)) {
-      return;
-    }
-
-    this.closeMenus();
-  }
-
-  // Closes all menu surfaces when escape is pressed.
-  @HostListener('document:keydown.escape')
-  handleEscape(): void {
-    this.closeMenus();
-  }
-
-  // Resets both menu surfaces to their closed state.
+  // Resets the context switch so the current route determines the visible group.
   private closeMenus(): void {
     this.isNavigationMenuOpen = false;
   }

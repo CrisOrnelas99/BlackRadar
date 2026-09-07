@@ -5,7 +5,7 @@
 
 .data-table-wrapper {
   overflow-x: auto;
-  border: 0;
+  border: 1px solid color-mix(in srgb, var(--BlackRadar-color-light-gray) 30%, transparent);
   border-radius: var(--brand-radius-lg);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--BlackRadar-color-pure-white) 80%, transparent),
@@ -36,8 +36,8 @@
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--BlackRadar-color-white);
-  background: var(--BlackRadar-color-dark-blue);
+  color: var(--BlackRadar-color-header-text);
+  background: var(--BlackRadar-color-header);
 }
 
 .data-table-header-content {
@@ -88,6 +88,10 @@
 
 .data-table tbody {
   background: var(--BlackRadar-color-pure-white);
+}
+
+.data-table tbody td {
+  border-bottom-color: color-mix(in srgb, var(--BlackRadar-color-light-gray) 30%, transparent);
 }
 
 .data-table tbody tr:last-child td {

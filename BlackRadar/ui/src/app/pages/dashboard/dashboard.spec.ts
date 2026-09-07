@@ -115,11 +115,11 @@ describe('DashboardPage', () => {
     });
   });
 
-  it('renders a navy-to-blue coverage bar from the current assignment count', () => {
+  it('renders a blue-to-navy coverage bar from the current assignment count', () => {
     const component = fixture.componentInstance;
 
     expect(component.coverageBarBackground(1, 2)).toBe(
-      'linear-gradient(to right, var(--BlackRadar-color-navy-black) 0% 50%, var(--brandRadar-color-blue) 50% 100%)',
+      'linear-gradient(to right, var(--brandRadar-color-blue) 0% 50%, var(--BlackRadar-color-navy-black) 50% 100%)',
     );
   });
 

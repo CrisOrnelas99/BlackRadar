@@ -30,6 +30,18 @@
   font-weight: 400;
 }
 
+:host-context(html.blackradar-dark-theme) .confirmation-dialog h2 {
+  color: var(--BlackRadar-color-header-text);
+}
+
+:host-context(html.blackradar-dark-theme) .confirmation-dialog {
+  background: var(--BlackRadar-color-white);
+}
+
+:host-context(html.blackradar-dark-theme) .confirmation-dialog p {
+  color: var(--BlackRadar-color-dark-gray);
+}
+
 .confirmation-dialog p {
   margin: 0.7rem 0 1.25rem;
   color: var(--BlackRadar-color-light-gray);
@@ -72,6 +84,18 @@
 .confirmation-dialog-confirm-danger {
   border: 1px solid var(--BlackRadar-color-error);
   background: var(--BlackRadar-color-error);
+  color: var(--BlackRadar-color-pure-white);
+}
+
+:host-context(html.blackradar-dark-theme) .confirmation-dialog-confirm-primary {
+  color: var(--BlackRadar-color-pure-white);
+}
+
+:host-context(html.blackradar-dark-theme) .confirmation-dialog-confirm-success {
+  color: var(--BlackRadar-color-navy-black);
+}
+
+:host-context(html.blackradar-dark-theme) .confirmation-dialog-confirm-danger {
   color: var(--BlackRadar-color-pure-white);
 }
 

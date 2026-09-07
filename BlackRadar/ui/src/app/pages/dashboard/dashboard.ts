@@ -159,7 +159,7 @@ export class DashboardPage {
     }
 
     const percentage = this.coveragePercentage(coveredCount, totalCount);
-    return `linear-gradient(to right, var(--BlackRadar-color-navy-black) 0% ${percentage}%, var(--brandRadar-color-blue) ${percentage}% 100%)`;
+    return `linear-gradient(to right, var(--brandRadar-color-blue) 0% ${percentage}%, var(--BlackRadar-color-navy-black) ${percentage}% 100%)`;
   }
 
   private levelCounts(levels: Array<string | null>): DashboardLevelCounts {

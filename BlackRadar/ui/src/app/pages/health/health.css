@@ -4,8 +4,8 @@
   font-family: var(--brand-font-body);
 }
 .health-shell {
-  padding: 2rem clamp(1rem, 4vw, 3rem);
-  background: #fff;
+  padding: 1.25rem clamp(1rem, 4vw, 3rem) 2rem;
+  background: var(--BlackRadar-color-pure-white);
   color: var(--BlackRadar-color-navy-black);
   min-height: 100vh;
 }
@@ -49,8 +49,8 @@
   border: 1px solid var(--BlackRadar-color-dark-blue);
   border-radius: var(--brand-radius-md);
   padding: 0.7rem 1rem;
-  background: var(--BlackRadar-color-dark-blue);
-  color: #fff;
+  background: var(--BlackRadar-color-header);
+  color: var(--BlackRadar-color-header-text);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
@@ -61,8 +61,8 @@
   padding: 0.9rem 1rem;
   border: 1px solid var(--BlackRadar-color-navy-black);
   border-radius: var(--brand-radius-md);
-  background: var(--BlackRadar-color-dark-blue);
-  color: var(--BlackRadar-color-pure-white);
+  background: var(--BlackRadar-color-header);
+  color: var(--BlackRadar-color-header-text);
   font-weight: 700;
 }
 .health-system-card {
@@ -143,13 +143,17 @@
   padding: 1.5rem;
   border: 2px solid var(--BlackRadar-color-dark-blue);
   border-radius: var(--brand-radius-lg);
-  background: #fff;
+  background: var(--BlackRadar-color-pure-white);
   box-shadow: 0 12px 28px color-mix(in srgb, var(--BlackRadar-color-navy-black) 13%, transparent);
   text-align: center;
 }
 .health-node--app {
   border-color: var(--brandRadar-color-blue);
-  background: color-mix(in srgb, var(--brandRadar-color-blue) 7%, #fff);
+  background: color-mix(
+    in srgb,
+    var(--brandRadar-color-blue) 7%,
+    var(--BlackRadar-color-pure-white)
+  );
 }
 .health-node--database,
 .health-node--ai,

@@ -15,20 +15,25 @@
 }
 
 .page-cancel {
+  all: unset;
+  display: inline;
   flex: 0 0 auto;
   margin-left: auto;
-  padding: 0.35rem 0;
-  border: 0;
-  background: transparent;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font: inherit;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .page-cancel:hover:not(:disabled) {
-  color: var(--brandRadar-color-blue);
+  color: var(--BlackRadar-color-light-gray) !important;
   text-decoration: underline;
   text-underline-offset: 0.2rem;
+}
+
+.page-cancel:focus-visible {
+  outline: 2px solid var(--brandRadar-color-blue);
+  outline-offset: 3px;
 }
 
 .semantic-level-critical {
@@ -57,14 +62,20 @@ app-login-page {
   font-family: var(--brand-font-body);
 }
 app-root {
+  --brand-popup-right: 0;
+  --brand-banner-top: 4.95rem;
   display: block;
   min-height: 100vh;
   font-family: var(--brand-font-body);
   background: var(--BlackRadar-color-pure-white);
 }
-app-root {
-  --brand-popup-right: 0;
-  --brand-banner-top: 4.95rem;
+
+html.blackradar-dark-theme app-root {
+  background: #000000;
+}
+
+html.blackradar-dark-theme .app-route-shell > :not(router-outlet) {
+  background: #000000;
 }
 .page-heading-icon {
   width: 2rem;
@@ -84,9 +95,6 @@ app-top-menu {
   --menu-soft: color-mix(in srgb, var(--BlackRadar-color-light-blue) 8%, transparent);
   --menu-soft-hover: color-mix(in srgb, var(--BlackRadar-color-light-blue) 14%, transparent);
   --menu-outline: color-mix(in srgb, var(--brandRadar-color-blue) 32%, transparent);
-  --menu-panel-bg: var(--BlackRadar-color-white);
-  --menu-panel-shadow: 0 22px 42px
-    color-mix(in srgb, var(--BlackRadar-color-navy-black) 16%, transparent);
   --menu-link-hover: color-mix(in srgb, var(--brandRadar-color-blue) 12%, transparent);
 }
 app-top-menu .top-menu-shell {
@@ -113,8 +121,28 @@ app-top-menu .top-menu-primary {
   padding: 0.35rem 1.15rem;
   overflow-x: auto;
   background: var(--BlackRadar-color-pure-white);
-  border-bottom: 1px solid color-mix(in srgb, var(--BlackRadar-color-dark-blue) 16%, transparent);
   scrollbar-width: thin;
+}
+
+html.blackradar-dark-theme app-page-layout {
+  background: #000000 !important;
+}
+
+html.blackradar-dark-theme app-page-layout .page-layout-frame,
+html.blackradar-dark-theme app-page-layout .page-layout-header,
+html.blackradar-dark-theme app-page-layout .page-layout-header > *,
+html.blackradar-dark-theme app-page-layout .page-layout-content,
+html.blackradar-dark-theme app-page-layout .page-layout-pagination {
+  background: #000000;
+}
+app-top-menu .top-menu-context-links {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+app-top-menu .top-menu-context-navigation--account .top-menu-context-links {
+  margin-left: auto;
 }
 app-top-menu .top-menu-brand {
   padding-left: 0.75rem;
@@ -129,10 +157,6 @@ app-top-menu .top-menu-actions {
   align-items: center;
   gap: 0.65rem;
 }
-app-top-menu .top-menu-profile,
-app-top-menu .top-menu-nav {
-  position: relative;
-}
 app-top-menu .top-menu-name,
 app-top-menu .top-menu-hamburger,
 app-top-menu .top-menu-link,
@@ -140,6 +164,14 @@ app-top-menu .top-menu-logout {
   font: inherit;
 }
 app-top-menu .top-menu-hamburger {
+  display: grid;
+  gap: 0.18rem;
+  place-items: center;
+  width: 2.7rem;
+  height: 2.7rem;
+  border-radius: 0.9rem;
+  padding: 0.55rem;
+  cursor: pointer;
   border: 1px solid var(--menu-line);
   background: var(--menu-soft);
   color: var(--BlackRadar-color-white);
@@ -157,16 +189,6 @@ app-top-menu .top-menu-name {
   border-radius: 999px;
   padding: 0.55rem 0.9rem;
   font-weight: 700;
-}
-app-top-menu .top-menu-hamburger {
-  display: grid;
-  gap: 0.18rem;
-  place-items: center;
-  width: 2.7rem;
-  height: 2.7rem;
-  border-radius: 0.9rem;
-  padding: 0.55rem;
-  cursor: pointer;
 }
 app-top-menu .top-menu-hamburger span {
   display: block;
@@ -186,18 +208,7 @@ app-top-menu .top-menu-logout:focus-visible {
   outline: 3px solid var(--menu-outline);
   outline-offset: 3px;
 }
-app-top-menu .top-menu-dropdown {
-  position: absolute;
-  top: calc(100% + 1.35rem);
-  border: 1px solid color-mix(in srgb, var(--brandRadar-color-blue) 35%, transparent);
-  border-radius: 1.15rem;
-  background: var(--menu-panel-bg);
-  box-shadow: var(--menu-panel-shadow);
-  animation: topMenuReveal 0.22s ease;
-  color: var(--BlackRadar-color-navy-black);
-}
 app-top-menu .top-menu-logout {
-  margin-top: 0.35rem;
   border: 0;
   border-radius: 0.9rem;
   padding: 0.7rem 0.95rem;
@@ -206,11 +217,10 @@ app-top-menu .top-menu-logout {
   background: var(--BlackRadar-color-navy-black);
   cursor: pointer;
 }
-app-top-menu .top-menu-dropdown {
-  right: 0;
-  display: grid;
-  min-width: 13rem;
-  padding: 0.45rem;
+app-top-menu .top-menu-context-navigation--account .top-menu-link {
+  padding: 0.5rem 0.75rem;
+  color: var(--BlackRadar-color-dark-blue);
+  white-space: nowrap;
 }
 app-top-menu .top-menu-link {
   display: flex;
@@ -233,6 +243,18 @@ app-top-menu .top-menu-primary .top-menu-link {
   padding: 0.5rem 0.75rem;
   color: var(--BlackRadar-color-dark-blue);
   white-space: nowrap;
+}
+app-top-menu .top-menu-account-link {
+  padding: 0.5rem 0.75rem;
+  color: var(--BlackRadar-color-dark-blue);
+  white-space: nowrap;
+}
+app-top-menu .top-menu-account-link .top-menu-link-icon {
+  background: var(--menu-link-hover);
+  color: var(--brandRadar-color-blue);
+}
+app-top-menu .top-menu-account-link[aria-current='page'] {
+  box-shadow: inset 0 -2px 0 var(--brandRadar-color-blue);
 }
 app-top-menu .top-menu-link:hover {
   background: var(--menu-link-hover);
@@ -259,16 +281,6 @@ app-top-menu .top-menu-link-icon svg {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-@keyframes topMenuReveal {
-  from {
-    opacity: 0;
-    transform: translateY(-0.35rem);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 @media (max-width: 640px) {
   app-top-menu .top-menu-shell {
     padding: 0;
@@ -287,24 +299,543 @@ app-top-menu .top-menu-link-icon svg {
     max-width: 9rem;
     padding: 0.55rem 0.8rem;
   }
-  app-top-menu .top-menu-dropdown {
-    right: -0.15rem;
-    min-width: 11.5rem;
-  }
-  app-top-menu .top-menu-dropdown {
-    top: calc(100% + 1.35rem);
-  }
   app-top-menu .top-menu-primary {
     padding-right: 0.85rem;
     padding-left: 0.85rem;
   }
 }
+
+:is(
+    .asset-create-card,
+    .vulnerability-create-card,
+    .users-create-card,
+    .asset-vulnerabilities-manage-card,
+    .vulnerability-assets-manage-card,
+    .profile-edit-card,
+    .asset-edit-card,
+    .vulnerability-edit-card
+  )
+  button:not(.asset-delete-button):not(.vulnerability-delete-button):not(.page-cancel) {
+  border: 1px solid var(--BlackRadar-color-dark-blue);
+  background: var(--BlackRadar-color-pure-white);
+  color: var(--BlackRadar-color-dark-blue);
+}
+
+:is(
+    .asset-create-card,
+    .vulnerability-create-card,
+    .users-create-card,
+    .asset-vulnerabilities-manage-card,
+    .vulnerability-assets-manage-card,
+    .profile-edit-card,
+    .asset-edit-card,
+    .vulnerability-edit-card
+  )
+  button:not(.asset-delete-button):not(.vulnerability-delete-button):not(.page-cancel):hover:not(
+    :disabled
+  ) {
+  background: color-mix(
+    in srgb,
+    var(--BlackRadar-color-navy-black) 8%,
+    var(--BlackRadar-color-pure-white)
+  );
+}
+
+/* Keep dark-mode text readable across component-scoped page styles. */
+html.blackradar-dark-theme app-page-layout h1,
+html.blackradar-dark-theme app-top-menu .top-menu-name,
+html.blackradar-dark-theme app-top-menu .top-menu-hamburger,
+html.blackradar-dark-theme app-top-menu .top-menu-logout,
+html.blackradar-dark-theme
+  :is(
+    .assets-page-header h1,
+    .vulnerabilities-page-header h1,
+    .asset-details-page-header h1,
+    .vulnerability-details-page-header h1,
+    .asset-vulnerabilities-page-header h1,
+    .vulnerability-assets-page-header h1,
+    .users-page-header h1,
+    .profile-page-header h1,
+    .settings-page-header h1
+  ),
+html.blackradar-dark-theme .dashboard-overview-card-content :is(h3, li, span, strong),
+html.blackradar-dark-theme .dashboard-ai-card :is(h2, h3, p, li, span, strong),
+html.blackradar-dark-theme
+  :is(
+    .table-toolbar-search,
+    .table-toolbar-search span,
+    .table-toolbar-search input,
+    .asset-filter-field,
+    .asset-filter-field span,
+    .asset-filter-field input,
+    .asset-filter-field select,
+    .vulnerability-filter-field,
+    .vulnerability-filter-field span,
+    .vulnerability-filter-field input,
+    .vulnerability-filter-field select,
+    .relationship-filter-field,
+    .relationship-filter-field span,
+    .relationship-filter-field input,
+    .relationship-filter-field select,
+    .users-filter-field,
+    .users-filter-field span,
+    .users-filter-field input,
+    .users-filter-field select,
+    .asset-filters-toggle,
+    .asset-filters-clear,
+    .vulnerability-filters-toggle,
+    .vulnerability-filters-clear,
+    .relationship-filters-toggle,
+    .relationship-filters-clear,
+    .users-filters-toggle,
+    .users-filters-clear
+  ),
+html.blackradar-dark-theme
+  :is(
+    .asset-create-card,
+    .vulnerability-create-card,
+    .users-create-card,
+    .asset-vulnerabilities-manage-card,
+    .vulnerability-assets-manage-card,
+    .profile-edit-card,
+    .asset-edit-card,
+    .vulnerability-edit-card,
+    .relationship-navigation-link,
+    .asset-details-card,
+    .vulnerability-details-card,
+    .profile-details-card,
+    .settings-card
+  )
+  :is(h2, h3, p, label, dt, dd, li, span, button),
+html.blackradar-dark-theme
+  :is(
+    .asset-create-card,
+    .vulnerability-create-card,
+    .users-create-card,
+    .asset-vulnerabilities-manage-card,
+    .vulnerability-assets-manage-card,
+    .profile-edit-card,
+    .asset-edit-card,
+    .vulnerability-edit-card,
+    .asset-details-card,
+    .vulnerability-details-card,
+    .profile-details-card,
+    .settings-card
+  ) {
+  color: var(--BlackRadar-color-header-text) !important;
+}
+
+html.blackradar-dark-theme .dashboard-ai-notes h3 {
+  color: var(--BlackRadar-color-warning) !important;
+}
+
+html.blackradar-dark-theme
+  :is(
+    .dashboard-overview-chart-description,
+    .dashboard-ai-assessment > span,
+    .dashboard-ai-finding-heading > span,
+    .dashboard-ai-assessment p,
+    .dashboard-ai-finding p,
+    .dashboard-ai-notes li,
+    .dashboard-overview-coverage-labels,
+    .dashboard-overview-chart-legend li,
+    .dashboard-overview-chart-percentage,
+    .dashboard-ai-message
+  ) {
+  color: var(--BlackRadar-color-light-gray) !important;
+}
+
+html.blackradar-dark-theme app-top-menu .top-menu-shell {
+  background: var(--BlackRadar-color-navy-black);
+}
+
+html.blackradar-dark-theme app-top-menu .top-menu-bar {
+  background: var(--BlackRadar-color-navy-black);
+  color: var(--BlackRadar-color-white);
+}
+
+html.blackradar-dark-theme app-top-menu .top-menu-primary {
+  background: #000000;
+  border-bottom-color: var(--BlackRadar-color-dark-blue);
+}
+
+html.blackradar-dark-theme app-top-menu .top-menu-brand {
+  color: var(--brandRadar-color-blue);
+}
+
+html.blackradar-dark-theme app-top-menu .top-menu-hamburger {
+  border-color: var(--BlackRadar-color-dark-blue);
+  background: var(--BlackRadar-color-pure-white);
+  color: var(--BlackRadar-color-dark-blue);
+}
+
+html.blackradar-dark-theme app-top-menu .top-menu-hamburger:hover {
+  background: color-mix(
+    in srgb,
+    var(--BlackRadar-color-dark-blue) 10%,
+    var(--BlackRadar-color-pure-white)
+  );
+}
+
+html.blackradar-dark-theme app-top-menu .top-menu-name {
+  background: var(--BlackRadar-color-pure-white);
+  color: var(--BlackRadar-color-dark-blue);
+}
+
+html.blackradar-dark-theme app-top-menu .top-menu-logout {
+  background: var(--BlackRadar-color-pure-white);
+  color: var(--BlackRadar-color-dark-blue);
+  border: 1px solid var(--BlackRadar-color-dark-blue);
+}
+
+html.blackradar-dark-theme app-top-menu .top-menu-logout:hover {
+  background: color-mix(
+    in srgb,
+    var(--BlackRadar-color-dark-blue) 12%,
+    var(--BlackRadar-color-pure-white)
+  );
+}
+
+html.blackradar-dark-theme,
+html.blackradar-dark-theme body {
+  background: #000000;
+}
+
+html.blackradar-dark-theme .dashboard-overview-card-content {
+  background: var(--BlackRadar-color-navy-black);
+}
+
+html.blackradar-dark-theme
+  :is(
+    .data-table,
+    .data-table tbody,
+    .data-table tbody tr,
+    .data-table tbody td,
+    .dashboard-ai-card,
+    .health-system-card,
+    .profile-details-card,
+    .asset-details-card,
+    .vulnerability-details-card
+  ) {
+  background: var(--BlackRadar-color-navy-black);
+}
+
+html.blackradar-dark-theme
+  :is(
+    .asset-filters-panel,
+    .vulnerability-filters-panel,
+    .relationship-filters-panel,
+    .users-filters-panel
+  ) {
+  background: #000000;
+}
+
+:is(
+  .dashboard-page-subtitle,
+  .assets-page-subtitle,
+  .asset-vulnerabilities-page-subtitle,
+  .vulnerabilities-page-subtitle,
+  .vulnerability-assets-page-subtitle,
+  .profile-page-subtitle,
+  .settings-page-header p,
+  .users-page-subtitle,
+  .health-shell header p,
+  .asset-create-intro p,
+  .asset-create-header p,
+  .vulnerability-create-intro p,
+  .vulnerability-create-header p,
+  .asset-vulnerabilities-manage-header p,
+  .vulnerability-assets-manage-header p,
+  .profile-details-grid dd,
+  .profile-permissions li,
+  .profile-edit-intro p,
+  .profile-edit-header p,
+  .users-create-header p,
+  .users-create-intro p,
+  .users-field small,
+  .users-status,
+  .health-node p,
+  .health-internet span,
+  .health-message,
+  .health-overall
+),
+:is(
+  .asset-details-page-subtitle,
+  .vulnerability-details-page-subtitle,
+  .asset-details-page-subtitle-row p,
+  .vulnerability-details-page-subtitle-row p,
+  .asset-vulnerabilities-description-row p,
+  .vulnerability-assets-description-row p,
+  .profile-page-subtitle-row p
+) {
+  color: var(--BlackRadar-color-light-gray) !important;
+}
+
+:is(
+  .data-table
+    td:not(.semantic-level-critical):not(.semantic-level-high):not(.semantic-level-medium):not(
+      .semantic-level-low
+    ):not(.data-table-badge--active):not(.data-table-badge--deactivated),
+  .data-table
+    tbody
+    td:not(.semantic-level-critical):not(.semantic-level-high):not(.semantic-level-medium):not(
+      .semantic-level-low
+    ):not(.data-table-badge--active):not(.data-table-badge--deactivated)
+) {
+  color: var(--BlackRadar-color-light-gray);
+}
+
+html.blackradar-dark-theme
+  :is(
+    .data-table
+      td:not(.semantic-level-critical):not(.semantic-level-high):not(.semantic-level-medium):not(
+        .semantic-level-low
+      ):not(.data-table-badge--active):not(.data-table-badge--deactivated),
+    .data-table
+      tbody
+      td:not(.semantic-level-critical):not(.semantic-level-high):not(.semantic-level-medium):not(
+        .semantic-level-low
+      ):not(.data-table-badge--active):not(.data-table-badge--deactivated)
+  ) {
+  color: var(--BlackRadar-color-light-gray) !important;
+}
+
+html.blackradar-dark-theme
+  :is(
+    .asset-filters-panel,
+    .vulnerability-filters-panel,
+    .relationship-filters-panel,
+    .users-filters-panel,
+    .asset-create-card,
+    .vulnerability-create-card,
+    .users-create-card,
+    .asset-vulnerabilities-manage-card,
+    .vulnerability-assets-manage-card,
+    .profile-edit-card,
+    .asset-edit-card,
+    .vulnerability-edit-card,
+    .asset-details-card,
+    .vulnerability-details-card,
+    .profile-details-card,
+    .settings-card
+  )
+  * {
+  color: var(--BlackRadar-color-header-text) !important;
+}
+
+html.blackradar-dark-theme
+  :is(
+    .asset-create-card,
+    .vulnerability-create-card,
+    .users-create-card,
+    .asset-vulnerabilities-manage-card,
+    .vulnerability-assets-manage-card,
+    .profile-edit-card,
+    .asset-edit-card,
+    .vulnerability-edit-card
+  )
+  button:not(.asset-delete-button):not(.vulnerability-delete-button):not(.page-cancel) {
+  border: 1px solid var(--BlackRadar-color-dark-blue) !important;
+  background: var(--BlackRadar-color-white) !important;
+  color: var(--BlackRadar-color-header-text) !important;
+}
+
+html.blackradar-dark-theme
+  :is(
+    .asset-create-card,
+    .vulnerability-create-card,
+    .users-create-card,
+    .asset-vulnerabilities-manage-card,
+    .vulnerability-assets-manage-card,
+    .profile-edit-card,
+    .asset-edit-card,
+    .vulnerability-edit-card
+  )
+  button:not(.asset-delete-button):not(.vulnerability-delete-button):not(.page-cancel):hover:not(
+    :disabled
+  ) {
+  background: color-mix(
+    in srgb,
+    var(--BlackRadar-color-dark-blue) 10%,
+    var(--BlackRadar-color-white)
+  ) !important;
+}
+
+html.blackradar-dark-theme
+  :is(.asset-edit-card, .vulnerability-edit-card)
+  :is(.asset-delete-button, .vulnerability-delete-button) {
+  border-color: var(--BlackRadar-color-error) !important;
+  background: transparent !important;
+  color: var(--BlackRadar-color-error) !important;
+}
+
+html.blackradar-dark-theme
+  :is(.asset-edit-card, .vulnerability-edit-card)
+  :is(.asset-delete-button, .vulnerability-delete-button):hover:not(:disabled) {
+  background: color-mix(in srgb, var(--BlackRadar-color-error) 8%, transparent) !important;
+}
+
+html.blackradar-dark-theme
+  :is(
+    .table-toolbar-search input,
+    .asset-filter-field input,
+    .asset-filter-field select,
+    .vulnerability-filter-field input,
+    .vulnerability-filter-field select,
+    .relationship-filter-field input,
+    .relationship-filter-field select,
+    .users-filter-field input,
+    .users-filter-field select,
+    .asset-filters-toggle,
+    .asset-filters-clear,
+    .vulnerability-filters-toggle,
+    .vulnerability-filters-clear,
+    .relationship-filters-toggle,
+    .relationship-filters-clear,
+    .users-filters-toggle,
+    .users-filters-clear
+  ) {
+  background: var(--BlackRadar-color-white) !important;
+  color: var(--BlackRadar-color-header-text) !important;
+}
+
+html.blackradar-dark-theme
+  :is(
+    .asset-required,
+    .vulnerability-required,
+    .profile-required,
+    .users-required,
+    .settings-required
+  ),
+html.blackradar-dark-theme
+  :is(
+    .asset-edit-card,
+    .vulnerability-edit-card,
+    .profile-edit-card,
+    .users-create-card,
+    .asset-create-card,
+    .vulnerability-create-card
+  )
+  :is(.asset-required, .vulnerability-required, .profile-required, .users-required) {
+  color: var(--BlackRadar-color-warning) !important;
+}
+
+html.blackradar-dark-theme
+  :is(
+    .table-toolbar-search input,
+    .asset-filter-field input,
+    .vulnerability-filter-field input,
+    .relationship-filter-field input,
+    .users-filter-field input
+  )::placeholder {
+  color: var(--BlackRadar-color-header-text) !important;
+  opacity: 1;
+}
+
+html.blackradar-dark-theme
+  :is(
+    .asset-filter-field select,
+    .vulnerability-filter-field select,
+    .relationship-filter-field select,
+    .users-filter-field select
+  )
+  option {
+  background: var(--BlackRadar-color-white) !important;
+  color: var(--BlackRadar-color-header-text) !important;
+}
+
+html.blackradar-dark-theme
+  :is(
+    .data-table,
+    .data-table td,
+    .data-table td *,
+    .data-table .data-table-badge,
+    .health-node h2,
+    .health-node strong
+  ) {
+  color: var(--BlackRadar-color-header-text) !important;
+}
+
+html.blackradar-dark-theme .data-table .data-table-action {
+  color: var(--brandRadar-color-blue) !important;
+}
+
+html.blackradar-dark-theme .relationship-count-link {
+  color: var(--brandRadar-color-blue) !important;
+}
+
+html.blackradar-dark-theme .relationship-navigation-link {
+  border-color: var(--BlackRadar-color-dark-blue) !important;
+  background: var(--BlackRadar-color-white) !important;
+  color: var(--BlackRadar-color-header-text) !important;
+}
+
+html.blackradar-dark-theme .relationship-navigation-link:hover {
+  background: color-mix(
+    in srgb,
+    var(--BlackRadar-color-dark-blue) 10%,
+    var(--BlackRadar-color-white)
+  ) !important;
+}
+
+html.blackradar-dark-theme
+  :is(.asset-details-card, .vulnerability-details-card)
+  .semantic-level-critical {
+  color: var(--BlackRadar-color-severe) !important;
+}
+
+html.blackradar-dark-theme
+  :is(.asset-details-card, .vulnerability-details-card)
+  .semantic-level-high {
+  color: var(--BlackRadar-color-error) !important;
+}
+
+html.blackradar-dark-theme
+  :is(.asset-details-card, .vulnerability-details-card)
+  .semantic-level-medium {
+  color: var(--BlackRadar-color-warning) !important;
+}
+
+html.blackradar-dark-theme
+  :is(.asset-details-card, .vulnerability-details-card)
+  .semantic-level-low {
+  color: var(--BlackRadar-color-success) !important;
+}
+
+html.blackradar-dark-theme .data-table :is(td, .data-table-badge).semantic-level-critical {
+  color: var(--BlackRadar-color-severe) !important;
+}
+
+html.blackradar-dark-theme .data-table :is(td, .data-table-badge).semantic-level-high {
+  color: var(--BlackRadar-color-error) !important;
+}
+
+html.blackradar-dark-theme .data-table :is(td, .data-table-badge).semantic-level-medium {
+  color: var(--BlackRadar-color-warning) !important;
+}
+
+html.blackradar-dark-theme .data-table :is(td, .data-table-badge).semantic-level-low {
+  color: var(--BlackRadar-color-success) !important;
+}
+
+html.blackradar-dark-theme .data-table .data-table-badge--active {
+  color: var(--BlackRadar-color-success) !important;
+}
+
+html.blackradar-dark-theme .data-table .data-table-badge--deactivated {
+  color: var(--BlackRadar-color-warning) !important;
+}
+
 app-login-page .login-shell {
   display: grid;
   place-items: center;
   min-height: 100vh;
   padding: 1.5rem;
   background: var(--BlackRadar-color-pure-white);
+}
+
+html.blackradar-dark-theme app-login-page .login-shell {
+  background: #000000;
 }
 app-login-page .login-stage {
   position: relative;
@@ -315,12 +846,15 @@ app-login-page .login-card {
   padding: 2rem 2rem 1.35rem;
   border-radius: var(--brand-radius-lg);
   background: var(--BlackRadar-color-white);
-  border: 3px solid var(--BlackRadar-color-dark-gray);
+  border: 0;
   box-shadow: 0 18px 50px rgba(30, 41, 50, 0.14);
   color: var(--BlackRadar-color-navy-black);
 }
 app-login-page .login-header {
   text-align: center;
+}
+html.blackradar-dark-theme app-login-page .login-card {
+  background: var(--BlackRadar-color-navy-black);
 }
 app-login-page .login-header h1 {
   margin: 0;
@@ -393,7 +927,7 @@ app-login-page .field input {
   width: 100%;
   border: 1px solid rgba(30, 41, 50, 0.18);
   border-radius: var(--brand-radius-md);
-  background: #fff;
+  background: var(--BlackRadar-color-pure-white);
   color: var(--BlackRadar-color-dark-blue);
   padding: 0.95rem 1rem 0.95rem 2.75rem;
   font-size: 1rem;
@@ -405,13 +939,18 @@ app-login-page .field input {
 app-login-page .field input::placeholder {
   color: var(--BlackRadar-color-light-gray);
 }
+html.blackradar-dark-theme app-login-page .field input {
+  background: var(--BlackRadar-color-white);
+}
 app-login-page .field input:focus {
   outline: none;
   border-color: var(--brandRadar-color-blue);
   box-shadow: 0 0 0 4px rgba(81, 205, 217, 0.14);
   transform: translateY(-1px);
 }
+
 app-login-page .login-button {
+  width: 75%;
   margin-top: 0.25rem;
   border: 0;
   border-radius: var(--brand-radius-md);
@@ -427,9 +966,6 @@ app-login-page .login-button {
     box-shadow 160ms ease,
     filter 160ms ease;
 }
-app-login-page .login-button {
-  width: 75%;
-}
 app-login-page .login-button:hover {
   transform: translateY(-1px);
   box-shadow: 0 20px 38px rgba(30, 41, 50, 0.32);
@@ -438,6 +974,10 @@ app-login-page .login-button:hover {
 app-login-page .login-button:focus-visible {
   outline: 3px solid rgba(12, 34, 64, 0.25);
   outline-offset: 3px;
+}
+html.blackradar-dark-theme app-login-page .login-button {
+  background: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-navy-black);
 }
 @keyframes appBannerSlideDown {
   from {

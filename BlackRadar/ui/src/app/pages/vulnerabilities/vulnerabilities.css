@@ -5,13 +5,21 @@
   background: var(--BlackRadar-color-pure-white);
 }
 
+:host-context(html.blackradar-dark-theme) {
+  background: #000000;
+}
+
 .vulnerabilities-page-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
   column-gap: 1.5rem;
   align-items: start;
   background: var(--BlackRadar-color-pure-white);
-  padding: 2.5rem clamp(1rem, 4vw, 3rem);
+  padding: 1.25rem clamp(1rem, 4vw, 3rem) 2.5rem;
+}
+
+:host-context(html.blackradar-dark-theme) .vulnerabilities-page-shell {
+  background: #000000;
 }
 
 .vulnerabilities-page-header {
@@ -20,6 +28,10 @@
   gap: 1rem;
   grid-column: 1 / -1;
   grid-row: 1;
+}
+
+:host-context(html.blackradar-dark-theme) .vulnerabilities-page-header {
+  background: #000000;
 }
 
 .vulnerabilities-page-header app-table-toolbar {
@@ -187,8 +199,12 @@
 
 .vulnerability-create-intro p {
   margin: 0.35rem 0 1.25rem;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-size: 0.95rem;
+}
+
+html.blackradar-dark-theme .vulnerability-create-intro p {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .vulnerability-create-open {
@@ -233,8 +249,12 @@
 
 .vulnerability-create-header p {
   margin: 0.35rem 0 0;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-size: 0.95rem;
+}
+
+html.blackradar-dark-theme .vulnerability-create-header p {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .vulnerability-create-submit {

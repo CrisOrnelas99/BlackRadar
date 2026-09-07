@@ -8,7 +8,7 @@ import { PageLayoutComponent } from './page-layout';
   standalone: true,
   imports: [PageLayoutComponent],
   template: `
-    <app-page-layout [backLabel]="'Back to list'" [backLink]="'/items'">
+    <app-page-layout>
       <h1 page-layout-heading>Items</h1>
       <div page-layout-toolbar>Toolbar</div>
       <section page-layout-main>Main content</section>
@@ -47,6 +47,5 @@ describe('PageLayoutComponent', () => {
     expect(
       layout.querySelector('.page-layout-pagination [page-layout-pagination]')?.textContent,
     ).toContain('Pagination');
-    expect(layout.querySelector('.page-back-link')?.textContent).toContain('Back to list');
   });
 });

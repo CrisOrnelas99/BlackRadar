@@ -5,13 +5,22 @@
   background: var(--BlackRadar-color-pure-white);
   --assets-outline: color-mix(in srgb, var(--brandRadar-color-blue) 32%, transparent);
 }
+
+:host-context(html.blackradar-dark-theme) {
+  background: #000000;
+}
+
 .assets-page-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
   column-gap: 1.5rem;
   align-items: start;
   background: var(--BlackRadar-color-pure-white);
-  padding: 2.5rem clamp(1rem, 4vw, 3rem);
+  padding: 1.25rem clamp(1rem, 4vw, 3rem) 2.5rem;
+}
+
+:host-context(html.blackradar-dark-theme) .assets-page-shell {
+  background: #000000;
 }
 
 .assets-content-grid {
@@ -150,8 +159,12 @@
 
 .asset-create-intro p {
   margin: 0.35rem 0 1.25rem;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-size: 0.95rem;
+}
+
+html.blackradar-dark-theme .asset-create-intro p {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .asset-create-intro-actions {
@@ -196,8 +209,12 @@
 
 .asset-create-header p {
   margin: 0.35rem 0 0;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-size: 0.95rem;
+}
+
+html.blackradar-dark-theme .asset-create-header p {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .asset-create-mode-button {
@@ -268,8 +285,12 @@
 
 .asset-ai-coming-soon p {
   margin: 0;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
   font-size: 0.95rem;
+}
+
+html.blackradar-dark-theme .asset-ai-coming-soon p {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 .asset-field {
@@ -343,6 +364,10 @@
   grid-row: 1;
 }
 
+:host-context(html.blackradar-dark-theme) .assets-page-header {
+  background: #000000;
+}
+
 .assets-page-header app-table-toolbar {
   flex: 1 1 auto;
   min-width: 0;
@@ -385,7 +410,11 @@
 
 .assets-status {
   margin: 0;
-  color: var(--BlackRadar-color-light-gray);
+  color: var(--BlackRadar-color-light-gray) !important;
+}
+
+html.blackradar-dark-theme .assets-status {
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 @media (max-width: 700px) {

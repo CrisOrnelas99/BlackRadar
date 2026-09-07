@@ -4,14 +4,7 @@
   @if (hasViewedUserError()) {
     <p class="profile-page-status" role="alert">Unable to load this user profile.</p>
   } @else if (profileUser(); as profileUser) {
-    <app-page-layout
-      class="profile-page"
-      [backLabel]="'Back to Users'"
-      [backLink]="
-        session()?.user?.role === 'admin' || session()?.user?.role === 'master' ? '/users' : null
-      "
-      aria-labelledby="profile-heading"
-    >
+    <app-page-layout class="profile-page" aria-labelledby="profile-heading">
       <header class="profile-page-header">
         <div class="profile-page-title">
           <div class="profile-page-title-row">
@@ -36,14 +29,10 @@
 
       <article class="profile-details-card">
         <header class="profile-details-header">
-          <h2>Profile information</h2>
+          <h2>{{ profileUser.fullName || 'Profile information' }}</h2>
         </header>
 
         <dl class="profile-details-grid">
-          <div>
-            <dt>Full name</dt>
-            <dd>{{ profileUser.fullName || 'Not provided' }}</dd>
-          </div>
           <div>
             <dt>Username</dt>
             <dd>{{ profileUser.username || 'Not provided' }}</dd>
