@@ -5,8 +5,8 @@
   background: var(--BlackRadar-color-pure-white);
 }
 
-html.blackradar-dark-theme :host {
-  background: var(--BlackRadar-color-navy-black);
+:host-context(html.blackradar-dark-theme) {
+  background: #000000;
 }
 
 .users-page-shell {
@@ -15,11 +15,11 @@ html.blackradar-dark-theme :host {
   grid-template-rows: auto 1fr;
   column-gap: 1.5rem;
   align-items: start;
-  padding: 2.5rem clamp(1rem, 4vw, 3rem);
+  padding: 1.25rem clamp(1rem, 4vw, 3rem) 2.5rem;
 }
 
-html.blackradar-dark-theme .users-page-shell {
-  background: var(--BlackRadar-color-navy-black);
+:host-context(html.blackradar-dark-theme) .users-page-shell {
+  background: #000000;
 }
 
 .users-page-header {

@@ -31,6 +31,11 @@
   text-underline-offset: 0.2rem;
 }
 
+.page-cancel:focus-visible {
+  outline: 2px solid var(--brandRadar-color-blue);
+  outline-offset: 3px;
+}
+
 .semantic-level-critical {
   color: var(--BlackRadar-color-severe);
   font-weight: 700;
@@ -841,7 +846,7 @@ app-login-page .login-card {
   padding: 2rem 2rem 1.35rem;
   border-radius: var(--brand-radius-lg);
   background: var(--BlackRadar-color-white);
-  border: 3px solid var(--BlackRadar-color-dark-gray);
+  border: 0;
   box-shadow: 0 18px 50px rgba(30, 41, 50, 0.14);
   color: var(--BlackRadar-color-navy-black);
 }
@@ -849,7 +854,6 @@ app-login-page .login-header {
   text-align: center;
 }
 html.blackradar-dark-theme app-login-page .login-card {
-  border: 0;
   background: var(--BlackRadar-color-navy-black);
 }
 app-login-page .login-header h1 {

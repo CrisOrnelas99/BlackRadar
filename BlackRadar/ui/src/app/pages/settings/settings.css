@@ -7,7 +7,7 @@
 
 .settings-shell {
   min-height: 100vh;
-  padding: 2.5rem clamp(1rem, 4vw, 3rem);
+  padding: 1.25rem clamp(1rem, 4vw, 3rem) 2.5rem;
   background: var(--BlackRadar-color-pure-white);
   color: var(--BlackRadar-color-navy-black);
 }
@@ -130,7 +130,7 @@ html.blackradar-dark-theme .settings-card p {
 
 @media (max-width: 640px) {
   .settings-shell {
-    padding: 2rem 1rem;
+    padding: 1.25rem 1rem 2rem;
   }
 
   .settings-card {

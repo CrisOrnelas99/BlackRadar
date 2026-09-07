@@ -4,7 +4,7 @@
   font-family: var(--brand-font-body);
 }
 .health-shell {
-  padding: 2rem clamp(1rem, 4vw, 3rem);
+  padding: 1.25rem clamp(1rem, 4vw, 3rem) 2rem;
   background: var(--BlackRadar-color-pure-white);
   color: var(--BlackRadar-color-navy-black);
   min-height: 100vh;

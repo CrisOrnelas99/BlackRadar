@@ -5,20 +5,20 @@
   background: var(--BlackRadar-color-pure-white);
 }
 
-html.blackradar-dark-theme :host {
-  background: var(--BlackRadar-color-navy-black);
+:host-context(html.blackradar-dark-theme) {
+  background: #000000;
 }
 
 .dashboard-shell {
   display: grid;
   align-content: start;
   align-items: start;
-  padding: 2rem clamp(1rem, 4vw, 3rem) 2.5rem;
+  padding: 1.25rem clamp(1rem, 4vw, 3rem) 2.5rem;
   background: var(--BlackRadar-color-pure-white);
 }
 
-html.blackradar-dark-theme .dashboard-shell {
-  background: var(--BlackRadar-color-navy-black);
+:host-context(html.blackradar-dark-theme) .dashboard-shell {
+  background: #000000;
 }
 
 .dashboard-page-header {
@@ -30,8 +30,8 @@ html.blackradar-dark-theme .dashboard-shell {
   margin: 0;
 }
 
-html.blackradar-dark-theme .dashboard-page-header {
-  background: var(--BlackRadar-color-navy-black);
+:host-context(html.blackradar-dark-theme) .dashboard-page-header {
+  background: #000000;
 }
 
 .dashboard-page-header h1 {
