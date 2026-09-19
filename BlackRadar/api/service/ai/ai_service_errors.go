@@ -1,6 +1,8 @@
 // Package ai errors defines AI service error categories.
 package ai
 
+import "errors"
+
 // ValidationError identifies invalid AI service input.
 type ValidationError struct {
 	Message string
@@ -22,6 +24,8 @@ func (e DependencyError) Error() string {
 }
 
 var (
-	ErrInvalidDashboardSummary = &ValidationError{Message: "invalid dashboard summary"}
-	ErrAIProviderUnavailable   = &DependencyError{Message: "AI provider unavailable"}
+	ErrInvalidDashboardSummary     = &ValidationError{Message: "invalid dashboard summary"}
+	ErrAIProviderUnavailable       = &DependencyError{Message: "AI provider unavailable"}
+	ErrDashboardSummaryNotFound    = errors.New("dashboard summary not found")
+	ErrDashboardSummaryUnavailable = &DependencyError{Message: "dashboard summary unavailable"}
 )

@@ -1,27 +1,19 @@
-// Verifies dashboard AI summaries remain scoped to the authenticated user.
+// Verifies dashboard AI summaries are loaded from and refreshed through the backend.
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
 import { environment } from '../../../environments/environment';
-import { AuthService } from '../auth/auth';
 import { AIService, DashboardSummary } from './ai';
 
 describe('AIService', () => {
   let service: AIService;
   let httpTestingController: HttpTestingController;
-  const session = signal(loginResponse('user-a'));
 
   // Creates the AI service test environment before each test.
   beforeEach(() => {
-    session.set(loginResponse('user-a'));
     TestBed.configureTestingModule({
-      providers: [
-        provideHttpClient(),
-        provideHttpClientTesting(),
-        { provide: AuthService, useValue: { session } },
-      ],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
     });
     service = TestBed.inject(AIService);
     httpTestingController = TestBed.inject(HttpTestingController);
@@ -32,39 +24,39 @@ describe('AIService', () => {
     httpTestingController.verify();
   });
 
-  // Confirms a response is not exposed after the authenticated user changes.
-  it('does not cache a dashboard summary when the authenticated user changes', () => {
-    service.getDashboardSummary().subscribe();
+  it('loads the organization summary without using the POST refresh endpoint', () => {
+    service.loadDashboardSummary().subscribe();
 
-    const request = httpTestingController.expectOne(`${environment.apiUrl}/dashboard/ai-summary`);
-    session.set(loginResponse('user-b'));
+    const request = httpTestingController.expectOne({
+      method: 'GET',
+      url: `${environment.apiUrl}/dashboard/ai-summary`,
+    });
     request.flush(dashboardSummary());
 
-    expect(service.dashboardSummary()).toBeNull();
+    expect(service.dashboardSummary()?.summaryId).toBe('summary-1');
+  });
+
+  it('uses the server-generated timestamp when refreshing a summary', () => {
+    service.getDashboardSummary().subscribe();
+
+    const request = httpTestingController.expectOne({
+      method: 'POST',
+      url: `${environment.apiUrl}/dashboard/ai-summary`,
+    });
+    request.flush(dashboardSummary());
+
+    expect(service.dashboardSummary()?.generatedAt).toBe('2026-09-07T09:15:00.000Z');
   });
 });
-
-// Builds an authenticated session for the supplied user ID.
-function loginResponse(userId: string) {
-  return {
-    user: {
-      id: userId,
-      fullName: 'Analyst User',
-      username: 'analyst',
-      email: 'analyst@example.com',
-    },
-    token: 'access-token',
-    tokenExpiresAt: new Date().toISOString(),
-    refreshTokenExpiresAt: new Date().toISOString(),
-  };
-}
 
 // Builds a valid provider response for dashboard-summary service tests.
 function dashboardSummary(): DashboardSummary {
   return {
+    summaryId: 'summary-1',
     headline: 'Review critical risk',
     overallAssessment: 'critical',
     summary: 'One critical finding requires attention.',
+    generatedAt: '2026-09-07T09:15:00.000Z',
     priorityFindings: [],
     positiveObservations: [],
     uncertainties: [],

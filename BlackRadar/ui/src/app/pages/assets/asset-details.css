@@ -7,7 +7,7 @@
 
 .asset-details-page {
   min-height: 100vh;
-  padding: 1.25rem clamp(1rem, 4vw, 3rem) 2.5rem;
+  padding: 0.85rem clamp(1rem, 4vw, 3rem) 2.5rem;
   background: var(--BlackRadar-color-pure-white);
 }
 
@@ -127,7 +127,7 @@ html.blackradar-dark-theme .asset-details-status {
 
 .asset-details-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+  grid-template-columns: minmax(0, 1fr) var(--page-side-column, minmax(18rem, 24rem));
   gap: 1.5rem;
   width: 100%;
   margin: 0;

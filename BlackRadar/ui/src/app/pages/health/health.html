@@ -13,31 +13,38 @@
       </h1>
       <p>Monitor the services BlackRadar relies on.</p>
     </div>
-    <button (click)="refresh()" [disabled]="isLoading()">
-      {{ isLoading() ? 'Checking…' : 'Refresh' }}
-    </button>
   </header>
   @if (isLoading()) {
-    <app-loading-progress
-      label="System health check in progress"
-      valueText="Checking BlackRadar dependencies"
-    />
-  }
-  @if (hasError()) {
-    <p class="health-message">Health information is unavailable. Try again.</p>
-  }
-  @if (summary(); as health) {
+    <p class="health-message" role="status" aria-atomic="true">Loading system health...</p>
+  } @else if (hasError()) {
+    <p class="health-message" role="alert">Unable to load system health.</p>
+    <button type="button" class="health-error-action" (click)="refresh()" [disabled]="isLoading()">
+      {{ isLoading() ? 'Checking...' : 'Refresh' }}
+    </button>
+  } @else if (summary(); as health) {
     <section class="health-system-card">
       <p
         class="health-overall"
         [class.health-overall--unavailable]="health.overall === 'unavailable'"
       >
-        {{
-          health.overall === 'healthy'
-            ? 'All monitored services are healthy'
-            : 'One or more services are unavailable'
-        }}
-        · Checked {{ health.checkedAt | date: 'short' }}
+        <span class="health-overall-status">
+          {{
+            health.overall === 'healthy'
+              ? 'All monitored services are healthy'
+              : 'One or more services are unavailable'
+          }}
+        </span>
+        <span class="health-overall-meta">
+          <span class="health-overall-checked">Checked {{ health.checkedAt | date: 'short' }}</span>
+          <button
+            type="button"
+            class="health-overall-action"
+            (click)="refresh()"
+            [disabled]="isLoading()"
+          >
+            {{ isLoading() ? 'Checking...' : 'Refresh' }}
+          </button>
+        </span>
       </p>
       <div class="health-map" [class.health-map--unavailable]="health.overall === 'unavailable'">
         <div class="health-internet">
@@ -64,6 +71,7 @@
             ></span>
           </div>
           <h2>PostgreSQL</h2>
+          <strong>{{ label(health.database.status) }}</strong>
           <p>Database connection</p>
         </div>
         <div class="health-line health-line--database" aria-hidden="true"><i></i></div>

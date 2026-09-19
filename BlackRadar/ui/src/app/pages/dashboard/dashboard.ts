@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { finalize, forkJoin } from 'rxjs';
@@ -56,6 +57,21 @@ export class DashboardPage {
 
   constructor() {
     this.loadOverview();
+    this.loadAISummary();
+  }
+
+  private loadAISummary(): void {
+    this.isAISummaryLoading.set(true);
+    this.aiService
+      .loadDashboardSummary()
+      .pipe(finalize(() => this.isAISummaryLoading.set(false)))
+      .subscribe({
+        error: (error: unknown) => {
+          if (!(error instanceof HttpErrorResponse && error.status === 404)) {
+            this.hasAISummaryError.set(true);
+          }
+        },
+      });
   }
 
   private loadOverview(): void {

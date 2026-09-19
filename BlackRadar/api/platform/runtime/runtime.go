@@ -40,6 +40,7 @@ import (
 	repositoryassetrisk "blackradar/api/repository/asset_risk"
 	repositoryassetvulnerability "blackradar/api/repository/asset_vulnerability"
 	repositoryaudit "blackradar/api/repository/audit"
+	repositorydashboardsummary "blackradar/api/repository/dashboard_summary"
 	repositoryproviderusage "blackradar/api/repository/provider_usage"
 	repositoryuser "blackradar/api/repository/user"
 	repositoryvulnerability "blackradar/api/repository/vulnerability"
@@ -174,7 +175,7 @@ func BuildRouter(cfg config.Config, gormDB *gorm.DB, logger *slog.Logger) (*gin.
 	aiService := serviceai.NewAIService(openAIClient, serviceai.DashboardRepositories{
 		Assets:          assetRepository,
 		Vulnerabilities: vulnerabilityRepository,
-	})
+	}).WithDashboardSummaryRepository(repositorydashboardsummary.NewRepository(gormDB))
 	aiController := controllerai.NewAIController(aiService)
 	assetController := controllerasset.NewAssetController(assetService, assetVulnerabilityService, assetMatchService)
 	vulnerabilityController := controllervulnerability.NewVulnerabilityController(vulnerabilityService)

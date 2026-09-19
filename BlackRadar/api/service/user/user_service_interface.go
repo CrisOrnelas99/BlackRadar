@@ -74,6 +74,9 @@ type UserService interface {
 	*/
 	ChangeUserStatus(ec *appcontext.GinContext, userID string, status string) (model.User, error)
 
+	// ResetPassword allows an authorized administrator to replace a managed account password.
+	ResetPassword(ec *appcontext.GinContext, userID string, password string) error
+
 	// UpdateProfile validates and updates only the authenticated user's profile fields.
 	UpdateProfile(ec *appcontext.GinContext, request UpdateProfileInput) (model.User, error)
 

@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 
 import { ConfirmationDialogComponent } from '../../components/confirmation-dialog/confirmation-dialog';
@@ -46,6 +46,7 @@ import {
 })
 export class UsersPage implements OnInit {
   private readonly authService = inject(AuthService);
+  private readonly activatedRoute = inject(ActivatedRoute);
   private readonly bannerService = inject(BannerService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly router = inject(Router);
@@ -121,7 +122,9 @@ export class UsersPage implements OnInit {
   ];
 
   ngOnInit(): void {
+    this.restoreQueryParams();
     this.filtersForm.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.updateQueryParams();
       this.currentPage.set(1);
       this.loadUsers();
     });
@@ -164,12 +167,14 @@ export class UsersPage implements OnInit {
 
   updateSearchQuery(query: string): void {
     this.searchQuery.set(query);
+    this.updateQueryParams();
     this.currentPage.set(1);
     this.loadUsers();
   }
 
   toggleFilters(): void {
     this.isFiltersOpen.update((isOpen) => !isOpen);
+    this.updateQueryParams();
   }
 
   clearFilters(): void {
@@ -179,6 +184,7 @@ export class UsersPage implements OnInit {
     this.sortDirection.set('asc');
     this.filtersForm.reset({ role: '', accountStatus: '' }, { emitEvent: false });
     this.currentPage.set(1);
+    this.updateQueryParams();
     this.loadUsers();
   }
 
@@ -277,5 +283,44 @@ export class UsersPage implements OnInit {
       value === 'role' ||
       value === 'accountStatus'
     );
+  }
+
+  private restoreQueryParams(): void {
+    const params = this.activatedRoute.snapshot.queryParamMap;
+    const role = params.get('role');
+    const accountStatus = params.get('status');
+    this.searchQuery.set(params.get('search') ?? '');
+    this.isFiltersOpen.set(params.get('filters') === 'open');
+    this.filtersForm.patchValue(
+      {
+        role: role !== null && this.isUserRole(role) ? role : '',
+        accountStatus:
+          accountStatus !== null && this.isUserAccountStatus(accountStatus) ? accountStatus : '',
+      },
+      { emitEvent: false },
+    );
+  }
+
+  private isUserRole(value: string): value is UserRole {
+    return value === 'master' || value === 'admin' || value === 'user';
+  }
+
+  private isUserAccountStatus(value: string): value is UserAccountStatus {
+    return value === 'active' || value === 'deactivated';
+  }
+
+  private updateQueryParams(): void {
+    const filters = this.filtersForm.getRawValue();
+    void this.router.navigate([], {
+      relativeTo: this.activatedRoute,
+      queryParams: {
+        search: this.searchQuery().trim() || null,
+        filters: this.isFiltersOpen() ? 'open' : null,
+        role: filters.role || null,
+        status: filters.accountStatus || null,
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 }

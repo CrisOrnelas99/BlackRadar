@@ -4,7 +4,6 @@ import { computed, Injectable, signal } from '@angular/core';
 import { tap } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-import { AuthService } from '../auth/auth';
 
 export interface DashboardFinding {
   priority: number;
@@ -18,9 +17,11 @@ export interface DashboardFinding {
 }
 
 export interface DashboardSummary {
+  summaryId: string;
   headline: string;
   overallAssessment: 'low' | 'medium' | 'high' | 'critical';
   summary: string;
+  generatedAt: string;
   priorityFindings: DashboardFinding[];
   positiveObservations: string[];
   uncertainties: string[];
@@ -31,38 +32,23 @@ export interface DashboardSummary {
 })
 export class AIService {
   private readonly cachedDashboardSummary = signal<DashboardSummary | null>(null);
-  private readonly cachedDashboardSummaryUserId = signal<string | null>(null);
-  readonly dashboardSummary = computed(() => {
-    const currentUserId = this.authService.session()?.user.id ?? null;
-
-    if (currentUserId !== this.cachedDashboardSummaryUserId()) {
-      return null;
-    }
-
-    return this.cachedDashboardSummary();
-  });
+  readonly dashboardSummary = computed(() => this.cachedDashboardSummary());
 
   // Creates the service with the shared authenticated HTTP client.
-  constructor(
-    private readonly httpClient: HttpClient,
-    private readonly authService: AuthService,
-  ) {}
+  constructor(private readonly httpClient: HttpClient) {}
 
-  // Requests a fresh, backend-grounded explanation for the current dashboard data.
+  // Loads the latest organization summary without calling the AI provider.
+  loadDashboardSummary() {
+    this.cachedDashboardSummary.set(null);
+    return this.httpClient
+      .get<DashboardSummary>(`${environment.apiUrl}/dashboard/ai-summary`)
+      .pipe(tap((summary) => this.cachedDashboardSummary.set(summary)));
+  }
+
+  // Requests a fresh backend-grounded explanation for the current dashboard data.
   getDashboardSummary() {
-    const requestingUserId = this.authService.session()?.user.id ?? null;
-
     return this.httpClient
       .post<DashboardSummary>(`${environment.apiUrl}/dashboard/ai-summary`, {})
-      .pipe(
-        tap((summary) => {
-          if (!requestingUserId || this.authService.session()?.user.id !== requestingUserId) {
-            return;
-          }
-
-          this.cachedDashboardSummaryUserId.set(requestingUserId);
-          this.cachedDashboardSummary.set(summary);
-        }),
-      );
+      .pipe(tap((summary) => this.cachedDashboardSummary.set(summary)));
   }
 }

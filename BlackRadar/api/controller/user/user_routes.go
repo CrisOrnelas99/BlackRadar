@@ -23,6 +23,7 @@ func RegisterAdminRoutes(router *gin.RouterGroup, controller *UserController) {
 	router.POST("/users", appcontext.Wrap(controller.CreateUser))
 	router.PATCH("/users/:id/role", appcontext.Wrap(controller.ChangeUserRole))
 	router.PATCH("/users/:id/status", appcontext.Wrap(controller.ChangeUserStatus))
+	router.POST("/users/:id/password-reset", ratelimit.AdminPasswordResetRateLimit(), appcontext.Wrap(controller.ResetPassword))
 }
 
 // RegisterProtectedRoutes registers authenticated self-service user routes.

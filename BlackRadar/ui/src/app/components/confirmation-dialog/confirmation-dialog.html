@@ -10,6 +10,9 @@
   >
     <h2 [id]="dialogId()">{{ title() }}</h2>
     <p>{{ message() }}</p>
+    <div class="confirmation-dialog-content">
+      <ng-content></ng-content>
+    </div>
     <div class="confirmation-dialog-actions">
       <button
         class="confirmation-dialog-cancel"
@@ -25,6 +28,7 @@
         [class.confirmation-dialog-confirm-success]="confirmTone() === 'success'"
         [class.confirmation-dialog-confirm-danger]="confirmTone() === 'danger'"
         [class.confirmation-dialog-confirm-primary]="confirmTone() === 'primary'"
+        [class.confirmation-dialog-confirm-warning]="confirmTone() === 'warning'"
         [disabled]="confirmDisabled()"
         (click)="emitConfirm()"
       >

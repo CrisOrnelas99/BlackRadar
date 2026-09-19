@@ -27,6 +27,11 @@ type ChangeUserStatusRequest struct {
 	AccountStatus string `json:"accountStatus"`
 }
 
+// ResetPasswordRequest contains the password supplied by an authorized administrator.
+type ResetPasswordRequest struct {
+	Password string `json:"password"`
+}
+
 // LoginRequest contains the credentials used to authenticate a user.
 type LoginRequest struct {
 	UserOrEmail string `json:"userOrEmail"`

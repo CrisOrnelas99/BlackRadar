@@ -13,7 +13,7 @@
   display: grid;
   align-content: start;
   align-items: start;
-  padding: 1.25rem clamp(1rem, 4vw, 3rem) 2.5rem;
+  padding: 0.85rem clamp(1rem, 4vw, 3rem) 2.5rem;
   background: var(--BlackRadar-color-pure-white);
 }
 
@@ -197,6 +197,17 @@
   display: grid;
   gap: 1.25rem;
   padding: 1.25rem;
+}
+
+.dashboard-ai-generated-at {
+  margin: 0;
+  margin-left: auto;
+  align-self: center;
+  color: var(--BlackRadar-color-pure-white);
+  font-size: 0.72rem;
+  line-height: 1.3;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .dashboard-ai-assessment {
@@ -478,10 +489,7 @@
 
 .dashboard-overview-message {
   margin: 0;
-  padding: 1rem 1.25rem;
-  border: 1px solid var(--BlackRadar-color-dark-blue);
-  border-radius: var(--brand-radius-md);
-  color: var(--BlackRadar-color-dark-blue);
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 
 @media (max-width: 640px) {
@@ -512,6 +520,11 @@
   .dashboard-ai-card--expanded .dashboard-ai-card-header {
     align-items: start;
     flex-direction: column;
+  }
+
+  .dashboard-ai-generated-at {
+    margin-left: 0;
+    text-align: left;
   }
 
   .dashboard-ai-notes {

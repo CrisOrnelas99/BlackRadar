@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -35,6 +36,24 @@ func TestGenerateDashboardSummaryReturnsValidatedServiceResult(t *testing.T) {
 	}
 	if response.Headline != "Attention needed" || len(response.PriorityFindings) != 1 {
 		t.Fatalf("unexpected dashboard response: %+v", response)
+	}
+}
+
+func TestGetDashboardSummaryReturnsStoredServiceResult(t *testing.T) {
+	controller := NewAIController(fakeAIService{})
+	ec, recorder := newDashboardControllerContext(t)
+
+	controller.GetDashboardSummary(ec)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, recorder.Code)
+	}
+	var response AIDashboardSummaryResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if response.SummaryID != "summary-1" || response.GeneratedAt.IsZero() {
+		t.Fatalf("expected persisted summary metadata, got %+v", response)
 	}
 }
 
@@ -70,9 +89,11 @@ func (fakeAIService) TestProvider(context.Context) (textgenerationservice.TextGe
 
 func (fakeAIService) GenerateDashboardSummary(*appcontext.GinContext) (aiservice.DashboardSummary, error) {
 	return aiservice.DashboardSummary{
+		ID:                "summary-1",
 		Headline:          "Attention needed",
 		OverallAssessment: "high",
 		Summary:           "One asset needs review.",
+		GeneratedAt:       time.Date(2026, time.September, 7, 9, 15, 0, 0, time.UTC),
 		PriorityFindings: []aiservice.DashboardFinding{{
 			Priority: 1, AssetID: "asset-1", AssetName: "Production DB",
 			VulnerabilityID: "vulnerability-1", CVEID: "CVE-2024-0001",
@@ -80,6 +101,10 @@ func (fakeAIService) GenerateDashboardSummary(*appcontext.GinContext) (aiservice
 			RecommendedNextStep: "Apply the vendor patch.",
 		}},
 	}, nil
+}
+
+func (fakeAIService) GetDashboardSummary(*appcontext.GinContext) (aiservice.DashboardSummary, error) {
+	return fakeAIService{}.GenerateDashboardSummary(nil)
 }
 
 func newDashboardControllerContext(t *testing.T) (*appcontext.GinContext, *httptest.ResponseRecorder) {

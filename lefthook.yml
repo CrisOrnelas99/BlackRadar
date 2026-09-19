@@ -1,0 +1,11 @@
+pre-commit:
+  commands:
+    format-check:
+      run: make format-check
+      fail_text: Formatting checks failed. Run `make format` and try again.
+
+pre-push:
+  commands:
+    project-check:
+      run: make check
+      fail_text: Project checks failed. Fix the reported issues before pushing.

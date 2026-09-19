@@ -29,6 +29,7 @@ It keeps ownership, authorization, risk calculation, NVD access, and AI-assisted
 Requirements:
 
 - Docker Desktop
+- Go 1.26.6, Node.js, npm, GNU Make, and Lefthook for local checks
 
 1. Create a local environment file.
 
@@ -67,6 +68,20 @@ Requirements:
 4. Open the application at `http://localhost:4200`. The backend is available at `http://localhost:8080`.
 
 The frontend service installs its dependencies during startup, so the first run can take a little longer. PostgreSQL stays inside the Compose network and is not published to the host.
+
+### Local checks
+
+The repository includes a Makefile for common development commands. From the repository root, run `make help` to see the available targets. The most useful commands are:
+
+```bash
+make format
+make test
+make check
+```
+
+`make check` runs formatting checks, Go vet, frontend linting, backend tests, frontend tests, and `git diff --check`. Lefthook runs `make format-check` before commits and `make check` before pushes. Install the hooks once with `make install-hooks` or `lefthook install`; hook installation is local to each checkout.
+
+GNU Make, Lefthook, Go, Node.js, npm, and Docker Desktop are required only for the commands that use them. On Windows, GNU Make and Lefthook can be run through Git Bash, WSL, or local installations. `make security` installs the pinned `govulncheck` v1.1.4 tool into a temporary directory before scanning, so it does not require a global `govulncheck` installation. To run the scanner directly, install the same version with `go install golang.org/x/vuln/cmd/govulncheck@v1.1.4` and ensure Go's bin directory is on your `PATH`.
 
 ### Optional local bootstrap data
 
@@ -109,7 +124,7 @@ AssetManagementRisk/
 | Area             | Current endpoints                                                                                        |
 | ---------------- | -------------------------------------------------------------------------------------------------------- |
 | Authentication   | `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`                                |
-| Dashboard        | Uses `GET /api/assets/summary`, `GET /api/vulnerabilities`, and `POST /api/dashboard/ai-summary`       |
+| Dashboard        | Uses `GET /api/assets/summary`, `GET /api/vulnerabilities`, and `GET`/`POST /api/dashboard/ai-summary`       |
 | Assets           | `GET /api/assets?page=1`, `GET /api/assets/summary`, `POST /api/assets`; `GET`, `PUT`, `DELETE /api/assets/{id}` |
 | Vulnerabilities  | `GET`, `POST /api/vulnerabilities`; `GET`, `PUT`, `DELETE /api/vulnerabilities/{id}`                     |
 | Relationships    | `GET /api/assets/{id}/vulnerabilities`; `GET /api/vulnerabilities/{id}/assets`; assign and remove routes |

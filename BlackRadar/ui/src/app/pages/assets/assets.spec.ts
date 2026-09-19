@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { of } from 'rxjs';
-import { Router } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 
 import { AssetsPage } from './assets';
 import { AuthService, LoginResponse } from '../../services/auth/auth';
@@ -107,6 +107,10 @@ describe('AssetsPage', () => {
         { provide: AssetsService, useValue: assetsServiceMock },
         { provide: BannerService, useValue: bannerServiceMock },
         { provide: Router, useValue: routerMock },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { queryParamMap: convertToParamMap({}) } },
+        },
       ],
     }).compileComponents();
 
@@ -187,6 +191,39 @@ describe('AssetsPage', () => {
         sortDirection: 'desc',
       }),
     );
+  });
+
+  it('persists the selected sort in query parameters', () => {
+    component.handleSortChange({ field: 'riskLevel', direction: 'desc' });
+
+    const queryParams = routerMock.navigate.mock.calls.at(-1)?.[1].queryParams;
+    expect(queryParams).toEqual(
+      expect.objectContaining({ sortField: 'riskLevel', sortDirection: 'desc' }),
+    );
+  });
+
+  it('restores valid sort parameters and defaults invalid values', () => {
+    const activatedRoute = TestBed.inject(ActivatedRoute) as {
+      snapshot: { queryParamMap: ReturnType<typeof convertToParamMap> };
+    };
+    activatedRoute.snapshot.queryParamMap = convertToParamMap({
+      sortField: 'vulnerabilityCount',
+      sortDirection: 'desc',
+    });
+
+    const restoredFixture = TestBed.createComponent(AssetsPage);
+    const restoredComponent = restoredFixture.componentInstance;
+    expect(restoredComponent.sortField()).toBe('vulnerabilityCount');
+    expect(restoredComponent.sortDirection()).toBe('desc');
+
+    activatedRoute.snapshot.queryParamMap = convertToParamMap({
+      sortField: 'not-a-column',
+      sortDirection: 'sideways',
+    });
+    const defaultFixture = TestBed.createComponent(AssetsPage);
+    const defaultComponent = defaultFixture.componentInstance;
+    expect(defaultComponent.sortField()).toBe('name');
+    expect(defaultComponent.sortDirection()).toBe('asc');
   });
 
   it('uses the asset id as the stable row key', () => {

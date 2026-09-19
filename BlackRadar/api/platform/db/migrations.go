@@ -81,6 +81,7 @@ func autoMigrateSchema(ctx context.Context, database *gorm.DB) error {
 		&model.RefreshSession{},
 		&model.ProviderUsageBucket{},
 		&model.AuditEvent{},
+		&model.DashboardSummary{},
 	); err != nil {
 		return fmt.Errorf("auto migrate schema: %w", err)
 	}
@@ -255,6 +256,16 @@ func schemaStatements() []string {
 		`ALTER TABLE assets ADD COLUMN IF NOT EXISTS updated_by_id UUID`,
 		`ALTER TABLE vulnerabilities ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
 		`ALTER TABLE vulnerabilities ADD COLUMN IF NOT EXISTS updated_by_id UUID`,
+		constraintStatement(
+			"fk_dashboard_summaries_organization",
+			"dashboard_summaries",
+			`ALTER TABLE dashboard_summaries ADD CONSTRAINT fk_dashboard_summaries_organization FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE RESTRICT`,
+		),
+		constraintStatement(
+			"fk_dashboard_summaries_generated_by_user",
+			"dashboard_summaries",
+			`ALTER TABLE dashboard_summaries ADD CONSTRAINT fk_dashboard_summaries_generated_by_user FOREIGN KEY (generated_by_user_id) REFERENCES users(id) ON DELETE RESTRICT`,
+		),
 		`ALTER TABLE asset_assessments ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`,
 		`ALTER TABLE asset_assessments ADD COLUMN IF NOT EXISTS updated_by_id UUID`,
 		`ALTER TABLE asset_vulnerabilities ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ`,

@@ -128,7 +128,7 @@ func validateCreateUserInput(request CreateUserInput) error {
 	if strings.TrimSpace(request.Username) == "" || utf8.RuneCountInString(request.Username) < 3 || utf8.RuneCountInString(request.Username) > 50 || strings.Contains(request.Username, "@") {
 		return ErrInvalidCreateUserRequest
 	}
-	if strings.TrimSpace(request.Password) == "" || utf8.RuneCountInString(request.Password) < 8 || utf8.RuneCountInString(request.Password) > 100 {
+	if !validPassword(request.Password) {
 		return ErrInvalidCreateUserRequest
 	}
 	if strings.TrimSpace(request.Email) == "" {
@@ -139,6 +139,27 @@ func validateCreateUserInput(request CreateUserInput) error {
 		return fmt.Errorf("%w: invalid email", ErrInvalidCreateUserRequest)
 	}
 	return nil
+}
+
+func validateResetPassword(password string) error {
+	if !validPassword(password) {
+		return ErrInvalidUserManagement
+	}
+	return nil
+}
+
+func validPassword(password string) bool {
+	normalized := strings.TrimSpace(password)
+	length := utf8.RuneCountInString(normalized)
+	return length >= 8 && length <= 100 && len([]byte(normalized)) <= 72
+}
+
+func hashPassword(password string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), config.PasswordCost())
+	if err != nil {
+		return "", fmt.Errorf("%w: hash password: %w", ErrUserInternal, err)
+	}
+	return string(hash), nil
 }
 
 // isEmailLikeLoginIdentifier reports whether the login identifier should be treated as an email address.
