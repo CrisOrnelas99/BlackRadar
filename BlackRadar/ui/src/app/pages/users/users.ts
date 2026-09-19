@@ -287,15 +287,26 @@ export class UsersPage implements OnInit {
 
   private restoreQueryParams(): void {
     const params = this.activatedRoute.snapshot.queryParamMap;
+    const role = params.get('role');
+    const accountStatus = params.get('status');
     this.searchQuery.set(params.get('search') ?? '');
     this.isFiltersOpen.set(params.get('filters') === 'open');
     this.filtersForm.patchValue(
       {
-        role: (params.get('role') as '' | UserRole) || '',
-        accountStatus: (params.get('status') as '' | UserAccountStatus) || '',
+        role: role !== null && this.isUserRole(role) ? role : '',
+        accountStatus:
+          accountStatus !== null && this.isUserAccountStatus(accountStatus) ? accountStatus : '',
       },
       { emitEvent: false },
     );
+  }
+
+  private isUserRole(value: string): value is UserRole {
+    return value === 'master' || value === 'admin' || value === 'user';
+  }
+
+  private isUserAccountStatus(value: string): value is UserAccountStatus {
+    return value === 'active' || value === 'deactivated';
   }
 
   private updateQueryParams(): void {

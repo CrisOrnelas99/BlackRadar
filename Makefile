@@ -20,7 +20,7 @@ format:
 	cd BlackRadar/ui && npx --no-install prettier --write 'src/**/*.{ts,html,css,scss}'
 
 format-check:
-	@test -z "$$(cd BlackRadar && gofmt -l .)" || (echo 'Go files need formatting.' && exit 1)
+	@test -z "$$(cd BlackRadar && gofmt -l $$(find . -type f -name '*.go'))" || (echo 'Go files need formatting.' && exit 1)
 	cd BlackRadar/ui && npx --no-install prettier --check 'src/**/*.{ts,html,css,scss}'
 
 test: test-backend test-ui
@@ -43,7 +43,11 @@ build:
 	cd BlackRadar/ui && npm run build
 
 security:
-	cd BlackRadar && govulncheck ./...
+	cd BlackRadar && \
+	tool_dir="$$(mktemp -d)"; \
+	trap 'rm -rf "$$tool_dir"' EXIT; \
+	GOBIN="$$tool_dir" go install golang.org/x/vuln/cmd/govulncheck@v1.1.4; \
+	"$$tool_dir/govulncheck" ./...
 	cd BlackRadar/ui && npm audit --audit-level=high
 
 docker-up:

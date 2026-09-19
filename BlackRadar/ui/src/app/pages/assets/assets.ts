@@ -417,8 +417,17 @@ export class AssetsPage {
   private restoreQueryParams(): void {
     const params = this.activatedRoute.snapshot.queryParamMap;
     const vulnerabilityMode = params.get('vulnerabilityMode');
+    const querySortField = params.get('sortField');
+    const querySortDirection = params.get('sortDirection');
+    const sortField: AssetSortField =
+      querySortField !== null && this.isAssetSortField(querySortField) ? querySortField : 'name';
+    const sortDirection: SortDirection = this.isSortDirection(querySortDirection)
+      ? querySortDirection
+      : 'asc';
     this.searchQuery.set(params.get('search') ?? '');
     this.isAdvancedFiltersOpen.set(params.get('filters') === 'open');
+    this.sortField.set(sortField);
+    this.sortDirection.set(sortDirection);
     this.filtersForm.patchValue(
       {
         criticality: params.get('criticality') ?? '',
@@ -433,6 +442,8 @@ export class AssetsPage {
           ? vulnerabilityMode
           : 'any',
         vulnerabilityValue: params.get('vulnerabilityValue') ?? '',
+        sortField,
+        sortDirection,
       },
       { emitEvent: false },
     );
@@ -455,6 +466,8 @@ export class AssetsPage {
         version: filters.version || null,
         vulnerabilityMode: filters.vulnerabilityMode === 'any' ? null : filters.vulnerabilityMode,
         vulnerabilityValue: filters.vulnerabilityValue.trim() || null,
+        sortField: this.isAssetSortField(filters.sortField) ? filters.sortField : 'name',
+        sortDirection: this.isSortDirection(filters.sortDirection) ? filters.sortDirection : 'asc',
       },
       queryParamsHandling: 'merge',
       replaceUrl: true,
@@ -478,5 +491,9 @@ export class AssetsPage {
 
   private isVulnerabilityFilterMode(value: string | null): value is VulnerabilityFilterMode {
     return value === 'any' || value === 'atLeast' || value === 'atMost' || value === 'exactly';
+  }
+
+  private isSortDirection(value: string | null): value is SortDirection {
+    return value === 'asc' || value === 'desc';
   }
 }

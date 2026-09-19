@@ -219,6 +219,28 @@ func TestUserServiceSupport(t *testing.T) {
 	}
 }
 
+func TestValidPasswordEnforcesNormalizedRuneAndBcryptByteLimits(t *testing.T) {
+	tests := []struct {
+		name     string
+		password string
+		valid    bool
+	}{
+		{name: "trimmed password", password: " Password1! ", valid: true},
+		{name: "72 UTF-8 bytes", password: strings.Repeat("界", 24), valid: true},
+		{name: "more than 72 UTF-8 bytes", password: strings.Repeat("界", 24) + "a", valid: false},
+		{name: "fewer than 8 runes", password: "1234567", valid: false},
+		{name: "more than 100 runes", password: strings.Repeat("a", 101), valid: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := validPassword(test.password); got != test.valid {
+				t.Fatalf("validPassword(%q) = %t, want %t", test.password, got, test.valid)
+			}
+		})
+	}
+}
+
 func TestNormalizeUserListQueryUsesUnicodeCodePointLimit(t *testing.T) {
 	valid, err := normalizeUserListQuery(model.UserListQuery{
 		Pagination: pagination.Request{Page: 1},

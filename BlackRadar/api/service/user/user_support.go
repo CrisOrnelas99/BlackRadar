@@ -149,8 +149,9 @@ func validateResetPassword(password string) error {
 }
 
 func validPassword(password string) bool {
-	length := utf8.RuneCountInString(strings.TrimSpace(password))
-	return length >= 8 && length <= 100
+	normalized := strings.TrimSpace(password)
+	length := utf8.RuneCountInString(normalized)
+	return length >= 8 && length <= 100 && len([]byte(normalized)) <= 72
 }
 
 func hashPassword(password string) (string, error) {

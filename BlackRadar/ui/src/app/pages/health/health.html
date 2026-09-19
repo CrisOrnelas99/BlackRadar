@@ -18,6 +18,9 @@
     <p class="health-message" role="status" aria-atomic="true">Loading system health...</p>
   } @else if (hasError()) {
     <p class="health-message" role="alert">Unable to load system health.</p>
+    <button type="button" class="health-error-action" (click)="refresh()" [disabled]="isLoading()">
+      {{ isLoading() ? 'Checking...' : 'Refresh' }}
+    </button>
   } @else if (summary(); as health) {
     <section class="health-system-card">
       <p

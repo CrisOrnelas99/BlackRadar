@@ -509,13 +509,10 @@ export class AssetVulnerabilitiesPage {
     const params = this.activatedRoute.snapshot.queryParamMap;
     this.searchQuery.set(params.get('search') ?? '');
     this.isFiltersOpen.set(params.get('filters') === 'open');
-    this.filtersForm.patchValue(
-      {
-        severity: params.get('severity') ?? '',
-        status: params.get('status') ?? '',
-      },
-      { emitEvent: false },
-    );
+    this.filtersForm.patchValue({
+      severity: params.get('severity') ?? '',
+      status: params.get('status') ?? '',
+    });
   }
 
   private updateQueryParams(): void {

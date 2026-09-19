@@ -164,7 +164,7 @@
                 <p>
                   {{
                     canEditViewedUser()
-                      ? "Update this account's active status."
+                      ? "Update this account's role or active status."
                       : "Reset this account's password."
                   }}
                 </p>
@@ -177,7 +177,13 @@
                 <div class="profile-edit-header">
                   <div>
                     <h2 id="profile-edit-heading">Edit user</h2>
-                    <p>Update this account's active status.</p>
+                    <p>
+                      {{
+                        canEditViewedUser()
+                          ? "Update this account's role or active status."
+                          : "Reset this account's password."
+                      }}
+                    </p>
                   </div>
                   <button
                     class="page-cancel profile-edit-cancel"

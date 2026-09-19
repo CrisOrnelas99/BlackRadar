@@ -218,7 +218,7 @@ describe('DashboardPage', () => {
     expect(component.hasAISummaryError()).toBe(true);
   });
 
-  it('hides the AI summary when the overview request fails', async () => {
+  it('keeps the AI summary available when the overview request fails', async () => {
     await TestBed.resetTestingModule()
       .configureTestingModule({
         imports: [DashboardPage],
@@ -261,7 +261,9 @@ describe('DashboardPage', () => {
     expect(overviewFailureFixture.nativeElement.textContent).toContain(
       'Unable to load dashboard metrics',
     );
-    expect(overviewFailureFixture.nativeElement.querySelector('.dashboard-ai-action')).toBeNull();
+    expect(
+      overviewFailureFixture.nativeElement.querySelector('.dashboard-ai-action'),
+    ).not.toBeNull();
     overviewFailureFixture.destroy();
   });
 });

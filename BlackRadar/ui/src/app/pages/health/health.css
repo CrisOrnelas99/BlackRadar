@@ -130,6 +130,9 @@
   margin: 2rem 0 0;
   color: var(--BlackRadar-color-light-gray) !important;
 }
+.health-error-action {
+  margin-top: 1rem;
+}
 .health-map {
   position: relative;
   display: grid;

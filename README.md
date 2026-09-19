@@ -29,6 +29,7 @@ It keeps ownership, authorization, risk calculation, NVD access, and AI-assisted
 Requirements:
 
 - Docker Desktop
+- Go 1.26.6, Node.js, npm, GNU Make, and Lefthook for local checks
 
 1. Create a local environment file.
 
@@ -80,7 +81,7 @@ make check
 
 `make check` runs formatting checks, Go vet, frontend linting, backend tests, frontend tests, and `git diff --check`. Lefthook runs `make format-check` before commits and `make check` before pushes. Install the hooks once with `make install-hooks` or `lefthook install`; hook installation is local to each checkout.
 
-GNU Make, Lefthook, Go, Node.js, npm, and Docker Desktop are required only for the commands that use them. On Windows, GNU Make and Lefthook can be run through Git Bash, WSL, or local installations.
+GNU Make, Lefthook, Go, Node.js, npm, and Docker Desktop are required only for the commands that use them. On Windows, GNU Make and Lefthook can be run through Git Bash, WSL, or local installations. `make security` installs the pinned `govulncheck` v1.1.4 tool into a temporary directory before scanning, so it does not require a global `govulncheck` installation. To run the scanner directly, install the same version with `go install golang.org/x/vuln/cmd/govulncheck@v1.1.4` and ensure Go's bin directory is on your `PATH`.
 
 ### Optional local bootstrap data
 

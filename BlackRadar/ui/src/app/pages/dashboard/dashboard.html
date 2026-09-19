@@ -214,7 +214,7 @@
     }
   </section>
 
-  @if (!isOverviewLoading() && !hasOverviewLoadError() && overview()) {
+  @if (!isOverviewLoading() && (overview() || hasOverviewLoadError())) {
     <section
       class="dashboard-ai-card"
       [class.dashboard-ai-card--expanded]="isAISummaryExpanded()"
@@ -249,7 +249,7 @@
         >
           {{
             isAISummaryLoading()
-              ? 'Generating�'
+              ? 'Generating...'
               : aiSummary()
                 ? 'Refresh summary'
                 : 'Generate AI Risk Summary'
@@ -287,7 +287,7 @@
             The AI risk summary is unavailable right now. Try again later.
           </p>
         } @else if (isAISummaryLoading()) {
-          <p class="dashboard-ai-message" role="status">Reviewing your authorized risk data�</p>
+          <p class="dashboard-ai-message" role="status">Reviewing your authorized risk data...</p>
         } @else if (aiSummary(); as summary) {
           <div class="dashboard-ai-content">
             <div class="dashboard-ai-assessment">
