@@ -11,9 +11,16 @@ import (
 
 // aiServiceImpl implements backend-only AI workflows.
 type aiServiceImpl struct {
-	textAI                openaiexternal.OpenAIClientInterface
-	textGeneration        textgenerationservice.TextGenerationService
-	dashboardRepositories DashboardRepositories
+	textAI                     openaiexternal.OpenAIClientInterface
+	textGeneration             textgenerationservice.TextGenerationService
+	dashboardRepositories      DashboardRepositories
+	dashboardSummaryRepository DashboardSummaryRepository
+}
+
+// WithDashboardSummaryRepository enables organization-scoped summary persistence.
+func (s *aiServiceImpl) WithDashboardSummaryRepository(repository DashboardSummaryRepository) *aiServiceImpl {
+	s.dashboardSummaryRepository = repository
+	return s
 }
 
 // NewAIService creates an AI service backed by the supplied provider client.

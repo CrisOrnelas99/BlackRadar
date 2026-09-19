@@ -68,6 +68,20 @@ Requirements:
 
 The frontend service installs its dependencies during startup, so the first run can take a little longer. PostgreSQL stays inside the Compose network and is not published to the host.
 
+### Local checks
+
+The repository includes a Makefile for common development commands. From the repository root, run `make help` to see the available targets. The most useful commands are:
+
+```bash
+make format
+make test
+make check
+```
+
+`make check` runs formatting checks, Go vet, frontend linting, backend tests, frontend tests, and `git diff --check`. Lefthook runs `make format-check` before commits and `make check` before pushes. Install the hooks once with `make install-hooks` or `lefthook install`; hook installation is local to each checkout.
+
+GNU Make, Lefthook, Go, Node.js, npm, and Docker Desktop are required only for the commands that use them. On Windows, GNU Make and Lefthook can be run through Git Bash, WSL, or local installations.
+
 ### Optional local bootstrap data
 
 The example environment file enables a local-only bootstrap account and sample asset. It is allowed only in `local`, `development`, and `test` environments. Sign in as `system_admin` with the value you set for `BOOTSTRAP_DEV_PASSWORD`. To disable it, set `BOOTSTRAP_DEV_DATA=false` before starting Compose.
@@ -109,7 +123,7 @@ AssetManagementRisk/
 | Area             | Current endpoints                                                                                        |
 | ---------------- | -------------------------------------------------------------------------------------------------------- |
 | Authentication   | `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`                                |
-| Dashboard        | Uses `GET /api/assets/summary`, `GET /api/vulnerabilities`, and `POST /api/dashboard/ai-summary`       |
+| Dashboard        | Uses `GET /api/assets/summary`, `GET /api/vulnerabilities`, and `GET`/`POST /api/dashboard/ai-summary`       |
 | Assets           | `GET /api/assets?page=1`, `GET /api/assets/summary`, `POST /api/assets`; `GET`, `PUT`, `DELETE /api/assets/{id}` |
 | Vulnerabilities  | `GET`, `POST /api/vulnerabilities`; `GET`, `PUT`, `DELETE /api/vulnerabilities/{id}`                     |
 | Relationships    | `GET /api/assets/{id}/vulnerabilities`; `GET /api/vulnerabilities/{id}/assets`; assign and remove routes |

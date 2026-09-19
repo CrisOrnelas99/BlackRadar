@@ -22,7 +22,7 @@
 
 .page-layout-content {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+  grid-template-columns: minmax(0, 1fr) var(--page-side-column, minmax(18rem, 24rem));
   gap: 1.5rem;
   align-items: start;
 }

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 
 import {
@@ -48,6 +48,7 @@ import { semanticLevelClass } from '../../utils/semantic-level';
 })
 export class AssetsPage {
   private readonly authService = inject(AuthService);
+  private readonly activatedRoute = inject(ActivatedRoute);
   private readonly assetsService = inject(AssetsService);
   private readonly bannerService = inject(BannerService);
   private readonly formBuilder = inject(FormBuilder);
@@ -155,9 +156,11 @@ export class AssetsPage {
   readonly assetRowKey = (asset: Asset): string => asset.id;
 
   constructor() {
-    this.filtersForm.valueChanges
-      .pipe(takeUntilDestroyed())
-      .subscribe(() => this.resetToFirstPage());
+    this.restoreQueryParams();
+    this.filtersForm.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
+      this.updateQueryParams();
+      this.resetToFirstPage();
+    });
     this.loadAssets();
   }
 
@@ -226,11 +229,13 @@ export class AssetsPage {
 
   updateSearchQuery(query: string): void {
     this.searchQuery.set(query);
+    this.updateQueryParams();
     this.resetToFirstPage();
   }
 
   toggleAdvancedFilters(): void {
     this.isAdvancedFiltersOpen.update((currentValue) => !currentValue);
+    this.updateQueryParams();
   }
 
   handleSortChange(change: DataTableSortChange): void {
@@ -244,6 +249,7 @@ export class AssetsPage {
       sortField: change.field,
       sortDirection: change.direction,
     });
+    this.updateQueryParams();
   }
 
   clearFilters(): void {
@@ -268,6 +274,7 @@ export class AssetsPage {
       },
       { emitEvent: false },
     );
+    this.updateQueryParams();
     this.resetToFirstPage();
   }
 
@@ -407,6 +414,53 @@ export class AssetsPage {
     ].sort((leftValue, rightValue) => leftValue.localeCompare(rightValue));
   }
 
+  private restoreQueryParams(): void {
+    const params = this.activatedRoute.snapshot.queryParamMap;
+    const vulnerabilityMode = params.get('vulnerabilityMode');
+    this.searchQuery.set(params.get('search') ?? '');
+    this.isAdvancedFiltersOpen.set(params.get('filters') === 'open');
+    this.filtersForm.patchValue(
+      {
+        criticality: params.get('criticality') ?? '',
+        riskLevel: params.get('riskLevel') ?? '',
+        type: params.get('type') ?? '',
+        owner: params.get('owner') ?? '',
+        operatingSystem: params.get('operatingSystem') ?? '',
+        vendor: params.get('vendor') ?? '',
+        product: params.get('product') ?? '',
+        version: params.get('version') ?? '',
+        vulnerabilityMode: this.isVulnerabilityFilterMode(vulnerabilityMode)
+          ? vulnerabilityMode
+          : 'any',
+        vulnerabilityValue: params.get('vulnerabilityValue') ?? '',
+      },
+      { emitEvent: false },
+    );
+  }
+
+  private updateQueryParams(): void {
+    const filters = this.filtersForm.getRawValue();
+    void this.router.navigate([], {
+      relativeTo: this.activatedRoute,
+      queryParams: {
+        search: this.searchQuery().trim() || null,
+        filters: this.isAdvancedFiltersOpen() ? 'open' : null,
+        criticality: filters.criticality || null,
+        riskLevel: filters.riskLevel || null,
+        type: filters.type || null,
+        owner: filters.owner || null,
+        operatingSystem: filters.operatingSystem || null,
+        vendor: filters.vendor || null,
+        product: filters.product || null,
+        version: filters.version || null,
+        vulnerabilityMode: filters.vulnerabilityMode === 'any' ? null : filters.vulnerabilityMode,
+        vulnerabilityValue: filters.vulnerabilityValue.trim() || null,
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
   private isAssetSortField(value: string): value is AssetSortField {
     return (
       value === 'name' ||
@@ -420,5 +474,9 @@ export class AssetsPage {
       value === 'product' ||
       value === 'version'
     );
+  }
+
+  private isVulnerabilityFilterMode(value: string | null): value is VulnerabilityFilterMode {
+    return value === 'any' || value === 'atLeast' || value === 'atMost' || value === 'exactly';
   }
 }

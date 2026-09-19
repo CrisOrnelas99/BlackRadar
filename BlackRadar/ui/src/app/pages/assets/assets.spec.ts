@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { of } from 'rxjs';
-import { Router } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, Router } from '@angular/router';
 
 import { AssetsPage } from './assets';
 import { AuthService, LoginResponse } from '../../services/auth/auth';
@@ -107,6 +107,10 @@ describe('AssetsPage', () => {
         { provide: AssetsService, useValue: assetsServiceMock },
         { provide: BannerService, useValue: bannerServiceMock },
         { provide: Router, useValue: routerMock },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { queryParamMap: convertToParamMap({}) } },
+        },
       ],
     }).compileComponents();
 

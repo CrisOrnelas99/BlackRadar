@@ -15,7 +15,6 @@ import (
 	"blackradar/api/common/pagination"
 	commontoken "blackradar/api/common/token"
 	"blackradar/api/model"
-	"blackradar/api/platform/config"
 	platformdb "blackradar/api/platform/db"
 	appcontext "blackradar/api/platform/requestcontext"
 	transactionboundary "blackradar/api/platform/transaction"
@@ -267,9 +266,9 @@ func (s *userServiceImpl) CreateUser(ec *appcontext.GinContext, request CreateUs
 		return model.User{}, ErrEmailAlreadyExists
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(request.Password), config.PasswordCost())
+	hash, err := hashPassword(request.Password)
 	if err != nil {
-		return model.User{}, fmt.Errorf("%w: hash password: %w", ErrUserInternal, err)
+		return model.User{}, err
 	}
 
 	newUser := model.User{
@@ -389,6 +388,53 @@ func (s *userServiceImpl) ChangeUserStatus(ec *appcontext.GinContext, userID str
 		return model.User{}, err
 	}
 	return updated, nil
+}
+
+// ResetPassword replaces a managed account password for an authorized administrator.
+func (s *userServiceImpl) ResetPassword(ec *appcontext.GinContext, userID string, password string) error {
+	actorID, err := ec.UserID()
+	if err != nil || strings.TrimSpace(userID) == "" {
+		return ErrInvalidUserManagement
+	}
+	password = strings.TrimSpace(password)
+	if err := validateResetPassword(password); err != nil {
+		return err
+	}
+	hash, err := hashPassword(password)
+	if err != nil {
+		return err
+	}
+
+	return s.runUserManagementTransaction(ec, func(txContext *appcontext.GinContext) error {
+		actor, findActorErr := s.userRepository.FindByIDForManagement(txContext, actorID)
+		if findActorErr != nil {
+			return translateUserManagementRepositoryError(findActorErr)
+		}
+		actorRole := actor.Role
+		if actorRole != model.RoleMaster && actorRole != model.RoleAdmin {
+			return ErrInvalidUserManagement
+		}
+		target, findErr := s.userRepository.FindByIDForManagement(txContext, userID)
+		if findErr != nil {
+			return translateUserManagementRepositoryError(findErr)
+		}
+		if actorRole != model.RoleMaster && target.Role != model.RoleUser {
+			return ErrProtectedAdminAccount
+		}
+		if err := s.userRepository.UpdatePassword(txContext, target.ID, string(hash), actorID); err != nil {
+			return translateUserManagementRepositoryError(err)
+		}
+		if err := s.refreshSessionRepository.RevokeActiveSessionsForUser(txContext, target.ID); err != nil {
+			return translateUserRepositoryError(err)
+		}
+		return s.recordAudit(txContext, auditservice.EventInput{
+			ActorUserID:  &actorID,
+			Action:       "user.password_reset",
+			ResourceType: "user",
+			ResourceID:   &target.ID,
+			Result:       auditservice.ResultSucceeded,
+		})
+	})
 }
 
 // UpdateProfile validates and updates the authenticated user's profile.

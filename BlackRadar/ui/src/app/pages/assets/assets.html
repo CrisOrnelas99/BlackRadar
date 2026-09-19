@@ -182,7 +182,7 @@
     }
   </section>
 
-  @if (canManageAssets()) {
+  @if (canManageAssets() && !isLoading() && !hasLoadError()) {
     <form
       class="asset-create-card asset-create-card-expanded"
       [formGroup]="createForm"
@@ -404,7 +404,7 @@
     </defs>
   </svg>
 
-  @if (canManageAssets() && isCreateConfirmationOpen()) {
+  @if (canManageAssets() && !isLoading() && !hasLoadError() && isCreateConfirmationOpen()) {
     <app-confirmation-dialog
       [dialogId]="'asset-create-confirm-heading'"
       [title]="'Create asset?'"

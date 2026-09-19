@@ -1,13 +1,19 @@
 // Package controller dto defines AI request and response contracts.
 package controller
 
-import aiservice "blackradar/api/service/ai"
+import (
+	"time"
+
+	aiservice "blackradar/api/service/ai"
+)
 
 // AIDashboardSummaryResponse exposes a validated dashboard risk explanation.
 type AIDashboardSummaryResponse struct {
+	SummaryID            string               `json:"summaryId"`
 	Headline             string               `json:"headline"`
 	OverallAssessment    string               `json:"overallAssessment"`
 	Summary              string               `json:"summary"`
+	GeneratedAt          time.Time            `json:"generatedAt"`
 	PriorityFindings     []AIDashboardFinding `json:"priorityFindings"`
 	PositiveObservations []string             `json:"positiveObservations"`
 	Uncertainties        []string             `json:"uncertainties"`
@@ -37,7 +43,8 @@ func ToAIDashboardSummaryResponse(summary aiservice.DashboardSummary) AIDashboar
 		})
 	}
 	return AIDashboardSummaryResponse{
-		Headline: summary.Headline, OverallAssessment: summary.OverallAssessment, Summary: summary.Summary,
+		SummaryID: summary.ID, Headline: summary.Headline, OverallAssessment: summary.OverallAssessment, Summary: summary.Summary,
+		GeneratedAt:      summary.GeneratedAt,
 		PriorityFindings: findings, PositiveObservations: summary.PositiveObservations,
 		Uncertainties: summary.Uncertainties,
 	}

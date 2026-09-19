@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { EMPTY, catchError, map, of, startWith, switchMap, tap } from 'rxjs';
 
 import { ConfirmationDialogComponent } from '../../components/confirmation-dialog/confirmation-dialog';
@@ -181,6 +181,10 @@ export class AssetVulnerabilitiesPage {
   readonly vulnerabilityRowKey = (vulnerability: Vulnerability): string => vulnerability.id;
 
   constructor() {
+    this.restoreQueryParams();
+    this.filtersForm.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.updateQueryParams());
     this.activatedRoute.paramMap
       .pipe(
         map((paramMap) => paramMap.get('id')),
@@ -217,16 +221,19 @@ export class AssetVulnerabilitiesPage {
 
   updateSearchQuery(query: string): void {
     this.searchQuery.set(query);
+    this.updateQueryParams();
   }
 
   toggleFilters(): void {
     this.isFiltersOpen.update((isOpen) => !isOpen);
+    this.updateQueryParams();
   }
 
   clearFilters(): void {
     this.searchQuery.set('');
     this.isFiltersOpen.set(false);
     this.filtersForm.reset({ severity: '', status: '' });
+    this.updateQueryParams();
   }
 
   async handleTableAction(action: DataTableCellAction<Vulnerability>): Promise<void> {
@@ -496,5 +503,33 @@ export class AssetVulnerabilitiesPage {
       value === 'cveId' ||
       value === 'affectedAssetCount'
     );
+  }
+
+  private restoreQueryParams(): void {
+    const params = this.activatedRoute.snapshot.queryParamMap;
+    this.searchQuery.set(params.get('search') ?? '');
+    this.isFiltersOpen.set(params.get('filters') === 'open');
+    this.filtersForm.patchValue(
+      {
+        severity: params.get('severity') ?? '',
+        status: params.get('status') ?? '',
+      },
+      { emitEvent: false },
+    );
+  }
+
+  private updateQueryParams(): void {
+    const filters = this.filtersForm.getRawValue();
+    void this.router.navigate([], {
+      relativeTo: this.activatedRoute,
+      queryParams: {
+        search: this.searchQuery().trim() || null,
+        filters: this.isFiltersOpen() ? 'open' : null,
+        severity: filters.severity || null,
+        status: filters.status || null,
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 }

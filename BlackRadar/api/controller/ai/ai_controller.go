@@ -38,3 +38,22 @@ func (c *AIController) GenerateDashboardSummary(ec *appcontext.GinContext) {
 	}
 	ec.JSON(http.StatusOK, ToAIDashboardSummaryResponse(summary))
 }
+
+// GetDashboardSummary returns the latest stored summary for the authenticated organization.
+func (c *AIController) GetDashboardSummary(ec *appcontext.GinContext) {
+	if c.aiService == nil {
+		shared.HandleError(ec, http.StatusBadGateway, shared.ErrUpstreamUnavailable, "Dashboard summary failed")
+		return
+	}
+
+	summary, err := c.aiService.GetDashboardSummary(ec)
+	if err != nil {
+		if errors.Is(err, aiservice.ErrDashboardSummaryNotFound) {
+			shared.HandleError(ec, http.StatusNotFound, err, "Dashboard summary not found")
+			return
+		}
+		shared.HandleError(ec, http.StatusBadGateway, err, "Dashboard summary failed")
+		return
+	}
+	ec.JSON(http.StatusOK, ToAIDashboardSummaryResponse(summary))
+}

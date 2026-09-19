@@ -85,26 +85,6 @@ export class TopMenuComponent {
     return this.accountNavigationItems;
   }
 
-  get isAccountNavigationContext(): boolean {
-    const url = this.currentUrl();
-    return (
-      url.startsWith('/profile') ||
-      url.startsWith('/settings') ||
-      url.startsWith('/users') ||
-      url.startsWith('/health')
-    );
-  }
-
-  get isShowingAccountNavigation(): boolean {
-    return this.isNavigationMenuOpen !== this.isAccountNavigationContext;
-  }
-
-  get visibleNavigationItems(): ReadonlyArray<NavigationItem> {
-    return this.isShowingAccountNavigation
-      ? this.visibleAccountNavigationItems
-      : this.primaryNavigationItems;
-  }
-
   isNavigationMenuOpen = false;
   isSignOutConfirmationOpen = false;
 
@@ -115,7 +95,7 @@ export class TopMenuComponent {
     );
   }
 
-  // Switches between the data and account navigation contexts.
+  // Toggles the navigation on smaller screens.
   toggleNavigationMenu(): void {
     this.isNavigationMenuOpen = !this.isNavigationMenuOpen;
   }

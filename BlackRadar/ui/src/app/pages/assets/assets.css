@@ -12,11 +12,11 @@
 
 .assets-page-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+  grid-template-columns: minmax(0, 1fr) var(--page-side-column, minmax(18rem, 24rem));
   column-gap: 1.5rem;
   align-items: start;
   background: var(--BlackRadar-color-pure-white);
-  padding: 1.25rem clamp(1rem, 4vw, 3rem) 2.5rem;
+  padding: 0.85rem clamp(1rem, 4vw, 3rem) 2.5rem;
 }
 
 :host-context(html.blackradar-dark-theme) .assets-page-shell {
@@ -85,6 +85,7 @@
 }
 
 .asset-filters-clear {
+  align-self: end;
   justify-self: end;
 }
 
@@ -372,6 +373,7 @@ html.blackradar-dark-theme .asset-ai-coming-soon p {
   flex: 1 1 auto;
   min-width: 0;
   margin-left: auto;
+  align-self: flex-end;
 }
 
 .assets-page-header h1 {
@@ -457,6 +459,7 @@ html.blackradar-dark-theme .assets-status {
   .assets-page-header app-table-toolbar {
     width: 100%;
     margin-left: 0;
+    align-self: stretch;
   }
 
   .asset-filters-secondary-actions {

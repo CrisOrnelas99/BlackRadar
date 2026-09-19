@@ -147,6 +147,40 @@ func TestSystemAdminCanChangeAnotherAdministrator(t *testing.T) {
 	}
 }
 
+func TestUserServiceResetPasswordUpdatesHashAndRevokesSessions(t *testing.T) {
+	target := model.User{Model: model.Model{ID: testUserIDSeven}, Role: model.RoleUser, AccountStatus: model.AccountStatusActive}
+	repo := &fakeUserRepository{user: target}
+	sessions := &fakeRefreshSessionRepository{session: model.RefreshSession{TokenID: "session", UserID: target.ID}}
+	svc := NewUserService(newTestJWTManager(t), repo, sessions)
+	svc.transactionRunner = testTransactionRunner{}
+	ctx := newUserServiceContext(t)
+	ctx.SetUserID(model.SystemAdminID)
+	ctx.SetUserRole(model.RoleMaster)
+
+	if err := svc.ResetPassword(ctx, target.ID, "NewPassword1!"); err != nil {
+		t.Fatalf("expected password reset to succeed, got %v", err)
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(repo.user.PasswordHash), []byte("NewPassword1!")); err != nil {
+		t.Fatalf("expected new password hash to verify, got %v", err)
+	}
+	if !sessions.revokeAllCalled || !sessions.revoked {
+		t.Fatal("expected all target sessions to be revoked")
+	}
+}
+
+func TestUserServiceRejectsRegularAdminResetOfAdministrator(t *testing.T) {
+	repo := &fakeUserRepository{user: model.User{Model: model.Model{ID: testUserIDSeven}, Role: model.RoleAdmin, AccountStatus: model.AccountStatusActive}}
+	svc := NewUserService(newTestJWTManager(t), repo, &fakeRefreshSessionRepository{})
+	svc.transactionRunner = testTransactionRunner{}
+	ctx := newUserServiceContext(t)
+	ctx.SetUserID(testUserID)
+	ctx.SetUserRole(model.RoleAdmin)
+
+	if err := svc.ResetPassword(ctx, testUserIDSeven, "NewPassword1!"); !errors.Is(err, ErrProtectedAdminAccount) {
+		t.Fatalf("expected administrator reset to be rejected, got %v", err)
+	}
+}
+
 func TestUserServiceRejectsSelfAccountChanges(t *testing.T) {
 	repo := &fakeUserRepository{user: model.User{Model: model.Model{ID: testUserID}, Role: model.RoleUser, AccountStatus: model.AccountStatusActive}, activeAdminCount: 2}
 	svc := NewUserService(newTestJWTManager(t), repo, &fakeRefreshSessionRepository{})
@@ -586,6 +620,15 @@ func (f *fakeUserRepository) UpdateProfile(ec *appcontext.GinContext, userID str
 	return f.user, nil
 }
 
+func (f *fakeUserRepository) UpdatePassword(ec *appcontext.GinContext, userID string, passwordHash string, updatedByID string) error {
+	if f.user.ID != userID {
+		return userrepo.ErrRecordNotFound
+	}
+	f.user.PasswordHash = passwordHash
+	f.user.UpdatedByID = &updatedByID
+	return nil
+}
+
 // FindByUsername returns the configured fake user.
 func (f *fakeUserRepository) FindByUsername(ec *appcontext.GinContext, username string) (model.User, error) {
 	f.usernameLookupCalled = true
@@ -605,6 +648,12 @@ func (f *fakeUserRepository) FindByID(ec *appcontext.GinContext, id string) (mod
 }
 
 func (f *fakeUserRepository) FindByIDForManagement(ec *appcontext.GinContext, id string) (model.User, error) {
+	if id == model.SystemAdminID {
+		return model.User{Model: model.Model{ID: id}, Role: model.RoleMaster, AccountStatus: model.AccountStatusActive}, nil
+	}
+	if id == testUserID {
+		return model.User{Model: model.Model{ID: id}, Role: model.RoleAdmin, AccountStatus: model.AccountStatusActive}, nil
+	}
 	if f.findErr != nil {
 		return model.User{}, f.findErr
 	}

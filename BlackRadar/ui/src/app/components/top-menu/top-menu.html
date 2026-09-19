@@ -10,10 +10,9 @@
         type="button"
         class="top-menu-hamburger"
         (click)="toggleNavigationMenu()"
-        [attr.aria-label]="
-          isShowingAccountNavigation ? 'Show data navigation' : 'Show account navigation'
-        "
-        [attr.aria-pressed]="isShowingAccountNavigation"
+        [attr.aria-label]="isNavigationMenuOpen ? 'Hide navigation' : 'Show navigation'"
+        aria-controls="top-menu-navigation"
+        [attr.aria-expanded]="isNavigationMenuOpen"
       >
         <span></span>
         <span></span>
@@ -23,16 +22,16 @@
   </div>
 
   <nav
+    id="top-menu-navigation"
     class="top-menu-primary top-menu-context-navigation"
-    [class.top-menu-context-navigation--account]="isShowingAccountNavigation"
-    [attr.aria-label]="isShowingAccountNavigation ? 'Account navigation' : 'Primary navigation'"
+    [class.top-menu-navigation-open]="isNavigationMenuOpen"
+    aria-label="Primary and account navigation"
   >
-    <div class="top-menu-context-links">
-      @for (item of visibleNavigationItems; track item.key) {
+    <div class="top-menu-context-links top-menu-primary-links" aria-label="Primary navigation">
+      @for (item of primaryNavigationItems; track item.key) {
         <button
           type="button"
           class="top-menu-link"
-          [class.top-menu-account-link]="isShowingAccountNavigation"
           (click)="navigateTo(item.path)"
           [class.top-menu-link-active]="item.isActive(currentUrl())"
           [attr.aria-current]="item.isActive(currentUrl()) ? 'page' : null"
@@ -94,9 +93,53 @@
       }
     </div>
 
-    @if (isShowingAccountNavigation) {
+    <div class="top-menu-context-links top-menu-account-links" aria-label="Account navigation">
+      @for (item of visibleAccountNavigationItems; track item.key) {
+        <button
+          type="button"
+          class="top-menu-link top-menu-account-link"
+          (click)="navigateTo(item.path)"
+          [class.top-menu-link-active]="item.isActive(currentUrl())"
+          [attr.aria-current]="item.isActive(currentUrl()) ? 'page' : null"
+        >
+          <span class="top-menu-link-icon" aria-hidden="true">
+            @switch (item.key) {
+              @case ('settings') {
+                <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                  <path
+                    d="M12 3v2M12 19v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M3 12h2M19 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+                  />
+                  <circle cx="12" cy="12" r="3.5" />
+                </svg>
+              }
+              @case ('health') {
+                <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                  <path
+                    d="M4.5 9.5a10.5 10.5 0 0 1 15 0M7.5 12.5a6.2 6.2 0 0 1 9 0M10.5 15.5a2 2 0 0 1 3 0M12 19h.01"
+                  />
+                </svg>
+              }
+              @case ('users') {
+                <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                  <circle cx="9" cy="8" r="3" />
+                  <path
+                    d="M3 21c.6-3.5 2.6-5.5 6-5.5s5.4 2 6 5.5M16 5.5a2.5 2.5 0 0 1 0 5M16 15.5c2.7.1 4.3 2 5 5.5"
+                  />
+                </svg>
+              }
+              @default {
+                <svg viewBox="0 0 24 24" fill="none" role="presentation">
+                  <circle cx="12" cy="8" r="3.25" />
+                  <path d="M5 21c.7-3.5 3.1-5.5 7-5.5s6.3 2 7 5.5" />
+                </svg>
+              }
+            }
+          </span>
+          <span>{{ item.label }}</span>
+        </button>
+      }
       <button type="button" class="top-menu-logout" (click)="requestSignOut()">Log out</button>
-    }
+    </div>
   </nav>
 </header>
 

@@ -12,9 +12,9 @@ The dashboard summary gives users a concise explanation of what is most urgent, 
 
 ## Current Behavior
 
-The current implementation is exposed through `POST /api/dashboard/ai-summary`.
+The current implementation is exposed through `GET` and `POST /api/dashboard/ai-summary`.
 
-The UI uses the dashboard page's AI card to request the summary on demand and can keep a cached result for the current session user. The card is independent from the dashboard overview request so the summary action stays available even if the metrics request fails.
+`GET` returns the latest validated summary saved for the authenticated user's organization and does not call the AI provider. `POST` refreshes the summary, stores the result as the organization's current summary, and is the only operation that consumes provider tokens. The card is independent from the dashboard overview request so the summary action stays available even if the metrics request fails.
 
 The backend workflow:
 
@@ -25,6 +25,7 @@ The backend workflow:
 5. Calls the OpenAI client through the backend provider boundary.
 6. Accepts only strict JSON output that matches the expected schema.
 7. Restores real asset and vulnerability identifiers only after validation succeeds.
+8. Stores the validated summary payload, server-generated timestamp, and generating user for the organization.
 
 The returned summary includes:
 

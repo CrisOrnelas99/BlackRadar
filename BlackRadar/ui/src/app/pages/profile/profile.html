@@ -1,32 +1,36 @@
 @if (session(); as currentSession) {
   <app-top-menu [session]="currentSession" currentUrl="/profile"></app-top-menu>
 
-  @if (hasViewedUserError()) {
-    <p class="profile-page-status" role="alert">Unable to load this user profile.</p>
-  } @else if (profileUser(); as profileUser) {
-    <app-page-layout class="profile-page" aria-labelledby="profile-heading">
-      <header class="profile-page-header">
-        <div class="profile-page-title">
-          <div class="profile-page-title-row">
-            <svg class="page-heading-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="12" cy="8" r="3.25" />
-              <path d="M5 21c.7-3.5 3.1-5.5 7-5.5s6.3 2 7 5.5" />
-            </svg>
-            <h1 id="profile-heading">{{ isViewingUser() ? 'User profile' : 'Profile' }}</h1>
-            <p class="profile-user-id">User ID: {{ profileUser.id }}</p>
-          </div>
-          <div class="profile-page-subtitle-row">
-            <p class="profile-page-subtitle">
-              {{
-                isViewingUser()
-                  ? "Review this account's details, access role, and permissions."
-                  : 'Review your account details, access role, and permissions for the BlackRadar platform.'
-              }}
-            </p>
-          </div>
+  <app-page-layout class="profile-page" aria-labelledby="profile-heading">
+    <header class="profile-page-header">
+      <div class="profile-page-title">
+        <div class="profile-page-title-row">
+          <svg class="page-heading-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.25" />
+            <path d="M5 21c.7-3.5 3.1-5.5 7-5.5s6.3 2 7 5.5" />
+          </svg>
+          <h1 id="profile-heading">{{ isViewingUser() ? 'User profile' : 'Profile' }}</h1>
+          @if (profileUser(); as loadedProfileUser) {
+            <p class="profile-user-id">User ID: {{ loadedProfileUser.id }}</p>
+          }
         </div>
-      </header>
+        <div class="profile-page-subtitle-row">
+          <p class="profile-page-subtitle">
+            {{
+              isViewingUser()
+                ? "Review this account's details, access role, and permissions."
+                : 'Review your account details, access role, and permissions for the BlackRadar platform.'
+            }}
+          </p>
+        </div>
+      </div>
+    </header>
 
+    @if (isLoading()) {
+      <p class="profile-page-status" role="status" aria-atomic="true">Loading profile...</p>
+    } @else if (hasViewedUserError() || !profileUser()) {
+      <p class="profile-page-status" role="alert">Unable to load profile.</p>
+    } @else if (profileUser(); as profileUser) {
       <article class="profile-details-card">
         <header class="profile-details-header">
           <h2>{{ profileUser.fullName || 'Profile information' }}</h2>
@@ -152,12 +156,18 @@
               </form>
             }
           </section>
-        } @else if (canEditViewedUser()) {
+        } @else if (canEditViewedUser() || canResetViewedUser()) {
           <section class="profile-edit-card" aria-labelledby="profile-edit-heading">
             @if (!isEditing()) {
               <div class="profile-edit-intro">
                 <h2 id="profile-edit-heading">Edit user</h2>
-                <p>Update this account's active status.</p>
+                <p>
+                  {{
+                    canEditViewedUser()
+                      ? "Update this account's active status."
+                      : "Reset this account's password."
+                  }}
+                </p>
                 <button class="profile-edit-open" type="button" (click)="openUserEditor()">
                   Edit user
                 </button>
@@ -178,53 +188,108 @@
                     Cancel
                   </button>
                 </div>
-                <div class="profile-edit-fields profile-edit-fields-single">
-                  <div class="profile-field">
-                    <label for="user-account-role">
-                      Role <span class="profile-required">(required)</span>
-                    </label>
-                    <select id="user-account-role" formControlName="role">
-                      <option value="user">User</option>
-                      <option value="admin">Administrator</option>
-                    </select>
+                @if (canEditViewedUser()) {
+                  <div class="profile-edit-fields profile-edit-fields-single">
+                    <div class="profile-field">
+                      <label for="user-account-role">
+                        Role <span class="profile-required">(required)</span>
+                      </label>
+                      <select id="user-account-role" formControlName="role">
+                        <option value="user">User</option>
+                        <option value="admin">Administrator</option>
+                      </select>
+                    </div>
+                    <div class="profile-field">
+                      <label for="user-account-status">
+                        Account status <span class="profile-required">(required)</span>
+                      </label>
+                      <select id="user-account-status" formControlName="accountStatus">
+                        <option value="active">Active</option>
+                        <option value="deactivated">Deactivated</option>
+                      </select>
+                    </div>
                   </div>
-                  <div class="profile-field">
-                    <label for="user-account-status">
-                      Account status <span class="profile-required">(required)</span>
-                    </label>
-                    <select id="user-account-status" formControlName="accountStatus">
-                      <option value="active">Active</option>
-                      <option value="deactivated">Deactivated</option>
-                    </select>
-                  </div>
-                </div>
+                }
                 <div class="profile-edit-actions">
-                  <button class="profile-edit-submit" type="submit" [disabled]="isSaving()">
-                    {{ isSaving() ? 'Saving...' : 'Save changes' }}
-                  </button>
+                  @if (canResetViewedUser()) {
+                    <button
+                      class="profile-reset-password"
+                      type="button"
+                      [disabled]="isSaving()"
+                      (click)="openPasswordReset()"
+                    >
+                      Reset password
+                    </button>
+                  }
+                  @if (canEditViewedUser()) {
+                    <button class="profile-edit-submit" type="submit" [disabled]="isSaving()">
+                      {{ isSaving() ? 'Saving...' : 'Save changes' }}
+                    </button>
+                  }
                 </div>
               </form>
             }
           </section>
         }
       </div>
-    </app-page-layout>
-  }
+    }
 
-  @if (isSaveConfirmationOpen()) {
-    <app-confirmation-dialog
-      [dialogId]="'profile-save-confirm-heading'"
-      [title]="isViewingUser() ? 'Save user changes?' : 'Save profile changes?'"
-      [message]="
-        isViewingUser()
-          ? 'Save the updated account role or status?'
-          : 'Save the updated details for your profile?'
-      "
-      [confirmLabel]="'Save changes'"
-      [confirmTone]="'success'"
-      [confirmDisabled]="isSaving()"
-      (cancel)="cancelSave()"
-      (confirm)="confirmSave()"
-    ></app-confirmation-dialog>
-  }
+    @if (isSaveConfirmationOpen()) {
+      <app-confirmation-dialog
+        [dialogId]="'profile-save-confirm-heading'"
+        [title]="isViewingUser() ? 'Save user changes?' : 'Save profile changes?'"
+        [message]="
+          isViewingUser()
+            ? 'Save the updated account role or status?'
+            : 'Save the updated details for your profile?'
+        "
+        [confirmLabel]="'Save changes'"
+        [confirmTone]="'success'"
+        [confirmDisabled]="isSaving()"
+        (cancel)="cancelSave()"
+        (confirm)="confirmSave()"
+      ></app-confirmation-dialog>
+    }
+
+    @if (isPasswordResetOpen()) {
+      <app-confirmation-dialog
+        [dialogId]="'profile-reset-password-heading'"
+        [title]="'Reset password?'"
+        [message]="'Enter a new password for this account. Existing sessions will be signed out.'"
+        [confirmLabel]="isResettingPassword() ? 'Resetting...' : 'Reset password'"
+        [confirmTone]="'warning'"
+        [confirmDisabled]="isResettingPassword()"
+        [cancelDisabled]="isResettingPassword()"
+        (cancel)="cancelPasswordReset()"
+        (confirm)="confirmPasswordReset()"
+      >
+        <form class="profile-reset-password-form" [formGroup]="resetPasswordForm" novalidate>
+          <div class="profile-field">
+            <label for="reset-password">
+              New password <span class="profile-required">(required)</span>
+            </label>
+            <input
+              id="reset-password"
+              type="password"
+              formControlName="password"
+              autocomplete="new-password"
+              required
+            />
+          </div>
+          <div class="profile-field">
+            <label for="reset-password-confirm">
+              Confirm password <span class="profile-required">(required)</span>
+            </label>
+            <input
+              id="reset-password-confirm"
+              type="password"
+              formControlName="confirmPassword"
+              autocomplete="new-password"
+              required
+            />
+          </div>
+        </form>
+      </app-confirmation-dialog>
+    }
+  </app-page-layout>
 }

@@ -4,7 +4,7 @@
   font-family: var(--brand-font-body);
 }
 .health-shell {
-  padding: 1.25rem clamp(1rem, 4vw, 3rem) 2rem;
+  padding: 0.85rem clamp(1rem, 4vw, 3rem) 2rem;
   background: var(--BlackRadar-color-pure-white);
   color: var(--BlackRadar-color-navy-black);
   min-height: 100vh;
@@ -15,6 +15,7 @@
   align-items: center;
   gap: 1rem;
 }
+
 .health-shell h1 {
   margin: 0;
   color: var(--BlackRadar-color-dark-blue);
@@ -55,8 +56,8 @@
   font-weight: 700;
   cursor: pointer;
 }
-.health-overall,
-.health-message {
+
+.health-overall {
   margin: 0;
   padding: 0.9rem 1rem;
   border: 1px solid var(--BlackRadar-color-navy-black);
@@ -64,6 +65,55 @@
   background: var(--BlackRadar-color-header);
   color: var(--BlackRadar-color-header-text);
   font-weight: 700;
+}
+
+.health-overall {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.health-overall-status {
+  color: var(--BlackRadar-color-pure-white);
+  font-size: 1rem;
+}
+
+.health-overall-checked {
+  color: var(--BlackRadar-color-light-gray);
+  font-size: 0.75rem;
+  font-weight: 400;
+}
+
+.health-overall-meta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-left: auto;
+}
+
+.health-shell .health-overall-action {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--BlackRadar-color-pure-black);
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  background: var(--BlackRadar-color-white);
+  color: var(--BlackRadar-color-pure-black);
+  font: inherit;
+  font-weight: 400;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.health-overall-action:hover:not(:disabled) {
+  background: var(--BlackRadar-color-light-gray);
+}
+
+.health-overall-action:disabled {
+  cursor: wait;
+  opacity: 0.7;
 }
 .health-system-card {
   margin-top: 2rem;
@@ -73,9 +123,12 @@
   background: var(--BlackRadar-color-pure-white);
   box-shadow: 0 12px 28px color-mix(in srgb, var(--BlackRadar-color-navy-black) 10%, transparent);
 }
-.health-overall--unavailable,
-.health-message {
+.health-overall--unavailable {
   border-color: var(--BlackRadar-color-navy-black);
+}
+.health-message {
+  margin: 2rem 0 0;
+  color: var(--BlackRadar-color-light-gray) !important;
 }
 .health-map {
   position: relative;
@@ -175,6 +228,16 @@
 .health-node--nvd p {
   margin: 0.15rem 0 0;
   font-size: 0.7rem;
+}
+
+.health-node--database strong,
+.health-node--ai strong,
+.health-node--nvd strong {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--BlackRadar-color-light-gray);
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 .health-node--database .health-node-icon,
 .health-node--ai .health-node-icon,

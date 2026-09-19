@@ -64,6 +64,7 @@ app-login-page {
 app-root {
   --brand-popup-right: 0;
   --brand-banner-top: 4.95rem;
+  --page-side-column: minmax(18rem, 24rem);
   display: block;
   min-height: 100vh;
   font-family: var(--brand-font-body);
@@ -109,16 +110,17 @@ app-top-menu .top-menu-bar {
   align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
-  padding: 0.55rem 1.15rem;
+  padding: 0.4rem 1.15rem;
   background-color: var(--BlackRadar-color-navy-black);
   color: var(--BlackRadar-color-white);
 }
 app-top-menu .top-menu-primary {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 0.35rem;
   min-width: 0;
-  padding: 0.35rem 1.15rem;
+  padding: 0.1rem 1.15rem;
   overflow-x: auto;
   background: var(--BlackRadar-color-pure-white);
   scrollbar-width: thin;
@@ -141,7 +143,7 @@ app-top-menu .top-menu-context-links {
   gap: 0.35rem;
   min-width: 0;
 }
-app-top-menu .top-menu-context-navigation--account .top-menu-context-links {
+app-top-menu .top-menu-account-links {
   margin-left: auto;
 }
 app-top-menu .top-menu-brand {
@@ -164,7 +166,7 @@ app-top-menu .top-menu-logout {
   font: inherit;
 }
 app-top-menu .top-menu-hamburger {
-  display: grid;
+  display: none;
   gap: 0.18rem;
   place-items: center;
   width: 2.7rem;
@@ -181,13 +183,12 @@ app-top-menu .top-menu-hamburger {
     transform 160ms ease;
 }
 app-top-menu .top-menu-name {
-  min-width: 9rem;
+  min-width: 0;
   max-width: min(34vw, 13rem);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  border-radius: 999px;
-  padding: 0.55rem 0.9rem;
+  padding: 0;
   font-weight: 700;
 }
 app-top-menu .top-menu-hamburger span {
@@ -217,7 +218,7 @@ app-top-menu .top-menu-logout {
   background: var(--BlackRadar-color-navy-black);
   cursor: pointer;
 }
-app-top-menu .top-menu-context-navigation--account .top-menu-link {
+app-top-menu .top-menu-account-links .top-menu-link {
   padding: 0.5rem 0.75rem;
   color: var(--BlackRadar-color-dark-blue);
   white-space: nowrap;
@@ -286,7 +287,7 @@ app-top-menu .top-menu-link-icon svg {
     padding: 0;
   }
   app-top-menu .top-menu-bar {
-    padding: 0.5rem 0.85rem;
+    padding: 0.4rem 0.85rem;
   }
   app-top-menu .top-menu-brand {
     font-size: 1.1rem;
@@ -294,14 +295,29 @@ app-top-menu .top-menu-link-icon svg {
   app-top-menu .top-menu-actions {
     gap: 0.5rem;
   }
+  app-top-menu .top-menu-hamburger {
+    display: grid;
+  }
   app-top-menu .top-menu-name {
     min-width: 0;
     max-width: 9rem;
-    padding: 0.55rem 0.8rem;
+    padding: 0;
   }
   app-top-menu .top-menu-primary {
-    padding-right: 0.85rem;
-    padding-left: 0.85rem;
+    display: none;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.75rem 0.85rem;
+  }
+  app-top-menu .top-menu-primary.top-menu-navigation-open {
+    display: flex;
+  }
+  app-top-menu .top-menu-context-links {
+    flex-wrap: wrap;
+  }
+  app-top-menu .top-menu-account-links {
+    margin-left: 0;
   }
 }
 
@@ -425,6 +441,15 @@ html.blackradar-dark-theme
   color: var(--BlackRadar-color-header-text) !important;
 }
 
+html.blackradar-dark-theme
+  :is(
+    .asset-details-card .asset-details-header h2,
+    .vulnerability-details-card .vulnerability-details-header h2,
+    .profile-details-card .profile-details-header h2
+  ) {
+  color: var(--brandRadar-color-blue) !important;
+}
+
 html.blackradar-dark-theme .dashboard-ai-notes h3 {
   color: var(--BlackRadar-color-warning) !important;
 }
@@ -475,11 +500,6 @@ html.blackradar-dark-theme app-top-menu .top-menu-hamburger:hover {
     var(--BlackRadar-color-dark-blue) 10%,
     var(--BlackRadar-color-pure-white)
   );
-}
-
-html.blackradar-dark-theme app-top-menu .top-menu-name {
-  background: var(--BlackRadar-color-pure-white);
-  color: var(--BlackRadar-color-dark-blue);
 }
 
 html.blackradar-dark-theme app-top-menu .top-menu-logout {
@@ -888,6 +908,11 @@ app-root .app-banner-host {
   transform: translateY(0);
   pointer-events: none;
 }
+
+app-root:has(app-top-menu) .app-banner-host {
+  top: 6.35rem;
+}
+
 app-login-page .field {
   display: grid;
   gap: 0.5rem;
@@ -1006,5 +1031,9 @@ html.blackradar-dark-theme app-login-page .login-button {
   }
   app-root {
     --brand-banner-top: 4.45rem;
+  }
+
+  app-root:has(app-top-menu) .app-banner-host {
+    top: 5.85rem;
   }
 }

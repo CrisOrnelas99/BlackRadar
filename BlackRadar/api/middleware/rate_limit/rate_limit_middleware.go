@@ -109,3 +109,15 @@ func VulnerabilityMutationRateLimit() gin.HandlerFunc {
 		Key: PrincipalUserKey,
 	})
 }
+
+// AdminPasswordResetRateLimit throttles privileged password reset requests.
+func AdminPasswordResetRateLimit() gin.HandlerFunc {
+	return mustNew(Config{
+		Rule: RateLimitRule{
+			Name:   "admin_password_reset",
+			Limit:  10,
+			Window: defaultRateLimitWindow,
+		},
+		Key: PrincipalUserKey,
+	})
+}

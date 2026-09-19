@@ -32,4 +32,7 @@ type AIService interface {
 		safe translation.
 	*/
 	GenerateDashboardSummary(ec *appcontext.GinContext) (DashboardSummary, error)
+
+	// GetDashboardSummary returns the latest stored summary without using the AI provider.
+	GetDashboardSummary(ec *appcontext.GinContext) (DashboardSummary, error)
 }

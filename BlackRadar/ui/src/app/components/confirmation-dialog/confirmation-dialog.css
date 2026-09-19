@@ -47,6 +47,14 @@
   color: var(--BlackRadar-color-light-gray);
 }
 
+.confirmation-dialog-content:empty {
+  display: none;
+}
+
+.confirmation-dialog-content {
+  margin-bottom: 1.25rem;
+}
+
 .confirmation-dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -85,6 +93,12 @@
   border: 1px solid var(--BlackRadar-color-error);
   background: var(--BlackRadar-color-error);
   color: var(--BlackRadar-color-pure-white);
+}
+
+.confirmation-dialog-confirm-warning {
+  border: 1px solid var(--BlackRadar-color-warning);
+  background: var(--BlackRadar-color-warning);
+  color: var(--BlackRadar-color-navy-black);
 }
 
 :host-context(html.blackradar-dark-theme) .confirmation-dialog-confirm-primary {

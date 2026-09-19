@@ -282,6 +282,14 @@ func TestRegisterAdminRoutes(t *testing.T) {
 	if recorder.Code != http.StatusOK || service.changeStatusCalls != 1 {
 		t.Fatalf("expected status route to succeed, status=%d calls=%d", recorder.Code, service.changeStatusCalls)
 	}
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodPost, "/api/users/00000000-0000-4000-8000-000000000007/password-reset", strings.NewReader(`{"password":"NewPassword1!"}`))
+	request.Header.Set("Content-Type", "application/json")
+	engine.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNoContent || service.resetPasswordCalls != 1 {
+		t.Fatalf("expected password reset route to succeed, status=%d calls=%d", recorder.Code, service.resetPasswordCalls)
+	}
 }
 
 type fakeUserService struct {
@@ -302,6 +310,7 @@ type fakeUserService struct {
 	listUsersCalls        int
 	changeRoleCalls       int
 	changeStatusCalls     int
+	resetPasswordCalls    int
 }
 
 func (f *fakeUserService) ListUsers(ec *appcontext.GinContext, query model.UserListQuery) (pagination.Page[model.User], error) {
@@ -318,6 +327,11 @@ func (f *fakeUserService) ChangeUserRole(ec *appcontext.GinContext, userID strin
 func (f *fakeUserService) ChangeUserStatus(ec *appcontext.GinContext, userID string, status string) (model.User, error) {
 	f.changeStatusCalls++
 	return model.User{Model: model.Model{ID: userID}, AccountStatus: status}, nil
+}
+
+func (f *fakeUserService) ResetPassword(ec *appcontext.GinContext, userID string, password string) error {
+	f.resetPasswordCalls++
+	return nil
 }
 
 func (f *fakeUserService) CreateUser(ec *appcontext.GinContext, request userservice.CreateUserInput) (model.User, error) {

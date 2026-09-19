@@ -130,6 +130,9 @@ type UserRepositoryInterface interface {
 	*/
 	UpdateProfile(ec *appcontext.GinContext, userID string, user model.User) (model.User, error)
 
+	// UpdatePassword replaces only the managed account password hash and records the updater.
+	UpdatePassword(ec *appcontext.GinContext, userID string, passwordHash string, updatedByID string) error
+
 	/*
 		FindByUsername returns the active user matching username.
 

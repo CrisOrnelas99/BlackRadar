@@ -52,7 +52,7 @@ describe('HealthPage', () => {
       '.health-node--database',
     ) as HTMLElement;
     expect(databaseCard.textContent).toContain('PostgreSQL');
-    expect(databaseCard.textContent).not.toContain('Healthy');
+    expect(databaseCard.textContent).toContain('Healthy');
     expect(databaseCard.querySelector('.health-dependency-indicator')).not.toBeNull();
   });
 

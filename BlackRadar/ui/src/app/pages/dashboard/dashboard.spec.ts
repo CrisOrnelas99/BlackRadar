@@ -13,6 +13,7 @@ import { AIService, DashboardSummary } from '../../services/ai/ai';
 describe('DashboardPage', () => {
   let fixture: ComponentFixture<DashboardPage>;
   let getDashboardSummary: ReturnType<typeof vi.fn>;
+  let loadDashboardSummary: ReturnType<typeof vi.fn>;
   let dashboardSummary: ReturnType<typeof signal<DashboardSummary | null>>;
 
   const session: LoginResponse = {
@@ -29,6 +30,7 @@ describe('DashboardPage', () => {
 
   beforeEach(async () => {
     getDashboardSummary = vi.fn(() => of(null));
+    loadDashboardSummary = vi.fn(() => of(null));
     dashboardSummary = signal<DashboardSummary | null>(null);
     await TestBed.configureTestingModule({
       imports: [DashboardPage],
@@ -68,7 +70,10 @@ describe('DashboardPage', () => {
             ),
           },
         },
-        { provide: AIService, useValue: { dashboardSummary, getDashboardSummary } },
+        {
+          provide: AIService,
+          useValue: { dashboardSummary, getDashboardSummary, loadDashboardSummary },
+        },
         { provide: BannerService, useValue: { show: vi.fn() } },
         provideRouter([]),
       ],
@@ -126,9 +131,11 @@ describe('DashboardPage', () => {
   it('requests and renders the optional AI dashboard summary on demand', () => {
     getDashboardSummary.mockReturnValue(
       of<DashboardSummary>({
+        summaryId: 'summary-1',
         headline: 'One database needs immediate attention',
         overallAssessment: 'high',
         summary: 'A high-severity vulnerability affects an important asset.',
+        generatedAt: '2026-09-07T09:15:00.000Z',
         priorityFindings: [
           {
             priority: 1,
@@ -182,9 +189,11 @@ describe('DashboardPage', () => {
 
   it('keeps the generated summary when the dashboard component is recreated', () => {
     const summary: DashboardSummary = {
+      summaryId: 'summary-1',
       headline: 'Cached summary',
       overallAssessment: 'low',
       summary: 'The current findings are under control.',
+      generatedAt: '2026-09-07T09:15:00.000Z',
       priorityFindings: [],
       positiveObservations: [],
       uncertainties: [],
@@ -209,7 +218,7 @@ describe('DashboardPage', () => {
     expect(component.hasAISummaryError()).toBe(true);
   });
 
-  it('keeps the AI action available when the overview request fails', async () => {
+  it('hides the AI summary when the overview request fails', async () => {
     await TestBed.resetTestingModule()
       .configureTestingModule({
         imports: [DashboardPage],
@@ -236,7 +245,10 @@ describe('DashboardPage', () => {
               ),
             },
           },
-          { provide: AIService, useValue: { dashboardSummary, getDashboardSummary } },
+          {
+            provide: AIService,
+            useValue: { dashboardSummary, getDashboardSummary, loadDashboardSummary },
+          },
           { provide: BannerService, useValue: { show: vi.fn() } },
           provideRouter([]),
         ],
@@ -249,9 +261,7 @@ describe('DashboardPage', () => {
     expect(overviewFailureFixture.nativeElement.textContent).toContain(
       'Unable to load dashboard metrics',
     );
-    expect(
-      overviewFailureFixture.nativeElement.querySelector('.dashboard-ai-action'),
-    ).not.toBeNull();
+    expect(overviewFailureFixture.nativeElement.querySelector('.dashboard-ai-action')).toBeNull();
     overviewFailureFixture.destroy();
   });
 });
