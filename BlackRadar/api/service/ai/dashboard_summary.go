@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"blackradar/api/model"
 	appcontext "blackradar/api/platform/requestcontext"
+	dashboardrepository "blackradar/api/repository/dashboard_summary"
 )
 
 const (
@@ -24,6 +26,11 @@ const (
 type DashboardRepositories struct {
 	Assets          DashboardAssetRepository
 	Vulnerabilities DashboardVulnerabilityRepository
+}
+
+// DashboardSummaryRepository stores the latest validated summary for an organization.
+type DashboardSummaryRepository interface {
+	dashboardrepository.RepositoryInterface
 }
 
 // DashboardAssetRepository defines the bounded, organization-scoped reads needed by the dashboard workflow.
@@ -64,9 +71,11 @@ type DashboardVulnerabilityRepository interface {
 
 // DashboardSummary is the validated advisory result returned by the dashboard AI workflow.
 type DashboardSummary struct {
+	ID                   string             `json:"summaryId,omitempty"`
 	Headline             string             `json:"headline"`
 	OverallAssessment    string             `json:"overallAssessment"`
 	Summary              string             `json:"summary"`
+	GeneratedAt          time.Time          `json:"generatedAt,omitempty"`
 	PriorityFindings     []DashboardFinding `json:"priorityFindings"`
 	PositiveObservations []string           `json:"positiveObservations"`
 	Uncertainties        []string           `json:"uncertainties"`
@@ -115,7 +124,7 @@ type dashboardVulnerability struct {
 	Description string `json:"description"`
 }
 
-// GenerateDashboardSummary builds an authorized, bounded dashboard snapshot and asks the provider for a grounded explanation. It performs no writes.
+// GenerateDashboardSummary builds, validates, stores, and returns an authorized dashboard summary.
 func (s *aiServiceImpl) GenerateDashboardSummary(ec *appcontext.GinContext) (DashboardSummary, error) {
 	if s.dashboardRepositories.Assets == nil || s.dashboardRepositories.Vulnerabilities == nil {
 		return DashboardSummary{}, ErrAIProviderUnavailable
@@ -129,7 +138,61 @@ func (s *aiServiceImpl) GenerateDashboardSummary(ec *appcontext.GinContext) (Das
 	if err != nil {
 		return DashboardSummary{}, err
 	}
-	return s.generateSnapshotSummary(ec.RequestContext(), snapshot)
+	summary, err := s.generateSnapshotSummary(ec.RequestContext(), snapshot)
+	if err != nil {
+		return DashboardSummary{}, err
+	}
+	if s.dashboardSummaryRepository == nil {
+		return summary, nil
+	}
+
+	summary.GeneratedAt = time.Now().UTC()
+	payloadSummary := summary
+	payloadSummary.ID = ""
+	payloadSummary.GeneratedAt = time.Time{}
+	payload, err := json.Marshal(payloadSummary)
+	if err != nil {
+		return DashboardSummary{}, ErrInvalidDashboardSummary
+	}
+	saved, err := s.dashboardSummaryRepository.SaveForUser(ec, userID, model.DashboardSummary{
+		SummaryPayload:    string(payload),
+		GeneratedAt:       summary.GeneratedAt,
+		GeneratedByUserID: userID,
+	})
+	if err != nil {
+		return DashboardSummary{}, translateDashboardSummaryRepositoryError(err)
+	}
+	summary.ID = saved.ID
+	return summary, nil
+}
+
+// GetDashboardSummary returns the latest stored summary without calling the AI provider.
+func (s *aiServiceImpl) GetDashboardSummary(ec *appcontext.GinContext) (DashboardSummary, error) {
+	if s.dashboardSummaryRepository == nil {
+		return DashboardSummary{}, ErrDashboardSummaryUnavailable
+	}
+	userID, err := ec.UserID()
+	if err != nil {
+		return DashboardSummary{}, err
+	}
+	saved, err := s.dashboardSummaryRepository.GetLatestForUser(ec, userID)
+	if err != nil {
+		return DashboardSummary{}, translateDashboardSummaryRepositoryError(err)
+	}
+	var summary DashboardSummary
+	if err := json.Unmarshal([]byte(saved.SummaryPayload), &summary); err != nil {
+		return DashboardSummary{}, fmt.Errorf("%w: stored payload: %w", ErrInvalidDashboardSummary, err)
+	}
+	summary.ID = saved.ID
+	summary.GeneratedAt = saved.GeneratedAt
+	return summary, nil
+}
+
+func translateDashboardSummaryRepositoryError(err error) error {
+	if errors.Is(err, dashboardrepository.ErrRecordNotFound) {
+		return ErrDashboardSummaryNotFound
+	}
+	return errors.Join(ErrDashboardSummaryUnavailable, err)
 }
 
 // generateSnapshotSummary validates provider references before restoring authorized record identities.

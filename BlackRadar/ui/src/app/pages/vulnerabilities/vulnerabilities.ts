@@ -1,7 +1,7 @@
 // Authenticated page that lists the vulnerabilities visible to the current user.
 import { Component, computed, ElementRef, inject, signal, ViewChild } from '@angular/core';
-import { Router } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router } from '@angular/router';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { startWith } from 'rxjs';
 
@@ -45,6 +45,7 @@ type SortDirection = 'asc' | 'desc';
 })
 export class VulnerabilitiesPage {
   private readonly authService = inject(AuthService);
+  private readonly activatedRoute = inject(ActivatedRoute);
   private readonly bannerService = inject(BannerService);
   private readonly formBuilder = inject(FormBuilder);
   private readonly router = inject(Router);
@@ -182,15 +183,21 @@ export class VulnerabilitiesPage {
   readonly vulnerabilityRowKey = (vulnerability: Vulnerability): string => vulnerability.id;
 
   constructor() {
+    this.restoreQueryParams();
+    this.filtersForm.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe(() => this.updateQueryParams());
     this.loadVulnerabilities();
   }
 
   updateSearchQuery(query: string): void {
     this.searchQuery.set(query);
+    this.updateQueryParams();
   }
 
   toggleFilters(): void {
     this.isFiltersOpen.update((isOpen) => !isOpen);
+    this.updateQueryParams();
   }
 
   clearFilters(): void {
@@ -202,6 +209,7 @@ export class VulnerabilitiesPage {
       sortField: 'title',
       sortDirection: 'asc',
     });
+    this.updateQueryParams();
   }
 
   handleSortChange(change: DataTableSortChange): void {
@@ -213,6 +221,7 @@ export class VulnerabilitiesPage {
       sortField: change.field,
       sortDirection: change.direction,
     });
+    this.updateQueryParams();
   }
 
   createVulnerability(): void {
@@ -320,6 +329,31 @@ export class VulnerabilitiesPage {
         this.hasLoadError.set(true);
         this.isLoading.set(false);
       },
+    });
+  }
+
+  private restoreQueryParams(): void {
+    const params = this.activatedRoute.snapshot.queryParamMap;
+    this.searchQuery.set(params.get('search') ?? '');
+    this.isFiltersOpen.set(params.get('filters') === 'open');
+    this.filtersForm.patchValue({
+      severity: params.get('severity') ?? '',
+      status: params.get('status') ?? '',
+    });
+  }
+
+  private updateQueryParams(): void {
+    const filters = this.filtersForm.getRawValue();
+    void this.router.navigate([], {
+      relativeTo: this.activatedRoute,
+      queryParams: {
+        search: this.searchQuery().trim() || null,
+        filters: this.isFiltersOpen() ? 'open' : null,
+        severity: filters.severity || null,
+        status: filters.status || null,
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
     });
   }
 

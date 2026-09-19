@@ -10,6 +10,7 @@ import (
 
 // RegisterDashboardRoutes registers authenticated dashboard AI routes.
 func RegisterDashboardRoutes(router *gin.RouterGroup, controller *AIController) {
-	ai := router.Group("/dashboard", ratelimit.AIRateLimit())
-	ai.POST("/ai-summary", appcontext.Wrap(controller.GenerateDashboardSummary))
+	ai := router.Group("/dashboard")
+	ai.GET("/ai-summary", appcontext.Wrap(controller.GetDashboardSummary))
+	ai.POST("/ai-summary", ratelimit.AIRateLimit(), appcontext.Wrap(controller.GenerateDashboardSummary))
 }

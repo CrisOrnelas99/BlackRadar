@@ -126,6 +126,26 @@ func (c *UserController) ChangeUserStatus(ec *appcontext.GinContext) {
 	ec.JSON(http.StatusOK, ToUserResponse(user))
 }
 
+// ResetPassword resets a managed account password for an authorized administrator.
+func (c *UserController) ResetPassword(ec *appcontext.GinContext) {
+	id, err := shared.ParseID(ec.Param("id"))
+	if shared.HandleError(ec, http.StatusBadRequest, err, "User ID must be a valid UUID") {
+		return
+	}
+	var request ResetPasswordRequest
+	if shared.BindJSON(ec, &request) {
+		return
+	}
+	if err := c.userService.ResetPassword(ec, id, request.Password); err != nil {
+		if handleUserServiceError(ec, err) {
+			return
+		}
+		shared.HandleError(ec, http.StatusInternalServerError, err, "Error resetting user password")
+		return
+	}
+	ec.Status(http.StatusNoContent)
+}
+
 // UpdateProfile updates the authenticated user's profile fields.
 func (c *UserController) UpdateProfile(ec *appcontext.GinContext) {
 	var request UpdateProfileRequest

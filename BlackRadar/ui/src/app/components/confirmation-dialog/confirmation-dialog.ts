@@ -26,7 +26,7 @@ export class ConfirmationDialogComponent implements AfterViewInit, OnDestroy {
   readonly message = input.required<string>();
   readonly confirmLabel = input.required<string>();
   readonly cancelLabel = input('Cancel');
-  readonly confirmTone = input<'success' | 'danger' | 'primary'>('primary');
+  readonly confirmTone = input<'success' | 'danger' | 'primary' | 'warning'>('primary');
   readonly confirmDisabled = input(false);
   readonly cancelDisabled = input(false);
 

@@ -43,8 +43,8 @@
   </div>
 
   <div class="users-content-grid">
-    @if (isFiltersOpen()) {
-      <section id="users-filters-panel" class="users-filters-panel" aria-label="User filters">
+    <section id="users-filters-panel" class="users-filters-panel" aria-label="User filters">
+      @if (isFiltersOpen()) {
         <label class="users-filter-field" for="user-filter-role">
           <span>Role</span>
           <select id="user-filter-role" [formControl]="filtersForm.controls.role">
@@ -65,8 +65,8 @@
         <button class="users-filters-clear" type="button" (click)="clearFilters()">
           Clear filters
         </button>
-      </section>
-    }
+      }
+    </section>
     <div class="users-table-section">
       @if (isLoading()) {
         <p class="users-status" role="status" aria-atomic="true">Loading users...</p>
@@ -98,83 +98,85 @@
   </div>
 
   <div class="users-create-column">
-    <section class="users-create-card" aria-labelledby="user-create-heading">
-      @if (!isCreateOpen()) {
-        <div class="users-create-intro">
-          <h2 id="user-create-heading">Create a user</h2>
-          <p>Add an account with standard user access. You can change its role later.</p>
-          <button class="users-create-open" type="button" (click)="openCreatePanel()">
-            Create a user
-          </button>
-        </div>
-      } @else {
-        <form [formGroup]="createForm" (ngSubmit)="submitCreate()" novalidate>
-          <div class="users-create-header">
-            <div>
-              <h2 id="user-create-heading">Create a user</h2>
-              <p>Add an account with standard user access. You can change its role later.</p>
-            </div>
-            <button
-              class="page-cancel"
-              type="button"
-              [disabled]="isCreating()"
-              (click)="closeCreatePanel()"
-            >
-              Cancel
+    @if (!isLoading() && !hasLoadError()) {
+      <section class="users-create-card" aria-labelledby="user-create-heading">
+        @if (!isCreateOpen()) {
+          <div class="users-create-intro">
+            <h2 id="user-create-heading">Create a user</h2>
+            <p>Add an account with standard user access. You can change its role later.</p>
+            <button class="users-create-open" type="button" (click)="openCreatePanel()">
+              Create a user
             </button>
           </div>
-          <div class="users-create-fields">
-            <label class="users-field" for="user-full-name">
-              <span>Full name <span class="users-required">(required)</span></span>
-              <input
-                id="user-full-name"
-                type="text"
-                formControlName="fullName"
-                autocomplete="name"
-                required
-                aria-required="true"
-              />
-            </label>
-            <label class="users-field" for="user-username">
-              <span>Username <span class="users-required">(required)</span></span>
-              <input
-                id="user-username"
-                type="text"
-                formControlName="username"
-                autocomplete="username"
-                required
-                aria-required="true"
-              />
-            </label>
-            <label class="users-field" for="user-email">
-              <span>Email <span class="users-required">(required)</span></span>
-              <input
-                id="user-email"
-                type="email"
-                formControlName="email"
-                autocomplete="email"
-                required
-                aria-required="true"
-              />
-            </label>
-            <label class="users-field" for="user-password">
-              <span>Password <span class="users-required">(required)</span></span>
-              <input
-                id="user-password"
-                type="password"
-                formControlName="password"
-                autocomplete="new-password"
-                required
-                aria-required="true"
-              />
-            </label>
-          </div>
-          <button class="users-create-submit" type="submit" [disabled]="isCreating()">
-            {{ isCreating() ? 'Creating...' : 'Create user' }}
-          </button>
-        </form>
-      }
-    </section>
+        } @else {
+          <form [formGroup]="createForm" (ngSubmit)="submitCreate()" novalidate>
+            <div class="users-create-header">
+              <div>
+                <h2 id="user-create-heading">Create a user</h2>
+                <p>Add an account with standard user access. You can change its role later.</p>
+              </div>
+              <button
+                class="page-cancel"
+                type="button"
+                [disabled]="isCreating()"
+                (click)="closeCreatePanel()"
+              >
+                Cancel
+              </button>
+            </div>
+            <div class="users-create-fields">
+              <label class="users-field" for="user-full-name">
+                <span>Full name <span class="users-required">(required)</span></span>
+                <input
+                  id="user-full-name"
+                  type="text"
+                  formControlName="fullName"
+                  autocomplete="name"
+                  required
+                  aria-required="true"
+                />
+              </label>
+              <label class="users-field" for="user-username">
+                <span>Username <span class="users-required">(required)</span></span>
+                <input
+                  id="user-username"
+                  type="text"
+                  formControlName="username"
+                  autocomplete="username"
+                  required
+                  aria-required="true"
+                />
+              </label>
+              <label class="users-field" for="user-email">
+                <span>Email <span class="users-required">(required)</span></span>
+                <input
+                  id="user-email"
+                  type="email"
+                  formControlName="email"
+                  autocomplete="email"
+                  required
+                  aria-required="true"
+                />
+              </label>
+              <label class="users-field" for="user-password">
+                <span>Password <span class="users-required">(required)</span></span>
+                <input
+                  id="user-password"
+                  type="password"
+                  formControlName="password"
+                  autocomplete="new-password"
+                  required
+                  aria-required="true"
+                />
+              </label>
+            </div>
+            <button class="users-create-submit" type="submit" [disabled]="isCreating()">
+              {{ isCreating() ? 'Creating...' : 'Create user' }}
+            </button>
+          </form>
+        }
+      </section>
+    }
   </div>
 
   @if (isCreateConfirmationOpen()) {

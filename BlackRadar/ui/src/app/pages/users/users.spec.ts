@@ -1,7 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../services/auth/auth';
@@ -10,6 +10,7 @@ import { UsersPage } from './users';
 describe('UsersPage', () => {
   let fixture: ComponentFixture<UsersPage>;
   let httpTestingController: HttpTestingController;
+  let routeMock: { snapshot: { queryParamMap: ReturnType<typeof convertToParamMap> } };
   const authServiceMock = {
     session: () => ({
       accessToken: 'test-token',
@@ -24,12 +25,17 @@ describe('UsersPage', () => {
   };
 
   beforeEach(async () => {
+    routeMock = { snapshot: { queryParamMap: convertToParamMap({}) } };
     await TestBed.configureTestingModule({
       imports: [UsersPage],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
+        {
+          provide: ActivatedRoute,
+          useValue: routeMock,
+        },
         { provide: AuthService, useValue: authServiceMock },
       ],
     }).compileComponents();
@@ -114,5 +120,51 @@ describe('UsersPage', () => {
 
     expect(fixture.nativeElement.querySelector('#user-full-name')).not.toBeNull();
     expect(fixture.componentInstance.isCreateOpen()).toBe(true);
+  });
+
+  it('restores supported role and account-status filters', () => {
+    routeMock.snapshot.queryParamMap = convertToParamMap({
+      role: 'master',
+      status: 'deactivated',
+    });
+
+    fixture.detectChanges();
+    const request = httpTestingController.expectOne(
+      (request) => request.url === `${environment.apiUrl}/users`,
+    );
+
+    expect(fixture.componentInstance.filtersForm.getRawValue()).toEqual({
+      role: 'master',
+      accountStatus: 'deactivated',
+    });
+    expect(request.request.params.get('role')).toBe('master');
+    expect(request.request.params.get('accountStatus')).toBe('deactivated');
+    request.flush({
+      users: [],
+      pagination: { page: 1, pageSize: 6, totalCount: 0, totalPages: 0 },
+    });
+  });
+
+  it('clears unsupported role and account-status filters during restoration', () => {
+    routeMock.snapshot.queryParamMap = convertToParamMap({
+      role: 'operator',
+      status: 'pending',
+    });
+
+    fixture.detectChanges();
+    const request = httpTestingController.expectOne(
+      (request) => request.url === `${environment.apiUrl}/users`,
+    );
+
+    expect(fixture.componentInstance.filtersForm.getRawValue()).toEqual({
+      role: '',
+      accountStatus: '',
+    });
+    expect(request.request.params.has('role')).toBe(false);
+    expect(request.request.params.has('accountStatus')).toBe(false);
+    request.flush({
+      users: [],
+      pagination: { page: 1, pageSize: 6, totalCount: 0, totalPages: 0 },
+    });
   });
 });

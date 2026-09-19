@@ -22,7 +22,7 @@ describe('SettingsPage', () => {
   };
 
   beforeEach(async () => {
-    window.localStorage.removeItem('blackradar-theme');
+    window.localStorage.removeItem('blackradar-theme:user-1');
     document.documentElement.classList.remove('blackradar-dark-theme');
 
     await TestBed.configureTestingModule({
@@ -39,7 +39,7 @@ describe('SettingsPage', () => {
   });
 
   afterEach(() => {
-    window.localStorage.removeItem('blackradar-theme');
+    window.localStorage.removeItem('blackradar-theme:user-1');
     document.documentElement.classList.remove('blackradar-dark-theme');
   });
 
@@ -59,6 +59,6 @@ describe('SettingsPage', () => {
 
     expect(page.themeService.theme()).toBe('dark');
     expect(document.documentElement.classList.contains('blackradar-dark-theme')).toBe(true);
-    expect(window.localStorage.getItem('blackradar-theme')).toBe('dark');
+    expect(window.localStorage.getItem('blackradar-theme:user-1')).toBe('dark');
   });
 });

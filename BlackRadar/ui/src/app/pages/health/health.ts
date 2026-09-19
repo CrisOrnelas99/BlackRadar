@@ -3,7 +3,6 @@ import { DatePipe } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { finalize } from 'rxjs';
 import { TopMenuComponent } from '../../components/top-menu/top-menu';
-import { LoadingProgressComponent } from '../../components/loading-progress/loading-progress';
 import { PageLayoutComponent } from '../../components/page-layout/page-layout';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../services/auth/auth';
@@ -21,7 +20,7 @@ type HealthSummary = {
 @Component({
   selector: 'app-health-page',
   standalone: true,
-  imports: [DatePipe, LoadingProgressComponent, PageLayoutComponent, TopMenuComponent],
+  imports: [DatePipe, PageLayoutComponent, TopMenuComponent],
   templateUrl: './health.html',
   styleUrl: './health.css',
 })
@@ -38,6 +37,7 @@ export class HealthPage {
   refresh(): void {
     this.isLoading.set(true);
     this.hasError.set(false);
+    this.summary.set(null);
     this.http
       .get<HealthSummary>(`${environment.apiUrl}/health/summary`)
       .pipe(finalize(() => this.isLoading.set(false)))

@@ -236,6 +236,31 @@ func (r *UserRepository) UpdateProfile(ec *appcontext.GinContext, userID string,
 	return r.FindByID(ec, userID)
 }
 
+// UpdatePassword replaces a managed account password hash.
+func (r *UserRepository) UpdatePassword(ec *appcontext.GinContext, userID string, passwordHash string, updatedByID string) error {
+	if err := RequirePermission(ec, r.dbForContext(ec), model.PermissionManageUsers); err != nil {
+		return err
+	}
+	if strings.TrimSpace(userID) == "" || strings.TrimSpace(passwordHash) == "" || strings.TrimSpace(updatedByID) == "" {
+		return ErrNotNullViolation
+	}
+
+	result := r.dbForContext(ec).WithContext(ec.RequestContext()).
+		Model(&model.User{}).
+		Where("id = ?", strings.TrimSpace(userID)).
+		Updates(map[string]any{
+			"password_hash": passwordHash,
+			"updated_by_id": updatedByID,
+		})
+	if result.Error != nil {
+		return fmt.Errorf("%w: update password: %w", ErrPersistenceFailure, result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrRecordNotFound
+	}
+	return nil
+}
+
 // FindByUsername returns a user that matches the supplied username.
 func (r *UserRepository) FindByUsername(ec *appcontext.GinContext, username string) (model.User, error) {
 	var user model.User

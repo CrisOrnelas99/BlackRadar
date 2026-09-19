@@ -79,4 +79,8 @@ export class UsersService {
   changeStatus(userId: string, accountStatus: UserAccountStatus) {
     return this.http.patch<ManagedUser>(`${this.usersUrl}/${userId}/status`, { accountStatus });
   }
+
+  resetPassword(userId: string, password: string) {
+    return this.http.post<void>(`${this.usersUrl}/${userId}/password-reset`, { password });
+  }
 }

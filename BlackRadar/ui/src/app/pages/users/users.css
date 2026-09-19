@@ -11,11 +11,10 @@
 
 .users-page-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
-  grid-template-rows: auto 1fr;
+  grid-template-columns: minmax(0, 1fr) var(--page-side-column, minmax(18rem, 24rem));
   column-gap: 1.5rem;
   align-items: start;
-  padding: 1.25rem clamp(1rem, 4vw, 3rem) 2.5rem;
+  padding: 0.85rem clamp(1rem, 4vw, 3rem) 2.5rem;
 }
 
 :host-context(html.blackradar-dark-theme) .users-page-shell {
@@ -34,6 +33,7 @@
   flex: 1 1 auto;
   min-width: 0;
   margin-left: auto;
+  align-self: flex-end;
 }
 
 .users-filters-actions {
@@ -99,15 +99,25 @@
 
 .users-page-subtitle {
   max-width: 42rem;
-  margin: 0.3rem 0 1.5rem;
+  margin: 0.3rem 0 0;
   color: var(--BlackRadar-color-dark-blue);
   font-size: 0.9rem;
   line-height: 1.45;
 }
 
 .users-content-grid {
+  display: contents;
+  min-width: 0;
+}
+
+.users-filters-panel {
   grid-column: 1;
   grid-row: 2;
+}
+
+.users-table-section {
+  grid-column: 1;
+  grid-row: 3;
   min-width: 0;
 }
 
@@ -179,7 +189,7 @@
 
 .users-create-column {
   grid-column: 2;
-  grid-row: 2;
+  grid-row: 3;
   min-width: 0;
 }
 
@@ -313,7 +323,8 @@
   }
 
   .users-page-header,
-  .users-content-grid,
+  .users-filters-panel,
+  .users-table-section,
   .users-create-column {
     grid-column: 1;
     grid-row: auto;
@@ -328,6 +339,7 @@
   .users-page-header app-table-toolbar {
     width: 100%;
     margin-left: 0;
+    align-self: stretch;
   }
 
   .users-filters-panel {
@@ -336,5 +348,13 @@
 
   .users-filters-clear {
     justify-self: start;
+  }
+
+  .users-create-column {
+    grid-row: 3;
+  }
+
+  .users-table-section {
+    grid-row: 4;
   }
 }

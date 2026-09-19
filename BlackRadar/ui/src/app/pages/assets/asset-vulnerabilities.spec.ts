@@ -128,7 +128,10 @@ describe('AssetVulnerabilitiesPage', () => {
         provideRouter([]),
         {
           provide: ActivatedRoute,
-          useValue: { paramMap: of(convertToParamMap({ id: 'asset-1' })) },
+          useValue: {
+            paramMap: of(convertToParamMap({ id: 'asset-1' })),
+            snapshot: { queryParamMap: convertToParamMap({}) },
+          },
         },
         { provide: AuthService, useValue: { session: signal(session) } },
         { provide: AssetsService, useValue: assetsServiceMock },

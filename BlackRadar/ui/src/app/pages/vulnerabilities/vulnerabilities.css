@@ -11,11 +11,11 @@
 
 .vulnerabilities-page-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+  grid-template-columns: minmax(0, 1fr) var(--page-side-column, minmax(18rem, 24rem));
   column-gap: 1.5rem;
   align-items: start;
   background: var(--BlackRadar-color-pure-white);
-  padding: 1.25rem clamp(1rem, 4vw, 3rem) 2.5rem;
+  padding: 0.85rem clamp(1rem, 4vw, 3rem) 2.5rem;
 }
 
 :host-context(html.blackradar-dark-theme) .vulnerabilities-page-shell {
@@ -38,6 +38,7 @@
   flex: 1 1 auto;
   min-width: 0;
   margin-left: auto;
+  align-self: flex-end;
 }
 
 .vulnerabilities-page-header h1 {
@@ -102,12 +103,13 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
-  align-items: start;
+  align-items: end;
 }
 
 .vulnerability-filter-field {
   display: grid;
   gap: 0.25rem;
+  padding-top: 0.2rem;
 }
 
 .vulnerability-filter-field span {
@@ -144,6 +146,8 @@
 }
 
 .vulnerability-filters-clear {
+  grid-column: 3;
+  align-self: end;
   justify-self: end;
 }
 
@@ -375,6 +379,7 @@ html.blackradar-dark-theme .vulnerability-create-header p {
   .vulnerabilities-page-header app-table-toolbar {
     width: 100%;
     margin-left: 0;
+    align-self: stretch;
   }
 
   .vulnerability-create-fields {
@@ -388,6 +393,11 @@ html.blackradar-dark-theme .vulnerability-create-header p {
   .vulnerability-filters-secondary-actions {
     align-items: start;
     flex-direction: column;
+  }
+
+  .vulnerability-filters-clear {
+    grid-column: auto;
+    justify-self: start;
   }
 
   .vulnerability-field-wide {

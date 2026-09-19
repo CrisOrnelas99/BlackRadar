@@ -61,18 +61,15 @@ describe('TopMenuComponent', () => {
     expect(component.displayName).toBe('System Admin');
   });
 
-  it('shows the data navigation context by default on data pages', () => {
-    expect(fixture.nativeElement.querySelector('.top-menu-primary').textContent).toContain(
-      'Dashboard',
-    );
-    expect(fixture.nativeElement.querySelector('.top-menu-primary').textContent).toContain(
-      'Assets',
-    );
-    expect(fixture.nativeElement.querySelector('.top-menu-primary').textContent).toContain(
-      'Vulnerabilities',
-    );
-    expect(fixture.nativeElement.querySelector('.top-menu-account-link')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.top-menu-logout')).toBeNull();
+  it('shows primary and account navigation together', () => {
+    const navigation = fixture.nativeElement.querySelector('.top-menu-primary');
+    expect(navigation.textContent).toContain('Dashboard');
+    expect(navigation.textContent).toContain('Assets');
+    expect(navigation.textContent).toContain('Vulnerabilities');
+    expect(navigation.textContent).toContain('Profile');
+    expect(navigation.textContent).toContain('Settings');
+    expect(fixture.nativeElement.querySelector('.top-menu-account-link')).not.toBeNull();
+    expect(fixture.nativeElement.querySelector('.top-menu-logout')).not.toBeNull();
     expect(
       fixture.nativeElement.querySelector('.top-menu-actions .top-menu-hamburger'),
     ).not.toBeNull();
@@ -88,7 +85,7 @@ describe('TopMenuComponent', () => {
     ]);
   });
 
-  it('shows the account navigation context on account pages', () => {
+  it('keeps both navigation groups available on account pages', () => {
     fixture.componentRef.setInput('currentUrl', '/settings');
     fixture.detectChanges();
 
@@ -96,26 +93,28 @@ describe('TopMenuComponent', () => {
     expect(navigation.textContent).toContain('Profile');
     expect(navigation.textContent).toContain('Settings');
     expect(navigation.textContent).toContain('Log out');
-    expect(navigation.textContent).not.toContain('Dashboard');
+    expect(navigation.textContent).toContain('Dashboard');
   });
 
-  it('switches navigation contexts when the hamburger is selected', () => {
+  it('toggles the navigation menu state for smaller screens', () => {
     const hamburger = fixture.nativeElement.querySelector(
       '.top-menu-hamburger',
     ) as HTMLButtonElement;
     hamburger.click();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.top-menu-account-link')).not.toBeNull();
-    expect(fixture.nativeElement.querySelector('.top-menu-logout')).not.toBeNull();
+    expect(component.isNavigationMenuOpen).toBe(true);
     expect(
-      fixture.nativeElement.querySelector('.top-menu-context-links').textContent,
-    ).not.toContain('Dashboard');
+      fixture.nativeElement
+        .querySelector('.top-menu-context-navigation')
+        .classList.contains('top-menu-navigation-open'),
+    ).toBe(true);
+    expect(hamburger.getAttribute('aria-expanded')).toBe('true');
 
     hamburger.click();
     fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.top-menu-account-link')).toBeNull();
-    expect(fixture.nativeElement.querySelector('.top-menu-logout')).toBeNull();
+    expect(component.isNavigationMenuOpen).toBe(false);
+    expect(hamburger.getAttribute('aria-expanded')).toBe('false');
   });
 
   it('signs the user out and navigates to the login page on success', async () => {

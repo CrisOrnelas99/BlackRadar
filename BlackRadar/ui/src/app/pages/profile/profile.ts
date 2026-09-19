@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { NonNullableFormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { forkJoin } from 'rxjs';
 
 import { ConfirmationDialogComponent } from '../../components/confirmation-dialog/confirmation-dialog';
@@ -19,7 +19,6 @@ import { ManagedUser, UserAccountStatus, UserRole, UsersService } from '../../se
     DatePipe,
     PageLayoutComponent,
     ReactiveFormsModule,
-    RouterLink,
     TopMenuComponent,
   ],
   templateUrl: './profile.html',
@@ -43,6 +42,15 @@ export class ProfilePage {
       (currentUser?.role === 'master' && user?.role === 'admin' && user?.id !== currentUser.id)
     );
   });
+  readonly canResetViewedUser = computed(() => {
+    const user = this.viewedUser();
+    const currentUser = this.session()?.user;
+    return (
+      user !== null &&
+      (currentUser?.role === 'master' || (currentUser?.role === 'admin' && user.role === 'user'))
+    );
+  });
+  readonly isLoading = signal(true);
   readonly hasViewedUserError = signal(false);
   readonly editUserForm = inject(NonNullableFormBuilder).group({
     role: ['user' as UserRole],
@@ -51,10 +59,16 @@ export class ProfilePage {
   readonly isEditing = signal(false);
   readonly isSaving = signal(false);
   readonly isSaveConfirmationOpen = signal(false);
+  readonly isPasswordResetOpen = signal(false);
+  readonly isResettingPassword = signal(false);
   readonly editForm = inject(NonNullableFormBuilder).group({
     fullName: ['', [Validators.required, Validators.maxLength(100)]],
     username: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(50)]],
     email: ['', [Validators.required, Validators.email]],
+  });
+  readonly resetPasswordForm = inject(NonNullableFormBuilder).group({
+    password: ['', [Validators.required, Validators.minLength(8), Validators.maxLength(100)]],
+    confirmPassword: ['', [Validators.required]],
   });
 
   constructor() {
@@ -64,10 +78,23 @@ export class ProfilePage {
         next: (user) => {
           this.viewedUser.set(user);
           this.editUserForm.reset({ role: user.role, accountStatus: user.accountStatus });
+          this.isLoading.set(false);
         },
-        error: () => this.hasViewedUserError.set(true),
+        error: () => {
+          this.hasViewedUserError.set(true);
+          this.isLoading.set(false);
+        },
       });
+      return;
     }
+
+    this.authService.refreshSession().subscribe({
+      next: () => this.isLoading.set(false),
+      error: () => {
+        this.hasViewedUserError.set(true);
+        this.isLoading.set(false);
+      },
+    });
   }
 
   roleLabel(role: string | undefined): string {
@@ -171,6 +198,54 @@ export class ProfilePage {
     this.editUserForm.reset({ role: user.role, accountStatus: user.accountStatus });
     this.bannerService.clear();
     this.isEditing.set(true);
+  }
+
+  openPasswordReset(): void {
+    if (!this.canResetViewedUser() || this.isSaving()) {
+      return;
+    }
+    this.resetPasswordForm.reset({ password: '', confirmPassword: '' });
+    this.bannerService.clear();
+    this.isPasswordResetOpen.set(true);
+  }
+
+  cancelPasswordReset(): void {
+    if (!this.isResettingPassword()) {
+      this.isPasswordResetOpen.set(false);
+    }
+  }
+
+  confirmPasswordReset(): void {
+    const user = this.viewedUser();
+    if (!user || this.isResettingPassword()) {
+      return;
+    }
+
+    const formValue = this.resetPasswordForm.getRawValue();
+    if (
+      this.resetPasswordForm.invalid ||
+      formValue.password.trim() !== formValue.password ||
+      formValue.password !== formValue.confirmPassword
+    ) {
+      this.resetPasswordForm.markAllAsTouched();
+      this.bannerService.show('Enter matching valid passwords.', 'validation');
+      return;
+    }
+
+    this.isResettingPassword.set(true);
+    this.usersService.resetPassword(user.id, formValue.password).subscribe({
+      next: () => {
+        this.isResettingPassword.set(false);
+        this.isPasswordResetOpen.set(false);
+        this.isEditing.set(false);
+        this.resetPasswordForm.reset({ password: '', confirmPassword: '' });
+        this.bannerService.show('Password reset successfully.', 'success');
+      },
+      error: () => {
+        this.isResettingPassword.set(false);
+        this.bannerService.show('Unable to reset the password. Try again.', 'validation');
+      },
+    });
   }
 
   private saveViewedUserChanges(): void {
